@@ -14,8 +14,9 @@
  * because of it.
  *
  * tests/no-server-action-from-a-tracker.test.ts holds the naming half of
- * that rule (a Track*/Mark*/Acknowledge* component may not import an action
- * module). It could not have caught those two panels, which are ordinary
+ * that rule: a component named Track-something, Mark-something or
+ * Acknowledge-something may not import an action module at all. It could not
+ * have caught those two panels, which are ordinary
  * named components doing an ordinary-looking fetch. Only watching a real
  * page finds those, which is what this does.
  *

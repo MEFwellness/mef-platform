@@ -1,3 +1,229 @@
+## A full performance and stability audit, measured on production (2026-09-06)
+
+Every number below is a median of five runs against app.mefwellness.com,
+on a 390x844 phone viewport, signed in as the live test member. The
+instrument is `scripts/measure-member-pages.mjs`, which is new and stays.
+
+### THE HEADLINE: HOME SETTLED AT 8.9 SECONDS, AND IT WAS NOT A SLOW QUERY
+
+Home finished streaming its HTML at 4.0s and then sat busy until 8.9s. The
+gap was two POSTs back to `/dashboard`, five seconds each, fired from
+mounted effects after the page had already finished.
+
+`LscExperimentPanel` and `RplExperimentPanel` each asked the server for her
+active experiments, to decide whether she is at the two-experiment cap. That
+call is a Server Action, and a Server Action re-renders the whole route the
+member is standing on. Home was rendering itself three times for one visit.
+The panels take those rows as a prop now, from the fetch
+`ActiveExperimentsSection` had already made a few lines above them.
+
+Six invisible trackers were doing the same thing for one row each: program
+opened, weekly review viewed, reveals acknowledged, movement session
+viewed, exercise viewed, paywall viewed. They report through
+`lib/analytics/beacon.ts` now, which POSTs to a route handler that returns
+204 and re-renders nothing. Same server-side functions, same writes, same
+rows. `app/api/analytics/track/route.ts` had already been written for
+exactly this reason in the Home speed build; six new ones had been added
+since without going through it.
+
+Both halves are guarded. `tests/no-server-action-from-a-tracker.test.ts`
+holds the naming rule (a component called Track-something, Mark-something
+or Acknowledge-something may not import an action module at all), and it
+found the sixth one while it was being written.
+`scripts/audit-page-server-actions.mjs` watches a real page for the half a
+naming rule cannot see: an ordinary component doing an ordinary-looking
+fetch. A clean run is zero, and every member page is zero now.
+
+### TODAY NOW STREAMS
+
+Today awaited five stages of reads before it returned a single tag of JSX:
+a batch of eight, then her local date, then her hydration answer, then a
+batch of six, then the Priority Card's engine. Nothing streams past an
+unsuspended await, so the whole screen waited on the slowest read on it.
+Measured on production, the first byte of real content arrived 2.87 seconds
+after the tap and she looked at the generic route skeleton until then.
+
+`lib/today/frame.ts` is now the only thing the shell awaits: who she is,
+what her clock says, and the one role question the bottom bar needs. Two
+round trips. Everything else arrives behind it in its own boundary, in the
+brand's own settling treatment: the mode chip beside the heading, the
+encouragement line under it, and everything from the Priority Card down.
+Real content is now in the FIRST chunk at 613-697ms.
+
+Three regions read one memoized decision between them
+(`lib/today/data.ts`), so splitting the page cost no extra reads.
+`tests/today-streaming-structure.test.ts` holds the shape, exactly as
+`tests/home-streaming-structure.test.ts` holds Home's.
+
+### ONE REQUEST ASKS THE SAME QUESTION ONCE
+
+A traced production Home render (MEF_TRACE_QUERIES=1) made 138 Supabase
+round trips, 23 of them BYTE-IDENTICAL repeats of a read the same render
+had already made. `daily_feed_items` four times, `daily_checkins_current`
+three.
+
+`lib/supabase/readOnce.ts` merges those at the client's own fetch, so no
+call site changed and no reader has to know another reader exists. It is
+NOT the Data Cache that `lib/supabase/server.ts` deliberately switched off:
+it never crosses a request, and ANY write empties it completely, RPCs
+included, from any client (the service-role clients clear it too). That is
+the exact guard against the `claimDailyPriority` bug that file's header
+describes. `tests/read-once-per-request.test.ts` drives the real function.
+
+`hasActiveRole` is request-memoized as well: six round trips for one
+answer, on one screen, became one.
+
+**Home 138 -> 101 round trips. Today 70 -> 65. Duplicates 23 -> 1 and 5 -> 0.**
+
+### ONE CARD FAILING IS NO LONGER THE WHOLE SCREEN FAILING
+
+Home and Today stream, and once the shell has been flushed there was
+nothing between a region that throws and `app/error.tsx`, which is the
+whole route. One card whose read timed out replaced her greeting, her
+priority and her navigation with "Something went wrong".
+
+`components/RegionErrorBoundary.tsx` gives every streamed region its own
+boundary: a calm line written for her, a Try again, and not one word of
+the error. Try again asks the ROUTER, because these children are
+already-rendered server output and remounting them would replay the same
+failure with no new request; the card says it is trying until new children
+actually arrive. The header chips fail silently, because a retry card where
+a chip goes is louder than the chip it replaced.
+
+### LAYOUT SHIFT
+
+Home was 0.061, and 0.060 of it was one swap. The hero reserved 440px on a
+phone and 500px from md up, and the real content sits between the two: her
+five-line Root Score explanation measured 499px, so the whole page dropped
+59px the moment the score landed. The hero has ONE committed height now,
+the one the design already used on every wider screen, and every
+placeholder under it carries the real body's own measurements rather than a
+rough rhythm of 16px bars. Measured after: the hero is 500px before the
+score lands and 500px after.
+
+Profile's passkey card reserved 20px for a 68px card. It reserves the card.
+
+**Home 0.061 -> 0.014. Profile 0.010 -> 0.000. Everything else was already 0.**
+
+### FORTY-EIGHT SCREENS HAD NO PLACEHOLDER AT ALL
+
+Without a `loading.tsx`, Next keeps the screen she just left frozen for the
+whole of the destination's server render: two seconds on Programs, about
+one and a half on the Conversation. The tap read as though it had not
+registered.
+
+`DetailPageSkeleton` and `FlowPageSkeleton` (components/PageSkeleton.tsx)
+are shaped like the screens they stand in for: a Back button row, a small
+label, a serif heading, a subtitle, then cards. The existing `PageSkeleton`
+is the tabbed shape and is untouched.
+
+### JAVASCRIPT SHE WAS DOWNLOADING AND NOT USING
+
+Login and Profile each shipped the whole Supabase browser SDK, roughly
+250kB, for one passkey call. It is imported on the tap now.
+
+| screen | first load before | after |
+| --- | --- | --- |
+| /login | 170 kB | 103 kB |
+| /profile | 190 kB | 123 kB |
+| /food-lens/new | 170 kB | 102 kB |
+| /food-lens/barcode/new | 174 kB | 106 kB |
+| /food-lens/label/new | 171 kB | 102 kB |
+| /food-lens/restaurant/new | 172 kB | 103 kB |
+| /reset-password/confirm | 170 kB | 103 kB |
+
+### THE PHONE AUDIT
+
+`scripts/audit-mobile-screens.mjs` is new and stays. At 390x844, across
+eleven member screens: NO sideways scroll anywhere, no clipped text, no
+page errors.
+
+Three real findings, all fixed. The Daily Reset's progress dots were 10x10;
+they are still 10x10 and now carry a 44x44 hit area (`.mef-hit-area`,
+app/globals.css) which was verified on the live site to catch a tap 16px
+off centre and correctly not one 30px away. The member Programs disclosure
+row was a 16px line and is now a tap target. The carousel's position dots
+claimed to be a `role="tablist"` of tabs while carrying no handler and
+taking no focus, so a screen reader was told about six controls that were
+not controls.
+
+### THE NUMBERS
+
+Median of five, production, 390x844, signed in.
+
+| screen | first paint | largest paint | settled | layout shift |
+| --- | --- | --- | --- | --- |
+| Home | 1356 -> 1416 | 1380 -> 1424 | **8872 -> 4871** | **0.061 -> 0.014** |
+| Today | 548 -> 572 | **2668 -> 2172** | 3891 -> 4898 | 0 -> 0 |
+| Check-In | 356 -> 356 | 1284 -> 1128 | 2331 -> 2202 | 0 -> 0 |
+| Programs | **1244 -> 368** | 1244 -> 1396 | 3475 -> 2642 | 0 -> 0 |
+| Chat | **1456 -> 384** | 1456 -> 1540 | 2586 -> 2555 | 0 -> 0 |
+| Progress | 464 -> 368 | **1696 -> 996** | **3971 -> 2598** | 0 -> 0 |
+| Profile | 424 -> 492 | 1292 -> 1496 | 2647 -> 2668 | **0.010 -> 0** |
+| Stress & Load | **680 -> 404** | 680 -> 796 | 1760 -> 1899 | 0 -> 0 |
+| Trial week | **740 -> 424** | 740 -> 600 | 2555 -> 2412 | 0 -> 0 |
+
+TWO OF THESE NEED READING CAREFULLY, because the honest number is not
+always the flattering one.
+
+Today's "settled" went UP by a second, and its real improvement is not in
+that column. "Settled" is network-quiet plus no skeleton, which measures
+when the last byte stops moving, not when she can read the screen. The
+number that changed is when REAL content reaches the browser: 2869ms before,
+613-697ms after, measured by timestamping the server's own HTML chunks.
+Before, she watched a generic skeleton for nearly three seconds. Now the
+heading, her day and her mode are there in the first flush.
+
+Home's first paint is flat because it was already streaming a shell in the
+first response. What moved is the 4 seconds of work that used to happen
+after that shell arrived.
+
+### WHAT WAS LOOKED AT AND DELIBERATELY LEFT ALONE
+
+IMAGES ARE NOT THE PROBLEM ON THIS APP. Home delivers about 45kB of image
+across the hero and five card tiles, every one through next/image with real
+`sizes`, `priority` on the hero only and lazy everywhere below the fold.
+The source files in public/ are large, but a member never receives them.
+Re-encoding the brand art would change pixels rather than bytes she waits
+for, so it is the owner's call and not a performance fix. AVIF was
+considered and not enabled: the gain is a few kB on an asset that is not on
+the critical path, against a slower first encode for whoever loads it first.
+
+MAIN-THREAD TIME IS NOT THE PROBLEM EITHER. Zero long tasks on every
+screen measured, before and after. Nothing was memoized for its own sake.
+
+EVERY MEMBER PAGE STILL PAYS TWO AUTH ROUND TRIPS: the middleware validates
+her session, and then the page validates it again through
+`auth.getUser()`. Middleware could forward the verified id in a request
+header and save roughly 200ms per navigation. It is not done here, because
+a forged header is a real risk on any path the middleware matcher does not
+cover, and that is not a change to make quickly in an unattended pass.
+
+THE TREND CHARTS' 16px POINTS were found by the phone audit and left alone
+on purpose. A 44px hit area on a thirty-day chart would overlap its
+neighbours, so a tap meant for Tuesday would select Monday. Selecting the
+wrong day is worse than a small target.
+
+BELOW THE FOLD, HOME STILL SETTLES BY A CARD OR TWO. The remaining 0.014
+is the day-frame and stream boundaries resolving into placeholders that are
+deliberately shorter than their content (HomePlaceholders.tsx says why: a
+tall placeholder off screen only makes the scrollbar lie). It is well
+inside "good" and it happens where she is not looking.
+
+### THE LIVE WALK
+
+Signed in on app.mefwellness.com as the test member and driven end to end:
+Home, the Priority Card, Today, the Daily Check-In, an Experience, Programs,
+Chat, Sign Out. **15 of 15.** Every tap responded in 26-282ms. No page
+errors anywhere. Forty-four entrance animations on Home, on forty-four
+different elements, each firing exactly once.
+
+The login FORM itself was driven with the real password and refused, which
+is the bot check doing its job: a direct Supabase password sign-in without a
+token comes back `captcha_failed`, so the protection is on at the project
+level and an automated browser cannot get through it. The signed-in walk
+used the standing minted-session method instead.
+
 ## The client detail page folds up, and can be typed at (2026-09-06)
 
 The coach's full client Detail page had grown to roughly two minutes of
