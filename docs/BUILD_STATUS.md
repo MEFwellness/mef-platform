@@ -106,6 +106,31 @@ writes against the real service and finds zero on every read path.
 detail panel and the This Week band picked the name up with no other
 change, which is what that map was lifted out to make true.
 
+### Watched on the live site
+
+`scripts/verify-where-your-joy-lives-live.mjs`, against app.mefwellness.com,
+driving the real coach screen as the real coach and the real member screens
+as the seeded fixture. The coach pressed the real Assign button; the member
+got the knock, the card, one receipt for two surfaces, nine typed answers, a
+full page CLOSE and reopen mid-sitting that put her back on question five
+with her writing intact, a closing that held her question four and question
+six answers verbatim under the fixed line for nine seconds and several
+server round trips, the experiment started and logged on Home, and the coach
+reading all nine answers back with question seven on top.
+
+70 of 70 on the final run, zero em dashes and zero console errors on any
+screen either of them saw, every fixture row undone afterwards.
+
+Two things the run found that no unit test would have. Migration 212 drops
+and recreates a policy the template beside this one depends on, so the run
+asserts that the Owning Your Value card is still standing on the same coach
+screen before it assigns anything, and again after the whole walk; it is.
+And the run's own cleanup was incomplete on its first pass: tapping "Maybe
+later" writes a `member_root_popup_dismissals` row that deleting the
+assignment does not take with it. That was found by querying production
+after a clean run rather than by reading the script, the row was removed,
+and the script now clears it by key prefix.
+
 ## Owning Your Value, the first Happiness deep-dive (2026-09-06)
 
 Nine written questions a coach can send one member, delivered by exactly
