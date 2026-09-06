@@ -24,6 +24,7 @@
 import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from '@/app/actions/coreValuesSnapshot';
 import { getMyLscExperimentStatusAction, getMyLscOfferAction } from '@/app/actions/lifeSignalCheck';
 import { getMyRplExperimentStatusAction, getMyRplOfferAction } from '@/app/actions/readinessPulse';
+import { getMyOwningYourValueExperimentAction } from '@/app/actions/owningYourValue';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { getMyRootPopupDismissalAction } from '@/app/actions/rootPopupMessages';
 import { localDateFor } from '@/app/actions/rootMap';
@@ -34,6 +35,7 @@ import { resolveCvsCheckinPending, daysSinceStart } from '@/lib/core-values-snap
 import { CvsExperimentPanel } from '@/components/core-values-snapshot/CvsExperimentPanel';
 import { LscExperimentPanel } from '@/components/life-signal-check/LscExperimentPanel';
 import { RplExperimentPanel } from '@/components/readiness-pulse/RplExperimentPanel';
+import { OwningYourValueExperimentPanel } from '@/components/owning-your-value/OwningYourValueExperimentPanel';
 
 // Same zone-heading treatment as every other dashboard section (see the
 // local ZONE_LABEL constant in app/dashboard/page.tsx) — kept as a literal
@@ -70,10 +72,15 @@ function RecommendationExperimentRow({
 }
 
 export async function ActiveExperimentsSection() {
-  const [cvsStatus, lscStatus, rplStatus, allExperiments] = await Promise.all([
+  const [cvsStatus, lscStatus, rplStatus, oyvStatus, allExperiments] = await Promise.all([
     getMyCvsExperimentStatusAction(),
     getMyLscExperimentStatusAction(),
     getMyRplExperimentStatusAction(),
+    // Owning Your Value's experiment has no offer half: it is accepted or
+    // declined on the closing screen itself, so there is nothing left to
+    // offer here and the action returns null unless one is actually
+    // running.
+    getMyOwningYourValueExperimentAction(),
     getMyLifestyleExperiments(),
   ]);
 
@@ -92,7 +99,8 @@ export async function ActiveExperimentsSection() {
   );
 
   const hasAnything =
-    Boolean(cvsActive || cvsOffer || lscActive || lscOffer || rplActive || rplOffer) || recommendationExperiments.length > 0;
+    Boolean(cvsActive || cvsOffer || lscActive || lscOffer || rplActive || rplOffer || oyvStatus) ||
+    recommendationExperiments.length > 0;
   if (!hasAnything) return null;
 
   let todayLocalDate: string | null = null;
@@ -177,6 +185,8 @@ export async function ActiveExperimentsSection() {
         {!rplActive && rplOffer && (
           <RplExperimentPanel sessionId={rplOffer.sessionId} scoring={rplOffer.scoring} initialStatus={null} />
         )}
+
+        {oyvStatus && <OwningYourValueExperimentPanel status={oyvStatus} />}
 
         {recommendationExperiments.map((experiment) => (
           <RecommendationExperimentRow

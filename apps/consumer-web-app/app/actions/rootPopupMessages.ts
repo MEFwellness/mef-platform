@@ -136,6 +136,7 @@ import {
   weeklyReviewPopupMessageKey,
   weeklyReflectionPopupMessageKey,
   stressLoadPopupMessageKey,
+  owningYourValuePopupMessageKey,
   hydrationFocusPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
@@ -155,6 +156,9 @@ import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
 import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
 import { STRESS_LOAD_ROUTE } from '@/lib/stress-load/constants';
+import { getMyOwningYourValue } from '@/lib/owning-your-value/view';
+import { OYV_COPY } from '@/lib/owning-your-value/copy';
+import { OYV_ROUTE } from '@/lib/owning-your-value/constants';
 import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import type { RenderedReview } from '@/lib/weekly-review/types';
 import { resolveLocalDate } from './checkin';
@@ -279,6 +283,27 @@ export type RootPopupMessage =
    */
   | {
       kind: 'stress_load_assigned';
+      messageKey: string;
+      assignmentId: string;
+      title: string;
+      body: string;
+      primaryHref: string;
+    }
+  /**
+   * Owning Your Value (coach assigned only, migration 211), the first of
+   * the Happiness deep-dives.
+   *
+   * Its own kind for the same reason the deep-dive above has one: the copy.
+   * A coach sending this is Root being asked to sit down with her, and the
+   * approved line says exactly that. Everything else about it, including
+   * the recurring dismissal lifetime, matches a coach assignment.
+   *
+   * Carries no questions and no reading. This message is an INVITATION into
+   * an experience on its own route, so it renders through the same
+   * RootInvitePopup and inherits its real Maybe later and Ignore buttons.
+   */
+  | {
+      kind: 'owning_your_value_assigned';
       messageKey: string;
       assignmentId: string;
       title: string;
@@ -684,6 +709,32 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
         title: STRESS_LOAD_COPY.popupTitle,
         body: STRESS_LOAD_COPY.popupBody,
         primaryHref: STRESS_LOAD_ROUTE,
+      };
+    }
+  }
+
+  // Owning Your Value, immediately below the Stress & Load Deep-Dive and
+  // for the identical reasons: a coach's direct action for this member, and
+  // finite, because finishing it closes the assignment out so it can never
+  // starve anything below it.
+  //
+  // getMyOwningYourValue returns null for every member who was never
+  // assigned this, so the gate and the offer are one read rather than two
+  // checks here that could drift from the route's. Its own branch checks
+  // its own due-ness and falls through, per this file's one rule: a branch
+  // that returned a candidate the outer due-check then threw away would
+  // silence everything below it.
+  const owningYourValue = await getMyOwningYourValue();
+  if (owningYourValue?.status === 'pending') {
+    const messageKey = owningYourValuePopupMessageKey(owningYourValue.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'owning_your_value_assigned',
+        messageKey,
+        assignmentId: owningYourValue.assignmentId,
+        title: OYV_COPY.popupTitle,
+        body: OYV_COPY.popupBody,
+        primaryHref: OYV_ROUTE,
       };
     }
   }

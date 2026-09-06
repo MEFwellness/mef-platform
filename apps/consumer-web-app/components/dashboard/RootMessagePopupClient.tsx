@@ -47,6 +47,7 @@ import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
 import { TrackWeeklyReflectionDelivered } from '@/components/weekly-reflection/TrackWeeklyReflectionDelivered';
 import { TrackAssignmentDelivered } from '@/components/assignments/TrackAssignmentDelivered';
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
+import { OYV_COPY } from '@/lib/owning-your-value/copy';
 import { ROOT_WELCOME_COPY } from '@/lib/public-entry/copy';
 import {
   TrackTrialArcDelivered,
@@ -61,6 +62,7 @@ type PriorityCardMessage = Extract<RootPopupMessage, { kind: 'priority_card' }>;
 type WeeklyReviewMessage = Extract<RootPopupMessage, { kind: 'weekly_review' }>;
 type WeeklyReflectionMessage = Extract<RootPopupMessage, { kind: 'weekly_reflection' }>;
 type StressLoadMessage = Extract<RootPopupMessage, { kind: 'stress_load_assigned' }>;
+type OwningYourValueMessage = Extract<RootPopupMessage, { kind: 'owning_your_value_assigned' }>;
 type HydrationFocusMessage = Extract<RootPopupMessage, { kind: 'hydration_focus' }>;
 type PublicEntryWelcomeMessage = Extract<RootPopupMessage, { kind: 'public_entry_welcome' }>;
 type TrialArcMessage = Extract<RootPopupMessage, { kind: 'trial_arc_day' }>;
@@ -136,6 +138,12 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // auto-dismiss-on-mount group below, exactly like the coach-assigned
   // questionnaire it sits beside in the chain.
   const isStressLoad = message.kind === 'stress_load_assigned';
+  // Owning Your Value, the first of the Happiness deep-dives, is deliberately
+  // NOT in the auto-dismiss-on-mount group below, for the same reason the
+  // deep-dive above is not: it is a coach's direct request, with real "Maybe
+  // later" and "Ignore" buttons. Its branch tests message.kind directly
+  // rather than through a named boolean like the ones around it, because
+  // that is what narrows the union for the day3/day7 code further down.
 
   // The offer pops up at most once ever (unlike day3/day7, which return on
   // every login until answered or explicitly ignored) — marking it
@@ -456,6 +464,29 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
+  if (message.kind === 'owning_your_value_assigned') {
+    const m: OwningYourValueMessage = message;
+    return (
+      <>
+        {/* The same receipt as the two branches above, on the same table:
+            this is an assessment_assignments row like any other coach
+            assignment, so it gets the one receipt system rather than a
+            second one of its own. */}
+        <TrackAssignmentDelivered assignmentId={m.assignmentId} presentation="popup" />
+        <RootInvitePopup
+          eyebrow={OYV_COPY.popupEyebrow}
+          title={m.title}
+          body={m.body}
+          ctaLabel={OYV_COPY.popupCta}
+          href={m.primaryHref}
+          isPending={isPending}
+          onMaybeLater={handleMaybeLater}
+          onIgnore={handleIgnore}
+        />
+      </>
+    );
+  }
+
   if (isOffer) {
     return <RootOfferPopup message={message as OfferMessage} onClose={() => setClosed(true)} />;
   }
@@ -476,6 +507,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | WeeklyReviewMessage
     | WeeklyReflectionMessage
     | StressLoadMessage
+    | OwningYourValueMessage
     | HydrationFocusMessage
     | PublicEntryWelcomeMessage
     | TrialArcMessage

@@ -96,6 +96,8 @@ import { TrackWeeklyReflectionDelivered } from '@/components/weekly-reflection/T
 import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
 import { StressLoadEntry } from '@/components/stress-load/StressLoadEntry';
 import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
+import { OwningYourValueEntry } from '@/components/owning-your-value/OwningYourValueEntry';
+import { getMyOwningYourValue } from '@/lib/owning-your-value/view';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -403,6 +405,7 @@ async function DayFrameRegion() {
     weeklyReview,
     weeklyReflection,
     stressLoad,
+    owningYourValue,
     catalog,
     bodyAssessmentCard,
   ] = await Promise.all([
@@ -418,6 +421,9 @@ async function DayFrameRegion() {
       // pop-up chain in PopupRegion asks for the same thing on the same
       // render, so this costs one composition between them rather than two.
       getMyStressLoadDeepDive(),
+      // Request-memoized, exactly as the two above are, and the pop-up
+      // chain in PopupRegion asks for the same thing on the same render.
+      getMyOwningYourValue(),
       homeQuestionnaireCatalog(),
       homeBodyAssessmentAssignment(),
     ]);
@@ -486,6 +492,33 @@ async function DayFrameRegion() {
           {/* The card carries the assignment's delivery receipt
               (migration 210), which is why it needs the assignment id. */}
           <StressLoadEntry assignmentId={stressLoad.assignmentId} />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* OWNING YOUR VALUE, persistent, for as long as her      */}
+      {/* coach's assignment is open.                            */}
+      {/*                                                        */}
+      {/* Directly below the Stress & Load Deep-Dive and for the */}
+      {/* identical reasons: a coach asked her for this one, by  */}
+      {/* name, for her. The two can be open at once, and when   */}
+      {/* they are, both cards stand.                            */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately. The */}
+      {/* assignment is the whole gate                           */}
+      {/* (lib/owning-your-value/access.ts). A second rule on    */}
+      {/* top of it would be the invisible lock the standing     */}
+      {/* rules forbid.                                          */}
+      {/* ==================================================== */}
+      {owningYourValue?.status === 'pending' && (
+        <div className="pt-3">
+          {/* The card carries the assignment's delivery receipt
+              (migration 210), which is why it needs the assignment id.
+              `hasDraft` only chooses which words the button uses. */}
+          <OwningYourValueEntry
+            assignmentId={owningYourValue.assignmentId}
+            hasDraft={Object.keys(owningYourValue.draft).length > 0}
+          />
         </div>
       )}
 

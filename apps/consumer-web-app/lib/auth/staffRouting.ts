@@ -74,6 +74,12 @@ export const MEMBER_ONLY_PREFIXES = [
   // their own dashboard, not inside a member's sitting. Whether she was
   // assigned it is a separate question, enforced inside the route.
   '/stress-load',
+  // Owning Your Value (coach assigned only), the first of the Happiness
+  // deep-dives. Listed for the same reason: a coach or an administrator who
+  // taps an old link belongs on their own dashboard, not inside a member's
+  // sitting. Whether she was assigned it is a separate question, enforced
+  // inside the route.
+  '/owning-your-value',
   // The trial arc's day 6 recap, "What This Week Showed" (/trial/week).
   // Listed for the same reason every other member experience is: a coach or
   // an administrator who taps an old link belongs on their own dashboard,

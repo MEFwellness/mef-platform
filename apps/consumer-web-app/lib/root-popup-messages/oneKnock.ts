@@ -70,6 +70,7 @@ export const PROTECTED_POPUP_KINDS: readonly string[] = [
   'trial_arc_day',
   'questionnaire_assigned',
   'stress_load_assigned',
+  'owning_your_value_assigned',
   'priority_card',
   'hydration_focus',
   'cvs_day3',

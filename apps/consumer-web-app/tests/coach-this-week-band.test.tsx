@@ -290,26 +290,36 @@ describe('the rows say only what the rows support', () => {
 });
 
 describe('every assignment on the band is named', () => {
-  it('names the deep-dive, which has no registry entry on purpose', async () => {
+  it('names the coach-assigned-only experiences, which have no registry entry on purpose', async () => {
     const { listAssessmentRegistryEntries } = await import('@/lib/assessment-registry/registry');
     const { STRESS_LOAD_DEFINITION_ID } = await import('@/lib/stress-load/constants');
     const { STRESS_LOAD_LABEL } = await import('@/lib/stress-load/copy');
+    const { OYV_DEFINITION_ID } = await import('@/lib/owning-your-value/constants');
+    const { OYV_LABEL } = await import('@/lib/owning-your-value/copy');
+    const { assignmentNamesByDefinitionId } = await import('@/lib/assignments/experienceNames');
 
-    // The premise: it really is absent from the registry. If it is ever
-    // added, this test should be the thing that says so.
-    expect(
-      listAssessmentRegistryEntries().some((e) => e.databaseId === STRESS_LOAD_DEFINITION_ID)
-    ).toBe(false);
+    // The premise: they really are absent from the registry. If either is
+    // ever added, this test should be the thing that says so.
+    for (const id of [STRESS_LOAD_DEFINITION_ID, OYV_DEFINITION_ID]) {
+      expect(listAssessmentRegistryEntries().some((e) => e.databaseId === id)).toBe(false);
+    }
 
-    // And the composer's own map, which is what stops the band printing
-    // "Assessment: Completed Aug 29" twice for two different things.
+    // And the shared map, which is what stops the band printing
+    // "Assessment: Completed Aug 29" twice for two different things. It
+    // moved out of app/actions/coachWeek.ts when the second such experience
+    // arrived (Owning Your Value), so the band and the client detail panel
+    // read one map rather than two.
+    const names = assignmentNamesByDefinitionId();
+    expect(names.get(STRESS_LOAD_DEFINITION_ID)).toBe(STRESS_LOAD_LABEL);
+    expect(names.get(OYV_DEFINITION_ID)).toBe(OYV_LABEL);
+    expect(STRESS_LOAD_LABEL).toBe('Stress & Load Deep-Dive');
+    expect(OYV_LABEL).toBe('Owning Your Value');
+
     const source = readFileSync(
       join(__dirname, '..', 'app', 'actions', 'coachWeek.ts'),
       'utf8'
     );
-    expect(source).toContain('STRESS_LOAD_DEFINITION_ID');
-    expect(source).toContain('STRESS_LOAD_LABEL');
-    expect(STRESS_LOAD_LABEL).toBe('Stress & Load Deep-Dive');
+    expect(source).toContain('assignmentNamesByDefinitionId()');
   });
 });
 

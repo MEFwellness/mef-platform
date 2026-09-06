@@ -139,6 +139,17 @@ export function stressLoadPopupMessageKey(assignmentId: string): string {
 }
 
 /**
+ * Owning Your Value's own key, scoped to the assignment exactly as the
+ * Stress & Load Deep-Dive's above is, and with the identical recurring
+ * dismissal lifetime. A coach can send this experience more than once, and
+ * each sending is a new assignment row, so each is a genuinely new message
+ * rather than one a member already dismissed.
+ */
+export function owningYourValuePopupMessageKey(assignmentId: string): string {
+  return `owning_your_value:${assignmentId}`;
+}
+
+/**
  * Conditional water tracking's own one-time question, for members who
  * finished intake before it existed (migration 163). A fixed constant key,
  * unlike every other key in this file: this is not scoped to a row, a date

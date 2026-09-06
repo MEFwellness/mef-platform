@@ -88,10 +88,7 @@ import {
   getClientMovementProfileReviewQueue,
 } from '@/app/actions/movement-profile';
 import { getClientProgramAssignmentSummariesAction } from '@/app/actions/coach-programs';
-import {
-  listAssessmentRegistryEntries,
-  listAssignableAssessments,
-} from '@/lib/assessment-registry/registry';
+import { listAssignableAssessments } from '@/lib/assessment-registry/registry';
 import { buildClientSummary } from '../../../lib';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { WellnessIndexCard } from '@/app/dashboard/WellnessIndexCard';
@@ -125,6 +122,9 @@ import { PersonalResetPlanPanel } from '../PersonalResetPlanPanel';
 import { WeeklyReflectionPanel } from '../WeeklyReflectionPanel';
 import { StressLoadPanel } from '../StressLoadPanel';
 import { getClientStressLoadPanelAction } from '@/app/actions/stressLoad';
+import { OwningYourValuePanel } from '../OwningYourValuePanel';
+import { getClientOwningYourValuePanelAction } from '@/app/actions/owningYourValue';
+import { assignmentNameRecord } from '@/lib/assignments/experienceNames';
 import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
 import { MovementProfilePanel } from '../MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
@@ -240,6 +240,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     weeklyReflectionStatus,
     weeklyReflectionAssign,
     stressLoadPanel,
+    owningYourValuePanel,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -281,6 +282,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientWeeklyReflectionStatusAction(profile.id),
     getClientWeeklyReflectionAssignStateAction(profile.id),
     getClientStressLoadPanelAction(profile.id),
+    getClientOwningYourValuePanelAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -307,9 +309,13 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     key: e.key,
     displayName: e.displayName,
   }));
-  const assessmentDisplayNameById = Object.fromEntries(
-    listAssessmentRegistryEntries().map((e) => [e.databaseId, e.displayName])
-  );
+  // Every assignable definition, named. It is the shared map
+  // (lib/assignments/experienceNames.ts) rather than the registry alone,
+  // because the registry deliberately does not carry the coach-assigned-only
+  // experiences, and without them this panel printed "Assessment" beside an
+  // Owning Your Value or Stress & Load row. The This Week band reads the
+  // same map, so the two screens cannot name one row two ways.
+  const assessmentDisplayNameById = assignmentNameRecord();
 
   const latestConversationSession = conversationSessions[0] ?? null;
   const [conversationMessages, conversationHandoffs] = latestConversationSession
@@ -723,6 +729,15 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             deciding to send it and reading what came back are one place.
           */}
           <StressLoadPanel clientId={profile.id} state={stressLoadPanel} />
+
+          {/*
+            Owning Your Value, beside the Stress & Load Deep-Dive because
+            they are the two coach-assigned deep-dives and a coach preparing
+            for a session decides about both in the same moment. This is
+            also where its Assign button lives, so sending it and reading
+            what came back are one place.
+          */}
+          <OwningYourValuePanel clientId={profile.id} state={owningYourValuePanel} />
 
           {/* Movement Profile — permanent movement record + Pending Coach
               Review worklist (Member Exercise Experience & Movement

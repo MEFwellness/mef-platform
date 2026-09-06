@@ -36,6 +36,10 @@ export const PRODUCT_SURFACES = [
   'reset_plan',
   'weekly_reflection',
   'stress_load_deep_dive',
+  // Owning Your Value, the first of the Happiness deep-dives. A surface she
+  // opened, and nothing else: not a word she wrote and not the sentence she
+  // asked Root to hold reaches an analytics payload.
+  'owning_your_value',
   'root_score',
   'insights',
   'noticing',
