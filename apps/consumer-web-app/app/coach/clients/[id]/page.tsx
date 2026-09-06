@@ -24,7 +24,9 @@ import type { Route } from 'next';
 import { ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import type { Profile } from '@mef/shared-types-contracts';
 import { getClientCoachAlerts } from '@/app/actions/intelligence-engine';
+import { getClientThisWeekBandAction } from '@/app/actions/coachWeek';
 import { resolveLocalDate } from '@/app/actions/checkin';
+import { buildAllClientSummaries } from '@/app/coach/lib';
 import { buildCoachDashboard } from '@/lib/coach-dashboard/build';
 import { CoachDashboardView } from './CoachDashboardView';
 import { TestAccountChip } from '@/components/staff/TestAccountChip';
@@ -57,7 +59,23 @@ export default async function ClientDashboardPage({ params }: { params: { id: st
   // Persisted alert rows, reshaped to the two fields this screen reads.
   // The tier is derived from `alert_type`, which is a stored column, so an
   // alert written months ago tiers exactly the way one written today does.
-  const coachAlerts = (await getClientCoachAlerts(profile.id)).map((a) => ({
+  // Three reads that do not depend on each other, so they run together.
+  //
+  // `buildAllClientSummaries` is the client LIST's own builder, called here
+  // with a list of one. That is deliberate: the attention reasons a coach
+  // sees on the list row and the ones folded into "Worth discussing" below
+  // must be the same strings from the same rules, and calling the same
+  // function is the only way to guarantee that. Nothing is re-derived.
+  //
+  // The band is null for anyone not on the program tier, and for a client
+  // this viewer may not see, which is decided inside the action itself.
+  const [alertRows, summaries, thisWeek] = await Promise.all([
+    getClientCoachAlerts(profile.id),
+    buildAllClientSummaries([profile]),
+    getClientThisWeekBandAction(profile.id),
+  ]);
+
+  const coachAlerts = alertRows.map((a) => ({
     alertType: a.alert_type,
     alertKey: a.alert_key,
     title: a.title,
@@ -69,6 +87,7 @@ export default async function ClientDashboardPage({ params }: { params: { id: st
     firstName,
     localDate,
     coachAlerts,
+    attentionReasons: summaries[0]?.attentionReasons ?? [],
   });
 
   return (
@@ -145,7 +164,7 @@ export default async function ClientDashboardPage({ params }: { params: { id: st
         </Link>
 
         <div className="mt-6">
-          <CoachDashboardView dashboard={dashboard} memberId={profile.id} />
+          <CoachDashboardView dashboard={dashboard} memberId={profile.id} thisWeek={thisWeek} />
         </div>
       </main>
     </div>

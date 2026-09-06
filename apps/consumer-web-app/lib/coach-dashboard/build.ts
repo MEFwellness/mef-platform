@@ -25,6 +25,7 @@ import type { PriorityRule } from '../priority/types';
 import { ALERT_TIER_LABEL, alertTier, sortByTier } from '../intelligence-engine/alertTiers';
 import { listCoachingThreads } from '../coaching-direction/data';
 import { FRICTION_OPTION_LABEL, isFrictionReason } from '../coaching-direction/friction';
+import { foldAttentionReasons } from '../coach-week/flags';
 import { buildMemberInterpretation } from '../member-interpretation/service';
 import { tierLabel, tierMeaning } from '../member-interpretation/tiers';
 import { TIER_ORDER, type CanonicalFinding, type EvidenceTier } from '../member-interpretation/types';
@@ -265,6 +266,14 @@ export async function buildCoachDashboard(input: {
   firstName: string;
   localDate: string;
   coachAlerts: readonly CoachAlertInput[];
+  /**
+   * The client list's own attention reasons for this member, exactly as
+   * buildAllClientSummaries computes them. Passed in rather than computed
+   * here for the reason coachAlerts is: the page already has them, and
+   * deriving the same list twice on one render is how two sections of one
+   * screen start disagreeing.
+   */
+  attentionReasons?: readonly string[];
 }): Promise<CoachDashboard> {
   const { supabase, memberId, firstName, localDate } = input;
 
@@ -328,6 +337,12 @@ export async function buildCoachDashboard(input: {
     improving,
     urgentAlerts,
     routineAlerts,
+    // Folded, not recomputed. Every reason an alert above already covers
+    // is dropped here so one fact is one line on the screen.
+    listFlags: foldAttentionReasons({
+      alerts,
+      attentionReasons: input.attentionReasons ?? [],
+    }),
     needsAttention,
     reliability: groupByReliability(findings),
     workingOn,

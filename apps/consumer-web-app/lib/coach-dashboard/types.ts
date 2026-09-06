@@ -114,6 +114,19 @@ export type CoachDashboard = {
   /** Urgent safety alerts, kept apart from everything else rather than sorted above it. */
   urgentAlerts: DashboardAlert[];
   routineAlerts: DashboardAlert[];
+  /**
+   * The client LIST's own attention reasons, minus every one an alert
+   * above already covers (lib/coach-week/flags.ts).
+   *
+   * They used to exist only on /coach, so a coach who opened a client went
+   * from a row that said "Pain increasing" to a page that did not mention
+   * it. They are folded in here rather than computed again: the strings
+   * arrive from the identical functions the list calls, and the fold only
+   * decides which of them would otherwise be said twice.
+   *
+   * In the list's own order, which puts a member's pain report first.
+   */
+  listFlags: string[];
   needsAttention: DashboardFinding[];
   reliability: ReliabilityGroup[];
   workingOn: WorkingOn | null;

@@ -19,24 +19,20 @@ import {
   abandonMyExperiment,
 } from '@/app/actions/lifestyleExperiments';
 import type { LifestyleExperiment, LifestyleExperimentOutcome } from '@/lib/lifestyle-experiments';
+import {
+  EXPERIMENT_OUTCOME_LABEL,
+  EXPERIMENT_STATUS_LABEL,
+} from '@/lib/lifestyle-experiments/copy';
 import { useRecommendationsFreshness } from '@/hooks/useRecommendationsFreshness';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const DURATIONS = [7, 14, 21, 28] as const;
 
-const OUTCOME_LABEL: Record<LifestyleExperimentOutcome, string> = {
-  worked: 'It worked',
-  partially_worked: 'It partially worked',
-  didnt_work: "It didn't work",
-  inconclusive: 'Inconclusive',
-};
-
-const STATUS_LABEL: Record<LifestyleExperiment['status'], string> = {
-  active: 'In progress',
-  completed: 'Completed',
-  abandoned: 'Stopped early',
-  expired_no_reflection: 'Tracking period ended, add a reflection',
-};
+// One name per thing. Both maps moved to lib/lifestyle-experiments/copy.ts
+// on 2026-09-05 so the coach's This Week band reads an experiment's
+// outcome in exactly the words she reads it in here.
+const OUTCOME_LABEL = EXPERIMENT_OUTCOME_LABEL;
+const STATUS_LABEL = EXPERIMENT_STATUS_LABEL;
 
 function StartExperimentForm({ rowId, onDone }: { rowId: string; onDone: () => void }) {
   const [isPending, startTransition] = useTransition();

@@ -53,6 +53,28 @@ function previousLocalDate(localDate: string): string {
 const DROP_THRESHOLD = 15; // points on the 0-100 index scale
 const POOR_INDEX_THRESHOLD = 55; // matches scoreToStatus's 'poor' band boundary
 
+/**
+ * The four reasons this file itself produces, named once.
+ *
+ * They are constants rather than inline strings because the client page's
+ * merged "Worth discussing" section maps them onto canonical facts, so an
+ * alert and a reason describing the same thing are shown once
+ * (lib/coach-week/flags.ts). The other reasons on the list come from
+ * lib/programs/feedback/attention.ts and
+ * lib/program-lifecycle/coachAttention.ts, which already export theirs.
+ *
+ * "No check-in logged today" replaced "Missed check-in today" on
+ * 2026-09-05. The old wording claimed a decision she may not have made:
+ * the day is not over, and an absent row cannot tell "she chose not to"
+ * from "she has not opened the app yet". The list and the client page both
+ * read this constant, so they cannot come to say it differently.
+ */
+export const NO_CHECKIN_TODAY_REASON = 'No check-in logged today';
+export const WELLNESS_BELOW_THRESHOLD_REASON = 'Daily Wellness Index below threshold';
+export const WELLNESS_DROP_REASON = 'Sudden drop in wellness';
+export const PAIN_INCREASING_REASON = 'Pain increasing';
+export const STRESS_INCREASING_REASON = 'Stress increasing';
+
 export async function buildClientSummary(
   profile: Profile,
   /** Program lifecycle reasons for this client, already fetched in one batched read by buildAllClientSummaries. Omitted when a caller builds one summary on its own. */
@@ -86,22 +108,22 @@ export async function buildClientSummary(
   // system. They lead the list because a member who reported pain outranks
   // a missed check-in.
   const attentionReasons: string[] = [...extraAttentionReasons];
-  if (!todaysCheckin) attentionReasons.push('Missed check-in today');
+  if (!todaysCheckin) attentionReasons.push(NO_CHECKIN_TODAY_REASON);
   if (wellnessIndex && wellnessIndex.score < POOR_INDEX_THRESHOLD) {
-    attentionReasons.push('Daily Wellness Index below threshold');
+    attentionReasons.push(WELLNESS_BELOW_THRESHOLD_REASON);
   }
   if (
     wellnessIndex &&
     previousWellnessIndex &&
     wellnessIndex.score - previousWellnessIndex.score <= -DROP_THRESHOLD
   ) {
-    attentionReasons.push('Sudden drop in wellness');
+    attentionReasons.push(WELLNESS_DROP_REASON);
   }
   if (insights.some((i) => i.key === 'pain' && i.direction === 'declining')) {
-    attentionReasons.push('Pain increasing');
+    attentionReasons.push(PAIN_INCREASING_REASON);
   }
   if (insights.some((i) => i.key === 'stress' && i.direction === 'declining')) {
-    attentionReasons.push('Stress increasing');
+    attentionReasons.push(STRESS_INCREASING_REASON);
   }
   return {
     profile,

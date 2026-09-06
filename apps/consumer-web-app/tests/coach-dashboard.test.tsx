@@ -47,6 +47,7 @@ function emptyDashboard(overrides: Partial<CoachDashboard> = {}): CoachDashboard
     improving: [],
     urgentAlerts: [],
     routineAlerts: [],
+    listFlags: [],
     needsAttention: [],
     reliability: [],
     workingOn: null,
@@ -437,5 +438,125 @@ describe('nothing was deleted, only moved', () => {
     expect(builder).toContain('buildMemberInterpretation');
     expect(builder).toContain('buildMemberVisibility');
     expect(builder).toContain('getDailyPriority');
+  });
+});
+
+/**
+ * WORTH DISCUSSING (2026-09-05): the two systems that were telling a coach
+ * the same things on two different screens now tell them once, on one.
+ *
+ * The persisted coach alerts were already on this page, in "What needs
+ * attention". The client list's own attention reasons were only on /coach,
+ * so a coach who opened a client went from a row that said "Pain
+ * increasing" to a page that did not mention it. Both are now in one
+ * section, and the alerts MOVED there rather than being copied: an alert
+ * rendered in both places would be one fact printed twice, which is the
+ * exact thing this section exists to stop.
+ */
+describe('worth discussing, the one merged flag section', () => {
+  const alerts = {
+    urgentAlerts: [
+      {
+        alertKey: 'repeated_safety_flags',
+        tier: 'urgent_safety' as const,
+        tierLabel: 'Needs a response today',
+        kindLabel: 'Safety cases open',
+        title: 'Safety cases open for this member',
+        reason: 'She currently has 3 open Coach Review Queue cases.',
+      },
+    ],
+    routineAlerts: [
+      {
+        alertKey: 'no_checkin',
+        tier: 'routine_follow_up' as const,
+        tierLabel: 'Routine follow-up',
+        kindLabel: 'No recent check-in',
+        title: 'No recent check-in',
+        reason: "This member hasn't checked in for 4 days.",
+      },
+    ],
+  };
+
+  it('sits above what is improving, and below the safety card', () => {
+    const html = render(emptyDashboard({ safetyActive: true }));
+    const safety = html.indexOf('data-section="safety"');
+    const worth = html.indexOf('data-section="worth-discussing"');
+    const improving = html.indexOf('data-section="improving"');
+    expect(safety).toBeGreaterThan(-1);
+    expect(safety).toBeLessThan(worth);
+    expect(worth).toBeLessThan(improving);
+  });
+
+  it('prints each alert exactly once on the whole page', () => {
+    const html = render(emptyDashboard(alerts));
+    const occurrences = (needle: string) => html.split(needle).length - 1;
+    expect(occurrences('Safety cases open for this member')).toBe(1);
+    expect(occurrences('No recent check-in')).toBe(1);
+  });
+
+  it('shows the client list flags it was handed, and says where they came from', () => {
+    const html = render(emptyDashboard({ ...alerts, listFlags: ['Pain increasing'] }));
+    expect(html).toContain('Also flagged on your client list');
+    expect(html).toContain('Pain increasing');
+    expect(html.split('Pain increasing').length - 1).toBe(1);
+  });
+
+  it('keeps urgent safety apart from routine follow-up, in that order', () => {
+    const html = render(emptyDashboard(alerts));
+    expect(html.indexOf('Needs a response today')).toBeLessThan(
+      html.indexOf('Routine follow-up')
+    );
+  });
+
+  it('says nothing is flagged, on either surface, rather than showing an empty box', () => {
+    const html = render(emptyDashboard());
+    expect(html).toContain('Nothing is flagged for Ebony right now, on this page or on your client list.');
+  });
+
+  it('leaves what needs attention to the interpretation findings alone', () => {
+    const html = render(emptyDashboard(alerts));
+    const attention = html.slice(html.indexOf('data-section="needs-attention"'));
+    expect(attention).not.toContain('Safety cases open for this member');
+    // And with no findings, that section still says so plainly rather than
+    // going blank because the alerts left.
+    expect(attention).toContain('Nothing needs attention right now. She is on track.');
+  });
+});
+
+/**
+ * THE BAND (2026-09-05). Program tier only, above everything but safety,
+ * and absent entirely for anyone else.
+ */
+describe('the this week band, on the first screen', () => {
+  it('is not rendered at all when there is no band to render', () => {
+    const html = render(emptyDashboard());
+    expect(html).not.toContain('data-section="this-week"');
+  });
+
+  it('sits above worth discussing and above what is improving when there is one', () => {
+    const html = renderToStaticMarkup(
+      <CoachDashboardView
+        dashboard={emptyDashboard()}
+        memberId="m-1"
+        thisWeek={{
+          window: {
+            weekStart: '2026-09-04',
+            from: '2026-08-29',
+            to: '2026-09-04',
+            label: 'Week of Aug 29 to Sep 4',
+          },
+          rows: [
+            { key: 'checkins', label: 'Daily Reset', statement: 'Checked in on 4 of 7 days.', details: [] },
+          ],
+        }}
+      />
+    );
+    const band = html.indexOf('data-section="this-week"');
+    const worth = html.indexOf('data-section="worth-discussing"');
+    const improving = html.indexOf('data-section="improving"');
+    expect(band).toBeGreaterThan(-1);
+    expect(band).toBeLessThan(worth);
+    expect(worth).toBeLessThan(improving);
+    expect(html).toContain('Week of Aug 29 to Sep 4');
   });
 });

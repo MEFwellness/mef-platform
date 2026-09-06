@@ -19,12 +19,15 @@ import {
   HelpCircle,
   ListChecks,
   Shapes,
+  MessageSquareWarning,
   ShieldAlert,
   Sparkles,
   TrendingUp,
 } from 'lucide-react';
 import { ALERT_TIER_MEANING } from '@/lib/intelligence-engine/alertTiers';
 import type { CoachDashboard } from '@/lib/coach-dashboard/types';
+import type { ThisWeekBand } from '@/lib/coach-week/types';
+import { ThisWeekBandView } from './ThisWeekBandView';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -92,9 +95,12 @@ function FindingRow({
 export function CoachDashboardView({
   dashboard,
   memberId,
+  thisWeek,
 }: {
   dashboard: CoachDashboard;
   memberId: string;
+  /** The This Week band, or null when this client is not on the program tier. */
+  thisWeek?: ThisWeekBand | null;
 }) {
   const her = dashboard.memberFirstName;
 
@@ -120,29 +126,32 @@ export function CoachDashboardView({
         </section>
       )}
 
-      {/* 1. WHAT IS IMPROVING */}
-      <section className={`${CARD} p-6`} data-section="improving">
-        <SectionHeading icon={TrendingUp}>What is improving</SectionHeading>
-        {dashboard.improving.length > 0 ? (
-          <ul className="mt-1 divide-y divide-[#1B3A2D]/5">
-            {dashboard.improving.map((f) => (
-              <FindingRow key={f.sourceKey} {...f} />
-            ))}
-          </ul>
-        ) : (
-          <Empty>
-            Nothing has moved in a better direction yet. That is not the same as nothing improving,
-            it means nothing has enough behind it to say so.
-          </Empty>
-        )}
-      </section>
+      {/* THIS WEEK. Above every one of the six, and below the safety card
+          only, which stays first and separate for the reason it always
+          has. Nothing on the six-question screen below was removed,
+          reworded or reordered to make room for it.
 
-      {/* 2. WHAT NEEDS ATTENTION. Urgent safety alerts sit apart from the
-          routine ones rather than above them in one sorted list, which is
-          the distinction the safety system already draws and the coach
-          alert system did not. */}
-      <section className={`${CARD} p-6`} data-section="needs-attention">
-        <SectionHeading icon={ShieldAlert}>What needs attention</SectionHeading>
+          Program tier only. Every other tier is handed null and this
+          renders nothing at all, rather than an empty band that would read
+          as "there was nothing this week". */}
+      {thisWeek && <ThisWeekBandView band={thisWeek} />}
+
+      {/* WORTH DISCUSSING. One place for the two systems that were telling
+          a coach the same things on two different screens: the persisted
+          coach alerts, which were already on this page, and the client
+          list's own attention reasons, which were only on /coach.
+
+          Each fact appears once. lib/coach-week/flags.ts maps both
+          vocabularies onto one key and drops the list reason when an alert
+          already covers it, so "No check-in logged today" and "No recent
+          check-in" can never both be printed here.
+
+          The alerts keep their own two tiers, their own wording and their
+          own order. The list flags carry no tier, deliberately: inventing
+          one for them would be inventing a rule, and this build was asked
+          to fold the existing rules in rather than add any. */}
+      <section className={`${CARD} p-6`} data-section="worth-discussing">
+        <SectionHeading icon={MessageSquareWarning}>Worth discussing</SectionHeading>
 
         {dashboard.urgentAlerts.length > 0 && (
           <div className="mt-3 rounded-2xl bg-red-50 p-4">
@@ -182,6 +191,65 @@ export function CoachDashboardView({
           </div>
         )}
 
+        {dashboard.listFlags.length > 0 && (
+          <div className="mt-3 rounded-2xl bg-[#FAFAF8] p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+              Also flagged on your client list
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-[#6B7A72]">
+              The same flags your client list shows for {her}. Anything an alert above already
+              covers is not repeated here.
+            </p>
+            <ul className="mt-2 space-y-1">
+              {dashboard.listFlags.map((flag) => (
+                <li key={flag} className="text-sm leading-relaxed text-[#1B3A2D]">
+                  {flag}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {dashboard.urgentAlerts.length === 0 &&
+          dashboard.routineAlerts.length === 0 &&
+          dashboard.listFlags.length === 0 && (
+            <Empty>
+              Nothing is flagged for {her} right now, on this page or on your client list.
+            </Empty>
+          )}
+      </section>
+
+      {/* 1. WHAT IS IMPROVING */}
+      <section className={`${CARD} p-6`} data-section="improving">
+        <SectionHeading icon={TrendingUp}>What is improving</SectionHeading>
+        {dashboard.improving.length > 0 ? (
+          <ul className="mt-1 divide-y divide-[#1B3A2D]/5">
+            {dashboard.improving.map((f) => (
+              <FindingRow key={f.sourceKey} {...f} />
+            ))}
+          </ul>
+        ) : (
+          <Empty>
+            Nothing has moved in a better direction yet. That is not the same as nothing improving,
+            it means nothing has enough behind it to say so.
+          </Empty>
+        )}
+      </section>
+
+      {/* 2. WHAT NEEDS ATTENTION. Urgent safety alerts sit apart from the
+          routine ones rather than above them in one sorted list, which is
+          the distinction the safety system already draws and the coach
+          alert system did not. */}
+      <section className={`${CARD} p-6`} data-section="needs-attention">
+        <SectionHeading icon={ShieldAlert}>What needs attention</SectionHeading>
+
+        {/* The two alert blocks that used to sit here are now in "Worth
+            discussing" above, unchanged in wording, tier and order. They
+            moved rather than multiplied: rendering them here as well would
+            put one alert on one screen twice, which is the exact thing the
+            merged section was built to stop. What is left is the
+            interpretation layer's own findings, which have never been
+            anywhere else. */}
         {dashboard.needsAttention.length > 0 ? (
           <ul className="mt-1 divide-y divide-[#1B3A2D]/5">
             {dashboard.needsAttention.map((f) => (
@@ -189,10 +257,7 @@ export function CoachDashboardView({
             ))}
           </ul>
         ) : (
-          dashboard.urgentAlerts.length === 0 &&
-          dashboard.routineAlerts.length === 0 && (
-            <Empty>Nothing needs attention right now. She is on track.</Empty>
-          )
+          <Empty>Nothing needs attention right now. She is on track.</Empty>
         )}
       </section>
 

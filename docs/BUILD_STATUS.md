@@ -1,3 +1,127 @@
+## The coach reads one week, and one list of flags (2026-09-05)
+
+Two things, both on the coach's client first screen. A This Week band at
+the top of it, and the client list's attention reasons folded into one
+merged "Worth discussing" section beneath the band. No migration, no new
+table, and no new rule about what is worth flagging.
+
+### The week is the recap's week, imported rather than restated
+
+The band covers the seven days ending on the member's own FRIDAY, which is
+exactly the window `lib/weekly-reflection/recap.ts` reports on. It is NOT
+the Friday-to-Sunday offer window: that window decides when she may write
+her reflection and goes null on a Tuesday, and a coach opening her client
+on a Tuesday still needs a week to read.
+
+`lib/coach-week/window.ts` imports `mostRecentReflectionWeekStart` and
+`recapRangeFor` and adds a label, and that is the whole of it. There is one
+Friday definition in this app, so the coach's "3 of 7" and the member's
+"you checked in on 3 days" are the same three days by construction rather
+than by two pieces of arithmetic agreeing. The band prints its own days,
+"Week of Aug 29 to Sep 4", above every count under it.
+
+Every date is hers, resolved on the server from her stored profile
+timezone. Nothing is decided in a browser.
+
+### Six rows, each read from the system that already owns it
+
+Nothing here computes a verdict and nothing re-derives a number a feature's
+own reader already produces:
+
+- **Daily Reset.** `listCheckinDatesForRecap`, the recap's own reader over
+  its own window, counted by `countLoggedDays`, the one file that owns
+  "how many days has she logged". "Checked in on 4 of 7 days." No per-day
+  tick grid, because a grid of seven boxes with three of them empty is a
+  claim about three days that nothing in the database supports.
+- **Weekly Reflection.** The sentence
+  `lib/weekly-reflection/delivery.ts` already writes, verbatim, in her
+  timezone. Completed, delivered but not completed, or not delivered, plus
+  the two honest states for "we were not watching" and "the read failed".
+- **Programs and workouts.** `listAssignedWorkoutsForMember`, filtered to
+  the window on the stored `scheduled_date`. All six stored statuses are
+  reported separately: `stopped` is never rendered as a skip, `skipped` is
+  reported as her own tap, and `not_started` says out loud that there is no
+  record of whether she opened it.
+- **Lifestyle Experiments.** `getClientLifestyleExperiments`, which has
+  already applied `deriveEffectiveStatus`, so "past its end with no
+  reflection" is the feature's own answer and not a second one.
+- **Personal Reset Plan.** "Logged on 4 days since day one", from the three
+  explicit states and only those three. Counted over the plan rather than
+  over the week, and the sentence says so, because a plan started on
+  Thursday would otherwise read as a failure.
+- **Assigned assessments and deep-dives.** The line
+  `lib/assignments/status.ts` already writes, with the receipt and the due
+  date the previous build made readable. Open ones are shown whatever week
+  they were sent in and the row says so; completed ones name their
+  completion day and no deadline at all.
+
+### The word this band may not use
+
+"Missed" appears nowhere in it, in any state of any row. A day with no row
+cannot tell "she chose not to" from "she never opened the screen", and a
+coach who reads "missed" will say "missed" to her. Where a real deadline
+has passed the words are the ledger's own: "not completed" plus the day it
+was due, with an Overdue chip. Where a state genuinely cannot be told apart
+from another, the row says so.
+
+The same reasoning retired `Missed check-in today` on the client LIST. It
+is `No check-in logged today` now, from one exported constant both screens
+read, because the day is not over.
+
+### Worth discussing, and why an alert moved rather than multiplied
+
+Two systems were telling a coach the same things on two different screens.
+The client list computed `attentionReasons`; the client page rendered the
+persisted coach alerts. So a coach went from a row that said "Pain
+increasing" to a page that never mentioned it, and putting both on one
+screen would have printed some facts twice in different words.
+
+`lib/coach-week/flags.ts` maps both vocabularies onto one canonical key and
+drops the list reason when an alert already covers it. It invents no rule
+and reads no data: every reason it is handed comes from
+`buildAllClientSummaries`, the identical builder the list calls, called
+here with a list of one.
+
+The alerts MOVED into the merged section rather than being copied into it,
+and "What needs attention" now holds the interpretation layer's own
+findings alone. That is the one structural change to the existing
+six-question screen, and it is the change that makes "each finding appears
+exactly once" true of the page rather than only of the section. Safety
+stays first and separate, above the band, exactly where it was.
+
+The list flags carry no tier badge, deliberately. Inventing one for them
+would be inventing a rule, and a member's pain report dressed as "Routine
+follow-up: nothing here is urgent" would be worse than no badge at all.
+
+### Program tier only
+
+`hasWeeklyReflectionAccess` decides it, which is the one function in this
+app that answers "is she on the 24 week program". Any other tier gets null
+and the band does not render at all, rather than an empty band that would
+read as "there was nothing this week". Worth discussing renders for every
+client, because that is where the alerts live now.
+
+### A read, and nothing but a read
+
+`getClientThisWeekBandAction` makes no insert, no claim, no receipt and no
+state change. It carries its own coach check and its own
+`isMemberVisibleToStaff` check even though the client route tree's layout
+already asks, because a server action is reachable without that layout ever
+running.
+
+### Tests
+
+`tests/coach-this-week-band.test.tsx` (27) and
+`tests/coach-this-week-action.test.ts` (10), plus 11 new cases in
+`tests/coach-dashboard.test.tsx`. The load-bearing ones: the band's window
+is asserted equal to the recap's for the same client on every weekday of a
+week, and its count equal to `buildReflectionRecap`'s over the same rows;
+the action runs against a fake Postgres that THROWS on insert, update,
+upsert, delete and rpc rather than counting them, with nothing downstream
+mocked out, so a write anywhere in the composed read path is a failed test;
+and each alert is asserted to appear exactly once in the whole rendered
+page. Full suite 509 files, 8936 tests, all passing.
+
 ## Assignment delivery receipts and a due date that is read (2026-09-05)
 
 Foundation only. No coach summary was built, no "This Week" band, no
