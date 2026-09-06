@@ -15564,3 +15564,162 @@ client. Verified present and active afterwards.
   coach cannot tell the chips apart. Harmless with one sitting per
   assignment in normal use, wrong the moment a member is re-sent one the
   same day.
+
+## The coach side experience pass (2026-09-06)
+
+Presentation, layout and navigation across the staff side. No query, no
+scoring rule, no gate, no event, no migration and no schema change. Every
+screen renders what it rendered, from the same calls with the same
+arguments.
+
+### It was measured before it was changed
+
+`scripts/walk-staff-surfaces.mjs` is the instrument, and it is committed
+rather than thrown away. Signed in as the real coach on a 390px phone, it
+opens all thirty three coach and admin surfaces, records the full page
+height of each, screenshots it, and captures console errors and em dashes.
+Run it into two different `SHOTS_DIR`s and the two manifests are the
+before/after evidence. Its screenshots are a picture of every real member's
+name at once, so `scripts/.walk/` is gitignored alongside `.verify/` and
+`.sweep/`.
+
+**The whole staff side went from 117,562px to 79,811px, down 32%.** Two
+screens were most of it.
+
+| screen | before | after | change |
+| --- | --- | --- | --- |
+| `/coach/questions` | 25,231px | 4,091px | -84% |
+| `/coach/clients/[id]/entries` | 17,453px | 2,286px | -87% |
+| `/admin` | 3,492px | 2,861px | -18% |
+| `/coach` | 2,400px | 1,798px | -25% |
+| the six analytics views | +69px each | | the back control they never had |
+
+### The question bank was the worst screen on the staff side
+
+Thirty full phone screens. All eighty eight questions laid out at once
+across roughly twenty driver cards, five dropdowns that could narrow the
+list, and nothing that could search it: finding one question meant knowing
+its driver first and then scrolling to it.
+
+- **A pinned field**, matching a question's prompt, its key, its answer
+  options and its driver's name. It calls `textMatchesSearch` from
+  `lib/assignments/assignableCatalog.ts`, the same function the client
+  detail page's own pinned search calls, so two staff fields cannot drift
+  apart about what a match is.
+- **The driver groups fold, and start folded**, rendering no rows at all
+  while shut. Each header carries its own count.
+- **Typing forces open whatever holds a match.** A search that returns a
+  list of shut doors is worse than no search. Clearing the field hands
+  control back to whatever the coach opened by hand.
+- The protected core (six read-only rows) and the filter block fold too.
+  The folded filter header names any filter that is not at its default, so
+  a filter left on and forgotten cannot silently narrow the list.
+
+### The entries page: a day is a row
+
+Nearly all of its 17,453px was thirty days each rendering about eighteen
+answers inline. A day folds now, and its header keeps the two things a
+coach scans across days rather than reads within one: the date, and her own
+"something new or getting worse" flag. The digest counts every answer
+inside, so a folded day never hides that it holds something. The four
+sections fold as well, with her check-ins open by default because that is
+what the page is for.
+
+### The two section homes put the work first
+
+**`/coach`** opened on a greeting, a change-password link, four stat tiles
+and eight full-width navigation cards carrying one word each. The client
+list started about 1,750px down. The order is now: who needs attention,
+the caseload, the tools as a grid, the numbers. Three repetitions were
+resolved: the "Daily Coaching Summary" card restated the two tiles directly
+above it and is the page subtitle now; the permanently dead "Upcoming
+Sessions" tile is one quiet line instead of a quarter of the stats row; and
+change password moved to the foot of the page.
+
+**The greeting names its timezone.** It was the literal string "Good
+Morning" at any hour, and the before walk photographed it at one in the
+afternoon. It reads the coach's own `profiles.timezone` through
+`timeContextInTimezone`, the same helper the member Home uses.
+
+**`/admin`** spent about 2,400px on nine cards, each with a three line
+paragraph explaining a destination its own title already named. Four keep a
+one line description because those four genuinely need a sentence. Five
+that explain themselves became tiles.
+
+### One header replaces three
+
+Twenty staff pages used `BackButton`, seventeen hand-rolled their own
+`<ChevronLeft />Back to dashboard`, and twelve had none at all. The twelve
+included the entire admin analytics subtree, where the only way out of a
+drill-down was the browser's own button.
+`components/staff/StaffPageHeader.tsx` is the pattern the agreeing pages
+already used; the disagreeing ones moved. The analytics chrome forces its
+back to `/admin` rather than going smart-back, which from Drop-off would
+land on Funnel: sideways, not out.
+
+### Nothing was removed, and a test says so
+
+`tests/staff-experience-pass.test.tsx`, 13 tests. The folding components
+are mounted and clicked rather than described, because a source assertion
+cannot tell a fold that unmounts from one that hides. Both hubs are
+asserted to still reach every href they reached, the coach home is asserted
+to put the caseload above the tools, and the admin test-account toggle and
+its two hidden counts are asserted untouched.
+
+Mutation proof, two runs: making the fold hide its children instead of
+unmounting them fails 1 test; removing `forceOpen` from the question bank's
+groups fails 2.
+
+### Two guards earned their keep
+
+- **`tests/subhead-contrast-ratio.test.ts`** caught the new shared header
+  reintroducing `#6B7A72` for a 15px subhead, which would have undone that
+  contrast fix on every staff screen at once. The header uses `#4F645A` and
+  says why.
+- **`tests/internal-movement-tools-staff-only.test.ts`** failed on a
+  rearrangement that lost nothing: it matched the literal
+  `href={'/exercises' as Route}` rather than the destination, so moving a
+  link into a data array read as a deletion. It matches the path now, which
+  still fails the moment either destination is actually dropped.
+
+### Live verification, production, 2026-09-06
+
+**36 checks, 36 passing**, on `app.mefwellness.com` at 390 by 844, signed
+in as the real coach through a minted session retired afterwards with scope
+`local`. Zero console errors and zero em dashes across all thirty three
+surfaces.
+
+`scripts/verify-staff-experience-live.mjs` (26 checks): the reordered coach
+home with the caseload above the tools and all seven standing tool tiles;
+Ebony still visible to her coach; the question bank opening folded, its
+field staying on screen through a scroll, "sleep" narrowing 87 questions to
+9 with 5 groups already open, and clearing folding everything back; an
+entries day opening from 1,553 to 3,151 characters of document; the
+analytics drill-down offering a way back to Admin; the admin toggle and
+both hidden counts intact; and the member's own Home unchanged with no
+console errors.
+
+`scripts/verify-staff-assign-roundtrip.mjs` (10 checks): a real assignment
+made from the folded detail page to the seeded fixture, read back from
+`assessment_assignments`, her Home loading clean afterwards, and the row
+withdrawn and confirmed gone.
+
+**State left on production: none.** The one assignment written was deleted
+and read back absent. The coach account's `is_test` was never touched and
+was confirmed `false` afterwards. No real member was written to; Cat's
+entries page was opened read-only.
+
+### Three things deliberately NOT changed
+
+- **`/coach/clients/[id]` (4,599px)** is the curated "six things a coach
+  opens a member to find out" screen and sits in the same family as the
+  client detail redesign that shipped hours earlier. Rearranging it in the
+  same day as that build is how two designs collide.
+- **`/admin/access` (7,763px)** is the longest screen left. It is a dense
+  per-member control console rather than a reading surface, and folding a
+  screen whose job is "change this member's access right now" would add a
+  tap to every action on it. It deserves its own decision.
+- **The two golds.** `#F5B700` appears in 116 files and `#C4A050`, the
+  locked brand warm gold, in 75, across the member side as well as the
+  staff side. Unifying them is a platform-wide brand decision, not a
+  coach-side presentation one.
