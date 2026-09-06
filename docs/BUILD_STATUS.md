@@ -110,10 +110,17 @@ with her writing intact, a closing that held, the experiment started and
 logged on Home, and the coach reading all nine answers back with her
 sentence on top. Every write undone in a `finally`.
 
-The coach panel carries `aria-label="Owning Your Value"` because the first
-run's copy-based locator resolved to the Assign an Assessment panel once
-that one listed the same experience. A per-member control is addressed by
-what it is, or not at all.
+62 of 62 on the final run, zero em dashes and zero console errors on any
+screen either of them saw, every fixture row undone afterwards.
+
+Two things the run found that no test would have. The coach panel now
+carries `aria-label="Owning Your Value"`, because the first run's
+copy-based locator resolved to the Assign an Assessment panel once that one
+listed the same experience: a per-member control is addressed by what it
+is, or not at all. And the first question of each screen printed its title
+twice, once uppercase in the eyebrow and once as a heading directly
+underneath. That was found in the run's own screenshot rather than in an
+assertion, and the heading is gone.
 
 ## The coach reads one week, and one list of flags (2026-09-05)
 
