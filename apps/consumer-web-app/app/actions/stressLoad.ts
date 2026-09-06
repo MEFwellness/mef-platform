@@ -40,9 +40,19 @@ import { findActiveRegistryEntry, insertRegistryEntry } from '@/lib/registry/dat
 import { forgetMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
 import {
   countActiveExperiments,
+  deriveEffectiveStatus,
+  listMyLifestyleExperiments,
   startLifestyleExperiment,
   MAX_ACTIVE_EXPERIMENTS,
+  type LifestyleExperiment,
 } from '@/lib/lifestyle-experiments';
+import { daysSinceStart } from '@/lib/core-values-snapshot/experiment';
+import { localDateFor } from './rootMap';
+import {
+  findLatestStressLoadExperiment,
+  listStressLoadDailyLogs,
+  upsertStressLoadDailyLog,
+} from '@/lib/stress-load/dailyLogsData';
 import { clearRootPopupDismissal, stressLoadPopupMessageKey } from '@/lib/root-popup-messages/data';
 import {
   STRESS_LOAD_DEFAULT_DUE_IN_DAYS,
@@ -66,7 +76,7 @@ import {
 import { buildStressLoadReading } from '@/lib/stress-load/patterns';
 import { buildCrossReference, type StressLoadInterpretation } from '@/lib/stress-load/crossReference';
 import { buildStressLoadRegistryDrafts } from '@/lib/stress-load/rootMap';
-import { buildStressLoadExperiment } from '@/lib/stress-load/experiment';
+import { buildStressLoadExperiment, stressLoadDailyQuestion } from '@/lib/stress-load/experiment';
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
 
 export type SubmitStressLoadResult =
@@ -266,6 +276,83 @@ export async function startStressLoadExperimentAction(
 
   revalidatePath('/dashboard');
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------
+// The experiment's dashboard card.
+// ---------------------------------------------------------------------
+
+export type StressLoadExperimentStatus = {
+  experiment: LifestyleExperiment;
+  todayLocalDate: string;
+  daysSinceStart: number;
+  /** The question this member's own protocol asks her today. */
+  dailyQuestion: string;
+  /** Null when she has not answered today yet. */
+  todayCompleted: boolean | null;
+};
+
+/**
+ * Her running Stress & Load experiment, or null.
+ *
+ * WHY THIS HAD TO EXIST. Accepting the offer at the end of the deep-dive
+ * has always written a real lifestyle_experiments row, but nothing on the
+ * dashboard ever read it back. The Active Experiments section reads three
+ * per-experience statuses plus a Recommendation Engine list filtered on
+ * `recommendation_id is not null`, and a deep-dive experiment carries a
+ * null recommendation_id by design, so it fell through every branch and a
+ * member ran a seven day experiment with no card. This is the missing
+ * read, in the same shape Owning Your Value and Where Your Joy Lives
+ * already hand back.
+ *
+ * Only an ACTIVE one is returned. A seven day run that has passed its own
+ * end with no reflection is 'expired_no_reflection' at read time (the
+ * existing rule, lib/lifestyle-experiments/lifecycle.ts), so the card stops
+ * asking her a daily question about something that is over rather than
+ * needing a close-out of its own.
+ *
+ * PURE READ. Nothing here writes.
+ */
+export async function getMyStressLoadExperimentAction(): Promise<StressLoadExperimentStatus | null> {
+  const user = await getCachedUser();
+  if (!user) return null;
+
+  const supabase = createClient();
+  const latest = await findLatestStressLoadExperiment(supabase, user.id);
+  if (!latest) return null;
+
+  const experiments = await listMyLifestyleExperiments(supabase, user.id);
+  const now = new Date();
+  const experiment = experiments
+    .map((entry) => ({ ...entry, status: deriveEffectiveStatus(entry, now) }))
+    .find((entry) => entry.id === latest.id);
+  if (!experiment || experiment.status !== 'active') return null;
+
+  const todayLocalDate = await localDateFor(supabase, user.id);
+  const logs = await listStressLoadDailyLogs(supabase, experiment.id);
+  const todayRow = logs.find((log) => log.localDate === todayLocalDate);
+
+  return {
+    experiment,
+    todayLocalDate,
+    daysSinceStart: daysSinceStart(experiment.startDate, todayLocalDate),
+    dailyQuestion: stressLoadDailyQuestion(experiment.title),
+    todayCompleted: todayRow?.completed ?? null,
+  };
+}
+
+/** Her daily tap. One row per calendar day, on the existing shared table. */
+export async function logStressLoadDayAction(
+  experimentId: string,
+  completed: boolean
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await getCachedUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+
+  const supabase = createClient();
+  const localDate = await localDateFor(supabase, user.id);
+  const ok = await upsertStressLoadDailyLog(supabase, user.id, experimentId, localDate, { completed });
+  return ok ? { ok: true } : { ok: false, error: 'Could not save that.' };
 }
 
 // ---------------------------------------------------------------------

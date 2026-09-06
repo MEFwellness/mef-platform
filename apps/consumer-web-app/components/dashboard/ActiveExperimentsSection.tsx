@@ -1,7 +1,8 @@
 /**
  * A single, persistent "what's running and what's waiting" home for every
  * Weekly Experiment, regardless of source (Core Values Snapshot, Life
- * Signal Check, or the Recommendation Engine) — previously each
+ * Signal Check, the Readiness Pulse, the three deep-dives, or the
+ * Recommendation Engine) — previously each
  * experience's own dashboard card (CvsCheckinCard.tsx/LscCheckinCard.tsx)
  * only ever rendered something when a day-3/day-7 follow-up was due, or
  * when no experiment existed yet at all. A member on, say, day 2 of 7 saw
@@ -26,6 +27,7 @@ import { getMyLscExperimentStatusAction, getMyLscOfferAction } from '@/app/actio
 import { getMyRplExperimentStatusAction, getMyRplOfferAction } from '@/app/actions/readinessPulse';
 import { getMyOwningYourValueExperimentAction } from '@/app/actions/owningYourValue';
 import { getMyWhereYourJoyLivesExperimentAction } from '@/app/actions/whereYourJoyLives';
+import { getMyStressLoadExperimentAction } from '@/app/actions/stressLoad';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { getMyRootPopupDismissalAction } from '@/app/actions/rootPopupMessages';
 import { localDateFor } from '@/app/actions/rootMap';
@@ -38,6 +40,7 @@ import { LscExperimentPanel } from '@/components/life-signal-check/LscExperiment
 import { RplExperimentPanel } from '@/components/readiness-pulse/RplExperimentPanel';
 import { OwningYourValueExperimentPanel } from '@/components/owning-your-value/OwningYourValueExperimentPanel';
 import { WhereYourJoyLivesExperimentPanel } from '@/components/where-your-joy-lives/WhereYourJoyLivesExperimentPanel';
+import { StressLoadExperimentPanel } from '@/components/stress-load/StressLoadExperimentPanel';
 
 // Same zone-heading treatment as every other dashboard section (see the
 // local ZONE_LABEL constant in app/dashboard/page.tsx) — kept as a literal
@@ -74,7 +77,7 @@ function RecommendationExperimentRow({
 }
 
 export async function ActiveExperimentsSection() {
-  const [cvsStatus, lscStatus, rplStatus, oyvStatus, wyjlStatus, allExperiments] = await Promise.all([
+  const [cvsStatus, lscStatus, rplStatus, oyvStatus, wyjlStatus, slStatus, allExperiments] = await Promise.all([
     getMyCvsExperimentStatusAction(),
     getMyLscExperimentStatusAction(),
     getMyRplExperimentStatusAction(),
@@ -87,6 +90,12 @@ export async function ActiveExperimentsSection() {
     // same reason: it is accepted or declined on the closing screen itself,
     // so the action returns null unless one is actually running.
     getMyWhereYourJoyLivesExperimentAction(),
+    // The Stress & Load Deep-Dive's experiment has no offer half either: it
+    // is accepted or declined on the closing screen itself. It was missing
+    // from this section entirely until 2026-09-06, which is why an accepted
+    // one ran for seven days with no card. See
+    // getMyStressLoadExperimentAction's header for what it fell through.
+    getMyStressLoadExperimentAction(),
     getMyLifestyleExperiments(),
   ]);
 
@@ -106,7 +115,15 @@ export async function ActiveExperimentsSection() {
 
   const hasAnything =
     Boolean(
-      cvsActive || cvsOffer || lscActive || lscOffer || rplActive || rplOffer || oyvStatus || wyjlStatus
+      cvsActive ||
+        cvsOffer ||
+        lscActive ||
+        lscOffer ||
+        rplActive ||
+        rplOffer ||
+        oyvStatus ||
+        wyjlStatus ||
+        slStatus
     ) ||
     recommendationExperiments.length > 0;
   if (!hasAnything) return null;
@@ -197,6 +214,8 @@ export async function ActiveExperimentsSection() {
         {oyvStatus && <OwningYourValueExperimentPanel status={oyvStatus} />}
 
         {wyjlStatus && <WhereYourJoyLivesExperimentPanel status={wyjlStatus} />}
+
+        {slStatus && <StressLoadExperimentPanel status={slStatus} />}
 
         {recommendationExperiments.map((experiment) => (
           <RecommendationExperimentRow

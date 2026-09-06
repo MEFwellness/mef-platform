@@ -110,6 +110,64 @@ const PROTOCOL_BY_SOURCE: Record<string, Protocol> = {
   },
 };
 
+/**
+ * The dashboard card's daily question, one per protocol.
+ *
+ * WRITTEN, NOT PARAPHRASED. Each line asks her the thing her own action
+ * sentence asked her to do, in the same words, so a member on day 4 never
+ * has to remember what she signed up for and the card can never become a
+ * quietly different second version of the experiment.
+ *
+ * KEYED BY THE STORED TITLE, because the title is what the
+ * lifestyle_experiments row carries. The row does not store which Q9
+ * answer it came from, and re-reading her sitting to recover that would
+ * put a second source of truth behind one sentence.
+ *
+ * A test walks PROTOCOL_BY_SOURCE and the "Other" title and fails if any
+ * of them is missing an entry here.
+ */
+/** The one title used when her first pick was "Other", named once so the map, the builder and the guard test cannot drift apart. */
+const OWN_WORDS_TITLE = 'Five minutes of what you named';
+
+const DAILY_QUESTION_BY_TITLE: Record<string, string> = {
+  'Five minutes of wind-down': 'Did you give yourself five screen free minutes before bed today?',
+  'Five minutes alone': 'Did you take five minutes with nobody asking you for anything today?',
+  'Five minutes with someone':
+    'Did you spend five real minutes with one of the people who restore you today?',
+  'Five minutes of moving': 'Did you move for five minutes because it restores you today?',
+  'Five minutes outside': 'Did you get outside for five minutes with no task attached today?',
+  'Five quiet minutes': 'Did you take five minutes of prayer or quiet today?',
+  'Five minutes of making something': 'Did you spend five minutes making or creating something today?',
+  'Five minutes of music': 'Did you give five minutes to music with your full attention on it today?',
+  'Five minutes of laughing': 'Did you find five minutes of something that actually made you laugh today?',
+  'Five minutes of nothing': 'Did you do absolutely nothing for five minutes today?',
+  [OWN_WORDS_TITLE]: 'Did you take five minutes for the thing you said restores you today?',
+};
+
+/**
+ * The question for a stored experiment title.
+ *
+ * The fallback exists so a historical row whose title predates this map
+ * still gets a readable question instead of taking the dashboard down. It
+ * is a last resort, not a licence to stop adding entries above: the guard
+ * test is what keeps every real title out of it.
+ */
+export function stressLoadDailyQuestion(title: string): string {
+  const trimmed = title.trim();
+  const written = DAILY_QUESTION_BY_TITLE[trimmed];
+  if (written) return written;
+  const lowered = trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
+  return `Did you take ${lowered} today?`;
+}
+
+/** Every title this module can store, so the guard test does not have to reach into a private constant. */
+export function stressLoadExperimentTitles(): string[] {
+  return [
+    ...Object.values(PROTOCOL_BY_SOURCE).map((protocol) => protocol.title),
+    OWN_WORDS_TITLE,
+  ];
+}
+
 /** Her own words, cleaned up enough to sit inside a sentence. */
 function ownWords(text: string | null): string {
   const trimmed = (text ?? '').trim().replace(/[.]+$/, '');
@@ -134,7 +192,7 @@ export function buildStressLoadExperiment(
     const words = ownWords(answers.recovery_sources.otherText);
     if (!words) return null;
     const protocol: Protocol = {
-      title: 'Five minutes of what you named',
+      title: OWN_WORDS_TITLE,
       action: `For the next 7 days, take five minutes a day for ${words}, the thing you said actually restores you.`,
       hardDay: `On a difficult day, two minutes of ${words} still counts.`,
     };

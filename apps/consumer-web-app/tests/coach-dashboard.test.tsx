@@ -268,6 +268,45 @@ describe('with real member state', () => {
     expect(html).toContain('data-detail-link="true"');
     expect(html).toContain('/coach/clients/m-1/detail');
   });
+
+  /**
+   * The door was there all along and coaches walked past it. These assert
+   * the three things that changed and the two that deliberately did not:
+   * same route, same whole-card tap target.
+   */
+  describe('the way into the full client detail page says what it is', () => {
+    it('names the destination in the header, with her first name', () => {
+      expect(html).toContain('Full Client Detail');
+      expect(html).toContain('Ebony');
+      expect(html).not.toContain('Everything else about');
+    });
+
+    it('keeps the description line underneath word for word', () => {
+      expect(html).toContain(
+        'Her trackers, trends, assessments, programs, notes, and what her app contains. All of it,'
+      );
+      expect(html).toContain('unchanged.');
+    });
+
+    it('carries an explicit tappable label rather than relying on the corner arrow', () => {
+      expect(html).toContain('Open full detail');
+    });
+
+    it('reads as a button: the gold accent, and a filled label', () => {
+      expect(html).toContain('border-[#C4A050]');
+      expect(html).toContain('bg-[#C4A050]');
+    });
+
+    it('is still one tap target, so the label is not a nested button', () => {
+      const card = html.slice(html.indexOf('data-detail-link="true"'));
+      const openTag = card.slice(0, card.indexOf('</a>'));
+      expect(openTag).not.toContain('<button');
+    });
+
+    it('has an accessible name naming the client, so a screen reader is not read an arrow', () => {
+      expect(html).toContain('aria-label="Open full detail for Ebony"');
+    });
+  });
 });
 
 describe('safety comes first and separately', () => {

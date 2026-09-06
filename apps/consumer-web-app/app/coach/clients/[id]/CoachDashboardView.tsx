@@ -384,22 +384,33 @@ export function CoachDashboardView({
         )}
       </section>
 
-      {/* Everything else, one tap away. Nothing was deleted. */}
+      {/*
+        The door to the full detail page. Same route, same destination, same
+        whole-card tap target it has always had: coaches simply did not read
+        "Everything else about her" plus a corner arrow as the way in, so it
+        now says what it is and carries a gold button label saying what
+        tapping it does. Presentation only.
+
+        The label is a span, not a button, because a button inside a link is
+        invalid HTML and would split one tap target into two.
+      */}
       <Link
         href={`/coach/clients/${memberId}/detail` as Route}
         data-detail-link="true"
-        className={`mef-focus-ring ${CARD} flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-[#1B3A2D]/[0.03]`}
+        aria-label={`Open full detail for ${her}`}
+        className={`mef-focus-ring mef-press ${CARD} block border-2 border-[#C4A050] px-5 py-5 transition-colors hover:bg-[#C4A050]/[0.08]`}
       >
-        <span>
-          <span className="block text-sm font-semibold uppercase tracking-wider text-[#3E5C46]">
-            Everything else about {her}
-          </span>
-          <span className="mt-1 block text-xs leading-relaxed text-[#6B7A72]">
-            Her trackers, trends, assessments, programs, notes, and what her app contains. All of it,
-            unchanged.
-          </span>
+        <span className="block text-sm font-semibold uppercase tracking-wider text-[#3E5C46]">
+          {her}&apos;s Full Client Detail
         </span>
-        <ArrowUpRight className="h-5 w-5 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+        <span className="mt-1 block text-xs leading-relaxed text-[#6B7A72]">
+          Her trackers, trends, assessments, programs, notes, and what her app contains. All of it,
+          unchanged.
+        </span>
+        <span className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#C4A050] px-5 py-3 text-sm font-semibold text-[#1B3A2D] sm:w-auto">
+          Open full detail
+          <ArrowUpRight className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />
+        </span>
       </Link>
     </div>
   );

@@ -221,3 +221,32 @@ export async function listMyLifestyleExperiments(
   }
   return (data as Row[]).map(fromRow);
 }
+
+/**
+ * The member's most recent experiment started by one named experience,
+ * whatever its status.
+ *
+ * Every non-Recommendation-Engine experience needs exactly this lookup and
+ * three of them (Core Values Snapshot, Owning Your Value, Where Your Joy
+ * Lives) each grew their own copy of it before this existed. New callers
+ * use this one rather than adding a fourth. The three older copies are
+ * left where they are on purpose: they are live paths, and rewriting a
+ * working query buys nothing.
+ */
+export async function findLatestExperimentByExperienceKey(
+  supabase: SupabaseClient,
+  memberId: string,
+  sourceExperienceKey: string
+): Promise<{ id: string } | null> {
+  const { data, error } = await supabase
+    .from('lifestyle_experiments')
+    .select('id')
+    .eq('member_id', memberId)
+    .eq('source_experience_key', sourceExperienceKey)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return { id: data.id as string };
+}
