@@ -13,6 +13,7 @@ import {
   templateStatusLine,
   type AssignableTemplate,
 } from '@/lib/assignments/assignableCatalog';
+import { useAssignSearchQueryRequests } from '@/lib/coach-detail/detailBus';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -76,6 +77,17 @@ export function AssessmentAssignmentPanel({
   const [dueAt, setDueAt] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  /*
+    THE PAGE'S OWN PINNED SEARCH CAN TYPE INTO THIS FIELD (2026-09-06).
+    Choosing a questionnaire up there scrolls here and puts the same query
+    in, so the list a coach lands on is the list she was already looking
+    at. It is a subscription rather than a prop on purpose: this panel is
+    rendered on its own in tests and on a page with no such search, and a
+    request nobody sends simply never arrives. Nothing else about this
+    field changed, and typing in it directly still works exactly as it did.
+  */
+  useAssignSearchQueryRequests((incoming) => setQuery(incoming));
 
   const visibleTemplates = useMemo(
     () => filterAssignableTemplates(assignableTemplates, query),

@@ -1,3 +1,118 @@
+## The client detail page folds up, and can be typed at (2026-09-06)
+
+The coach's full client Detail page had grown to roughly two minutes of
+continuous scrolling: about thirty panels in one flat column, every one of
+them the same visual weight. This is a presentation restructure of that one
+page. No table, no migration, no endpoint, no new query, no write on render,
+and nothing removed. Every card that was on it is still on it, rendering
+what it rendered.
+
+### Six sections, and a folded one renders nothing
+
+Intelligence and Signals, Assessments and Findings, Progress and History,
+Weekly Reflection, Coach Tools, App Controls. All six arrive collapsed. On
+a 390px phone the page now opens at about 1,100px instead of about 7,600px.
+
+THE FOLD IS NOT A HIDDEN PANEL. A collapsed section renders no children at
+all rather than keeping thirty mounted panels behind a height animation.
+Keeping them mounted would have fixed the scrolling and left the DOM, which
+is the actual weight. The children are in the payload either way, so nothing
+is fetched twice and nothing is fetched late: this is a rendering decision,
+not a loading one.
+
+Two placements are deliberate and would otherwise read as accidents. The
+reassessment request is filed under Intelligence because it lives inside the
+Longitudinal Intelligence panel, and a panel is one component that renders in
+one place, never split across two sections. The Daily Wellness Index sits with
+the hydration toggle and the visibility panel, because all three answer "what
+is switched on for her" rather than "what happened to her".
+
+### Each header says one true thing, and carries one dot
+
+The digest is arithmetic over values the page had already fetched, and the
+gold dot is always some existing card's or service's own flag: an open coach
+alert, an escalated thread, an overdue assignment, a pending movement review,
+a reflection still waiting on her. `lib/coach-detail/digests.ts` holds the
+rules. Tests assert the header reads the SAME expression the card under it
+reads, so "3 pending" and the rows below it cannot come to disagree.
+
+THE DOT IS NEVER AN EVIDENCE TIER. Early indication, emerging pattern and
+supported describe how much is known about a finding, and colouring them
+would turn a confidence scale into an alarm scale. Those chips are untouched,
+uncoloured, inside the cards. App Controls is always grey, because a hidden
+feature is a decision already made and not a thing waiting to be done.
+
+### One pinned field over two different things
+
+A coach arriving here is either looking for something on the page or looking
+for something to send. Both are now the first control on the screen, grouped
+under "On this page" and "Questionnaires". Choosing a page result opens that
+section and scrolls to the card. Choosing a questionnaire opens Assessments
+and Findings, scrolls to Assign an Assessment, and types the query into the
+field that was always there.
+
+The matching is `textMatchesSearch` from `lib/assignments/assignableCatalog.ts`,
+the Assign panel's own function, now exported rather than copied, so the two
+fields cannot come to mean different things by "partial, case insensitive".
+The Assign panel is otherwise unchanged and its field still works alone with
+nothing else on the page.
+
+### TWO REAL BUGS, BOTH FOUND BY DRIVING THE COMPONENTS RATHER THAN READING THEM
+
+A request dispatched onto an event bus reaches whoever is listening AT THAT
+INSTANT, and in both of these cases nobody was.
+
+The Assign panel is not mounted when a coach taps a questionnaire result: it
+lives inside a folded section, which renders nothing. The prefill reached
+nobody, the section then opened, and the field arrived empty.
+
+DetailDeepLink sits above the sections in the tree, and React runs effects in
+tree order, so its "open App Controls" fired before App Controls had
+subscribed. An arriving `#member-visibility` from the coach brief would have
+landed on a folded page, with no error and nothing on screen to explain it.
+
+THE FIX is that each channel now HOLDS its last unclaimed request, and a
+subscriber that mounts afterwards takes it on mount. Taking it clears it, so
+folding and reopening a section does not replay an old jump and the Assign
+field is never refilled behind a coach's back. Both are regression tested.
+
+### The check-in history opens on a chart
+
+Mood, Energy and Stress share a 1 to 5 axis because they are all asked on it.
+Sleep gets its own strip underneath, because it is a band and drawing it on a
+1 to 5 axis would either squash it or silently rescale three real scales to
+fit a fourth. The band is what every label prints; the hours are only where
+it is drawn.
+
+A DAY SHE DID NOT CHECK IN IS A HOLE. The x axis is real calendar days from
+her oldest row to her newest, and each series is drawn as one path per
+unbroken run. Fourteen rows plotted side by side draw a continuous line
+whether they are fourteen consecutive days or fourteen days spread over a
+month. Zero is never substituted, because zero is a real answer to some of
+these questions and silence is not an answer at all. The full day by day list
+is still there behind "Show all days". Coach side only, imported by one page,
+and it reaches for none of the member status palette.
+
+### The two deep links into this page still work
+
+`#member-visibility` from the coach brief and `#case-view` from the entries
+page both point at anchors that now start folded. `DetailDeepLink.tsx`
+resolves the hash to its owning section and opens it, and the section does
+the scroll once its contents exist, because `scrollIntoView` on an element
+that is not in the document is a silent no-op.
+
+### Watched on the live site
+
+`scripts/verify-detail-sections-live.mjs`, against app.mefwellness.com on a
+390px phone as the real coach, on Cat's own page and her own data.
+
+ONE DELIBERATE SUBSTITUTION. The assign write is the only check that changes
+anything, and it was run against the seeded test fixture rather than against
+Cat. Cat is a real member with a real mailbox who had signed in that morning,
+an assignment appears on her phone and is what the daily notification job
+reads, and cancelling it leaves a withdrawn row on her ledger rather than
+leaving her account clean. Every read-only check ran on her page as asked.
+
 ## The door coaches walked past, and the experiment with no card (2026-09-06)
 
 Two unrelated cleanups on screens that already existed. No new tables, no

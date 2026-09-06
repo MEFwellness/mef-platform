@@ -138,8 +138,24 @@ export function listAssignableTemplates(): AssignableTemplate[] {
 }
 
 /** Trimmed and lowercased, so a match never depends on capitals or stray spaces. */
-function normalize(text: string): string {
+export function normalizeSearchText(text: string): string {
   return text.trim().toLowerCase();
+}
+
+/**
+ * Does one piece of text answer what was typed. Partial, case insensitive,
+ * and an empty query matches everything.
+ *
+ * EXPORTED because the client detail page's own pinned search (2026-09-06)
+ * matches section and card titles, and the brief promised it would behave
+ * the same way this list already behaves. Sharing the function is the only
+ * way two fields can be guaranteed to agree, so lib/coach-detail/sections.ts
+ * calls this rather than writing a second `includes` of its own.
+ */
+export function textMatchesSearch(text: string, query: string): boolean {
+  const needle = normalizeSearchText(query);
+  if (needle.length === 0) return true;
+  return normalizeSearchText(text).includes(needle);
 }
 
 /**
@@ -151,11 +167,8 @@ function normalize(text: string): string {
  * without any separate reset path.
  */
 export function templateMatchesSearch(template: AssignableTemplate, query: string): boolean {
-  const needle = normalize(query);
-  if (needle.length === 0) return true;
   return (
-    normalize(template.displayName).includes(needle) ||
-    normalize(template.areaLabel).includes(needle)
+    textMatchesSearch(template.displayName, query) || textMatchesSearch(template.areaLabel, query)
   );
 }
 
