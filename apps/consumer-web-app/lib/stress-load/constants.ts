@@ -27,3 +27,14 @@ export const STRESS_LOAD_EXPERIMENT_DURATION_DAYS = 7;
 
 /** registry_entries.source_feature for the two rows a completion publishes. */
 export const STRESS_LOAD_SOURCE_FEATURE = 'stress_load_deep_dive_finding' as const;
+
+/**
+ * How long a deep-dive assignment is given when the coach names no day.
+ *
+ * The assign button sends it and says nothing about a deadline, so seven
+ * days is what the app decides on the coach's behalf: long enough to reach
+ * a member who opens the app twice a week, short enough that "overdue"
+ * still means something by the next session. It is read once, in
+ * app/actions/stressLoad.ts.
+ */
+export const STRESS_LOAD_DEFAULT_DUE_IN_DAYS = 7;

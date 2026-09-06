@@ -119,7 +119,12 @@ const FIXED_FILES = [
   "app/coach/clients/[id]/MovementProfilePanel.tsx",
   "app/coach/clients/[id]/RootMapPanel.tsx",
   "app/coach/clients/[id]/WbsaPanel.tsx",
-  "app/coach/clients/[id]/AssessmentAssignmentPanel.tsx",
+  // AssessmentAssignmentPanel.tsx was on this list and is deliberately no
+  // longer: since 2026-09-05 it formats no date at all. Its one line about
+  // an assignment (sent, seen, due or overdue) is written on the server
+  // against the MEMBER's timezone and handed down as a string, which is
+  // strictly stronger than formatting it here in UTC. There is nothing
+  // left in that file for this guard to check.
   "app/coach/clients/[id]/IntelligencePanel.tsx",
   "app/coach/clients/[id]/ReadinessPulsePanel.tsx",
   "app/coach/clients/[id]/ConversationPanel.tsx",

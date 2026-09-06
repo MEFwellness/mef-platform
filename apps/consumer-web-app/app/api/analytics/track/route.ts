@@ -30,6 +30,7 @@ import {
 } from '@/app/actions/analytics';
 import { trackPriorityShownAction } from '@/app/actions/priority';
 import { trackWeeklyReflectionDeliveredAction } from '@/app/actions/weeklyReflection';
+import { trackAssignmentDeliveredAction } from '@/app/actions/assessmentAssignments';
 import {
   markTrialArcCloseDoorAction,
   markTrialArcCtaTappedAction,
@@ -76,6 +77,16 @@ export async function POST(request: Request): Promise<Response> {
     // receipt this member's own screen was entitled to record.
     case 'weekly_reflection_delivered':
       await trackWeeklyReflectionDeliveredAction(str('presentation'));
+      break;
+    // A coach assignment's delivery receipt, the same kind of fact as the
+    // one above and read back by the same kind of screen. The browser
+    // names the assignment because it is what knows which one it drew, and
+    // the action then re-resolves the member from her own session and
+    // refuses any assignment that is not hers or is no longer open, so a
+    // hand-built request can only ever record a receipt this member's own
+    // screen was entitled to record.
+    case 'assignment_delivered':
+      await trackAssignmentDeliveredAction(str('assignmentId'), str('presentation'));
       break;
     // The trial arc's receipt and its CTA stamp, which are facts the arc's
     // own closer reads back rather than analytics rows. Both actions

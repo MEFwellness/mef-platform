@@ -94,10 +94,28 @@ export function StressLoadPanel({
         <p className="text-sm font-semibold uppercase tracking-wider">{STRESS_LOAD_LABEL}</p>
       </div>
 
-      {state.pendingAssignedAt ? (
-        <p className="mt-3 text-sm text-[#6B7A72]">
-          {`Assigned ${formatDisplayDate(state.pendingAssignedAt.slice(0, 10), { month: 'short', day: 'numeric', year: 'numeric' })}, not completed yet.`}
-        </p>
+      {state.pendingStatusLine ? (
+        <div className="mt-3">
+          {/*
+            One sentence, written on the server (getClientStressLoadPanelAction).
+            It says when it was sent, whether it has actually reached her
+            screen (member_assignment_deliveries, migration 210) and whether
+            it is late, from the same resolver every other coach assignment
+            on this page reads. The panel formats none of it, because its
+            day names belong to the member's timezone and this component
+            renders in the coach's.
+
+            Branching on the SENTENCE rather than on pendingAssignedAt: the
+            two are written together and a line is what this branch has to
+            print, so there is no fallback here that could ship untested.
+          */}
+          <p className="text-sm text-[#6B7A72]">{state.pendingStatusLine}</p>
+          {state.pendingProgress?.due.isOverdue && (
+            <span className="mt-2 inline-flex items-center rounded-full bg-[#FDECEC] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#9B2C2C]">
+              Overdue
+            </span>
+          )}
+        </div>
       ) : (
         <div className="mt-3">
           <p className="text-sm text-[#6B7A72]">

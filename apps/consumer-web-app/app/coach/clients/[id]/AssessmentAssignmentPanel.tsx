@@ -9,10 +9,19 @@ import {
 } from '@/app/actions/assessmentAssignments';
 import type { AssessmentAssignment } from '@/app/actions/assessmentAssignments';
 import type { AssessmentKey } from '@/lib/assessment-registry/types';
-import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
+/**
+ * WHAT KIND OF ROW THIS IS, in one word, and nothing more.
+ *
+ * It deliberately no longer carries the due date: that is part of one
+ * sentence now, written on the server against the member's own timezone
+ * and her own calendar day (getClientAssessmentAssignments), so a chip and
+ * a line here can never disagree about whether something is late. Printing
+ * the due date on its own was also how "Pending, due Sep 1" managed to
+ * look identical whether that date was tomorrow or a week ago.
+ */
 const STATUS_LABEL: Record<AssessmentAssignment['status'], string> = {
   pending: 'Pending',
   completed: 'Completed',
@@ -150,14 +159,29 @@ export function AssessmentAssignmentPanel({
           [...pendingAssignments, ...pastAssignments].map((assignment) => (
             <div key={assignment.id} className="flex items-center justify-between gap-3 py-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-[#1B3A2D]">
-                  {assignmentsByDefinitionId[assignment.assessmentDefinitionId] ?? 'Assessment'}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-medium text-[#1B3A2D]">
+                    {assignmentsByDefinitionId[assignment.assessmentDefinitionId] ?? 'Assessment'}
+                  </p>
+                  {assignment.progress.due.isOverdue && (
+                    <span className="shrink-0 rounded-full bg-[#FDECEC] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#9B2C2C]">
+                      Overdue
+                    </span>
+                  )}
+                </div>
                 <p className="mt-0.5 text-xs text-[#6B7A72]">
                   {STATUS_LABEL[assignment.status]}
-                  {assignment.dueAt ? ` · Due ${formatDisplayDate(assignment.dueAt, { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
                   {assignment.isRequired ? ' · Required' : ' · Optional'}
                 </p>
+                {/*
+                  One sentence, written on the server. It says when it was
+                  sent, whether it has actually reached her screen
+                  (member_assignment_deliveries, migration 210) and whether
+                  it is late. This component formats none of it: its day
+                  names belong to the member's timezone and this renders in
+                  the coach's.
+                */}
+                <p className="mt-0.5 text-xs text-[#6B7A72]">{assignment.statusLine}</p>
               </div>
               {assignment.status === 'pending' && (
                 <button

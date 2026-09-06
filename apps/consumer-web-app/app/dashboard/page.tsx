@@ -483,7 +483,9 @@ async function DayFrameRegion() {
       {/* ==================================================== */}
       {stressLoad?.status === 'pending' && (
         <div className="pt-3">
-          <StressLoadEntry />
+          {/* The card carries the assignment's delivery receipt
+              (migration 210), which is why it needs the assignment id. */}
+          <StressLoadEntry assignmentId={stressLoad.assignmentId} />
         </div>
       )}
 

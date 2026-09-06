@@ -13,6 +13,14 @@
  * who was never assigned it. Both decisions are made upstream, in
  * lib/stress-load/service.ts, so this component has one job and no rules of
  * its own.
+ *
+ * IT CARRIES THE ASSIGNMENT'S DELIVERY RECEIPT (migration 210), for the
+ * reason the Weekly Reflection's card carries its own: the pop-up gets one
+ * showing, and a receipt that only counted the pop-up would let a coach's
+ * screen say "they have not seen it" about a member who has looked at this
+ * card every morning. The deep-dive is an assessment_assignments row like
+ * every other coach assignment, so it uses the one receipt system rather
+ * than a second one of its own.
  */
 
 import { QuietLink } from '@/components/nav/QuietLink';
@@ -20,13 +28,15 @@ import type { Route } from 'next';
 import { ArrowRight } from 'lucide-react';
 import { STRESS_LOAD_COPY, STRESS_LOAD_LABEL } from '@/lib/stress-load/copy';
 import { STRESS_LOAD_ROUTE } from '@/lib/stress-load/constants';
+import { TrackAssignmentDelivered } from '@/components/assignments/TrackAssignmentDelivered';
 
-export function StressLoadEntry() {
+export function StressLoadEntry({ assignmentId }: { assignmentId: string }) {
   return (
     <section
       aria-label={STRESS_LOAD_LABEL}
       className="relative overflow-hidden rounded-[28px] bg-[#1B3A2D] p-6 text-[#F5F0E4] shadow-[0_18px_40px_-24px_rgba(14,31,23,0.55)]"
     >
+      <TrackAssignmentDelivered assignmentId={assignmentId} presentation="home_card" />
       <div
         className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#C4A050]/16 blur-3xl"
         aria-hidden="true"

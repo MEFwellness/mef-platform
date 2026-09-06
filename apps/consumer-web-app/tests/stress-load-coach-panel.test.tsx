@@ -47,8 +47,21 @@ const ANSWERS = fullAnswers({
 
 const INTERPRETATION = { ...buildStressLoadReading(ANSWERS), crossReference: null };
 
-function panel(state: Parameters<typeof StressLoadPanel>[0]['state']) {
-  return renderToStaticMarkup(<StressLoadPanel clientId="client-1" state={state} />);
+type PanelState = Parameters<typeof StressLoadPanel>[0]['state'];
+
+/**
+ * The four fields of the panel's state, with the three "nothing is open"
+ * defaults filled in, so a test only names what it is actually about.
+ */
+function panel(state: Partial<PanelState>) {
+  const full: PanelState = {
+    pendingAssignedAt: null,
+    pendingProgress: null,
+    pendingStatusLine: null,
+    sessions: [],
+    ...state,
+  };
+  return renderToStaticMarkup(<StressLoadPanel clientId="client-1" state={full} />);
 }
 
 const COMPLETED = {
@@ -63,6 +76,12 @@ const COMPLETED = {
   ],
 };
 
+const OPEN_PROGRESS = {
+  assignedAt: '2026-08-27T09:00:00.000Z',
+  delivery: { kind: 'delivered' as const, at: '2026-08-28T12:00:00.000Z' },
+  due: { dueDate: '2026-09-03', isOverdue: false, daysOverdue: null, daysUntilDue: 5 },
+};
+
 describe('the three states, said as three different things', () => {
   it('not assigned: the button, and a sentence saying nothing is offered yet', () => {
     const html = panel({ pendingAssignedAt: null, sessions: [] });
@@ -71,11 +90,30 @@ describe('the three states, said as three different things', () => {
     expect(html).not.toContain('not completed yet');
   });
 
-  it('assigned and waiting: the date it was sent, and no button', () => {
-    const html = panel({ pendingAssignedAt: '2026-08-27T09:00:00.000Z', sessions: [] });
-    expect(html).toContain('not completed yet');
-    expect(html).toContain('Aug 27, 2026');
+  it('assigned and waiting: the sentence the server wrote, and no button', () => {
+    const html = panel({
+      pendingAssignedAt: '2026-08-27T09:00:00.000Z',
+      pendingProgress: OPEN_PROGRESS,
+      pendingStatusLine: 'Sent Aug 27. Seen Aug 28, not completed. Due Sep 3.',
+    });
+    expect(html).toContain('Sent Aug 27. Seen Aug 28, not completed. Due Sep 3.');
     expect(html).not.toContain('Assign Stress &amp; Load Deep-Dive');
+    // Not late, so the badge stays away.
+    expect(html).not.toContain('Overdue');
+  });
+
+  it('assigned, late: the same sentence plus the badge', () => {
+    const html = panel({
+      pendingAssignedAt: '2026-08-20T09:00:00.000Z',
+      pendingProgress: {
+        ...OPEN_PROGRESS,
+        due: { dueDate: '2026-08-27', isOverdue: true, daysOverdue: 3, daysUntilDue: null },
+      },
+      pendingStatusLine:
+        'Sent Aug 20. Not seen yet, they have not opened a screen it appears on. Overdue since Aug 27 (3 days).',
+    });
+    expect(html).toContain('Overdue since Aug 27 (3 days).');
+    expect(html).toContain('>Overdue<');
   });
 
   it('finished, with no assignment open: the button comes back, and says a fresh sitting is a fresh sitting', () => {

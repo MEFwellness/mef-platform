@@ -45,6 +45,7 @@ import { TrackWeeklyReviewViewed } from '@/components/weekly-review/TrackWeeklyR
 import { HydrationFocusPopup } from '@/components/hydration/HydrationFocusPopup';
 import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
 import { TrackWeeklyReflectionDelivered } from '@/components/weekly-reflection/TrackWeeklyReflectionDelivered';
+import { TrackAssignmentDelivered } from '@/components/assignments/TrackAssignmentDelivered';
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
 import { ROOT_WELCOME_COPY } from '@/lib/public-entry/copy';
 import {
@@ -364,16 +365,25 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   if (isQuestionnaireAssigned) {
     const m = message as QuestionnaireAssignedMessage;
     return (
-      <RootInvitePopup
-        eyebrow="From your coach"
-        title="Something new from your coach"
-        body={`Your coach has assigned you the ${m.displayName} questionnaire. It helps Root understand you more deeply, and your answers go straight to your coach.`}
-        ctaLabel="Start now"
-        href={m.primaryHref}
-        isPending={isPending}
-        onMaybeLater={handleMaybeLater}
-        onIgnore={handleIgnore}
-      />
+      <>
+        {/* The assignment's delivery receipt (migration 210). Fired from a
+            mounted effect on the pop-up that genuinely reached her, never
+            from a render, and never for an assignment the chain did not
+            offer her. Home's persistent card fires the same tracker in the
+            same pass; the server's atomic claim makes that one receipt per
+            assignment. */}
+        <TrackAssignmentDelivered assignmentId={m.assignmentId} presentation="popup" />
+        <RootInvitePopup
+          eyebrow="From your coach"
+          title="Something new from your coach"
+          body={`Your coach has assigned you the ${m.displayName} questionnaire. It helps Root understand you more deeply, and your answers go straight to your coach.`}
+          ctaLabel="Start now"
+          href={m.primaryHref}
+          isPending={isPending}
+          onMaybeLater={handleMaybeLater}
+          onIgnore={handleIgnore}
+        />
+      </>
     );
   }
 
@@ -426,16 +436,23 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   if (isStressLoad) {
     const m = message as StressLoadMessage;
     return (
-      <RootInvitePopup
-        eyebrow={STRESS_LOAD_COPY.popupEyebrow}
-        title={m.title}
-        body={m.body}
-        ctaLabel={STRESS_LOAD_COPY.popupCta}
-        href={m.primaryHref}
-        isPending={isPending}
-        onMaybeLater={handleMaybeLater}
-        onIgnore={handleIgnore}
-      />
+      <>
+        {/* The same receipt as the questionnaire branch above, on the same
+            table: the deep-dive is an assessment_assignments row like any
+            other coach assignment, so it gets the one receipt system
+            rather than a second one of its own. */}
+        <TrackAssignmentDelivered assignmentId={m.assignmentId} presentation="popup" />
+        <RootInvitePopup
+          eyebrow={STRESS_LOAD_COPY.popupEyebrow}
+          title={m.title}
+          body={m.body}
+          ctaLabel={STRESS_LOAD_COPY.popupCta}
+          href={m.primaryHref}
+          isPending={isPending}
+          onMaybeLater={handleMaybeLater}
+          onIgnore={handleIgnore}
+        />
+      </>
     );
   }
 

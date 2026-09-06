@@ -28,6 +28,21 @@ export type BeaconEvent =
    */
   | { event: 'weekly_reflection_delivered'; presentation: string }
   /**
+   * Also not an analytics row, and the same fact for a coach ASSIGNMENT
+   * that the one above is for the Weekly Reflection. It writes a delivery
+   * receipt (member_assignment_deliveries, migration 210), which a coach's
+   * screen reads back. It travels here for the same two reasons: it is
+   * fired from a mounted effect on a surface that genuinely displayed the
+   * assignment, and it must not cost the member a re-render.
+   *
+   * This one names the assignment, because a member can have several open
+   * at once and the surface is what knows which one it drew. Everything
+   * else is re-decided on the server: the member from her own session, and
+   * whether that assignment is hers and still open before anything is
+   * written.
+   */
+  | { event: 'assignment_delivered'; assignmentId: string; presentation: string }
+  /**
    * Also not analytics rows. These two write the trial arc's delivery
    * receipt and its CTA stamp (member_trial_arc_deliveries, migration 204),
    * which the arc's own closer reads back. They travel here for the same

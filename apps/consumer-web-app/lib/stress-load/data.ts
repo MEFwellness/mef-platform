@@ -73,6 +73,13 @@ export type StressLoadAssignment = {
   id: string;
   createdAt: string;
   reason: string | null;
+  /**
+   * The stored due date, since 2026-09-05. Every new assignment gets one
+   * (app/actions/stressLoad.ts writes her local today plus seven days);
+   * null only on a row made before that, which is why nothing downstream
+   * may assume it is present.
+   */
+  dueAt: string | null;
 };
 
 /**
@@ -91,7 +98,7 @@ export async function fetchPendingStressLoadAssignment(
 ): Promise<{ ok: boolean; assignment: StressLoadAssignment | null }> {
   const { data, error } = await supabase
     .from('assessment_assignments')
-    .select('id, created_at, reason')
+    .select('id, created_at, reason, due_at')
     .eq('member_id', memberId)
     .eq('assessment_definition_id', STRESS_LOAD_DEFINITION_ID)
     .eq('status', 'pending')
@@ -104,8 +111,21 @@ export async function fetchPendingStressLoadAssignment(
     return { ok: false, assignment: null };
   }
   if (!data) return { ok: true, assignment: null };
-  const row = data as { id: string; created_at: string; reason: string | null };
-  return { ok: true, assignment: { id: row.id, createdAt: row.created_at, reason: row.reason } };
+  const row = data as {
+    id: string;
+    created_at: string;
+    reason: string | null;
+    due_at: string | null;
+  };
+  return {
+    ok: true,
+    assignment: {
+      id: row.id,
+      createdAt: row.created_at,
+      reason: row.reason,
+      dueAt: row.due_at,
+    },
+  };
 }
 
 /**

@@ -28,6 +28,14 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { isMemberVisibleToStaff } from '@/lib/staff/testAccounts';
 import { memberTimezone } from '@/lib/time/memberToday';
 import { todaysLocalDate } from '@/lib/time/localDate';
+import { listAssignmentDeliveries } from '@/lib/assignments/data';
+import {
+  assignmentStatusLine,
+  dueAtForLocalDate,
+  dueAtInDays,
+  resolveAssignmentProgress,
+  type AssignmentProgress,
+} from '@/lib/assignments/status';
 import { findActiveRegistryEntry, insertRegistryEntry } from '@/lib/registry/data';
 import { forgetMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
 import {
@@ -37,6 +45,7 @@ import {
 } from '@/lib/lifestyle-experiments';
 import { clearRootPopupDismissal, stressLoadPopupMessageKey } from '@/lib/root-popup-messages/data';
 import {
+  STRESS_LOAD_DEFAULT_DUE_IN_DAYS,
   STRESS_LOAD_DEFINITION_ID,
   STRESS_LOAD_EXPERIENCE_KEY,
 } from '@/lib/stress-load/constants';
@@ -273,6 +282,21 @@ export type CoachStressLoadSession = {
 export type CoachStressLoadPanelState = {
   /** Set while an assignment is open and unanswered. */
   pendingAssignedAt: string | null;
+  /**
+   * Whether that open assignment reached her, and whether it is late.
+   * Null when nothing is open. Resolved on the server against her own
+   * calendar day, by the same resolver every other coach assignment uses,
+   * so the deep-dive and a questionnaire can never disagree about what
+   * "overdue" means.
+   */
+  pendingProgress: AssignmentProgress | null;
+  /**
+   * That state as the one sentence the panel prints. Written on the
+   * server, exactly as the Weekly Reflection panel's status line is and
+   * for the identical reason: its day names have to be read in the
+   * MEMBER's timezone, and the panel is a client component.
+   */
+  pendingStatusLine: string | null;
   sessions: CoachStressLoadSession[];
 };
 
@@ -286,7 +310,12 @@ export type CoachStressLoadPanelState = {
 export async function getClientStressLoadPanelAction(
   clientId: string
 ): Promise<CoachStressLoadPanelState> {
-  const empty: CoachStressLoadPanelState = { pendingAssignedAt: null, sessions: [] };
+  const empty: CoachStressLoadPanelState = {
+    pendingAssignedAt: null,
+    pendingProgress: null,
+    pendingStatusLine: null,
+    sessions: [],
+  };
 
   const user = await getCachedUser();
   if (!user) return empty;
@@ -295,13 +324,36 @@ export async function getClientStressLoadPanelAction(
   if (!(await isCoachOrAdmin(supabase, user.id))) return empty;
   if (!(await isMemberVisibleToStaff(supabase, clientId, user.id))) return empty;
 
-  const [assignmentRead, sessionRead] = await Promise.all([
+  const [assignmentRead, sessionRead, timezone] = await Promise.all([
     fetchPendingStressLoadAssignment(supabase, clientId),
     listStressLoadSessions(supabase, clientId),
+    memberTimezone(supabase, clientId),
   ]);
 
+  // Only an OPEN assignment is resolved here. A finished sitting is
+  // reported by the sessions below, which is where a completion has always
+  // been read from, and re-deriving it here would be a second source for
+  // one fact.
+  const open = assignmentRead.assignment;
+  const deliveries = await listAssignmentDeliveries(supabase, clientId, open ? [open.id] : []);
+
+  const pendingProgress = open
+    ? resolveAssignmentProgress({
+        status: 'pending',
+        createdAt: open.createdAt,
+        dueAt: open.dueAt,
+        deliveredAt: deliveries.byAssignmentId.get(open.id)?.deliveredAt ?? null,
+        memberToday: todaysLocalDate(timezone),
+        readable: deliveries.ok,
+      })
+    : null;
+
   return {
-    pendingAssignedAt: assignmentRead.assignment?.createdAt ?? null,
+    pendingAssignedAt: open?.createdAt ?? null,
+    pendingProgress,
+    pendingStatusLine: pendingProgress
+      ? assignmentStatusLine(pendingProgress, { timeZone: timezone })
+      : null,
     sessions: sessionRead.records.map((record) => ({
       id: record.id,
       completedAt: record.completedAt,
@@ -322,14 +374,27 @@ export type AssignStressLoadResult = { ok: true } | { ok: false; error: string }
  * partial unique index (migration 144) is what makes a duplicate click a
  * quiet no-op rather than an error.
  *
+ * IT NOW CARRIES A DUE DATE (2026-09-05). The column has existed since
+ * migration 77 and this path never filled it in, so the deep-dive was the
+ * one assignment in the ledger that could never be late. Seven days from
+ * her own today, unless the caller names a day.
+ *
+ * THE OVERRIDE IS AN ARGUMENT, NOT A NEW SCREEN. `dueDate` is the same
+ * bare YYYY-MM-DD the coach panel's existing date input already produces
+ * for every other assessment, so a future Assign form for this one has
+ * somewhere to send it without changing anything here. Nothing in the UI
+ * passes it today, and no control was added to make it look as if
+ * something did.
+ *
  * Re-assigning after a completion is allowed and starts a fresh sitting.
  * That works with no special case here: a completed assignment has left
  * 'pending', so the index no longer covers it, and the new row is a new
- * invitation with its own pop-up key. Nothing about the prior completion is
- * touched.
+ * invitation with its own pop-up key, its own due date and its own
+ * delivery receipt. Nothing about the prior completion is touched.
  */
 export async function assignStressLoadDeepDiveAction(
-  clientId: string
+  clientId: string,
+  options?: { dueDate?: string }
 ): Promise<AssignStressLoadResult> {
   const user = await getCachedUser();
   if (!user) return { ok: false, error: 'Not signed in.' };
@@ -345,6 +410,17 @@ export async function assignStressLoadDeepDiveAction(
   // assignAssessmentAction takes.
   if (existing.assignment) return { ok: true };
 
+  // Resolved from HER timezone, not the coach's browser and not the
+  // server's zone. A named day is taken as the bare calendar day it is,
+  // exactly as the date input's value is taken for every other assessment.
+  const named = options?.dueDate?.trim() ?? '';
+  const dueAt = /^\d{4}-\d{2}-\d{2}$/.test(named)
+    ? dueAtForLocalDate(named)
+    : dueAtInDays(
+        todaysLocalDate(await memberTimezone(supabase, clientId)),
+        STRESS_LOAD_DEFAULT_DUE_IN_DAYS
+      );
+
   forgetMemberAssessmentFacts(clientId);
   const { error } = await supabase.from('assessment_assignments').insert({
     member_id: clientId,
@@ -353,6 +429,7 @@ export async function assignStressLoadDeepDiveAction(
     is_required: true,
     reason: null,
     stage: 'standard',
+    due_at: dueAt,
   });
 
   // A race with another concurrent click hits the partial unique index as a

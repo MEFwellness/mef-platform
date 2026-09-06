@@ -1,3 +1,84 @@
+## Assignment delivery receipts and a due date that is read (2026-09-05)
+
+Foundation only. No coach summary was built, no "This Week" band, no
+attention flags moved and no new abstraction over "expected this week".
+This closes the two gaps under the coach-side review, so a later summary
+can tell what was assigned, what actually reached her, what is still open
+and what is late, without guessing.
+
+### The gap
+
+An open row in `assessment_assignments` (migration 77) says a coach
+decided to send something. It said nothing about whether it ever reached
+her, and the `due_at` column it has carried since that same migration was
+never read by anything. So three genuinely different situations were one
+word on the coach screen, Pending: sent this morning, sent nine days ago
+and never seen, and sent nine days ago and a week late.
+
+### The receipt, which is the Weekly Reflection's pattern reused
+
+Migration 210 adds `member_assignment_deliveries`, unique on
+`assignment_id`. It is migration 191's design applied to the assignment
+ledger, deliberately not a second philosophy:
+
+- a separate table, not a column on `assessment_assignments`, because that
+  table is coach written (its update policy covers the whole row) and a
+  receipt may never be written by staff, and because nothing that asks "is
+  this assignment open" should change its answer because a receipt exists;
+- written once, insert-if-absent, never an upsert, so `delivered_at` keeps
+  meaning the FIRST time it reached her;
+- written only by her own session, through the same beacon the reflection's
+  receipt travels on (`/api/analytics/track`), fired from a mounted effect
+  on a surface that genuinely drew the assignment, never from a render;
+- the same six-state vocabulary, in `lib/assignments/status.ts`:
+  completed, cancelled, delivered, not_delivered, no_record, unreadable.
+  `no_record` exists for the same reason the reflection's does: every
+  assignment made before this shipped could never have written a receipt,
+  so an absent one there proves nothing and is never reported as "they
+  have not opened the app".
+
+Three surfaces mount the tracker, because all three are the assignment
+really reaching her: the Root pop-up's `questionnaire_assigned` branch, its
+`stress_load_assigned` branch, the assigned card on Home, and the Stress &
+Load card on Home. Two of them can mount in one pass; the unique constraint
+is what makes that one receipt.
+
+### Overdue, derived and never stored
+
+`resolveAssignmentDueState` takes the assignment's own status, its stored
+`due_at` and the member's own local calendar day, resolved on the server
+from her profile timezone. No column, no job, no sweep. A completed one is
+never late, a cancelled one is never late, one with no due date cannot be
+late, and due TODAY is not late: she has the whole of the day her coach
+named. `due_at` is read as the calendar day it names, in UTC, because that
+is the shape everything writes into it (a `<input type="date">` posts a
+bare `YYYY-MM-DD` and Postgres stores that day's midnight UTC).
+
+### The deep-dive gets a deadline
+
+`assignStressLoadDeepDiveAction` now writes `due_at`: seven days from HER
+calendar day, in that same shape. An optional `dueDate` argument accepts
+the identical bare `YYYY-MM-DD` the coach panel's existing date input
+produces for every other assessment, so a future form has somewhere to send
+it. No control was added to the UI.
+
+### Deliberately untouched
+
+Migration 144's auto-close trigger, which is still the only thing that ever
+completes an assignment. The Reset Plan's rule that a missing daily log is
+not a miss. Weekly Reflection behaviour, its receipt and its table. Program
+and workout completion. Every Monday and Friday week definition. And no
+per-day Daily Reset delivery record was added: "checked in on 4 of 7 days"
+stays the honest sentence.
+
+### Tests
+
+`tests/assignment-delivery-receipt.test.ts` (48) and
+`tests/stress-load-due-date.test.ts` (12). The load-bearing one is the
+matrix: completed, cancelled, unseen, open and overdue asserted against
+each other rather than one at a time, because the failure worth catching is
+two of them reading the same. Full suite 507 files, 8891 tests, all passing.
+
 ## Post-launch fix 3: the closing screens hold (2026-09-05)
 
 Finishing a Core Values Snapshot did not leave the member on its closing
