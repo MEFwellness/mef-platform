@@ -1,3 +1,120 @@
+## Owning Your Value, the first Happiness deep-dive (2026-09-06)
+
+Nine written questions a coach can send one member, delivered by exactly
+the machinery the Stress & Load Deep-Dive already uses, ending on a screen
+that shows her own sentence back to her and says nothing about her.
+Migration 211, live on production.
+
+### It is a delivery, not an engine
+
+Nothing here is a second assignment system, a second pop-up mechanism or a
+second receipt. It reuses, unchanged: `assessment_assignments` (migration
+77) with its coach-write RLS and its one-pending-per-member index, the
+attempt-ledger trigger that closes an assignment out when she finishes
+(migration 144), `member_assignment_deliveries` for the "did it reach her"
+receipt (migration 210), the Root pop-up chain and its recurring dismissal
+lifetime, `lifestyle_experiments` with its two-slot cap and its read-time
+seven day expiry, and `cvs_experiment_daily_logs` (migration 134) for the
+evening tap.
+
+Like the deep-dive beside it, it deliberately has NO entry in
+`lib/assessment-registry/registry.ts`. That registry's entries build the
+Questionnaires catalog and the plan map, and this is neither: it is an
+experience delivered by assignment.
+
+### The assignment is the whole gate
+
+No tier lock, no visibility key, no grant column, no second flag.
+`lib/owning-your-value/access.ts` is the one rule, `service.ts` turns it
+into the shape the surfaces render, and `view.ts` memoizes it per request,
+so the route, Home's card and the pop-up chain are handed one identical
+object rather than each reaching its own conclusion. Both reads fail SHUT:
+a broken read means "not offered", never "offered".
+
+Migration 211's insert policy says the same thing in the database. A
+member may only write a sitting that answers a pending assignment of her
+own for the exact definition her `experience_key` names.
+
+### Nothing is scored, and that absence is enforced
+
+There is no pattern column, no band, no severity, no registry_entries
+producer and no Root Map dimension, because this experience draws no
+conclusions. The closing screen shows her question nine sentence, verbatim,
+and then reports what happened: saved, readable by her coach, and still
+here when she comes back. `tests/owning-your-value-copy.test.ts` asserts
+that no file in the feature contains scoring vocabulary and that no line of
+copy makes a claim about her.
+
+### The sentence has its own column
+
+`held_sentence` on `member_happiness_deep_dive_sessions`, not a key dug out
+of the answers blob. "Root will hold onto it" is therefore a fact about the
+database that a later feature can read, rather than a phrase on a screen.
+
+### Save and resume, without a render writing anything
+
+This is the first of these experiences with a draft row, which is exactly
+where a render-time write creeps in. It does not: the row is created by the
+first Continue she taps and updated by every Continue after it, through a
+server action. A save that FAILS does not advance her, because advancing
+past a failed save is how a member loses forty minutes of writing. The
+draft save revalidates nothing at all, since she is standing on the route.
+
+`tests/owning-your-value-gate.test.ts` proves the read path calls no
+insert, update or upsert, and counts the writes against the real service.
+
+### The closing holds, and that shape is deliberate
+
+The route renders the SAME component whether the sitting is pending or
+completed, and the branch between them lives inside that mounted client
+component. So the re-render a Server Action carries reconciles the tree
+instead of navigating her off it. There is no redirect keyed on completion
+anywhere in the route. That is the bug found live on the Core Values
+Snapshot, the Life Signal Check and the Readiness Pulse closings, and it is
+not inherited here. Finishing revalidates `/dashboard` only.
+
+Verified live: her sentence was still on screen nine seconds and several
+server round trips after the completion landed, and the URL never moved.
+
+### One table for the whole family
+
+`member_happiness_deep_dive_sessions` carries an `experience_key` rather
+than being named after the first template to use it, because the brief
+names this as the first of a set. A second Happiness template adds its
+catalog row, one clause to the insert policy and one line to the trigger's
+pairing, and nothing else. `follow_up_source_experience_key` is on the
+table now and is null for this template, so a later one that genuinely
+follows another has somewhere honest to record it.
+
+Write-once is enforced in the database: the update policy's USING clause
+reads the row as it stands, so the update that stamps `completed_at` is the
+last one it will ever allow.
+
+### One map for what an assignment is called
+
+`lib/assignments/experienceNames.ts` is new, and it is a lift rather than
+an invention. `app/actions/coachWeek.ts` already built this map inline to
+stop the This Week band printing "Assessment" beside the deep-dive. The
+client detail panel had no such map and so printed "Assessment" beside both
+coach-assigned-only experiences. Both now read the one map, so the two
+screens cannot name one row two different ways.
+
+### Watched on the live site
+
+`scripts/verify-owning-your-value-live.mjs`, against app.mefwellness.com,
+driving the real coach screen as the real coach and the real member screens
+as the seeded fixture. The coach pressed the real Assign button; the member
+got the knock, the card, one receipt for two surfaces, nine typed answers,
+a full page CLOSE and reopen mid-sitting that put her back on question five
+with her writing intact, a closing that held, the experiment started and
+logged on Home, and the coach reading all nine answers back with her
+sentence on top. Every write undone in a `finally`.
+
+The coach panel carries `aria-label="Owning Your Value"` because the first
+run's copy-based locator resolved to the Assign an Assessment panel once
+that one listed the same experience. A per-member control is addressed by
+what it is, or not at all.
+
 ## The coach reads one week, and one list of flags (2026-09-05)
 
 Two things, both on the coach's client first screen. A This Week band at

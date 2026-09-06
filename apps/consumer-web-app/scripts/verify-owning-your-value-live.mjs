@@ -287,7 +287,7 @@ async function main() {
     check(
       'member: question one is open writing, on its own screen, under The Doing',
       (await page.locator('textarea').count()) === 1 &&
-        (await page.innerText('body')).includes('The Doing') &&
+        /The Doing/i.test(await page.innerText('body')) &&
         /Question 1 of 9/i.test(await page.innerText('body'))
     );
     check(
@@ -356,8 +356,13 @@ async function main() {
     const q9 = await page.innerText('body');
     check(
       'member: question nine is the sentence question, under The Claim',
+      // The screen title is printed in the eyebrow on every question of
+      // that screen, and the eyebrow is uppercase by CSS, so this matches
+      // case insensitively like the counter above it. The larger, mixed
+      // case heading only appears on the first question of each screen,
+      // which is question seven for The Claim.
       /Question 9 of 9/i.test(q9) &&
-        q9.includes('The Claim') &&
+        /The Claim/i.test(q9) &&
         q9.includes('Root will hold onto it')
     );
     if (await emDashOn(page)) dashes++;

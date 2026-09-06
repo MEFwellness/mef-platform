@@ -238,9 +238,14 @@ export function OwningYourValueExperience({
     );
   }
 
+  // The screen she is on is named ONCE, in the eyebrow, on every question
+  // of that screen rather than only on its first. Printing it a second time
+  // as a heading put "THE DOING" directly above "The Doing" on questions
+  // one, four and seven, which reads as a mistake rather than as emphasis.
+  // The Stress & Load Deep-Dive can carry both because its heading is a
+  // different sentence from its section name; here the brief gives three
+  // titles and nothing else, so there is one slot for them.
   const section = question ? sectionFor(question.screen) : null;
-  const showsScreenTitle =
-    question !== null && (step === 0 || OYV_QUESTIONS[step - 1]?.screen !== question.screen);
 
   return (
     <div className={PANEL}>
@@ -287,13 +292,7 @@ export function OwningYourValueExperience({
             {`Question ${step + 1} of ${OYV_QUESTIONS.length}`}
           </p>
 
-          {showsScreenTitle && section && (
-            <p className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-[22px] leading-snug text-[#C4A050]">
-              {section.title}
-            </p>
-          )}
-
-          <h1 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-[26px] leading-snug text-[#F5F0E4]">
+          <h1 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-[28px] leading-snug text-[#F5F0E4]">
             {question.prompt}
           </h1>
 
