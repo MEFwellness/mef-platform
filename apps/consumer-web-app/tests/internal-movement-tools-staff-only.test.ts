@@ -275,16 +275,33 @@ describe('the two tool pages themselves', () => {
 });
 
 describe('nothing was lost from the staff platform', () => {
+  /*
+   * These two assert the DESTINATION, not one spelling of it.
+   *
+   * They used to match the literal `href={'/exercises' as Route}`, which
+   * is how a link is written when it is written inline. The coach side
+   * experience pass (2026-09-06) moved both dashboards' navigation into a
+   * data array rendered by components/staff/StaffToolGrid.tsx, so the
+   * href is now `href: '/exercises'` and the old match failed on two
+   * pages that had lost nothing at all.
+   *
+   * What this describe block is for is "nothing was lost from the staff
+   * platform". A guard on the exact JSX was measuring how the link is
+   * typed rather than whether it exists, so it fired on a rearrangement
+   * and would have stayed silent if the tile had been pointed somewhere
+   * else. Matching the path still fails the moment either destination is
+   * dropped from either dashboard, which is the thing worth protecting.
+   */
   it('the coach dashboard reaches both tools', () => {
     const coach = read('app/coach/page.tsx');
-    expect(coach).toContain("href={'/exercises' as Route}");
-    expect(coach).toContain("href={'/movement/profile' as Route}");
+    expect(coach).toContain("'/exercises'");
+    expect(coach).toContain("'/movement/profile'");
   });
 
   it('the admin dashboard reaches both tools, for an administrator who is not also a coach', () => {
     const admin = read('app/admin/page.tsx');
-    expect(admin).toContain("href={'/exercises' as Route}");
-    expect(admin).toContain("href={'/movement/profile' as Route}");
+    expect(admin).toContain("'/exercises'");
+    expect(admin).toContain("'/movement/profile'");
   });
 
   it("the coach's per-client Movement Profile panel is untouched", () => {

@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { Beef, ChevronLeft } from 'lucide-react';
+import { Beef } from 'lucide-react';
+import { StaffPageHeader } from '@/components/staff/StaffPageHeader';
 import { listPendingProteinTargetsAction } from '@/app/actions/protein-review';
 import { ACTIVITY_LEVELS } from '@/lib/protein/calculation';
 import { formatDisplayDate } from '@/lib/time/displayDate';
@@ -23,20 +24,14 @@ export default async function ProteinReviewQueuePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <Link
-          href="/coach"
-          className="inline-flex items-center gap-1 text-sm font-medium text-[#6B7A72] hover:text-[#1B3A2D]"
-        >
-          <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          Back to dashboard
-        </Link>
-
-        <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          Protein Targets
-        </h1>
-        <p className="mt-2 text-[15px] text-[#6B7A72]">
-          Computed targets for your 24-week program members, waiting on your review.
-        </p>
+        <StaffPageHeader
+          backHref={'/coach' as Route}
+          backLabel="Coach Dashboard"
+          eyebrow="Protein Targets"
+          eyebrowIcon={Beef}
+          title="Protein Targets"
+          subtitle="Computed targets for your 24-week program members, waiting on your review."
+        />
 
         <section className={`${CARD} mt-6 p-6`}>
           <div className="flex items-center gap-2 text-[#854D0E]">

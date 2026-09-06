@@ -27,3 +27,9 @@ apps/consumer-web-app/scripts/.sweep/
 apps/consumer-web-app/scripts/.verify/
 # Same, wherever a run's SHOTS_DIR happens to land it.
 **/.verify/
+
+# Staff surface walk screenshots (scripts/walk-staff-surfaces.mjs). These
+# are worse than the member ones, not better: a coach caseload and the
+# admin user list are pictures of EVERY real member's name at once.
+apps/consumer-web-app/scripts/.walk/
+**/.walk/

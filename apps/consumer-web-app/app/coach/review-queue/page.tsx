@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldAlert, ChevronLeft } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
+import type { Route } from 'next';
+import { StaffPageHeader } from '@/components/staff/StaffPageHeader';
 import { listCoachReviewQueue } from '@/app/actions/safety';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { formatDisplayDate } from '@/lib/time/displayDate';
@@ -50,20 +52,14 @@ export default async function ReviewQueuePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <Link
-          href="/coach"
-          className="inline-flex items-center gap-1 text-sm font-medium text-[#6B7A72] hover:text-[#1B3A2D]"
-        >
-          <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          Back to dashboard
-        </Link>
-
-        <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          Review Queue
-        </h1>
-        <p className="mt-2 text-[15px] text-[#6B7A72]">
-          Cases flagged by the coaching safety layer for your review.
-        </p>
+        <StaffPageHeader
+          backHref={'/coach' as Route}
+          backLabel="Coach Dashboard"
+          eyebrow="Safety Review Queue"
+          eyebrowIcon={ShieldAlert}
+          title="Review Queue"
+          subtitle="Cases flagged by the coaching safety layer for your review."
+        />
 
         <section className={`${CARD} mt-6 p-6`}>
           <div className={`flex items-center gap-2 ${STATUS_STYLES.poor.text}`}>

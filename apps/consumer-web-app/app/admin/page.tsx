@@ -1,10 +1,87 @@
+/**
+ * The administrator's front door.
+ *
+ * WHAT THE COACH SIDE EXPERIENCE PASS FOUND HERE, measured on production
+ * on a 390px phone. The page was 3,492px, and about 2,400px of that was
+ * nine full-width cards stacked one under another, each carrying a three
+ * line paragraph explaining a destination its own title already named.
+ * The user list, which is the only thing on this screen an administrator
+ * touches more than once a month, started below all nine.
+ *
+ * The nine are now two groups, in the order they are actually used.
+ *   FOUR PLACES with a one line description each, because those four do
+ *   need a sentence: "Access" does not say by itself that it is where
+ *   people who pay outside the app are handled. The paragraphs are
+ *   trimmed to their first useful clause, not deleted.
+ *   FIVE TOOLS as tiles, because "Exercise Library" and "Push
+ *   notifications: send a test to a real phone" explain themselves, and
+ *   three of the five are testing tools that are opened rarely.
+ *
+ * NOTHING WAS REMOVED. All nine destinations are here, in the same order,
+ * to the same href, and the user management panel underneath is untouched
+ * apart from where it sits.
+ *
+ * THE TEST ACCOUNT TOGGLE IS UNCHANGED, deliberately: same `includeTest`
+ * query string, same default, same pair of counts underneath, still shared
+ * with /admin/access so the two lists cannot disagree about what a hidden
+ * account is.
+ */
+
 import Link from 'next/link';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
+import { Beaker, Dumbbell, Compass, BellRing, RotateCcw } from 'lucide-react';
 import { listUsers, listActiveCoachUserIds, listAssignmentHistory } from '@/app/actions/admin';
 import { AdminPanel } from './AdminPanel';
+import { StaffPageHeader } from '@/components/staff/StaffPageHeader';
+import { StaffToolGrid, type StaffTool } from '@/components/staff/StaffToolGrid';
 import { ChangePasswordLink } from '@/components/auth/ChangePasswordLink';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+
+/** The four places an administrator goes to do a job, each with the one clause its title does not already say. */
+const DESTINATIONS: { section: string; title: string; blurb: string; href: string }[] = [
+  {
+    section: 'Access',
+    title: 'Member access: tiers, trials, and full access grants',
+    blurb:
+      'Who can open the app and why. This is where members who pay outside the app are handled.',
+    href: '/admin/access',
+  },
+  {
+    section: 'Analytics',
+    title: 'Product analytics: overview, funnel, features, drop-off, members',
+    blurb:
+      "Active members, sessions, where people stop, and each member's own engagement state. Test accounts are excluded unless you turn them on.",
+    href: '/admin/analytics',
+  },
+  {
+    section: 'Programs',
+    title: 'Blueprint Library: named programs and their versions',
+    blurb:
+      'Programs MEF authors once and gives to many members. Approve a draft so coaches can assign it, archive one, or duplicate it.',
+    href: '/admin/blueprints',
+  },
+  {
+    section: 'Acquisition',
+    title: 'Where Your Energy Goes: the funnel',
+    blurb:
+      'Who reached the public entry experience, who finished it, and who created an account, broken down by the source that sent them.',
+    href: '/admin/acquisition',
+  },
+];
+
+/** The five that explain themselves. Three are testing tools, two are the internal movement tools. */
+const TOOLS: StaffTool[] = [
+  { label: 'Core Values Snapshot: reset and time-shift', href: '/admin/cvs-test-tools', Icon: Beaker },
+  {
+    label: 'Personal Reset Plan: grant, reset and time-shift',
+    href: '/admin/reset-plan-test-tools',
+    Icon: RotateCcw,
+  },
+  { label: 'Push notifications: send a test', href: '/admin/push-test-tools', Icon: BellRing },
+  { label: 'Exercise Library', href: '/exercises', Icon: Dumbbell },
+  { label: 'Movement Profile', href: '/movement/profile', Icon: Compass },
+];
 
 export default async function AdminPage({
   searchParams,
@@ -28,137 +105,37 @@ export default async function AdminPage({
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          Admin
-        </h1>
-        <p className="mt-2 text-[15px] text-[#6B7A72]">
-          User management, coach roles, and client assignments.
-        </p>
+        <StaffPageHeader
+          title="Admin"
+          subtitle="User management, coach roles, and client assignments."
+        />
 
-        <ChangePasswordLink className="mt-4" />
+        <section className="mt-6 space-y-3">
+          {DESTINATIONS.map((destination) => (
+            <Link
+              key={destination.href}
+              href={destination.href as Route}
+              className="mef-focus-ring block rounded-[28px] bg-white p-5 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                {destination.section}
+              </p>
+              <p className="mt-1 text-[15px] font-medium leading-snug text-[#1B3A2D]">
+                {destination.title}
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-[#6B7A72]">{destination.blurb}</p>
+            </Link>
+          ))}
+        </section>
 
-        <Link
-          href={'/admin/access' as Route}
-          className="mef-focus-ring mt-6 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Access</p>
-          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
-            Member access: tiers, trials, and full access grants
+        <section className="mt-8">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+            Testing and internal tools
           </p>
-          <p className="mt-1 text-sm text-[#6B7A72]">
-            Who can open the app and why. Assign a tier, grant or revoke full access, extend a
-            trial, or end someone&apos;s access. This is where members who pay outside the app are
-            handled.
-          </p>
-        </Link>
-
-        <Link
-          href={'/admin/analytics' as Route}
-          className="mef-focus-ring mt-6 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Analytics</p>
-          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
-            Product analytics: overview, funnel, features, drop-off, members
-          </p>
-          <p className="mt-1 text-sm text-[#6B7A72]">
-            Active members, sessions, where people stop, which features nobody has opened, and each
-            member&apos;s own engagement state. Test accounts are excluded unless you turn them on.
-          </p>
-        </Link>
-
-        <Link
-          href={'/admin/blueprints' as Route}
-          className="mef-focus-ring mt-6 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Programs</p>
-          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
-            Blueprint Library: named programs and their versions
-          </p>
-          <p className="mt-1 text-sm text-[#6B7A72]">
-            Programs MEF authors once and gives to many members. Read every session and slot,
-            approve a draft so coaches can assign it, archive one, or duplicate it into a new
-            program.
-          </p>
-        </Link>
-
-        <Link
-          href={'/admin/acquisition' as Route}
-          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Acquisition</p>
-          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
-            Where Your Energy Goes: the funnel
-          </p>
-          <p className="mt-1 text-sm text-[#6B7A72]">
-            Who reached the public entry experience, who finished it, who left an email and who
-            created an account, broken down by the individual source that sent them. The links to
-            hand out are on the same screen.
-          </p>
-        </Link>
-
-        <Link
-          href={'/admin/cvs-test-tools' as Route}
-          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Testing Tools</p>
-          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">Core Values Snapshot: reset &amp; time-shift</p>
-          <p className="mt-1 text-sm text-[#6B7A72]">
-            Retake a test member&apos;s completion, or fire the day-3/day-7 Weekly Experiment follow-ups early.
-          </p>
-        </Link>
-
-        <Link
-          href={'/admin/reset-plan-test-tools' as Route}
-          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Testing Tools</p>
-          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">Personal Reset Plan: grant, reset &amp; time-shift</p>
-          <p className="mt-1 text-sm text-[#6B7A72]">
-            Grant a test member access, reset their plan, or fire the day-3/day-7 follow-ups early.
-          </p>
-        </Link>
-
-        {/* The two internal movement tools. Both used to sit on the member
-            Movement screen and are now coach/admin only (see
-            lib/auth/staffRouting.ts's STAFF_ONLY_PREFIXES), so an
-            administrator who is not also a coach still has a way in. */}
-        <Link
-          href={'/admin/push-test-tools' as Route}
-          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Testing Tools</p>
-          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
-            Push notifications: send a test to a real phone
-          </p>
-          <p className="mt-1 text-sm text-[#6B7A72]">
-            Pick a member who has turned reminders on and send one notification to her phone right
-            now. Nothing sends on a schedule yet.
-          </p>
-        </Link>
-
-        <Link
-          href={'/exercises' as Route}
-          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Movement</p>
-          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">Exercise Library</p>
-          <p className="mt-1 text-sm text-[#6B7A72]">
-            Search and browse every exercise in the catalog: videos, instructions, and muscles
-            worked. Internal tool, not visible to members.
-          </p>
-        </Link>
-
-        <Link
-          href={'/movement/profile' as Route}
-          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Movement</p>
-          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">Movement Profile</p>
-          <p className="mt-1 text-sm text-[#6B7A72]">
-            The movement record recommendations are built from. A specific client&apos;s profile is
-            edited from that client&apos;s own page on the coach dashboard.
-          </p>
-        </Link>
+          <div className="mt-3">
+            <StaffToolGrid tools={TOOLS} label="Testing and internal tools" />
+          </div>
+        </section>
 
         <AdminPanel
           users={userList.users}
@@ -168,8 +145,11 @@ export default async function AdminPage({
           hiddenAssignmentCount={assignmentList.hiddenTestCount}
           includeTest={includeTest}
         />
-      </main>
 
+        {/* An account errand, not an administrative one. It was third from
+            the top of this page and is now at the foot of it. */}
+        <ChangePasswordLink className="mt-8" />
+      </main>
     </div>
   );
 }

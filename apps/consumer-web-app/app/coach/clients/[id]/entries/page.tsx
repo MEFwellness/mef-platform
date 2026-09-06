@@ -51,6 +51,8 @@ import {
 } from '@/lib/coach-member-entries/present';
 import type { EnteredAnswer, SectionResult } from '@/lib/coach-member-entries/types';
 import { formatDisplayDate } from '@/lib/time/displayDate';
+import { StaffCollapsible } from '@/components/staff/StaffCollapsible';
+import { CheckinDayFold } from './CheckinDayFold';
 import { displayName } from '@/lib/naming/displayNames';
 
 /** One date format for the whole screen, so a check-in day and a completion date never read differently. */
@@ -63,27 +65,60 @@ const ENTRY_DATE: Intl.DateTimeFormatOptions = {
 
 export const metadata: Metadata = { title: 'What she entered' };
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 /** The day-range choices. Kept small: this is a reading screen, not an analysis one. */
 const RANGE_CHOICES = [30, 90, 180] as const;
 
+/**
+ * One section of this page, folded.
+ *
+ * The four sections used to be laid out at once, which is what made this
+ * screen twenty one phone screens long. A folded header still answers "is
+ * there anything in here" through its digest, and its description, which
+ * is the sentence explaining what the section is, moves inside the fold
+ * where it is read once rather than scrolled past on every visit.
+ *
+ * `defaultOpen` is true for exactly one section, her check-ins, because
+ * that is the one a coach opens this page to read. The days inside it fold
+ * individually (CheckinDayFold), so open is still one screen rather than
+ * five hundred rows.
+ */
 function Section({
   title,
   description,
+  digest,
+  defaultOpen = false,
   children,
 }: {
   title: string;
   description: string;
+  digest: string;
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section className={`${CARD} p-6`}>
-      <p className="text-sm font-semibold uppercase tracking-wider text-[#3E5C46]">{title}</p>
-      <p className="mt-1 text-xs leading-relaxed text-[#6B7A72]">{description}</p>
+    <StaffCollapsible title={title} digest={digest} defaultOpen={defaultOpen}>
+      <p className="text-xs leading-relaxed text-[#6B7A72]">{description}</p>
       <div className="mt-4">{children}</div>
-    </section>
+    </StaffCollapsible>
   );
+}
+
+/**
+ * What a folded section header says about what it holds. It distinguishes
+ * the same three states SectionBody does, because a section that could not
+ * be read and a section with nothing in it are different facts, and a
+ * header that called both of them "nothing" would be the one way folding
+ * this page could mislead a coach.
+ */
+function sectionDigest<T>(
+  result: SectionResult<T>,
+  one: string,
+  many: string
+): string {
+  if (!result.available) return 'Could not be read.';
+  const count = result.items.length;
+  if (count === 0) return `No ${many} recorded in this window.`;
+  return `${count} ${count === 1 ? one : many}.`;
 }
 
 function Empty({ title, body }: { title: string; body: string }) {
@@ -249,6 +284,7 @@ export default async function CoachMemberEntriesPage({
           <Section
             title="What she said she wanted"
             description="Her own goal selections, newest first. This list is insert-only, so a change is a new entry and what she used to say stays visible."
+            digest={sectionDigest(entries.goals, 'goal entry', 'goal entries')}
           >
             <SectionBody
               result={entries.goals}
@@ -299,7 +335,9 @@ export default async function CoachMemberEntriesPage({
 
           <Section
             title="Her check-ins"
-            description={`Every Daily Reset she completed in this window, newest first, with every question she was asked and exactly what she answered.`}
+            description="Every Daily Reset she completed in this window, newest first, with every question she was asked and exactly what she answered. Tap a day to read it."
+            digest={sectionDigest(entries.checkins, 'day', 'days')}
+            defaultOpen
           >
             <SectionBody
               result={entries.checkins}
@@ -308,29 +346,25 @@ export default async function CoachMemberEntriesPage({
               render={(checkins) => (
                 <ol className="space-y-4">
                   {checkins.map((checkin) => (
-                    <li
-                      key={checkin.localDate}
-                      data-checkin-date={checkin.localDate}
-                      className="rounded-2xl bg-[#1B3A2D]/[0.035] px-4 py-3.5"
-                    >
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                        <span className="text-[14px] font-medium text-[#1B3A2D]">
-                          {formatDisplayDate(checkin.localDate, ENTRY_DATE)}
-                        </span>
-                        {checkin.editedAt ? (
-                          <span className="text-[11.5px] text-[#6B7A72]">
-                            She edited this day afterwards
-                          </span>
-                        ) : null}
-                      </div>
-
+                    <li key={checkin.localDate} data-checkin-date={checkin.localDate}>
+                      <CheckinDayFold
+                        dateLabel={formatDisplayDate(checkin.localDate, ENTRY_DATE)}
+                        answerCount={
+                          checkin.answers.length +
+                          checkin.readiness.length +
+                          checkin.probeAnswers.length
+                        }
+                        editedAfterwards={Boolean(checkin.editedAt)}
+                        flaggedConcern={checkin.flaggedNewOrWorseningConcern}
+                        hasNote={Boolean(checkin.note)}
+                      >
                       {checkin.flaggedNewOrWorseningConcern ? (
-                        <p className="mt-2 rounded-xl border border-[#C4A050]/45 bg-[#C4A050]/12 px-3 py-2 text-[12.5px] text-[#1B3A2D]">
+                        <p className="mb-2 rounded-xl border border-[#C4A050]/45 bg-[#C4A050]/12 px-3 py-2 text-[12.5px] text-[#1B3A2D]">
                           She told the check-in something was new or getting worse that day.
                         </p>
                       ) : null}
 
-                      <div className="mt-2 divide-y divide-[#1B3A2D]/8">
+                      <div className="divide-y divide-[#1B3A2D]/8">
                         {checkin.answers.map((answer) => (
                           <AnswerRow key={answer.key} answer={answer} />
                         ))}
@@ -372,6 +406,7 @@ export default async function CoachMemberEntriesPage({
                           </p>
                         </>
                       ) : null}
+                      </CheckinDayFold>
                     </li>
                   ))}
                 </ol>
@@ -382,6 +417,7 @@ export default async function CoachMemberEntriesPage({
           <Section
             title="What she has completed"
             description="Questionnaires and guided experiences she finished, newest first. Her answers open in the reader that already renders them in full, rather than being shown a second way here."
+            digest={sectionDigest(entries.submissions, 'completion', 'completions')}
           >
             <SectionBody
               result={entries.submissions}
@@ -428,6 +464,7 @@ export default async function CoachMemberEntriesPage({
 
           <Section
             title="Her conversations with Root"
+            digest={sectionDigest(entries.conversations, 'conversation', 'conversations')}
             description="What she actually said, and what Root said back, newest first. Nothing summarised."
           >
             <SectionBody

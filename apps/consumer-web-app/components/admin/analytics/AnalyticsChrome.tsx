@@ -15,6 +15,7 @@
 
 import Link from 'next/link';
 import type { Route } from 'next';
+import { StaffPageHeader } from '@/components/staff/StaffPageHeader';
 import {
   DASHBOARD_RANGE_KEYS,
   RANGE_LABELS,
@@ -197,19 +198,24 @@ export function AnalyticsChrome({
 }) {
   return (
     <>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1B3A2D]/45">
-            Rooted Reset, internal
-          </p>
-          <h1 className="mt-1 font-[family-name:var(--font-cormorant-garamond)] text-[2.25rem] leading-[1.1] text-[#1B3A2D] md:text-[2.75rem]">
-            {title}
-          </h1>
-        </div>
-        <p className="text-[12.5px] text-[#1B3A2D]/55">{rangeSummary(view)}</p>
-      </div>
-
-      <p className="mt-2 max-w-2xl text-[14.5px] leading-relaxed text-[#6B7A72]">{intro}</p>
+      {/*
+        THE WAY OUT. All six analytics views, and a member detail under
+        them, used to render no back control at all: the tabs move between
+        the views and the staff bar's Admin tab throws the range and the
+        test-account toggle away, so the only way back to /admin was the
+        browser's own button. It is `forceBack` rather than a smart back
+        because a smart back from Drop-off lands on Funnel, which is
+        sideways, not out.
+      */}
+      <StaffPageHeader
+        backHref={'/admin' as Route}
+        backLabel="Admin"
+        forceBack
+        eyebrow="Rooted Reset, internal"
+        title={title}
+        subtitle={intro}
+        aside={<p className="text-[12.5px] text-[#1B3A2D]/55">{rangeSummary(view)}</p>}
+      />
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <RangePills current={current} view={view} />
