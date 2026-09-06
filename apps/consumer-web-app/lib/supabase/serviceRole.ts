@@ -24,6 +24,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseEnv } from './env';
+import { forgetRememberedReadsOnWrite } from './readOnce';
 
 export function serviceRoleClient(): SupabaseClient {
   const { url } = getSupabaseEnv();
@@ -34,5 +35,10 @@ export function serviceRoleClient(): SupabaseClient {
         'project environment variables, then redeploy.'
     );
   }
-  return createClient(url, serviceRoleKey);
+  // See lib/supabase/readOnce.ts: a write through this client, in a request
+  // that is also making session reads, must throw away what that request was
+  // remembering. This client is otherwise untouched.
+  return createClient(url, serviceRoleKey, {
+    global: { fetch: forgetRememberedReadsOnWrite },
+  });
 }

@@ -32,13 +32,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseEnv } from '../supabase/env';
+import { forgetRememberedReadsOnWrite } from '../supabase/readOnce';
 
 export function coachingServiceRoleClient(): SupabaseClient | null {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) return null;
   try {
     const { url } = getSupabaseEnv();
-    return createSupabaseClient(url, serviceRoleKey);
+    // See lib/supabase/readOnce.ts, and serviceRole.ts's copy of this note.
+    return createSupabaseClient(url, serviceRoleKey, {
+      global: { fetch: forgetRememberedReadsOnWrite },
+    });
   } catch (error) {
     console.error('coachingServiceRoleClient failed to build', error);
     return null;

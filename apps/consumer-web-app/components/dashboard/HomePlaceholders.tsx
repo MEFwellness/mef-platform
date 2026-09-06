@@ -100,17 +100,22 @@ export function HomeShellPlaceholder() {
       aria-hidden="true"
       className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]"
     >
-      <section className="relative flex min-h-[440px] w-full flex-col bg-[#0F241C] px-5 pb-10 pt-8 sm:px-6 md:min-h-[500px] md:px-10 md:pb-14 md:pl-28">
+      {/* The same committed height the real hero now carries (HomeHero.tsx),
+          so the route skeleton and the screen that replaces it are the same
+          size and the swap moves nothing. */}
+      <section className="relative flex min-h-[500px] w-full flex-col bg-[#0F241C] px-5 pb-10 pt-8 sm:px-6 md:px-10 md:pb-14 md:pl-28">
         <div className="flex items-center justify-between">
           <div className="mef-settling-on-photo h-12 w-44 rounded-2xl" />
           <div className="mef-settling-on-photo h-10 w-10 rounded-full" />
         </div>
+        {/* The greeting, then the same four blocks HomeHeroBodyPlaceholder
+            reserves, at the same heights. */}
         <div className="mt-auto pt-10">
-          <div className="mef-settling-on-photo h-9 w-3/4 rounded-full" />
-          <div className="mef-settling-on-photo mt-3 h-4 w-2/3 rounded-full" />
-          <div className="mef-settling-on-photo mt-6 h-12 w-32 rounded-2xl" />
-          <div className="mef-settling-on-photo mt-4 h-4 w-full max-w-md rounded-full" />
-          <div className="mef-settling-on-photo mt-2 h-4 w-5/6 max-w-md rounded-full" />
+          <div className="mef-settling-on-photo h-11 w-3/4 rounded-full" />
+          <div className="mef-settling-on-photo mt-2 h-6 w-2/3 rounded-full" />
+          <div className="mef-settling-on-photo mt-6 h-[60px] w-40 rounded-2xl" />
+          <div className="mef-settling-on-photo mt-2 h-[98px] w-full max-w-md rounded-2xl" />
+          <div className="mef-settling-on-photo mt-5 h-5 w-56 rounded-full" />
         </div>
       </section>
 

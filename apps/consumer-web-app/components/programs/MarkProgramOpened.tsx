@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { markProgramOpenedAction } from '@/app/actions/coach-programs';
+import { sendBeacon } from '@/lib/analytics/beacon';
 
 /**
  * "She opened her program." Renders nothing.
@@ -19,6 +19,15 @@ import { markProgramOpenedAction } from '@/app/actions/coach-programs';
  * Writing twice would still be harmless here (recordProgramOpened refuses
  * a program that already carries an open), but the round trip would not be,
  * and the guard costs nothing.
+ *
+ * IT REPORTS THROUGH THE BEACON, NOT THROUGH A SERVER ACTION (performance
+ * and stability audit, 2026-09-06). A mounted effect that calls a Server
+ * Action does not have the "never delays her screen" property this
+ * component was written for: Next POSTs to the route she is standing on and
+ * re-renders the whole of it on the server. On production that was a second
+ * full render of /programs, roughly eight hundred milliseconds, for the
+ * sake of one stamp. `sendBeacon` posts to a route handler that returns 204
+ * and re-renders nothing. The server-side write is the same function.
  */
 export function MarkProgramOpened({ assignmentId }: { assignmentId: string | null }) {
   const fired = useRef(false);
@@ -26,7 +35,7 @@ export function MarkProgramOpened({ assignmentId }: { assignmentId: string | nul
   useEffect(() => {
     if (!assignmentId || fired.current) return;
     fired.current = true;
-    void markProgramOpenedAction(assignmentId);
+    sendBeacon({ event: 'program_opened', assignmentId });
   }, [assignmentId]);
 
   return null;

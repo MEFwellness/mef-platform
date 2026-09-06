@@ -573,8 +573,15 @@ describe('every required call site actually exists', () => {
     // lock recorded on the tap. Both go through LockedCardButton now, so
     // both record on the tap, and the card passes the real lock kind
     // instead of the old hardcoded 'not_assigned'.
+    //
+    // IT REPORTS THROUGH THE BEACON (2026-09-06). It used to call the
+    // Server Action directly from the tap handler, which re-renders the
+    // whole route she is standing on before the sheet can open. The event
+    // and the server-side write are unchanged; only the transport moved.
     const button = read('components/locked/LockedCardButton.tsx');
-    expect(button).toContain('trackPaywallViewAction');
+    expect(button).toContain('sendBeacon');
+    expect(button).toContain("event: 'paywall_viewed'");
+    expect(button).not.toContain('trackPaywallViewAction');
     expect(button).toContain('lockReason: lockReason ??');
 
     const card = read('components/questionnaires/CatalogQuestionnaireCard.tsx');

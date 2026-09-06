@@ -74,7 +74,51 @@ export type BeaconEvent =
    * the server.
    */
   | { event: 'trial_arc_close_opened' }
-  | { event: 'trial_arc_close_door'; door: 'conversation' | 'membership' | 'home' };
+  | { event: 'trial_arc_close_door'; door: 'conversation' | 'membership' | 'home' }
+  /**
+   * Also not an analytics row. It retires the "New from your coach" mark on
+   * a program the member has now actually opened
+   * (recordProgramOpened, lib/program-lifecycle), which her own list screen
+   * and her coach's screen both read back.
+   *
+   * It travels here for the reason every event above does: it is fired from
+   * a mounted effect on a screen that genuinely displayed the program, and
+   * it must not cost her a re-render. Calling it as a Server Action cost a
+   * full extra server render of /programs, measured on production, for the
+   * sake of one stamp.
+   *
+   * The browser names the assignment because it is what knows which program
+   * it drew. Everything else is re-decided on the server: the member from
+   * her own session, and whether that assignment is actually hers, before
+   * anything is written.
+   */
+  | { event: 'program_opened'; assignmentId: string }
+  /**
+   * Three more facts a screen records about itself, moved here for exactly
+   * the reason the ones above are here: each was fired from a mounted
+   * effect, each was a Server Action, and a Server Action re-renders the
+   * whole route the member is standing on.
+   *
+   * `weekly_review_viewed` stamps that the Weekly Root Review reached her;
+   * the once-a-week rule is an atomic claim on the server, never this call.
+   * `reveals_acknowledged` marks the plain reveal sentences as said, and the
+   * server decides which of the named features she is actually allowed to
+   * acknowledge. `movement_session_viewed` records that a guided session was
+   * opened; the member and her entitlement to that session are re-resolved
+   * server side.
+   */
+  | { event: 'weekly_review_viewed' }
+  | { event: 'reveals_acknowledged'; featureKeys: string[] }
+  | { event: 'movement_session_viewed'; sessionKey: string; exerciseCount: number }
+  /**
+   * An exercise, opened. Also not an analytics row: it is what her own
+   * "recently viewed" list reads back. Same reason as the rest — it is
+   * fired from a mounted effect on a screen that genuinely displayed the
+   * exercise, and it must not cost her a re-render. The member is
+   * re-resolved on the server; the browser names only which exercise the
+   * screen drew.
+   */
+  | { event: 'exercise_viewed'; externalId: string; exerciseName: string };
 
 export function sendBeacon(payload: BeaconEvent): void {
   void sendBeaconAwaited(payload);

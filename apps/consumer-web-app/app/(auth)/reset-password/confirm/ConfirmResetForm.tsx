@@ -8,7 +8,6 @@ import { checkPasswordStrength, passwordsMatch } from '@/lib/auth/validation';
 import { getFriendlyAuthError } from '@/lib/auth/errors';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { PasswordStrengthHint } from '@/components/auth/PasswordStrengthHint';
-import { createClient } from '@/lib/supabase/client';
 import {
   expiredLinkPath,
   nextRecoveryScreen,
@@ -77,6 +76,12 @@ export function ConfirmResetForm({ serverReady }: { serverReady: boolean }) {
     }
 
     (async () => {
+      // Fetched here rather than statically imported: `@supabase/ssr` and
+      // `supabase-js` are roughly 250kB between them, and this screen's only
+      // use of them is this one call. Loading it here takes it off the
+      // screen's first load without delaying anything, because the form is
+      // gated on this call finishing either way.
+      const { createClient } = await import('@/lib/supabase/client');
       const { error } = await createClient().auth.setSession({
         access_token: landing.accessToken,
         refresh_token: landing.refreshToken,

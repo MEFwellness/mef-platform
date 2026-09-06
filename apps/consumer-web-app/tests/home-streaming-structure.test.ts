@@ -109,9 +109,18 @@ describe('the placeholders are the brand settling, not a spinner circus', () => 
     const loading = read('app/dashboard/loading.tsx');
     expect(loading).toContain('<HomeShellPlaceholder />');
     expect(loading).not.toMatch(/import .*PageSkeleton/);
-    // The hero band it reserves is the hero's own height.
-    expect(PLACEHOLDERS).toContain('min-h-[440px]');
-    expect(read('components/dashboard/HomeHero.tsx')).toContain('min-h-[440px]');
+    // The hero band it reserves is the hero's own height, and since
+    // 2026-09-06 that is ONE height rather than two. It used to be 440px on
+    // a phone and 500px from md up, and the tall hero's real content sits
+    // between the two: a five-line Root Score explanation measured 499px on
+    // production, so the whole page dropped 59px the moment the score landed
+    // in a box reserved at 440. That one swap was 0.060 of Home's 0.061
+    // layout shift. Both files carry the same number, which is the point.
+    expect(PLACEHOLDERS).toContain('min-h-[500px]');
+    expect(PLACEHOLDERS).not.toContain('min-h-[440px]');
+    const hero = read('components/dashboard/HomeHero.tsx');
+    expect(hero).toContain('min-h-[500px]');
+    expect(hero).not.toContain('min-h-[440px]');
   });
 
   it('every placeholder is hidden from a screen reader and countable by a verification run', () => {

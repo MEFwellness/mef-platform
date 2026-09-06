@@ -141,7 +141,17 @@ function HeroChrome({
         className={`relative mx-auto flex w-full max-w-md flex-col px-5 sm:px-6 md:max-w-5xl md:px-10 md:pl-28 ${
           compact
             ? 'min-h-[32vh] pb-6 pt-7 sm:pt-8 md:min-h-[250px] md:pb-8'
-            : 'min-h-[440px] pb-10 pt-8 sm:pt-10 md:min-h-[500px] md:pb-14'
+            : // ONE COMMITTED HEIGHT (performance and stability audit,
+              // 2026-09-06). This was 440px on a phone and 500px from md up,
+              // and the tall hero's real content sits between the two: a
+              // five-line Root Score explanation measured 499px on
+              // production, so the whole page dropped 59px the moment the
+              // score landed inside a box that had been reserved at 440.
+              // That single swap was 0.060 of Home's 0.061 layout shift.
+              // Committing to the height the design already commits to on
+              // every wider screen means the box the body lands in is the
+              // box that was reserved, whatever the length of her sentence.
+              'min-h-[500px] pb-10 pt-8 sm:pt-10 md:pb-14'
         }`}
       >
         <header className="flex items-center justify-between">
@@ -236,17 +246,30 @@ export function HomeHeroFrame({
   );
 }
 
-/** What sits under the greeting while the score is still being computed. Same rhythm as the real body, so the greeting above it does not move when it lands. */
+/**
+ * What sits under the greeting while the score is still being computed.
+ *
+ * BLOCK FOR BLOCK, WITH THE REAL BODY'S OWN MEASUREMENTS. Every bar here is
+ * the height and the top margin of the element it stands in for in
+ * `HomeHeroBody` below: the greeting line is one 24px line at `mt-2`, the
+ * score is the 60px row at `mt-6`, the explanation is four lines of
+ * `text-[15px] leading-relaxed` at `mt-2`, and the link is 20px at `mt-5`.
+ * It used to be a rough rhythm of 16px bars, which came to 59px short of
+ * the real body and was most of the layout shift on this screen.
+ *
+ * Four lines for the explanation because that is the middle of what the
+ * engine actually writes, not the shortest of it. The hero's own committed
+ * height (HeroChrome above) is what absorbs the rest either way.
+ */
 export function HomeHeroBodyPlaceholder({ hasCheckins }: { hasCheckins: boolean }) {
   return (
     <div data-settling="true" aria-hidden="true" className="mt-2">
-      <div className="mef-settling-on-photo h-4 w-3/4 rounded-full" />
+      <div className="mef-settling-on-photo h-6 w-3/4 rounded-full" />
       {hasCheckins && (
         <>
-          <div className="mef-settling-on-photo mt-6 h-12 w-32 rounded-2xl" />
-          <div className="mef-settling-on-photo mt-4 h-4 w-full max-w-md rounded-full" />
-          <div className="mef-settling-on-photo mt-2 h-4 w-5/6 max-w-md rounded-full" />
-          <div className="mef-settling-on-photo mt-5 h-4 w-48 rounded-full" />
+          <div className="mef-settling-on-photo mt-6 h-[60px] w-40 rounded-2xl" />
+          <div className="mef-settling-on-photo mt-2 h-[98px] w-full max-w-md rounded-2xl" />
+          <div className="mef-settling-on-photo mt-5 h-5 w-56 rounded-full" />
         </>
       )}
     </div>

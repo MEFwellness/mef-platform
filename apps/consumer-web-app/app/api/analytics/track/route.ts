@@ -31,6 +31,11 @@ import {
 import { trackPriorityShownAction } from '@/app/actions/priority';
 import { trackWeeklyReflectionDeliveredAction } from '@/app/actions/weeklyReflection';
 import { trackAssignmentDeliveredAction } from '@/app/actions/assessmentAssignments';
+import { markProgramOpenedAction } from '@/app/actions/coach-programs';
+import { trackWeeklyReviewViewedAction } from '@/app/actions/weeklyReview';
+import { acknowledgeRevealsAction } from '@/app/actions/visibility';
+import { trackMovementSessionViewedAction } from '@/app/actions/movement-sessions';
+import { recordExerciseView } from '@/app/actions/exercise-library';
 import {
   markTrialArcCloseDoorAction,
   markTrialArcCtaTappedAction,
@@ -53,6 +58,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const str = (key: string): string => (typeof body[key] === 'string' ? (body[key] as string) : '');
+  const num = (key: string): number => (typeof body[key] === 'number' ? (body[key] as number) : 0);
+  /** Strings only, and never an unbounded list: a beacon names what one screen drew. */
+  const strList = (key: string): string[] =>
+    Array.isArray(body[key])
+      ? (body[key] as unknown[]).filter((v): v is string => typeof v === 'string').slice(0, 50)
+      : [];
 
   switch (body.event) {
     case 'surface_viewed':
@@ -119,6 +130,41 @@ export async function POST(request: Request): Promise<Response> {
     // door that was never on her own stored close.
     case 'trial_arc_close_door':
       await markTrialArcCloseDoorAction(str('door'));
+      break;
+    // The "New from your coach" mark, retired because she opened the
+    // program. Not an analytics row either: her own program list and her
+    // coach's screen both read this back. The action re-resolves the member
+    // from her own session and refuses an assignment that is not among her
+    // own lifecycles, so a hand built request can only ever stamp a program
+    // this member was already entitled to open.
+    case 'program_opened':
+      await markProgramOpenedAction(str('assignmentId'));
+      break;
+    // The Weekly Root Review reached her. Not an analytics row: her own
+    // Home and her coach's screen read it back. The browser sends nothing
+    // at all, and the once-a-week rule is an atomic claim on the server.
+    case 'weekly_review_viewed':
+      await trackWeeklyReviewViewedAction();
+      break;
+    // The plain reveal sentences, now said. The action re-resolves the
+    // member from her own session and the data layer only acknowledges
+    // features that are actually revealed to her, so a hand built request
+    // cannot mark anything she was not shown.
+    case 'reveals_acknowledged':
+      await acknowledgeRevealsAction(strList('featureKeys'));
+      break;
+    // A guided movement session, opened. Same shape as the program stamp
+    // above: the member and her entitlement to that session are re-resolved
+    // server side.
+    case 'movement_session_viewed':
+      await trackMovementSessionViewedAction(str('sessionKey'), num('exerciseCount'));
+      break;
+    // An exercise, opened. Her own "recently viewed" list reads it back.
+    // The row is keyed (member, provider, external_id) and the member comes
+    // from her own session, so a hand built request can only ever record an
+    // exercise view for the person sending it.
+    case 'exercise_viewed':
+      await recordExerciseView(str('externalId'), str('exerciseName'));
       break;
     default:
       break;

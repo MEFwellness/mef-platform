@@ -1,4 +1,21 @@
-import { cache as reactCache } from 'react';
+import * as React from 'react';
+
+/**
+ * LOOKED UP, NOT IMPORTED BY NAME, and the key is a variable on purpose.
+ *
+ * `import { cache } from 'react'` — and `React.cache` on a namespace import
+ * — both make webpack resolve a named export at build time. In the two
+ * runtimes that do not have one (the Edge runtime the middleware compiles
+ * into, and a plain Node test process) that is a compile warning on every
+ * build, even though the guard below already handles the absence correctly
+ * at runtime and every one of those callers is meant to run unmemoized
+ * there. A computed key asks the same question of the same module without
+ * asserting at build time that the answer exists.
+ */
+const CACHE_EXPORT = 'cache';
+const reactCache = (React as unknown as Record<string, unknown>)[CACHE_EXPORT] as
+  | (<T>(fn: T) => T)
+  | undefined;
 
 /**
  * React's cache() only exists in the actual Next.js app-router runtime. Its

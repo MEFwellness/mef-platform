@@ -15,10 +15,19 @@
  * client from lib/supabase/client.ts, then hands off to the
  * completePasskeyLogin() Server Action to do the same role/onboarding
  * routing and entry-animation handoff signIn() does for a password login.
+ *
+ * THE SUPABASE CLIENT IS IMPORTED WHEN IT IS NEEDED, NOT WHEN THE PAGE
+ * LOADS (performance and stability audit, 2026-09-06). `@supabase/ssr` and
+ * `supabase-js` together are roughly 250kB of JavaScript, and a static
+ * import of them here put every byte of that in the login screen's first
+ * load: 170kB over the wire against a shared baseline of 88kB, on the one
+ * screen a member reaches before she has anything at all. Almost nobody
+ * taps this button, and the ones who do are already committing to a Face ID
+ * ceremony that takes longer than the download. So the module is fetched
+ * inside the handler, on the tap. Nothing else about the ceremony changed.
  */
 
 import { useEffect, useState, type RefObject } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { isPasskeySupported } from '@/lib/passkey/support';
 import { getFriendlyPasskeyError, isPasskeyCancelled } from '@/lib/passkey/errors';
 import { completePasskeyLogin } from '@/app/actions/auth';
@@ -58,6 +67,7 @@ export function PasskeyLoginButton({
     onError(null);
     setBusy(true);
     try {
+      const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
       // THE ONE FORM THAT DOES NOT AUTO-RETRY A REFUSED CHECK, and the
       // reason is the ceremony rather than the check. Everywhere else the

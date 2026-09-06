@@ -204,7 +204,9 @@ function PastProgramCard({ program }: { program: MemberProgramView }) {
 
       {program.workouts.length > 0 && (
         <details className="mt-3">
-          <summary className="cursor-pointer text-xs font-medium text-[#1B3A2D]">
+          {/* `py-1.5` is a tap target, not spacing: this row is 16px tall on a
+              phone otherwise, and it is a control she is meant to press. */}
+          <summary className="inline-block cursor-pointer py-1.5 text-xs font-medium text-[#1B3A2D]">
             {program.workouts.length} session{program.workouts.length === 1 ? '' : 's'}
           </summary>
           <div className="mt-2 space-y-2">

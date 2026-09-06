@@ -36,7 +36,6 @@ import {
   getAssessmentTypeConfig,
   type CaptureStepConfig,
 } from '@/lib/body-assessment/assessmentTypes';
-import { createClient } from '@/lib/supabase/client';
 import {
   startAssessmentAction,
   buildCaptureUploadPathAction,
@@ -267,6 +266,11 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
       const target = await buildCaptureUploadPathAction(currentAssessmentId, captureId, extension);
       if (!target) throw new Error('Could not prepare upload.');
 
+      // Fetched here, on the upload itself, rather than statically imported:
+      // `@supabase/ssr` and `supabase-js` are roughly 250kB between them, and
+      // this screen's only use of them is this one call. On the tap it is off
+      // the screen's first load entirely.
+      const { createClient } = await import('@/lib/supabase/client');
       const browserClient = createClient();
       const { error: uploadError } = await browserClient.storage
         .from(target.bucket)

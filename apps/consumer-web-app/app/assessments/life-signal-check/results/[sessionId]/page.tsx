@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSessionById } from '@/lib/assessment-runtime';
 import { computeLscScoring } from '@/lib/life-signal-check/scoring';
 import { getMyLscExperimentStatusAction, getMyLatestCvsContextForEchoAction } from '@/app/actions/lifeSignalCheck';
+import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -45,7 +46,13 @@ export default async function LifeSignalCheckResultsPage({ params }: { params: {
 
   const cvsContext = await getMyLatestCvsContextForEchoAction();
   const scoring = computeLscScoring(session.answers, cvsContext);
-  const experimentStatus = await getMyLscExperimentStatusAction();
+  // Read here, on the server, rather than left to the panel's own mounted
+  // effect: that effect calls a Server Action, and a Server Action
+  // re-renders the whole route she is standing on.
+  const [experimentStatus, activeExperiments] = await Promise.all([
+    getMyLscExperimentStatusAction(),
+    getMyLifestyleExperiments(),
+  ]);
   const audioAvailable = checkAudioAvailable();
 
   return (
@@ -55,7 +62,7 @@ export default async function LifeSignalCheckResultsPage({ params }: { params: {
 
         <WhatRootLearnedSection scoring={scoring} />
 
-        <LscExperimentPanel sessionId={session.id} chosenSignal={scoring.chosenSignal} scoring={scoring} initialStatus={experimentStatus} />
+        <LscExperimentPanel sessionId={session.id} chosenSignal={scoring.chosenSignal} scoring={scoring} initialStatus={experimentStatus} activeExperiments={activeExperiments} />
 
         <ResourceSection audioAvailable={audioAvailable} />
 

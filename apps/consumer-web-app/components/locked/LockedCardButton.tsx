@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { NoticingSheet } from '@/components/dashboard/NoticingSheet';
 import { COACH_LOCK_NOTE_TITLE } from '@/lib/locked-content/copy';
-import { trackPaywallViewAction } from '@/app/actions/analytics';
+import { sendBeacon } from '@/lib/analytics/beacon';
 
 /**
  * Wraps a locked card's (already-dimmed) content in a real button: tapping
@@ -59,7 +59,8 @@ export function LockedCardButton({
         onClick={() => {
           setOpen(true);
           if (analyticsFeature) {
-            void trackPaywallViewAction({
+            sendBeacon({
+              event: 'paywall_viewed',
               feature: analyticsFeature,
               // 'membership' is the honest default: since Build 2 every
               // lock a member can hit on a card she has not started is her

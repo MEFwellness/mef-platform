@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { getSupabaseEnv } from './env';
 import { requestCache } from '../reactRequestCache';
 import { TRACE_ON, recordQuery } from '../dev/queryTrace';
+import { readOncePerRequest } from './readOnce';
 
 /** "rest:profiles", "rpc:has_active_role", "auth:user" — enough to count repeats by target. */
 function traceLabel(input: RequestInfo | URL): string {
@@ -80,13 +81,14 @@ function buildRequestClient() {
      * than remembered at each of the hundreds of call sites.
      */
     global: {
-      fetch: (input: RequestInfo | URL, init?: RequestInit) => {
-        const request = fetch(input, { ...init, cache: 'no-store' });
-        if (!TRACE_ON) return request;
-        // Development-only measurement (MEF_TRACE_QUERIES=1). See
-        // lib/dev/queryTrace.ts — a no-op branch otherwise.
-        return request.finally(() => recordQuery(traceLabel(input), traceExact(input, init)));
-      },
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        readOncePerRequest(input, init, (i, n) => {
+          const request = fetch(i, { ...n, cache: 'no-store' });
+          if (!TRACE_ON) return request;
+          // Development-only measurement (MEF_TRACE_QUERIES=1). See
+          // lib/dev/queryTrace.ts — a no-op branch otherwise.
+          return request.finally(() => recordQuery(traceLabel(i), traceExact(i, n)));
+        }),
     },
     cookies: {
       get(name: string) {

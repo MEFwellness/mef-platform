@@ -182,6 +182,44 @@
   animation: mef-fade-up var(--mef-duration-deliberate) var(--mef-ease-standard) both;
 }
 
+
+/*
+ * A THUMB-SIZED HIT AREA WITHOUT A THUMB-SIZED CONTROL.
+ *
+ * The 2026-09-06 phone audit (scripts/audit-mobile-screens.mjs, at 390x844)
+ * found several controls that are genuinely tappable and genuinely tiny: the
+ * Daily Reset's 10px progress dots, the 16px points on every trend chart,
+ * the 25px range chips under them. Growing them is not the answer — each one
+ * is the size the design wants it to be, and a 44px dot on a progress bar is
+ * a different bar.
+ *
+ * So the CONTROL keeps its size and the HIT AREA grows underneath it: a
+ * pseudo-element centred on the control, at least 44px each way, painting
+ * nothing. Layout is untouched (the pseudo-element is absolutely positioned
+ * and the control keeps its own box), and the visual is untouched.
+ *
+ * TWO THINGS TO KNOW BEFORE USING IT. The element must be able to hold an
+ * absolutely positioned child, which is why the rule sets `position:
+ * relative` itself. And neighbouring hit areas overlap if the controls sit
+ * closer than 44px apart, so it belongs on controls that are genuinely
+ * spaced out — a row of dots across a progress bar, a point on a chart —
+ * and not on a tight cluster where it would let one control swallow the tap
+ * meant for the one beside it.
+ */
+.mef-hit-area {
+  position: relative;
+}
+
+.mef-hit-area::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
 .mef-pop-in {
   animation: mef-pop-in 0.4s ease-out both;
 }

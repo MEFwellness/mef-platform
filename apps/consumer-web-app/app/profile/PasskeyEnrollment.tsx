@@ -15,7 +15,6 @@
 
 import { useEffect, useState } from 'react';
 import { Fingerprint, X } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { isPasskeySupported } from '@/lib/passkey/support';
 import { getFriendlyPasskeyError, isPasskeyCancelled } from '@/lib/passkey/errors';
 
@@ -46,6 +45,7 @@ export function PasskeyEnrollment() {
       // request fails for any other reason, this just shows the "off"
       // state (an empty list). Tapping "Enable Face ID Login" will hit the
       // same condition and surface a real, specific explanation then.
+      const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
       const { data } = await supabase.auth.passkey.list();
       if (cancelled) return;
@@ -63,6 +63,7 @@ export function PasskeyEnrollment() {
     setMessage(null);
     setBusy(true);
     try {
+      const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
       const { data, error: registerError } = await supabase.auth.registerPasskey();
       if (registerError) {
@@ -84,6 +85,7 @@ export function PasskeyEnrollment() {
     setMessage(null);
     setBusy(true);
     try {
+      const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
       const { error: deleteError } = await supabase.auth.passkey.delete({ passkeyId });
       if (deleteError) {
@@ -100,7 +102,18 @@ export function PasskeyEnrollment() {
   };
 
   if (status === 'checking') {
-    return <div className="h-5 w-40 animate-pulse rounded-full bg-[#1B3A2D]/[0.06]" />;
+    // THE SHAPE OF WHAT IS COMING, not a single bar (performance and
+    // stability audit, 2026-09-06). This used to be one 20px line, and the
+    // card it resolves into is about 68px, so Profile dropped by roughly 58
+    // pixels a second and a half after it painted. It reserves the ready
+    // state's shape because that is what a phone gets, and a phone is what
+    // almost every member reads this on.
+    return (
+      <div data-settling="true" aria-hidden="true">
+        <div className="mef-settling h-5 w-40 rounded-full" />
+        <div className="mef-settling mt-2.5 h-[38px] w-44 rounded-full" />
+      </div>
+    );
   }
 
   if (status === 'unsupported') {

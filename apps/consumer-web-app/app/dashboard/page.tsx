@@ -136,6 +136,7 @@ import { getMemberVisibility } from '@/lib/visibility';
 import { F } from '@/lib/visibility/catalog';
 import { NewlyRevealedNotice } from '@/components/visibility/NewlyRevealedNotice';
 import { requireHomeFrame } from '@/lib/home/frame';
+import { RegionErrorBoundary } from '@/components/RegionErrorBoundary';
 import {
   homeBaselineAssessment,
   homeBodyAssessmentAccess,
@@ -235,27 +236,42 @@ export default async function DashboardPage({
         greetingWord={frame.timeContext.greetingWord}
         hasCheckins={frame.hasCheckins}
       >
-        <Suspense fallback={<HomeHeroBodyPlaceholder hasCheckins={frame.hasCheckins} />}>
-          <HeroBodyRegion />
-        </Suspense>
+        {/* Each region carries its own boundary: after the shell has been
+            flushed there is nothing between a failed read and app/error.tsx,
+            which is the whole route. See components/RegionErrorBoundary.tsx.
+            The hero body is silent because a retry card on a photograph,
+            under her greeting, is worse than the greeting standing alone. */}
+        <RegionErrorBoundary silent>
+          <Suspense fallback={<HomeHeroBodyPlaceholder hasCheckins={frame.hasCheckins} />}>
+            <HeroBodyRegion />
+          </Suspense>
+        </RegionErrorBoundary>
       </HomeHeroFrame>
 
       <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <Suspense fallback={<PriorityPlaceholder expectCard={frame.expectPriorityCard} />}>
-          <PriorityRegion />
-        </Suspense>
+        <RegionErrorBoundary message="Today's focus didn't load.">
+          <Suspense fallback={<PriorityPlaceholder expectCard={frame.expectPriorityCard} />}>
+            <PriorityRegion />
+          </Suspense>
+        </RegionErrorBoundary>
 
-        <Suspense fallback={<DayFramePlaceholder />}>
-          <DayFrameRegion />
-        </Suspense>
+        <RegionErrorBoundary message="Your day didn't load.">
+          <Suspense fallback={<DayFramePlaceholder />}>
+            <DayFrameRegion />
+          </Suspense>
+        </RegionErrorBoundary>
 
-        <Suspense fallback={<StreamPlaceholder />}>
-          <StreamRegion />
-        </Suspense>
+        <RegionErrorBoundary message="The rest of your screen didn't load.">
+          <Suspense fallback={<StreamPlaceholder />}>
+            <StreamRegion />
+          </Suspense>
+        </RegionErrorBoundary>
 
-        <Suspense fallback={null}>
-          <CompletedPriorityRegion />
-        </Suspense>
+        <RegionErrorBoundary silent>
+          <Suspense fallback={null}>
+            <CompletedPriorityRegion />
+          </Suspense>
+        </RegionErrorBoundary>
       </main>
 
       {/* -------------------------------------------------------- */}
@@ -264,13 +280,17 @@ export default async function DashboardPage({
       {/* -------------------------------------------------------- */}
       <MemberBottomNav isCoach={frame.isCoach} />
 
-      <Suspense fallback={null}>
-        <CoachLauncherRegion />
-      </Suspense>
+      <RegionErrorBoundary silent>
+        <Suspense fallback={null}>
+          <CoachLauncherRegion />
+        </Suspense>
+      </RegionErrorBoundary>
 
-      <Suspense fallback={null}>
-        <PopupRegion isFirstCheckinTransition={isFirstCheckinTransition} />
-      </Suspense>
+      <RegionErrorBoundary silent>
+        <Suspense fallback={null}>
+          <PopupRegion isFirstCheckinTransition={isFirstCheckinTransition} />
+        </Suspense>
+      </RegionErrorBoundary>
 
       {/* Premium UX Milestone 4, part 6 — the one-time transition shown
           immediately after a member's first-ever completed check-in. */}

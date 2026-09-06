@@ -41,6 +41,23 @@ type Props = {
   initialStatus: RplExperimentStatus | null;
   onStatusChange?: (status: RplExperimentStatus | null) => void;
   isHighPriority?: boolean;
+  /**
+   * Her currently active experiments, when the screen rendering this panel
+   * already knows them.
+   *
+   * The offer branch needs the count to decide whether she is at the cap.
+   * Left to itself this panel asked the server for them from a mounted
+   * effect, and `getMyLifestyleExperiments` is a Server Action: a Server
+   * Action POSTs to the route the member is standing on and re-renders the
+   * whole of it on the server. On Home, where two of these panels can be
+   * offered at once, that was two extra full renders of /dashboard after it
+   * had already finished, and it is what kept that screen busy for another
+   * five seconds each time. Every server-rendered caller has these rows in
+   * hand already, so it passes them and the effect never runs. `undefined`
+   * (not `null`) means "nobody told me", which is the only case that still
+   * asks.
+   */
+  activeExperiments?: LifestyleExperiment[];
 };
 
 /** Same close-out row LscExperimentPanel.tsx uses, reusing the same server actions (app/actions/lifestyleExperiments.ts) — kept as its own small copy here (not extracted to a shared component) since the two are each already a near-identical, self-contained handful of lines and neither experience's own panel imports from the other's file today. */
@@ -126,11 +143,13 @@ function ActiveExperimentCloseRow({ experiment, onClosed }: { experiment: Lifest
   );
 }
 
-export function RplExperimentPanel({ sessionId, scoring, initialStatus, onStatusChange, isHighPriority = false }: Props) {
+export function RplExperimentPanel({ sessionId, scoring, initialStatus, onStatusChange, isHighPriority = false, activeExperiments: providedExperiments }: Props) {
   const [status, setStatus] = useState(initialStatus);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [activeExperiments, setActiveExperiments] = useState<LifestyleExperiment[] | null>(null);
+  const [activeExperiments, setActiveExperiments] = useState<LifestyleExperiment[] | null>(
+    providedExperiments ? providedExperiments.filter((e) => e.status === 'active') : null
+  );
 
   useEffect(() => {
     onStatusChange?.(status);
@@ -138,7 +157,7 @@ export function RplExperimentPanel({ sessionId, scoring, initialStatus, onStatus
   }, [status]);
 
   useEffect(() => {
-    if (status) return;
+    if (status || providedExperiments !== undefined) return;
     let cancelled = false;
     (async () => {
       const experiments = await getMyLifestyleExperiments();
@@ -147,7 +166,7 @@ export function RplExperimentPanel({ sessionId, scoring, initialStatus, onStatus
     return () => {
       cancelled = true;
     };
-  }, [status]);
+  }, [status, providedExperiments]);
 
   if (!status) {
     if (!scoring || !sessionId) return null;

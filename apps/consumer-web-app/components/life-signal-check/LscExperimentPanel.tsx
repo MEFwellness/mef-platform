@@ -30,6 +30,23 @@ type Props = {
   onStatusChange?: (status: LscExperimentStatus | null) => void;
   /** "Waiting on you" badge on the day-3/day-7 card once the member has snoozed that exact pop-up (see components/dashboard/RootMessagePopupClient.tsx) — never set outside the dashboard's own cards. */
   isHighPriority?: boolean;
+  /**
+   * Her currently active experiments, when the screen rendering this panel
+   * already knows them.
+   *
+   * The offer branch needs the count to decide whether she is at the cap.
+   * Left to itself this panel asked the server for them from a mounted
+   * effect, and `getMyLifestyleExperiments` is a Server Action: a Server
+   * Action POSTs to the route the member is standing on and re-renders the
+   * whole of it on the server. On Home, where two of these panels can be
+   * offered at once, that was two extra full renders of /dashboard after it
+   * had already finished, and it is what kept that screen busy for another
+   * five seconds each time. Every server-rendered caller has these rows in
+   * hand already, so it passes them and the effect never runs. `undefined`
+   * (not `null`) means "nobody told me", which is the only case that still
+   * asks.
+   */
+  activeExperiments?: LifestyleExperiment[];
 };
 
 /** One already-active experiment (any source: Recommendation Engine, Core Values Snapshot, or this same Life Signal Check) shown on the cap-blocked offer screen, with a real, immediate way to close it out without leaving the page — reuses the exact same server actions the standalone /recommendations page's own close flow uses (app/actions/lifestyleExperiments.ts), not a second close mechanism. */
@@ -116,11 +133,13 @@ function ActiveExperimentCloseRow({ experiment, onClosed }: { experiment: Lifest
 }
 
 /** The offer/theory screen when no experiment is running yet, plus the daily/day-3/day-7 active states — exact mirror of Core Values Snapshot's own CvsExperimentPanel, reusing the same CvsFollowUpCards components with Life Signal Check's own server actions. Shared between the in-flow taker, the dashboard's own "start it later" offer, and the standalone /assessments/life-signal-check/experiment page. */
-export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialStatus, onStatusChange, isHighPriority = false }: Props) {
+export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialStatus, onStatusChange, isHighPriority = false, activeExperiments: providedExperiments }: Props) {
   const [status, setStatus] = useState(initialStatus);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [activeExperiments, setActiveExperiments] = useState<LifestyleExperiment[] | null>(null);
+  const [activeExperiments, setActiveExperiments] = useState<LifestyleExperiment[] | null>(
+    providedExperiments ? providedExperiments.filter((e) => e.status === 'active') : null
+  );
 
   // Bubbles this panel's own status up to a parent that needs to know
   // (LifeSignalCheckTaker.tsx, so the closing screen's copy can honestly
@@ -139,7 +158,7 @@ export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialSt
   // cap, regardless of which experience(s) those other experiments came
   // from.
   useEffect(() => {
-    if (status) return;
+    if (status || providedExperiments !== undefined) return;
     let cancelled = false;
     (async () => {
       const experiments = await getMyLifestyleExperiments();
@@ -148,7 +167,7 @@ export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialSt
     return () => {
       cancelled = true;
     };
-  }, [status]);
+  }, [status, providedExperiments]);
 
   if (!status) {
     if (!scoring || !sessionId || !chosenSignal) return null;

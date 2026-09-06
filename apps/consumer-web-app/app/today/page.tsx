@@ -1,8 +1,7 @@
-import type { CSSProperties } from 'react';
+import { Suspense, type CSSProperties } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
 import {
   Sparkles,
   BookOpen,
@@ -42,20 +41,16 @@ import {
   getTotalCheckinCount,
   getTotalMovementLoggedDaysCount,
 } from '@/app/actions/checkin';
-import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
 import { getTodaysHydrationTotal, getTodaysMovementLevel } from '@/app/actions/events';
 import { getMyHydrationTracked } from '@/app/actions/hydration';
 import { waterStatus, digestionStatus, STATUS_STYLES } from '@/lib/wellness/status';
 import type { CoachingMode } from '@/lib/brain/types';
 import { buildCoachNote, buildBonusChallenge, parseSelectionReason } from '@/lib/feed/copy';
-import { buildTimeContext } from '@/lib/feed/timeContext';
 import { buildFeedMemory } from '@/lib/feed/memory';
 import { computeStreakInsight, buildStreakMessage } from '@/lib/feed/streakIntelligence';
 import { buildContinuitySentence, buildChallengeCarryover } from '@/lib/feed/continuity';
-import { hasActiveRole } from '@/lib/auth/guards';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
-import { firstNameFrom } from '@/lib/profile/greeting';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { RootQuickLink } from '@/components/RootQuickLink';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -72,8 +67,9 @@ import { buildPriorityView } from '@/lib/priority/service';
 import type { TodaysFocusInput } from '@/lib/priority/types';
 import { getMemberVisibility } from '@/lib/visibility';
 import { F } from '@/lib/visibility/catalog';
-import { memberProfileCore } from '@/lib/member/profileCore';
-import { getCachedUser } from '@/lib/supabase/currentUser';
+import { requireTodayFrame } from '@/lib/today/frame';
+import { RegionErrorBoundary } from '@/components/RegionErrorBoundary';
+import { todayCoachingDecision } from '@/lib/today/data';
 
 // Screen Layout System (Prompt 2): was a hand-rolled duplicate of
 // `.mef-card` (app/globals.css) — now the one shared recipe.
@@ -137,11 +133,221 @@ function formatDate(localDate: string): string {
 function stagger(index: number): CSSProperties {
   return { animationDelay: `${index * 70}ms` };
 }
-
+/**
+ * =====================================================================
+ * WHAT LOADS FIRST, AND WHY (performance and stability audit, 2026-09-06)
+ * =====================================================================
+ *
+ * This page used to await five stages of reads before it returned a single
+ * tag of JSX: a batch of eight, then her local date, then her hydration
+ * answer, then a batch of six, then the Priority Card's engine. Nothing
+ * streams past an unsuspended await, so the whole screen waited on the
+ * slowest read on it. Measured on production: the first byte of real
+ * content arrived 2.87 seconds after the tap, and she looked at the generic
+ * route skeleton until then.
+ *
+ * It is written the way Home is now, and the split is the same design
+ * decision rather than an accident of which promise resolved first:
+ *
+ *   INSTANT, in the first streamed response, awaiting only
+ *   `lib/today/frame.ts`: the page, the header, her avatar, the word
+ *   "Today", and the day-of-week pill in HER OWN timezone. Two round trips
+ *   behind her session.
+ *
+ *   FAST FOLLOW, each in its own boundary: the Coaching Brain's mode chip
+ *   beside the heading, and its encouragement line under it. Both read one
+ *   memoized decision (`lib/today/data.ts`), so two boundaries asking cost
+ *   one answer.
+ *
+ *   STREAMS IN BEHIND: everything from the Priority Card down, which is
+ *   where all the reads actually were.
+ *
+ * NO CARD WAS REMOVED AND NO COPY CHANGED. Every block below renders
+ * exactly what it rendered before, in the same order, gated on the same
+ * conditions. What changed is WHEN it arrives.
+ *
+ * EVERY PLACEHOLDER HOLDS THE SHAPE IT STANDS IN FOR, in the brand's own
+ * settling treatment (`.mef-settling`, app/globals.css), so nothing on this
+ * screen moves when the real thing lands. The chip's placeholder is a chip.
+ * The encouragement's is one line of text's height, and it is reserved even
+ * for a member whose decision carries no encouragement, because that empty
+ * paragraph already occupied that space before this change.
+ */
 export default async function TodayPage() {
+  const frame = await requireTodayFrame();
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <TrackSurfaceView surface="today" />
+      <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">
+              Your MEF Coaching Experience
+            </p>
+          </div>
+          <AvatarLink firstName={frame.firstName} />
+        </div>
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
+            Today
+          </h1>
+          <span className="rounded-full bg-[#1B3A2D]/[0.06] px-3 py-1 text-xs font-medium capitalize text-[#1B3A2D]/70">
+            {frame.timeContext.dayOfWeek} · {frame.timeContext.weekPhase.label}
+          </span>
+          {/* Each region carries its own boundary: after the shell has been
+              flushed there is nothing between a failed read and
+              app/error.tsx, which is the whole route. The two header
+              regions are silent, because a retry card where a chip goes
+              would be louder than the chip it replaced. */}
+          <RegionErrorBoundary silent>
+            <Suspense fallback={<ModeChipPlaceholder />}>
+              <ModeChipsRegion />
+            </Suspense>
+          </RegionErrorBoundary>
+        </div>
+        <RegionErrorBoundary silent>
+          <Suspense fallback={<EncouragementPlaceholder />}>
+            <EncouragementRegion />
+          </Suspense>
+        </RegionErrorBoundary>
+
+        <RegionErrorBoundary message="Today didn't load.">
+          <Suspense fallback={<TodayBodyPlaceholder />}>
+            <TodayBody />
+          </Suspense>
+        </RegionErrorBoundary>
+      </main>
+
+      <MemberBottomNav isCoach={frame.isCoach} />
+
+      <RegionErrorBoundary silent>
+        <Suspense fallback={null}>
+          <CoachLauncherRegion />
+        </Suspense>
+      </RegionErrorBoundary>
+    </div>
+  );
+}
+
+// =====================================================================
+// FAST FOLLOW
+// =====================================================================
+
+/**
+ * The Coaching Brain's mode, and the "Lighter today" chip beside it.
+ *
+ * A chip that arrives late must not push the heading around, so its
+ * placeholder is a chip of the same height sitting in the same wrapped row.
+ * Both chips are optional in the real render (a member with no decision
+ * gets neither), which is why the placeholder is one chip's width and not
+ * two: it reserves the row, not a promise about what is in it.
+ */
+async function ModeChipsRegion() {
+  const decision = await todayCoachingDecision();
+  if (!decision) return null;
+  const modeBadge = MODE_BADGE[decision.mode];
+  const ModeIcon = modeBadge.icon;
+
+  return (
+    <>
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${modeBadge.className}`}
+      >
+        <ModeIcon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+        {modeBadge.label}
+      </span>
+      {decision.riskLevel === 'elevated' && (
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${CHIP_LIFT}`}
+        >
+          <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+          Lighter today
+        </span>
+      )}
+    </>
+  );
+}
+
+function ModeChipPlaceholder() {
+  return (
+    <span
+      data-settling="true"
+      aria-hidden="true"
+      className="mef-settling inline-block h-[26px] w-24 rounded-full align-middle"
+    />
+  );
+}
+
+/** Her one line of encouragement. Always occupied this space, empty or not, so the placeholder is exactly one line tall. */
+async function EncouragementRegion() {
+  const decision = await todayCoachingDecision();
+  return (
+    <p className="mt-2 text-[15px] italic text-[#6B7A72]">{decision?.encouragement ?? ''}</p>
+  );
+}
+
+function EncouragementPlaceholder() {
+  return (
+    <div data-settling="true" aria-hidden="true" className="mt-2 h-[23px] py-[3px]">
+      <div className="mef-settling h-[17px] w-2/3 rounded-full" />
+    </div>
+  );
+}
+
+/**
+ * The floating Root launcher. Fixed position, so it never moves anything on
+ * the page and has no placeholder: it simply appears once the decision it
+ * carries into the conversation has been read.
+ */
+async function CoachLauncherRegion() {
+  const decision = await todayCoachingDecision();
+  return (
+    <FloatingCoachLauncher
+      entryPoint="today_focus"
+      entryContext={buildTodayEntryContext(
+        decision,
+        decision?.content?.title ?? null,
+        decision?.content?.suggested_action ?? null
+      )}
+    />
+  );
+}
+
+/**
+ * Everything from the Priority Card down, which is where every one of this
+ * page's reads actually is. One boundary rather than several: the blocks
+ * below share `visibility`, `decision`, `recentCheckins`, `todaysCheckin`
+ * and the day's totals with each other, and splitting them further would
+ * trade one wait for several reads of the same rows.
+ */
+function TodayBodyPlaceholder() {
+  return (
+    <div data-settling="true" aria-hidden="true">
+      {/* The Priority Card's shape: it is the dominant first element here. */}
+      <div className="mef-card mt-6">
+        <div className="mef-settling h-3 w-32 rounded-full" />
+        <div className="mef-settling mt-4 h-5 w-full rounded-full" />
+        <div className="mef-settling mt-2 h-5 w-4/5 rounded-full" />
+        <div className="mef-settling mt-4 h-4 w-full rounded-full" />
+        <div className="mef-settling mt-2 h-4 w-2/3 rounded-full" />
+        <div className="mt-6 flex gap-3">
+          <div className="mef-settling h-9 w-24 rounded-full" />
+          <div className="mef-settling h-9 w-24 rounded-full" />
+        </div>
+      </div>
+      {/* The day's zones underneath it. */}
+      <div className="mef-settling mt-6 h-40 rounded-[28px]" />
+      <div className="mef-settling mt-6 h-32 rounded-[28px]" />
+    </div>
+  );
+}
+
+async function TodayBody() {
+  const frame = await requireTodayFrame();
   const supabase = createClient();
-  const user = await getCachedUser();
-  if (!user) redirect('/login');
+  const user = { id: frame.memberId };
 
   // Milestone 5: the Coaching Brain is the single source of truth for
   // what today's coaching experience is and why — this page renders its
@@ -151,8 +357,6 @@ export default async function TodayPage() {
   // profile/timezone lookups below, so they join this first batch
   // instead of paying their own, separate round trips afterward.
   const [
-    isCoach,
-    profile,
     decision,
     history,
     notifications,
@@ -160,9 +364,9 @@ export default async function TodayPage() {
     habits,
     visibility,
   ] = await Promise.all([
-    hasActiveRole(supabase, user.id, 'coach'),
-    memberProfileCore(supabase, user.id),
-    getMyCoachingDecision(),
+    // One memoized decision for this whole screen: the mode chip and the
+    // encouragement line above already read it, so this costs nothing here.
+    todayCoachingDecision(),
     getFeedHistory(),
     getMyNotifications(5),
     // Oldest-first, per getRecentCheckins' contract — exactly what streak/trend detection expects.
@@ -176,10 +380,10 @@ export default async function TodayPage() {
   /** The one question every block below asks before it renders. */
   const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
 
-  const firstName = firstNameFrom(profile.displayName);
-  const timezone = profile.timezone ?? 'America/New_York';
+  const firstName = frame.firstName;
+  const timezone = frame.timezone;
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
-  const timeContext = buildTimeContext(nowInTz);
+  const timeContext = frame.timeContext;
   const GreetingIcon = timeContext.hour < 12 ? Sunrise : timeContext.hour < 18 ? Sun : Moon;
 
   const localDate = await resolveLocalDate(nowInTz, false);
@@ -228,8 +432,6 @@ export default async function TodayPage() {
     todaysCheckin && shows(F.todayNumbers) ? <TodaysNumbersGrid checkin={todaysCheckin} /> : null;
 
   let sectionIndex = 0;
-  const modeBadge = decision ? MODE_BADGE[decision.mode] : null;
-  const ModeIcon = modeBadge?.icon ?? Compass;
 
   // Priority Card (Part 1). The engine is handed what this page already
   // fetched — the Coaching Brain's decision and the member's recent
@@ -254,43 +456,7 @@ export default async function TodayPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <TrackSurfaceView surface="today" />
-      <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <div className="flex items-center justify-between gap-3 pt-2">
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">
-              Your MEF Coaching Experience
-            </p>
-          </div>
-          <AvatarLink firstName={firstName} />
-        </div>
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-            Today
-          </h1>
-          <span className="rounded-full bg-[#1B3A2D]/[0.06] px-3 py-1 text-xs font-medium capitalize text-[#1B3A2D]/70">
-            {timeContext.dayOfWeek} · {timeContext.weekPhase.label}
-          </span>
-          {modeBadge && (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${modeBadge.className}`}
-            >
-              <ModeIcon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-              {modeBadge.label}
-            </span>
-          )}
-          {decision?.riskLevel === 'elevated' && (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${CHIP_LIFT}`}
-            >
-              <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-              Lighter today
-            </span>
-          )}
-        </div>
-        <p className="mt-2 text-[15px] italic text-[#6B7A72]">{decision?.encouragement ?? ''}</p>
+    <>
 
         {/* THE PRIORITY CARD — the dominant first element of this screen,
             above every other card including the first-check-in welcome.
@@ -919,18 +1085,6 @@ export default async function TodayPage() {
             <PriorityCard view={priority} collapsed />
           </div>
         )}
-      </main>
-
-      <MemberBottomNav isCoach={isCoach} />
-
-      <FloatingCoachLauncher
-        entryPoint="today_focus"
-        entryContext={buildTodayEntryContext(
-          decision,
-          decision?.content?.title ?? null,
-          decision?.content?.suggested_action ?? null
-        )}
-      />
-    </div>
+    </>
   );
 }

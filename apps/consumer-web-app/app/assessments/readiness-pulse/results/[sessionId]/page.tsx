@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSessionById } from '@/lib/assessment-runtime';
 import { computeRplScoring } from '@/lib/readiness-pulse/scoring';
 import { getMyRplExperimentStatusAction, getMyLatestLscContextForRplAction, getMyEvidenceEchoAction } from '@/app/actions/readinessPulse';
+import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -45,7 +46,14 @@ export default async function ReadinessPulseResultsPage({ params }: { params: { 
 
   const lscContext = await getMyLatestLscContextForRplAction();
   const scoring = computeRplScoring(session.answers, lscContext);
-  const [experimentStatus, evidenceEcho] = await Promise.all([getMyRplExperimentStatusAction(), getMyEvidenceEchoAction()]);
+  // `activeExperiments` is read here rather than left to the panel's own
+  // mounted effect: that effect calls a Server Action, and a Server Action
+  // re-renders the whole route she is standing on.
+  const [experimentStatus, evidenceEcho, activeExperiments] = await Promise.all([
+    getMyRplExperimentStatusAction(),
+    getMyEvidenceEchoAction(),
+    getMyLifestyleExperiments(),
+  ]);
   const audioAvailable = checkAudioAvailable();
 
   return (
@@ -55,7 +63,7 @@ export default async function ReadinessPulseResultsPage({ params }: { params: { 
 
         <WhatRootLearnedSection scoring={scoring} evidenceEcho={evidenceEcho} />
 
-        <RplExperimentPanel sessionId={session.id} scoring={scoring} initialStatus={experimentStatus} />
+        <RplExperimentPanel sessionId={session.id} scoring={scoring} initialStatus={experimentStatus} activeExperiments={activeExperiments} />
 
         <ResourceSection audioAvailable={audioAvailable} />
 

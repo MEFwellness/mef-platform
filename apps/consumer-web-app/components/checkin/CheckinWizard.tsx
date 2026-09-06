@@ -207,7 +207,9 @@ export function CheckinWizard({
                   onClick={() => onSelectScreen(index)}
                   aria-label={`Go to screen ${index + 1} of ${screenCount}`}
                   aria-current={index === screenIndex ? 'step' : undefined}
-                  className={`h-2.5 w-2.5 rounded-full border-2 border-[#FAFAF8] transition-colors ${
+                  // The dot stays a dot; the thumb gets 44px around it. See
+                  // `.mef-hit-area` in app/globals.css.
+                  className={`mef-hit-area h-2.5 w-2.5 rounded-full border-2 border-[#FAFAF8] transition-colors ${
                     index <= screenIndex ? 'bg-[#1B3A2D]' : 'bg-[#1B3A2D]/20'
                   } ${reachable ? 'cursor-pointer' : 'cursor-default'}`}
                 />

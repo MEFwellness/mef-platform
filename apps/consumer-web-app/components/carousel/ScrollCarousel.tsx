@@ -82,16 +82,25 @@ export function ScrollCarousel({ children }: { children: ReactNode }) {
       </div>
 
       {count > 1 && (
+        /*
+         * SAYS WHAT IT IS (2026-09-06 phone audit). These dots used to be a
+         * `role="tablist"` of `role="tab"` spans. Nothing here is a tab: they
+         * carry no handler, take no focus and do nothing at all when pressed,
+         * so a screen reader was told about six controls that were not
+         * controls, and the audit read them as six 6px tap targets. They are
+         * an indicator of where she is in a row she scrolls with her thumb.
+         * The row's own label already says that, and now it is the only thing
+         * that speaks.
+         */
         <div
-          role="tablist"
+          role="img"
           aria-label={`Position ${activeIndex + 1} of ${count}`}
           className="mt-3 flex items-center justify-center gap-1.5"
         >
           {Array.from({ length: count }, (_, index) => (
             <span
               key={index}
-              role="tab"
-              aria-selected={index === activeIndex}
+              aria-hidden="true"
               className={`h-1.5 rounded-full transition-all duration-200 ${
                 index === activeIndex ? 'w-5 bg-[#1B3A2D]' : 'w-1.5 bg-[#1B3A2D]/25'
               }`}

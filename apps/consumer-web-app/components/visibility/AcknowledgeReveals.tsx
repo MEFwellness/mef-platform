@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { acknowledgeRevealsAction } from '@/app/actions/visibility';
+import { sendBeacon } from '@/lib/analytics/beacon';
 
 const DEDUPE_WINDOW_MS = 3000;
 const lastFiredAt = new Map<string, number>();
@@ -33,7 +33,7 @@ export function AcknowledgeReveals({ featureKeys }: { featureKeys: string[] }) {
     const dedupeKey = featureKeys.join('|');
     if (!shouldFire(dedupeKey)) return;
     fired.current = true;
-    void acknowledgeRevealsAction(featureKeys);
+    sendBeacon({ event: 'reveals_acknowledged', featureKeys });
   }, [featureKeys]);
 
   return null;

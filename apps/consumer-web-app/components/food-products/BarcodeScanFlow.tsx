@@ -11,7 +11,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { Barcode, ShieldCheck } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { startFoodLensScanAction } from '@/app/actions/food-lens';
 import {
   buildFoodLensCaptureUploadPathAction,
@@ -23,6 +22,14 @@ import { MealCamera } from '@/components/food-lens/MealCamera';
 
 type Phase = 'intro' | 'scanning' | 'looking_up' | 'not_found' | 'photo_capture' | 'error';
 
+/**
+ * THE SUPABASE CLIENT IS IMPORTED WHEN IT IS NEEDED, NOT WHEN THE PAGE
+ * LOADS (performance and stability audit, 2026-09-06). `@supabase/ssr` and
+ * `supabase-js` are roughly 250kB of JavaScript between them, and a static
+ * import put every byte of it in this screen's first load for the sake of
+ * one call inside one handler. Fetched on the tap instead, it is off the
+ * critical path entirely and arrives while she is choosing a photo.
+ */
 export function BarcodeScanFlow() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>('intro');
@@ -89,6 +96,9 @@ export function BarcodeScanFlow() {
       const target = await buildFoodLensCaptureUploadPathAction(currentScanId, captureId, 'jpg');
       if (!target) throw new Error('Could not prepare upload.');
 
+      // Fetched here, on the upload itself, rather than statically imported:
+      // see this file's note above.
+      const { createClient } = await import('@/lib/supabase/client');
       const browserClient = createClient();
       const { error: uploadError } = await browserClient.storage
         .from(target.bucket)

@@ -113,6 +113,14 @@ export async function ActiveExperimentsSection() {
     (e) => e.status === 'active' && e.recommendationId !== null
   );
 
+  // Handed down to whichever offer panel renders below. Those panels need
+  // the count to know whether she is already at the two-experiment cap, and
+  // left to themselves they each asked the server for it from a mounted
+  // effect — a Server Action, which re-renders the whole of Home on the
+  // server, twice, after Home had already finished. This section has
+  // already read the same rows, so it says so.
+  const activeExperiments = allExperiments.filter((e) => e.status === 'active');
+
   const hasAnything =
     Boolean(
       cvsActive ||
@@ -201,6 +209,7 @@ export async function ActiveExperimentsSection() {
             chosenSignal={lscOffer.scoring.chosenSignal}
             scoring={lscOffer.scoring}
             initialStatus={null}
+            activeExperiments={activeExperiments}
           />
         )}
 
@@ -208,7 +217,12 @@ export async function ActiveExperimentsSection() {
           <RplExperimentPanel scoring={null} initialStatus={rplStatus} isHighPriority={rplHighPriority} />
         )}
         {!rplActive && rplOffer && (
-          <RplExperimentPanel sessionId={rplOffer.sessionId} scoring={rplOffer.scoring} initialStatus={null} />
+          <RplExperimentPanel
+            sessionId={rplOffer.sessionId}
+            scoring={rplOffer.scoring}
+            initialStatus={null}
+            activeExperiments={activeExperiments}
+          />
         )}
 
         {oyvStatus && <OwningYourValueExperimentPanel status={oyvStatus} />}

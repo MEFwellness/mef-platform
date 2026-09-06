@@ -45,8 +45,8 @@ import {
   completeMovementSessionAction,
   skipMovementExerciseAction,
   startMovementSessionAction,
-  trackMovementSessionViewedAction,
 } from '@/app/actions/movement-sessions';
+import { sendBeacon } from '@/lib/analytics/beacon';
 
 /**
  * Fires movement_session_viewed once per real visit to this session's
@@ -74,18 +74,24 @@ export function MovementSessionPlayer({ detail }: { detail: MovementSessionDetai
   const [runId, setRunId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  // From a mounted effect, never during render: a server action called
-  // mid-render updates the Router while this component is still
-  // rendering, which React warns about and which was caught by driving
-  // the real app rather than by any test. Same discipline as
-  // components/analytics/TrackSurfaceView, and it also means the write
-  // happens after the screen has painted rather than in front of it.
+  // From a mounted effect, never during render, and through the beacon
+  // rather than a Server Action. A server action called mid-render updates
+  // the Router while this component is still rendering, which React warns
+  // about and which was caught by driving the real app rather than by any
+  // test; a server action called from an effect is quieter but still
+  // re-renders this whole route on the server for the sake of one row. Same
+  // discipline, and the same route handler, as
+  // components/analytics/TrackSurfaceView.
   const viewTracked = useRef(false);
   useEffect(() => {
     if (viewTracked.current) return;
     viewTracked.current = true;
     if (!shouldRecordView(template.session_key)) return;
-    void trackMovementSessionViewedAction(template.session_key, slots.length);
+    sendBeacon({
+      event: 'movement_session_viewed',
+      sessionKey: template.session_key,
+      exerciseCount: slots.length,
+    });
   }, [template.session_key, slots.length]);
 
   const exercises: GuidedExercise[] = slots.map((slot) => ({
