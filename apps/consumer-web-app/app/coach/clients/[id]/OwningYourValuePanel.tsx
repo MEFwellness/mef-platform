@@ -82,7 +82,13 @@ export function OwningYourValuePanel({
   }
 
   return (
-    <section className={`${CARD} p-6`}>
+    // Named, so this card is addressable by what it IS rather than by
+    // whichever sentence happens to be inside it today. A verification run
+    // that had to find it by its copy would resolve to the wrong card the
+    // moment another panel on this page mentioned the same words, and the
+    // standing rule about per-member controls is that a locator resolves
+    // the right row or refuses.
+    <section aria-label={OYV_LABEL} className={`${CARD} p-6`}>
       <div className="flex items-center gap-2 text-[#854D0E]">
         <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">{OYV_LABEL}</p>
