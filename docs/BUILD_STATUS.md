@@ -79,6 +79,30 @@ matrix: completed, cancelled, unseen, open and overdue asserted against
 each other rather than one at a time, because the failure worth catching is
 two of them reading the same. Full suite 507 files, 8891 tests, all passing.
 
+### Watched on the live site
+
+`scripts/verify-assignment-receipts-live.mjs`, 21/21 against
+app.mefwellness.com, driving the real coach screen and the real Home. The
+run happened at a moment when the server's UTC day and the member's New
+York day were DIFFERENT days (2026-09-06 against 2026-09-05), which is what
+makes the deadline check mean something: the assignment landed on Sep 12,
+her day plus seven, and counting from the server's day would have said Sep
+13. Home wrote exactly one receipt, from the pop-up; two further visits
+wrote no second row and did not move the timestamp; the coach line read
+"Sent Sep 5. Seen Sep 5, not completed. Due Sep 12."; a due day three days
+behind her turned that into "Overdue since Sep 2 (3 days)" with the badge;
+due today was not late; and cancelling dropped the badge entirely. The
+assignment was deleted afterwards and its receipt cascaded, so production
+holds the same 4 cancelled, 5 completed and 1 pending rows it held before
+the run.
+
+Two facts worth carrying into Prompt 2: no assignment in production
+currently has a due date, because the coach panel's date input has existed
+all along and has never been used, so overdue only starts meaning something
+for assignments made from now on. And all ten existing assignments predate
+the receipt system, so every one of them reads as "no delivery record"
+rather than as a false "they have not seen it".
+
 ## Post-launch fix 3: the closing screens hold (2026-09-05)
 
 Finishing a Core Values Snapshot did not leave the member on its closing
