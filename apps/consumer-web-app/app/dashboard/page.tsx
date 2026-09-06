@@ -98,6 +98,8 @@ import { StressLoadEntry } from '@/components/stress-load/StressLoadEntry';
 import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
 import { OwningYourValueEntry } from '@/components/owning-your-value/OwningYourValueEntry';
 import { getMyOwningYourValue } from '@/lib/owning-your-value/view';
+import { WhereYourJoyLivesEntry } from '@/components/where-your-joy-lives/WhereYourJoyLivesEntry';
+import { getMyWhereYourJoyLives } from '@/lib/where-your-joy-lives/view';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -406,6 +408,7 @@ async function DayFrameRegion() {
     weeklyReflection,
     stressLoad,
     owningYourValue,
+    whereYourJoyLives,
     catalog,
     bodyAssessmentCard,
   ] = await Promise.all([
@@ -424,6 +427,9 @@ async function DayFrameRegion() {
       // Request-memoized, exactly as the two above are, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyOwningYourValue(),
+      // Request-memoized, exactly as the three above are, and the pop-up
+      // chain in PopupRegion asks for the same thing on the same render.
+      getMyWhereYourJoyLives(),
       homeQuestionnaireCatalog(),
       homeBodyAssessmentAssignment(),
     ]);
@@ -518,6 +524,31 @@ async function DayFrameRegion() {
           <OwningYourValueEntry
             assignmentId={owningYourValue.assignmentId}
             hasDraft={Object.keys(owningYourValue.draft).length > 0}
+          />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* WHERE YOUR JOY LIVES, persistent, for as long as her   */}
+      {/* coach's assignment is open.                            */}
+      {/*                                                        */}
+      {/* Directly below Owning Your Value and for the identical */}
+      {/* reasons. The two Happiness deep-dives can be open at   */}
+      {/* once, and when they are, both cards stand: neither     */}
+      {/* replaces the other and neither hides the other.        */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately. The */}
+      {/* assignment is the whole gate                           */}
+      {/* (lib/where-your-joy-lives/access.ts), and there is no  */}
+      {/* check that she finished the template above this one    */}
+      {/* either. A second rule on top would be the invisible    */}
+      {/* lock the standing rules forbid.                        */}
+      {/* ==================================================== */}
+      {whereYourJoyLives?.status === 'pending' && (
+        <div className="pt-3">
+          <WhereYourJoyLivesEntry
+            assignmentId={whereYourJoyLives.assignmentId}
+            hasDraft={Object.keys(whereYourJoyLives.draft).length > 0}
           />
         </div>
       )}

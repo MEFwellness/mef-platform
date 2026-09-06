@@ -48,6 +48,7 @@ import { TrackWeeklyReflectionDelivered } from '@/components/weekly-reflection/T
 import { TrackAssignmentDelivered } from '@/components/assignments/TrackAssignmentDelivered';
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
 import { OYV_COPY } from '@/lib/owning-your-value/copy';
+import { WYJL_COPY } from '@/lib/where-your-joy-lives/copy';
 import { ROOT_WELCOME_COPY } from '@/lib/public-entry/copy';
 import {
   TrackTrialArcDelivered,
@@ -63,6 +64,10 @@ type WeeklyReviewMessage = Extract<RootPopupMessage, { kind: 'weekly_review' }>;
 type WeeklyReflectionMessage = Extract<RootPopupMessage, { kind: 'weekly_reflection' }>;
 type StressLoadMessage = Extract<RootPopupMessage, { kind: 'stress_load_assigned' }>;
 type OwningYourValueMessage = Extract<RootPopupMessage, { kind: 'owning_your_value_assigned' }>;
+type WhereYourJoyLivesMessage = Extract<
+  RootPopupMessage,
+  { kind: 'where_your_joy_lives_assigned' }
+>;
 type HydrationFocusMessage = Extract<RootPopupMessage, { kind: 'hydration_focus' }>;
 type PublicEntryWelcomeMessage = Extract<RootPopupMessage, { kind: 'public_entry_welcome' }>;
 type TrialArcMessage = Extract<RootPopupMessage, { kind: 'trial_arc_day' }>;
@@ -487,6 +492,29 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
+  if (message.kind === 'where_your_joy_lives_assigned') {
+    const m: WhereYourJoyLivesMessage = message;
+    return (
+      <>
+        {/* The same receipt as the three branches above, on the same table:
+            this is an assessment_assignments row like any other coach
+            assignment, so it gets the one receipt system rather than a
+            second one of its own. */}
+        <TrackAssignmentDelivered assignmentId={m.assignmentId} presentation="popup" />
+        <RootInvitePopup
+          eyebrow={WYJL_COPY.popupEyebrow}
+          title={m.title}
+          body={m.body}
+          ctaLabel={WYJL_COPY.popupCta}
+          href={m.primaryHref}
+          isPending={isPending}
+          onMaybeLater={handleMaybeLater}
+          onIgnore={handleIgnore}
+        />
+      </>
+    );
+  }
+
   if (isOffer) {
     return <RootOfferPopup message={message as OfferMessage} onClose={() => setClosed(true)} />;
   }
@@ -508,6 +536,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | WeeklyReflectionMessage
     | StressLoadMessage
     | OwningYourValueMessage
+    | WhereYourJoyLivesMessage
     | HydrationFocusMessage
     | PublicEntryWelcomeMessage
     | TrialArcMessage

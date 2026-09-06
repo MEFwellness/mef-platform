@@ -4,11 +4,12 @@
  * THE PROBLEM THIS SOLVES. assessment_assignments (migration 77) carries
  * every coach assignment, and lib/assessment-registry/registry.ts names
  * most of them. It deliberately does not name the coach-assigned-only
- * experiences (the Stress & Load Deep-Dive, Owning Your Value), because a
- * registry entry is what builds the Questionnaires catalog and the plan
- * map, and those experiences belong to neither. The consequence was that
- * any screen listing assignments printed "Assessment" beside them, so a
- * coach with two open rows could not tell which one was late.
+ * experiences (the Stress & Load Deep-Dive, Owning Your Value, Where Your
+ * Joy Lives), because a registry entry is what builds the Questionnaires
+ * catalog and the plan map, and those experiences belong to neither. The
+ * consequence was that any screen listing assignments printed "Assessment"
+ * beside them, so a coach with two open rows could not tell which one was
+ * late.
  *
  * app/actions/coachWeek.ts already fixed that for the This Week band with a
  * map built inline. This is that map, lifted out, so the band and the
@@ -24,6 +25,8 @@ import { STRESS_LOAD_DEFINITION_ID } from '../stress-load/constants';
 import { STRESS_LOAD_LABEL } from '../stress-load/copy';
 import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_LABEL } from '../owning-your-value/copy';
+import { WYJL_DEFINITION_ID } from '../where-your-joy-lives/constants';
+import { WYJL_LABEL } from '../where-your-joy-lives/copy';
 
 /** What a row is called when nothing above names it. Kept as one constant so the two callers print the same word. */
 export const UNNAMED_ASSIGNMENT_LABEL = 'Assessment';
@@ -36,6 +39,7 @@ export function assignmentNamesByDefinitionId(): Map<string, string> {
     ),
     [STRESS_LOAD_DEFINITION_ID, STRESS_LOAD_LABEL],
     [OYV_DEFINITION_ID, OYV_LABEL],
+    [WYJL_DEFINITION_ID, WYJL_LABEL],
   ]);
 }
 

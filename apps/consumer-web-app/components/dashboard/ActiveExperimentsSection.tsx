@@ -25,6 +25,7 @@ import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from '@/app/actio
 import { getMyLscExperimentStatusAction, getMyLscOfferAction } from '@/app/actions/lifeSignalCheck';
 import { getMyRplExperimentStatusAction, getMyRplOfferAction } from '@/app/actions/readinessPulse';
 import { getMyOwningYourValueExperimentAction } from '@/app/actions/owningYourValue';
+import { getMyWhereYourJoyLivesExperimentAction } from '@/app/actions/whereYourJoyLives';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { getMyRootPopupDismissalAction } from '@/app/actions/rootPopupMessages';
 import { localDateFor } from '@/app/actions/rootMap';
@@ -36,6 +37,7 @@ import { CvsExperimentPanel } from '@/components/core-values-snapshot/CvsExperim
 import { LscExperimentPanel } from '@/components/life-signal-check/LscExperimentPanel';
 import { RplExperimentPanel } from '@/components/readiness-pulse/RplExperimentPanel';
 import { OwningYourValueExperimentPanel } from '@/components/owning-your-value/OwningYourValueExperimentPanel';
+import { WhereYourJoyLivesExperimentPanel } from '@/components/where-your-joy-lives/WhereYourJoyLivesExperimentPanel';
 
 // Same zone-heading treatment as every other dashboard section (see the
 // local ZONE_LABEL constant in app/dashboard/page.tsx) — kept as a literal
@@ -72,7 +74,7 @@ function RecommendationExperimentRow({
 }
 
 export async function ActiveExperimentsSection() {
-  const [cvsStatus, lscStatus, rplStatus, oyvStatus, allExperiments] = await Promise.all([
+  const [cvsStatus, lscStatus, rplStatus, oyvStatus, wyjlStatus, allExperiments] = await Promise.all([
     getMyCvsExperimentStatusAction(),
     getMyLscExperimentStatusAction(),
     getMyRplExperimentStatusAction(),
@@ -81,6 +83,10 @@ export async function ActiveExperimentsSection() {
     // offer here and the action returns null unless one is actually
     // running.
     getMyOwningYourValueExperimentAction(),
+    // Where Your Joy Lives's experiment has no offer half either, for the
+    // same reason: it is accepted or declined on the closing screen itself,
+    // so the action returns null unless one is actually running.
+    getMyWhereYourJoyLivesExperimentAction(),
     getMyLifestyleExperiments(),
   ]);
 
@@ -99,7 +105,9 @@ export async function ActiveExperimentsSection() {
   );
 
   const hasAnything =
-    Boolean(cvsActive || cvsOffer || lscActive || lscOffer || rplActive || rplOffer || oyvStatus) ||
+    Boolean(
+      cvsActive || cvsOffer || lscActive || lscOffer || rplActive || rplOffer || oyvStatus || wyjlStatus
+    ) ||
     recommendationExperiments.length > 0;
   if (!hasAnything) return null;
 
@@ -187,6 +195,8 @@ export async function ActiveExperimentsSection() {
         )}
 
         {oyvStatus && <OwningYourValueExperimentPanel status={oyvStatus} />}
+
+        {wyjlStatus && <WhereYourJoyLivesExperimentPanel status={wyjlStatus} />}
 
         {recommendationExperiments.map((experiment) => (
           <RecommendationExperimentRow

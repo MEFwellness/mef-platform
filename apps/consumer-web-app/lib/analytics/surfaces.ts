@@ -40,6 +40,11 @@ export const PRODUCT_SURFACES = [
   // opened, and nothing else: not a word she wrote and not the sentence she
   // asked Root to hold reaches an analytics payload.
   'owning_your_value',
+  // Where Your Joy Lives, the second of the Happiness deep-dives. Same
+  // rule as the one above it: a surface she opened, and nothing else. Not a
+  // word she wrote, and neither of the two answers her closing screen
+  // places side by side, reaches an analytics payload.
+  'where_your_joy_lives',
   'root_score',
   'insights',
   'noticing',

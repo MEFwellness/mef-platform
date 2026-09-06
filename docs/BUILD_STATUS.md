@@ -1,3 +1,111 @@
+## Where Your Joy Lives, the second Happiness deep-dive (2026-09-06)
+
+Nine written questions about what actually fills a member and what she
+reaches for instead, ending on a screen that places two of her own answers
+side by side under one fixed sentence and says nothing about which is
+which. Migration 212, live on production.
+
+### It cost what migration 211 said it would cost
+
+Owning Your Value's own header promised that a second Happiness template
+would need "a catalog row, one clause to the insert policy and one line to
+the trigger's pairing, and nothing else". That is what migration 212 is,
+plus the one structured column this template's brief asked for. No second
+table, no second assignment ledger, no second pop-up mechanism, no second
+receipt system and no second experiment engine.
+
+It reuses, unchanged: `assessment_assignments` with its coach-write RLS and
+its one-pending-per-member index, the attempt-ledger trigger that closes an
+assignment out when she finishes, `member_assignment_deliveries` for the
+receipt, the Root pop-up chain and its recurring dismissal lifetime,
+`lifestyle_experiments` with its two-slot cap and read-time seven day
+expiry, `cvs_experiment_daily_logs` for the evening tap, and the shared
+`IntroReveal` typewriter. Like the two deep-dives beside it, it
+deliberately has NO entry in `lib/assessment-registry/registry.ts`.
+
+### The assignment is the whole gate, and there is no second one
+
+No tier lock, no visibility key, no grant column, no second flag, and
+crucially no prerequisite on having finished Owning Your Value first. This
+template's copy greets a member Root has sat with before, but "has sat with
+Root before" is something the coach knows and the app does not check.
+Requiring it would be the second invisible lock the standing rules forbid,
+and it would take the experience away from a member her coach deliberately
+started here. `tests/where-your-joy-lives-gate.test.ts` asserts that the
+whole gate path never mentions the other template at all.
+
+Both reads fail SHUT. Migration 212's insert policy says the same thing in
+the database, pairing this `experience_key` with this definition id and
+leaving the other template's pairing standing beside it.
+
+### Two templates in one table, never one row
+
+`member_happiness_deep_dive_sessions` now holds both, which makes
+`experience_key` load bearing rather than decorative. Every read in
+`lib/where-your-joy-lives/data.ts` is scoped by it, including the
+single-assignment read, so a member with both assigned can never be shown
+one template's answers under the other's questions. The test proves it by
+recording the actual column filters the service applies rather than by
+reading the source.
+
+The two pop-up keys carry distinct prefixes for the same reason. A shared
+`happiness_deep_dive:` prefix would let one dismissal silence the other's
+invitation for a member who was sent both.
+
+### The twenty minute answer gets its own column
+
+`twenty_minute_joy` (question eight), NOT a second meaning loaded into
+`held_sentence`. On an Owning Your Value row that column means "the
+sentence she would like to believe about herself"; here it would mean "the
+twenty minute thing that fills her". A later feature reading the family by
+one column would get answers to two different questions with no way to tell
+them apart. One column per meaning, null on every row that is not its own.
+
+The coach's card opens with question SEVEN, not with the stored column.
+The column holds the small version because that is the one a later feature
+could act on; the opener is the big one because two free hours is where a
+conversation starts. Both are named once in `questions.ts`, so neither is
+decided by a screen.
+
+### The closing places two answers and claims nothing
+
+Her question four answer and her question six answer, side by side on a
+tablet and stacked on a phone, each in the serif face, each labelled with
+its own question in full rather than with a word Root invented for it.
+Beneath them, one fixed sentence: "One of these empties slower. One of
+these fills. You wrote both."
+
+That line is allowed to stand beside her writing precisely because it
+points at neither. It is true of anyone who answered those two questions,
+it names no answer, and it never says which of the two is which, because
+Root does not know and this experience produces nothing that could tell it.
+Everything else on the screen is verbatim hers, with no quotation marks
+added, nothing corrected and nothing truncated. The copy test asserts the
+sentence word for word and asserts that it contains no first/second or
+left/right pointer.
+
+### The closing holds, and the shape is inherited deliberately
+
+The route renders the SAME component whether the sitting is pending or
+completed, and the branch between them lives inside that mounted client
+component, so the re-render a Server Action carries reconciles the tree
+instead of navigating her off it. No redirect anywhere in the route is
+keyed on completion. Finishing revalidates `/dashboard` only; saving a
+draft revalidates nothing at all, because she is standing on the route.
+
+### Save and resume, with no render writing anything
+
+The draft row is created by the first Continue she taps and updated by
+every Continue after it, through a server action. A save that FAILS does
+not advance her. `tests/where-your-joy-lives-gate.test.ts` counts the
+writes against the real service and finds zero on every read path.
+
+### One map, one name
+
+`lib/assignments/experienceNames.ts` gained one entry, and both the client
+detail panel and the This Week band picked the name up with no other
+change, which is what that map was lifted out to make true.
+
 ## Owning Your Value, the first Happiness deep-dive (2026-09-06)
 
 Nine written questions a coach can send one member, delivered by exactly

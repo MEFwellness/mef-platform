@@ -137,6 +137,7 @@ import {
   weeklyReflectionPopupMessageKey,
   stressLoadPopupMessageKey,
   owningYourValuePopupMessageKey,
+  whereYourJoyLivesPopupMessageKey,
   hydrationFocusPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
@@ -159,6 +160,9 @@ import { STRESS_LOAD_ROUTE } from '@/lib/stress-load/constants';
 import { getMyOwningYourValue } from '@/lib/owning-your-value/view';
 import { OYV_COPY } from '@/lib/owning-your-value/copy';
 import { OYV_ROUTE } from '@/lib/owning-your-value/constants';
+import { getMyWhereYourJoyLives } from '@/lib/where-your-joy-lives/view';
+import { WYJL_COPY } from '@/lib/where-your-joy-lives/copy';
+import { WYJL_ROUTE } from '@/lib/where-your-joy-lives/constants';
 import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import type { RenderedReview } from '@/lib/weekly-review/types';
 import { resolveLocalDate } from './checkin';
@@ -304,6 +308,28 @@ export type RootPopupMessage =
    */
   | {
       kind: 'owning_your_value_assigned';
+      messageKey: string;
+      assignmentId: string;
+      title: string;
+      body: string;
+      primaryHref: string;
+    }
+  /**
+   * Where Your Joy Lives (coach assigned only, migration 212), the second
+   * of the Happiness deep-dives.
+   *
+   * Its own kind, and its own key prefix, for the reason the template above
+   * it has one: the copy. Its approved line greets a member Root has sat
+   * down with before, and it is a genuinely different invitation from the
+   * one above, so a member with both assigned is owed both knocks rather
+   * than one that stands for two.
+   *
+   * Carries no questions and no reading. This message is an INVITATION into
+   * an experience on its own route, so it renders through the same
+   * RootInvitePopup and inherits its real Maybe later and Ignore buttons.
+   */
+  | {
+      kind: 'where_your_joy_lives_assigned';
       messageKey: string;
       assignmentId: string;
       title: string;
@@ -735,6 +761,38 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
         title: OYV_COPY.popupTitle,
         body: OYV_COPY.popupBody,
         primaryHref: OYV_ROUTE,
+      };
+    }
+  }
+
+  // Where Your Joy Lives, immediately below Owning Your Value and for the
+  // identical reasons: a coach's direct action for this member, and finite,
+  // because finishing it closes the assignment out so it can never starve
+  // anything below it.
+  //
+  // BELOW rather than above the template it follows, and that order is the
+  // only opinion held here. When a coach has sent both, the one sent first
+  // is the one Root asks about first, and this one is still due on her next
+  // open because its key has no dismissal row yet. Neither is ever
+  // swallowed by the other.
+  //
+  // getMyWhereYourJoyLives returns null for every member who was never
+  // assigned this, so the gate and the offer are one read rather than two
+  // checks here that could drift from the route's. Its own branch checks
+  // its own due-ness and falls through, per this file's one rule: a branch
+  // that returned a candidate the outer due-check then threw away would
+  // silence everything below it.
+  const whereYourJoyLives = await getMyWhereYourJoyLives();
+  if (whereYourJoyLives?.status === 'pending') {
+    const messageKey = whereYourJoyLivesPopupMessageKey(whereYourJoyLives.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'where_your_joy_lives_assigned',
+        messageKey,
+        assignmentId: whereYourJoyLives.assignmentId,
+        title: WYJL_COPY.popupTitle,
+        body: WYJL_COPY.popupBody,
+        primaryHref: WYJL_ROUTE,
       };
     }
   }

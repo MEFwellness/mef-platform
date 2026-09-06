@@ -124,6 +124,8 @@ import { StressLoadPanel } from '../StressLoadPanel';
 import { getClientStressLoadPanelAction } from '@/app/actions/stressLoad';
 import { OwningYourValuePanel } from '../OwningYourValuePanel';
 import { getClientOwningYourValuePanelAction } from '@/app/actions/owningYourValue';
+import { WhereYourJoyLivesPanel } from '../WhereYourJoyLivesPanel';
+import { getClientWhereYourJoyLivesPanelAction } from '@/app/actions/whereYourJoyLives';
 import { assignmentNameRecord } from '@/lib/assignments/experienceNames';
 import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
 import { MovementProfilePanel } from '../MovementProfilePanel';
@@ -241,6 +243,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     weeklyReflectionAssign,
     stressLoadPanel,
     owningYourValuePanel,
+    whereYourJoyLivesPanel,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -283,6 +286,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientWeeklyReflectionAssignStateAction(profile.id),
     getClientStressLoadPanelAction(profile.id),
     getClientOwningYourValuePanelAction(profile.id),
+    getClientWhereYourJoyLivesPanelAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -738,6 +742,15 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             what came back are one place.
           */}
           <OwningYourValuePanel clientId={profile.id} state={owningYourValuePanel} />
+
+          {/*
+            Where Your Joy Lives, beside the two deep-dives above it,
+            because they are the coach-assigned experiences and a coach
+            preparing for a session decides about all of them in the same
+            moment. This is also where its Assign button lives, so sending
+            it and reading what came back are one place.
+          */}
+          <WhereYourJoyLivesPanel clientId={profile.id} state={whereYourJoyLivesPanel} />
 
           {/* Movement Profile — permanent movement record + Pending Coach
               Review worklist (Member Exercise Experience & Movement
