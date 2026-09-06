@@ -1,3 +1,88 @@
+## The door coaches walked past, and the experiment with no card (2026-09-06)
+
+Two unrelated cleanups on screens that already existed. No new tables, no
+migration.
+
+### The last card on a client brief now says what it is
+
+It read "Everything else about Ebony" with a small corner arrow, and
+coaches did not recognise it as the way into the full client Detail page.
+It now reads "Ebony's Full Client Detail", keeps its description line
+underneath word for word, and carries a filled gold "Open full detail"
+label instead of leaning on the arrow. The frame is the brand gold too, so
+it reads as a control rather than as a sixth paragraph.
+
+Same route, same destination, and still ONE tap target: the label is a
+span, not a button, because a button inside a link is invalid HTML and
+would split one target into two. The link also gained
+`aria-label="Open full detail for Ebony"`, so a screen reader is told the
+destination rather than reading out an arrow. Presentation only.
+
+### The Stress & Load experiment ran for seven days with no daily card
+
+Accepting the offer at the end of the deep-dive has always written a real
+`lifestyle_experiments` row. Nothing on Home ever read it back.
+
+WHY. `components/dashboard/ActiveExperimentsSection.tsx` reads three
+per-experience statuses (Core Values Snapshot, Life Signal Check,
+Readiness Pulse), two deep-dive statuses added later (Owning Your Value,
+Where Your Joy Lives), and one Recommendation Engine list filtered on
+`recommendationId !== null`. A deep-dive experiment carries a null
+`recommendation_id` by design, and Stress & Load never got a status read of
+its own, so it fell through every single branch. It was an omission, not a
+gate: nothing was excluding it, nothing was including it.
+
+THE FIX is the missing read, in the shape its two Happiness siblings
+already hand back: `getMyStressLoadExperimentAction` plus
+`logStressLoadDayAction` in `app/actions/stressLoad.ts`, logging into
+`cvs_experiment_daily_logs` (migration 134), the table five other
+experiments already share. `StressLoadExperimentPanel` is the sibling
+panel. No new table, no new column, no migration, and no second Active
+Experiments system.
+
+ACCEPTANCES RECORDED BEFORE THIS BUILD ARE HONOURED with no backfill,
+because the status is read from `lifestyle_experiments` by
+`source_experience_key` and a row written in August looks exactly like a
+row written today. Production held exactly one such row (the seeded test
+fixture, started 2026-08-29) and it had already passed its own seven days,
+so it correctly stays closed rather than reopening.
+
+ITS QUESTION IS DIFFERENT FOR EVERY MEMBER, unlike its siblings: this
+experiment is built from her own Q9 answer, so there are eleven of them.
+`lib/stress-load/experiment.ts` holds one written question per protocol,
+keyed by the stored title, because the title is what the row carries. A
+guard test walks all eleven and fails if one is missing, so the last
+resort fallback can never reach a member.
+
+`findLatestExperimentByExperienceKey` in
+`lib/lifestyle-experiments/data.ts` is one shared implementation of a
+query that had grown three private copies. The three older copies are live
+paths and were left alone.
+
+### Watched on the live site
+
+`scripts/verify-detail-door-and-stress-load-experiment-live.mjs`, against
+app.mefwellness.com on a 390px phone. The coach half: the card renamed,
+the description unchanged, the label present, the gold on the frame and the
+label, no nested button, and the tap landing on `/detail`. The member half
+driven end to end as a real member would: the coach sent a fresh deep-dive
+through the real Assign control, she answered all eleven questions, reached
+the offer built from her first pick ("Five minutes of music"), accepted it
+through the real button, and Home then showed "Day 1 of 7" with
+"Did you give five minutes to music with your full attention on it today?",
+Yes and Not today. Tapping Yes flipped it to "Logged: today counted." and
+the state survived a reload, so a real row was written. Zero console
+errors, zero em dashes.
+
+Owning Your Value has no experiment on that account, so there was nothing
+of its to change live. Its rendering is asserted unchanged in the suite
+instead, on its own and beside its new neighbour.
+
+ONE RUN LOOKED LIKE A FAILURE AND WAS NOT. An earlier attempt waited a
+fixed 2.5 seconds after the eleventh answer and screenshotted a submit that
+was still in flight; the sitting had actually been written. Every fixed
+timeout in that script is now a wait on the thing itself.
+
 ## The coach can type instead of scrolling (2026-09-06)
 
 "Assign an Assessment" on the client detail page was a native dropdown of
