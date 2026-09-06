@@ -298,6 +298,9 @@ describe('the panel a coach actually sees', () => {
   it('puts a search field at the top of the section', () => {
     const html = render('');
     expect(html).toContain('Assign an Assessment');
+    // Addressable by its accessible name, so a live check reaches this
+    // card and not another panel that happens to use the same words.
+    expect(html).toContain('aria-label="Assign an Assessment"');
     expect(html).toContain('Search by name or area');
     expect(html).toContain('Search questionnaires by name or area');
     // The field is above the list it filters.

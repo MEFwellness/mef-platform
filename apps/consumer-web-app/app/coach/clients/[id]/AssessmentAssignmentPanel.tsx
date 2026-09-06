@@ -127,7 +127,13 @@ export function AssessmentAssignmentPanel({
   const pastAssignments = initialAssignments.filter((a) => a.status !== 'pending');
 
   return (
-    <section className={`${CARD} p-6`}>
+    /*
+      Named, so anything addressing this card addresses it by its
+      accessible name rather than by copy another panel could also carry.
+      The heading beside the icon is a paragraph, not a heading element, so
+      the card had no name of its own to be found by.
+    */
+    <section className={`${CARD} p-6`} aria-label="Assign an Assessment">
       <div className="flex items-center gap-2 text-[#854D0E]">
         <ClipboardCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Assign an Assessment</p>
