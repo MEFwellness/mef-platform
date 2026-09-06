@@ -1,3 +1,88 @@
+## The coach can type instead of scrolling (2026-09-06)
+
+"Assign an Assessment" on the client detail page was a native dropdown of
+names. On a phone that control gives a coach no way to type and no way to
+see whether the thing she is about to send has already been sent, already
+been finished, or is sitting unopened on that client's screen. It is now a
+search field over a list, and every row in that list reports where this
+client stands. No migration, no new table, no new endpoint, no write on
+render.
+
+### Two fields are matched, and one of them is not a name
+
+Case insensitive and partial, over the display name and the AREA. Typing
+"joy" finds Where Your Joy Lives; typing "happiness" finds every template
+filed under it, and "happiness" appears in no display name anywhere in the
+library, which is why the test uses that exact word: a filter that only
+ever read names could not pass it. An empty query matches everything, so
+clearing the field restores the list with no separate reset path.
+
+### Three things it reuses rather than rebuilds
+
+The NAME comes from `lib/assignments/experienceNames.ts`, the shared map
+that exists so no surface prints the generic word. Thirteen rows, thirteen
+real names on the live screen.
+
+The AREA comes from a new `lib/assessment-registry/areas.ts`, which turns
+the registry's own internal category key into words. It THROWS rather than
+guessing, and there is deliberately no title-case-the-key fallback: a guard
+test walks the whole registry, so a new questionnaire arriving with a
+category nobody named fails the build instead of printing
+`whole_body_systems` at a coach. That is what makes this survive the
+library growing.
+
+The STATUS is the assignment's own server written `statusLine`, read back
+off the rows the panel was ALREADY handed by
+`getClientAssessmentAssignments`. No new query, no second status
+vocabulary, and no date formatted in the coach's zone for a day that
+belongs to the member's. `lib/assignments/assignableCatalog.ts` decides
+only WHICH row answers "where does this client stand on this
+questionnaire": a still open row first, then a completed one, then a
+withdrawn one, and "Not sent." when there is none.
+
+### A filtered row and the ledger underneath it print one string
+
+Asserted character for character in the test suite, and again on
+production against Ebony's real rows: "Completed Aug 17." for the Body
+Assessment and "Completed Aug 29." for the Stress & Load Deep-Dive came
+out of the picker identical to what the assignment list underneath the
+same form has always printed. That comparison is the proof this build
+changed no status text.
+
+### The three deep-dives are findable here and deliberately not sendable here
+
+They land in the same `assessment_assignments` ledger and the list at the
+bottom of this panel has always named them, so leaving them out of a
+search field on the page that already lists them would be a lie by
+omission. But each has its own Assign action, its own default due date,
+its own duplicate-click behaviour and its own card showing what came back,
+and the partial unique index behind them means a second path could only
+ever race the first. So their rows carry no control at all, only the line
+"Assigned from its own card on this page." The Stress & Load Assign button
+is untouched.
+
+### The card has a name now
+
+`aria-label="Assign an Assessment"`. The heading beside the icon is a
+paragraph, not a heading element, so the card had no accessible name and
+anything looking for it had to hunt through copy other panels also carry.
+That is the mistake a previous run made and reported a PASS for.
+
+### Watched on the live site
+
+`scripts/verify-coach-assessment-search-live.mjs`, against
+app.mefwellness.com, as the real coach on the real client screen. 28 of 28.
+The field above the list, thirteen rows each with a name and an area chip,
+every status compared against the ledger, "readiness" filtering 13 down to
+1, "readiness" in capitals returning the same row, "happiness" returning
+exactly the two Happiness templates, gibberish showing the empty state,
+clearing restoring all thirteen row for row, then a real assign from a
+filtered result (the picker row moved from "Not sent." to "Sent Sep 6. Not
+seen yet, they have not opened a screen it appears on.", identical to the
+ledger's) and the real Cancel control withdrawing it. Zero console errors,
+zero em dashes. The one row the run created was deleted afterwards and the
+fixture ended on the same three rows it started with.
+
 ## Where Your Joy Lives, the second Happiness deep-dive (2026-09-06)
 
 Nine written questions about what actually fills a member and what she
