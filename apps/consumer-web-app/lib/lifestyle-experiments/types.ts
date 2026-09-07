@@ -24,6 +24,8 @@ export type LifestyleExperiment = {
   sourceExperienceKey: string | null;
   /** Set only once the member has tapped "Got it" on this experiment's own day-7 reflection (Core Values Snapshot or Life Signal Check) — null for every other experiment, and null until acknowledged. */
   day7AcknowledgedAt: string | null;
+  /** What this experiment is ABOUT, in one vocabulary shared by every experience, so the Life Signal Check's Energy experiment and the Readiness Pulse's Energy experiment are recognisably the same thing. Null on every row written before migration 216, which is deliberate: those rows are never rewritten, and lib/lifestyle-experiments/subject.ts recovers their subject from the title instead. See that module's header for the duplicate this closes. */
+  subjectKey: string | null;
   title: string;
   protocol: string;
   startDate: string;

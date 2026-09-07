@@ -1,3 +1,74 @@
+## One experiment per subject, and the duplicate 7-day offer (2026-09-07)
+
+Home's Active Experiments section was showing one member two 7-day offer
+cards for the same behavior: "take a genuine 5-minute break in the mornings"
+beside "take a real 5-minute break in the mornings", each with its own
+"I'm in: start the 7 days".
+
+THEY CAME FROM TWO DIFFERENT EXPERIENCES, NOT ONE FIRING TWICE. The first
+is the Life Signal Check's energy experiment, the second is the Readiness
+Pulse's. `lib/readiness-pulse/scoring.ts` deliberately sets `targetSignal`
+to the Life Signal Check's own loudest signal and inherits its
+hardest-time-of-day for the timing phrase, so the two are GUARANTEED to
+describe the same behavior whenever a member finishes both. Two parallel
+copy tables then word it slightly differently. The guards that existed were
+real but each was scoped to a single `source_experience_key`, so neither
+could see the other, and MAX_ACTIVE_EXPERIMENTS permits exactly two.
+
+AN OFFER IS NOT A ROW. It is recomputed on every render from "the latest
+completed session of this assessment, when no experiment from that
+assessment is running". So there was nothing to delete, no duplicate rows
+to clean up, and no constraint a database could hold over the offer itself.
+The only place a duplicate offer can be refused is where Home decides what
+to draw, and that refusal is silent by construction: a card that is never
+drawn. Nothing errors and nothing is written.
+
+THE ONE NEW IDEA IS A SUBJECT. Not the source experience and not the title:
+what the experiment is ABOUT, in one vocabulary every experience shares.
+`signal:energy` covers the Life Signal Check's chosen signal AND the
+Readiness Pulse's target signal, because they are the same behavior, and
+the Readiness Pulse's "small" variant shares it too, two honest minutes and
+five honest minutes being one behavior at two doses. `value:purpose` for a
+Core Values Snapshot experiment, `experience:<key>` for a deep-dive that has
+exactly one experiment of its own (which includes the Readiness Pulse's two
+noticing patterns, so "Daily Noticing" stays a genuinely different offer),
+`recommendation:<id>` for a Recommendation Engine one.
+`lib/lifestyle-experiments/subject.ts` is the whole vocabulary.
+
+TWO RULES, IN `lib/lifestyle-experiments/offerDedupe.ts`. An offer whose
+subject is already running is dropped, whichever experience is running it.
+Among offers sharing a subject, the most recently completed source session
+wins, which is what the Readiness Pulse is FOR: it re-frames the Life
+Signal Check's signal through what she just said about her readiness,
+including a deliberate two-minute version for someone who said she has
+almost no capacity. Keeping the older card would hand her the five-minute
+version she had already said she could not do.
+
+THE WRITE HALF IS ENFORCED BY THE DATABASE, not only by the ten actions.
+All ten go through one insert (`startLifestyleExperiment`), which now
+refuses a second experiment for a subject already running and returns the
+one she has instead of an error. Migration 216 puts a partial unique index
+under that, so a hand-made POST or a future code path that skips the helper
+is refused too, and a 23505 from two racing tabs resolves to the row that
+won rather than an error she reads.
+
+MIGRATION 216 IS DELIBERATELY NOT BACKFILLED. One real member is running
+two Tension experiments right now, one from each experience, both inside
+their seven-day window. Backfilling would have meant either failing the
+migration or rewriting a running experiment out from under her. Every
+pre-migration row keeps a null `subject_key` and sits outside the index by
+construction. Home still stops drawing duplicates for those rows
+immediately, because `resolveSubjectKey` recovers a legacy row's subject
+from the title it already stores, through the SIGNAL_LABEL / AREA_LABEL
+reverse lookups that already existed for the daily prompt.
+
+NOT TOUCHED, ON PURPOSE. The 2-active cap, decline behavior, every line of
+experiment copy, and the Root pop-up chain. The chain returns one message
+at a time so it can never show both offers at once, but it can still offer
+the Life Signal Check's version on a later day after the Readiness Pulse's
+was started. The write guard catches that (no duplicate row is created),
+the display of it was left alone.
+
 ## Being Seen, the fifth Happiness deep-dive, and the pause all five now share (2026-09-07)
 
 Two things shipped together, and they are different kinds of thing. One is

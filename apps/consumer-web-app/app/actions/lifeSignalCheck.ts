@@ -40,6 +40,7 @@ import {
   MAX_ACTIVE_EXPERIMENTS,
   type LifestyleExperiment,
 } from '@/lib/lifestyle-experiments';
+import { signalSubjectKey } from '@/lib/lifestyle-experiments/subject';
 import { localDateFor } from './rootMap';
 import { LSC_KEY, LSC_EXPERIMENT_DURATION_DAYS, SIGNAL_LABEL, type Signal } from '@/lib/life-signal-check/constants';
 import { computeLscScoring } from '@/lib/life-signal-check/scoring';
@@ -306,13 +307,15 @@ export async function startLscExperimentAction(sessionId: string, signal: Signal
     durationDays: LSC_EXPERIMENT_DURATION_DAYS,
     sourceSessionId: sessionId,
     sourceExperienceKey: 'life-signal-check',
+    subjectKey: signalSubjectKey(signal),
   });
   if (!experiment) return { ok: false, error: 'Could not start this experiment.' };
 
   return { ok: true, experiment };
 }
 
-export type LscOffer = { sessionId: string; scoring: LscScoring };
+/** `completedAt` and `subjectKey` exist so Home can decide between two offers that turn out to be about the same thing. See lib/lifestyle-experiments/offerDedupe.ts. */
+export type LscOffer = { sessionId: string; scoring: LscScoring; completedAt: string | null; subjectKey: string };
 
 /**
  * The member's most recently completed Life Signal Check session, only
@@ -333,7 +336,7 @@ export async function getMyLscOfferAction(): Promise<LscOffer | null> {
 
   const { data } = await supabase
     .from('unified_assessment_sessions')
-    .select('id')
+    .select('id, completed_at')
     .eq('member_id', memberId)
     .eq('assessment_definition_id', definition.id)
     .eq('status', 'completed')
@@ -347,7 +350,12 @@ export async function getMyLscOfferAction(): Promise<LscOffer | null> {
 
   const cvsContext = await getLatestCvsContextForEcho(supabase, memberId);
   const scoring = computeLscScoring(session.answers, cvsContext);
-  return { sessionId: session.id, scoring };
+  return {
+    sessionId: session.id,
+    scoring,
+    completedAt: (data as { completed_at: string | null }).completed_at,
+    subjectKey: signalSubjectKey(scoring.chosenSignal),
+  };
 }
 
 export type LscExperimentStatus = {

@@ -21,6 +21,7 @@ import {
   type LifestyleExperiment,
   type LifestyleExperimentOutcome,
 } from '@/lib/lifestyle-experiments';
+import { recommendationSubjectKey } from '@/lib/lifestyle-experiments/subject';
 import { localDateFor } from './rootMap';
 
 const ALLOWED_DURATIONS = new Set([7, 14, 21, 28]);
@@ -68,6 +69,7 @@ export async function startMyExperiment(
     protocol: recommendation.explanation,
     startDate,
     durationDays,
+    subjectKey: recommendationSubjectKey(recommendationRowId),
   });
   if (!experiment) return { error: 'Could not start this experiment.' };
 

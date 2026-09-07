@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LifestyleExperiment, LifestyleExperimentOutcome } from './types';
 import { deriveEffectiveStatus, isExperimentOverdue, MAX_ACTIVE_EXPERIMENTS } from './lifecycle';
+import { resolveSubjectKey } from './subject';
 
 type Row = {
   id: string;
@@ -15,6 +16,7 @@ type Row = {
   source_session_id: string | null;
   source_experience_key: string | null;
   day7_acknowledged_at: string | null;
+  subject_key: string | null;
   title: string;
   protocol: string;
   start_date: string;
@@ -34,6 +36,7 @@ function fromRow(row: Row): LifestyleExperiment {
     sourceSessionId: row.source_session_id,
     sourceExperienceKey: row.source_experience_key,
     day7AcknowledgedAt: row.day7_acknowledged_at,
+    subjectKey: row.subject_key,
     title: row.title,
     protocol: row.protocol,
     startDate: row.start_date,
@@ -57,6 +60,8 @@ export async function startLifestyleExperiment(
     durationDays: number;
     sourceSessionId?: string | null;
     sourceExperienceKey?: string | null;
+    /** What this experiment is about, from lib/lifestyle-experiments/subject.ts. Every caller passes one; it is optional only so a future caller that genuinely has no subject stays expressible. */
+    subjectKey?: string | null;
   }
 ): Promise<LifestyleExperiment | null> {
   // Defensive re-check (Prompt 12, Part 3 guardrail) — the primary,
@@ -71,6 +76,19 @@ export async function startLifestyleExperiment(
     return null;
   }
 
+  // One running experiment per SUBJECT, across every experience, not just
+  // within one. The pre-existing per-experience guards in each action could
+  // not see across the boundary, which is how a member came to hold two
+  // running experiments for the same signal, one from the Life Signal Check
+  // and one from the Readiness Pulse that deliberately targets it. Returning
+  // the experiment she already has is the honest answer to "start this":
+  // the thing she asked for is already running.
+  const subjectKey = params.subjectKey ?? null;
+  if (subjectKey) {
+    const alreadyRunning = await findActiveExperimentBySubject(supabase, memberId, subjectKey);
+    if (alreadyRunning) return alreadyRunning;
+  }
+
   const { data, error } = await supabase
     .from('lifestyle_experiments')
     .insert({
@@ -78,6 +96,7 @@ export async function startLifestyleExperiment(
       recommendation_id: params.recommendationId,
       source_session_id: params.sourceSessionId ?? null,
       source_experience_key: params.sourceExperienceKey ?? null,
+      subject_key: subjectKey,
       title: params.title,
       protocol: params.protocol,
       start_date: params.startDate,
@@ -88,10 +107,49 @@ export async function startLifestyleExperiment(
     .single();
 
   if (error) {
+    // 23505 is migration 216's partial unique index: two tabs, a double
+    // tap, or a hand-made POST raced the read above and both reached the
+    // insert. The row that won is the right answer for both of them, so
+    // this is not an error the member ever needs to see.
+    if (error.code === '23505' && subjectKey) {
+      const winner = await findActiveExperimentBySubject(supabase, memberId, subjectKey);
+      if (winner) return winner;
+    }
     console.error('startLifestyleExperiment failed', error);
     return null;
   }
   return fromRow(data as Row);
+}
+
+/**
+ * The member's currently running experiment for one subject, from ANY
+ * source experience, or null. Reads effective status rather than the stored
+ * column so an overdue row never blocks a genuine restart, the same way
+ * countActiveExperiments already does.
+ */
+export async function findActiveExperimentBySubject(
+  supabase: SupabaseClient,
+  memberId: string,
+  subjectKey: string
+): Promise<LifestyleExperiment | null> {
+  const { data, error } = await supabase
+    .from('lifestyle_experiments')
+    .select('*')
+    .eq('member_id', memberId)
+    .eq('status', 'active');
+
+  if (error) {
+    console.error('findActiveExperimentBySubject failed', error);
+    return null;
+  }
+
+  const now = new Date();
+  const match = (data as Row[])
+    .map(fromRow)
+    .filter((e) => deriveEffectiveStatus(e, now) === 'active')
+    .find((e) => resolveSubjectKey(e) === subjectKey);
+
+  return match ?? null;
 }
 
 export async function closeLifestyleExperiment(

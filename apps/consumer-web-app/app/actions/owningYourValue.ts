@@ -43,6 +43,7 @@ import {
   MAX_ACTIVE_EXPERIMENTS,
   type LifestyleExperiment,
 } from '@/lib/lifestyle-experiments';
+import { experienceSubjectKey } from '@/lib/lifestyle-experiments/subject';
 import { daysSinceStart } from '@/lib/core-values-snapshot/experiment';
 import { localDateFor } from './rootMap';
 import {
@@ -238,6 +239,7 @@ export async function startOwningYourValueExperimentAction(
     durationDays: offer.durationDays,
     sourceSessionId: null,
     sourceExperienceKey: OYV_EXPERIENCE_KEY,
+    subjectKey: experienceSubjectKey(OYV_EXPERIENCE_KEY),
   });
   if (!experiment) return { ok: false, error: 'Could not start this one.' };
 

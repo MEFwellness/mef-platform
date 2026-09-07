@@ -16,6 +16,7 @@ function experiment(overrides: Partial<LifestyleExperiment> = {}): LifestyleExpe
     sourceSessionId: null,
     sourceExperienceKey: null,
     day7AcknowledgedAt: null,
+    subjectKey: null,
     title: 'Wind-down routine',
     protocol: 'Try a consistent bedtime routine.',
     startDate: '2026-06-01',

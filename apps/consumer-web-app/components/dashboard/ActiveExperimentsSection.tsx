@@ -32,6 +32,7 @@ import { getMyTheWeightOfYesExperimentAction } from '@/app/actions/theWeightOfYe
 import { getMyBeingSeenExperimentAction } from '@/app/actions/beingSeen';
 import { getMyStressLoadExperimentAction } from '@/app/actions/stressLoad';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
+import { resolveSubjectKey, suppressDuplicateOffers } from '@/lib/lifestyle-experiments';
 import { getMyRootPopupDismissalAction } from '@/app/actions/rootPopupMessages';
 import { localDateFor } from '@/app/actions/rootMap';
 import { getCachedUser } from '@/lib/supabase/currentUser';
@@ -132,11 +133,42 @@ export async function ActiveExperimentsSection() {
   const lscActive = lscStatus && lscStatus.experiment.status === 'active';
   const rplActive = rplStatus && rplStatus.experiment.status === 'active';
 
-  const [cvsOffer, lscOffer, rplOffer] = await Promise.all([
+  const [rawCvsOffer, rawLscOffer, rawRplOffer] = await Promise.all([
     cvsActive ? Promise.resolve(null) : getMyCvsOfferAction(),
     lscActive ? Promise.resolve(null) : getMyLscOfferAction(),
     rplActive ? Promise.resolve(null) : getMyRplOfferAction(),
   ]);
+
+  // "One open offer per member per experiment", which has to be decided
+  // here because an offer is not a row anywhere: it is recomputed on every
+  // render from the latest completed session, so there is nothing to insert
+  // and nothing a database constraint could hold. The refusal is silent by
+  // construction, a card that is simply never drawn.
+  //
+  // The duplicate this closes: the Readiness Pulse deliberately targets the
+  // Life Signal Check's own loudest signal and inherits its
+  // hardest-time-of-day, so a member who finished both was shown the same
+  // 5-minute break twice, once as "take a genuine 5-minute break in the
+  // mornings" and once as "take a real 5-minute break in the mornings".
+  // See lib/lifestyle-experiments/offerDedupe.ts for the two rules.
+  const runningSubjectKeys = allExperiments
+    .filter((e) => e.status === 'active')
+    .map((e) => resolveSubjectKey(e));
+
+  const survivingOffers = new Set(
+    suppressDuplicateOffers(
+      [
+        rawCvsOffer && { key: 'cvs' as const, subjectKey: rawCvsOffer.subjectKey, sourceCompletedAt: rawCvsOffer.completedAt },
+        rawLscOffer && { key: 'lsc' as const, subjectKey: rawLscOffer.subjectKey, sourceCompletedAt: rawLscOffer.completedAt },
+        rawRplOffer && { key: 'rpl' as const, subjectKey: rawRplOffer.subjectKey, sourceCompletedAt: rawRplOffer.completedAt },
+      ].filter((o) => o !== null),
+      runningSubjectKeys
+    ).map((o) => o.key)
+  );
+
+  const cvsOffer = survivingOffers.has('cvs') ? rawCvsOffer : null;
+  const lscOffer = survivingOffers.has('lsc') ? rawLscOffer : null;
+  const rplOffer = survivingOffers.has('rpl') ? rawRplOffer : null;
 
   const recommendationExperiments = allExperiments.filter(
     (e) => e.status === 'active' && e.recommendationId !== null

@@ -40,6 +40,7 @@ import {
   MAX_ACTIVE_EXPERIMENTS,
   type LifestyleExperiment,
 } from '@/lib/lifestyle-experiments';
+import { valueAreaSubjectKey } from '@/lib/lifestyle-experiments/subject';
 import { localDateFor } from './rootMap';
 import { CVS_KEY, CVS_EXPERIMENT_DURATION_DAYS, AREA_LABEL, type ValueArea } from '@/lib/core-values-snapshot/constants';
 import { computeCvsScoring } from '@/lib/core-values-snapshot/scoring';
@@ -278,13 +279,15 @@ export async function startCvsExperimentAction(
     durationDays: CVS_EXPERIMENT_DURATION_DAYS,
     sourceSessionId: sessionId,
     sourceExperienceKey: 'core-values-snapshot',
+    subjectKey: valueAreaSubjectKey(topValue),
   });
   if (!experiment) return { ok: false, error: 'Could not start this experiment.' };
 
   return { ok: true, experiment };
 }
 
-export type CvsOffer = { sessionId: string; scoring: CvsScoring };
+/** `completedAt` and `subjectKey` exist so Home can decide between two offers that turn out to be about the same thing. See lib/lifestyle-experiments/offerDedupe.ts. */
+export type CvsOffer = { sessionId: string; scoring: CvsScoring; completedAt: string | null; subjectKey: string };
 
 /**
  * The member's most recently completed Core Values Snapshot session, only
@@ -304,7 +307,7 @@ export async function getMyCvsOfferAction(): Promise<CvsOffer | null> {
 
   const { data } = await supabase
     .from('unified_assessment_sessions')
-    .select('id')
+    .select('id, completed_at')
     .eq('member_id', memberId)
     .eq('assessment_definition_id', definition.id)
     .eq('status', 'completed')
@@ -316,7 +319,13 @@ export async function getMyCvsOfferAction(): Promise<CvsOffer | null> {
   const session = await getSessionById(supabase, data.id as string);
   if (!session) return null;
 
-  return { sessionId: session.id, scoring: computeCvsScoring(session.answers) };
+  const scoring = computeCvsScoring(session.answers);
+  return {
+    sessionId: session.id,
+    scoring,
+    completedAt: (data as { completed_at: string | null }).completed_at,
+    subjectKey: valueAreaSubjectKey(scoring.topValue),
+  };
 }
 
 export type CvsExperimentStatus = {

@@ -40,6 +40,7 @@ import {
   MAX_ACTIVE_EXPERIMENTS,
   type LifestyleExperiment,
 } from '@/lib/lifestyle-experiments';
+import { experienceSubjectKey, signalSubjectKey } from '@/lib/lifestyle-experiments/subject';
 import { localDateFor } from './rootMap';
 import { RPL_KEY, RPL_EXPERIMENT_DURATION_DAYS, READINESS_PATTERN_LABEL, type ReadinessPattern, type Signal } from '@/lib/readiness-pulse/constants';
 import { computeRplScoring, allRplQuestionsAnswered } from '@/lib/readiness-pulse/scoring';
@@ -346,20 +347,57 @@ export { buildEvidenceEchoLine };
 
 // --- Weekly Experiment --------------------------------------------------
 
-function rplExperimentTitleAndProtocol(scoring: RplScoring): { title: string; protocol: string } {
+/**
+ * Title, protocol and subject in one place, because the subject has to be
+ * decided from the same branch the title is.
+ *
+ * The two ready patterns are signal-shaped and share the Life Signal
+ * Check's signal namespace deliberately: `targetSignal` IS the Life Signal
+ * Check's loudest signal whenever there is one (see
+ * lib/readiness-pulse/scoring.ts), so those two experiments are the same
+ * behavior and must collide. The "small" variant collides with the
+ * full-size one for the same reason, two honest minutes and five honest
+ * minutes being one behavior at two doses.
+ *
+ * The two noticing patterns are NOT signal-shaped. They are the Readiness
+ * Pulse's own answer for a member who is not ready to change anything yet,
+ * so they take the experience's own subject and never suppress, or get
+ * suppressed by, a real signal experiment.
+ */
+function rplExperimentTitleAndProtocol(scoring: RplScoring): {
+  title: string;
+  protocol: string;
+  subjectKey: string;
+} {
   switch (scoring.finalPattern) {
     case 'ready_now': {
       const { theory, body } = buildRplReadyNowExperimentCopy(scoring);
-      return { title: SIGNAL_LABEL[scoring.targetSignal], protocol: `${theory} ${body}` };
+      return {
+        title: SIGNAL_LABEL[scoring.targetSignal],
+        protocol: `${theory} ${body}`,
+        subjectKey: signalSubjectKey(scoring.targetSignal),
+      };
     }
     case 'ready_if_small': {
       const { theory, body } = buildRplReadyIfSmallExperimentCopy(scoring);
-      return { title: `${SIGNAL_LABEL[scoring.targetSignal]} (small)`, protocol: `${theory} ${body}` };
+      return {
+        title: `${SIGNAL_LABEL[scoring.targetSignal]} (small)`,
+        protocol: `${theory} ${body}`,
+        subjectKey: signalSubjectKey(scoring.targetSignal),
+      };
     }
     case 'still_deciding':
-      return { title: 'Daily Noticing', protocol: `${RPL_STILL_DECIDING_INTRO.theory} ${RPL_STILL_DECIDING_INTRO.body}` };
+      return {
+        title: 'Daily Noticing',
+        protocol: `${RPL_STILL_DECIDING_INTRO.theory} ${RPL_STILL_DECIDING_INTRO.body}`,
+        subjectKey: experienceSubjectKey(RPL_KEY),
+      };
     case 'not_yet':
-      return { title: 'The Noticing', protocol: `${RPL_NOT_YET_INTRO.theory} ${RPL_NOT_YET_INTRO.body}` };
+      return {
+        title: 'The Noticing',
+        protocol: `${RPL_NOT_YET_INTRO.theory} ${RPL_NOT_YET_INTRO.body}`,
+        subjectKey: experienceSubjectKey(RPL_KEY),
+      };
   }
 }
 
@@ -390,7 +428,7 @@ export async function startRplExperimentAction(sessionId: string): Promise<Start
 
   const lscContext = await getLatestLscContextForRpl(supabase, memberId);
   const scoring = computeRplScoring(session.answers, lscContext);
-  const { title, protocol } = rplExperimentTitleAndProtocol(scoring);
+  const { title, protocol, subjectKey } = rplExperimentTitleAndProtocol(scoring);
   const startDate = await localDateFor(supabase, memberId);
 
   const experiment = await startLifestyleExperiment(supabase, memberId, {
@@ -401,13 +439,15 @@ export async function startRplExperimentAction(sessionId: string): Promise<Start
     durationDays: RPL_EXPERIMENT_DURATION_DAYS,
     sourceSessionId: sessionId,
     sourceExperienceKey: 'readiness-pulse',
+    subjectKey,
   });
   if (!experiment) return { ok: false, error: 'Could not start this experiment.' };
 
   return { ok: true, experiment };
 }
 
-export type RplOffer = { sessionId: string; scoring: RplScoring };
+/** `completedAt` and `subjectKey` exist so Home can decide between two offers that turn out to be about the same thing. See lib/lifestyle-experiments/offerDedupe.ts. */
+export type RplOffer = { sessionId: string; scoring: RplScoring; completedAt: string | null; subjectKey: string };
 
 export async function getMyRplOfferAction(): Promise<RplOffer | null> {
   const memberId = await requireMemberId();
@@ -419,7 +459,7 @@ export async function getMyRplOfferAction(): Promise<RplOffer | null> {
 
   const { data } = await supabase
     .from('unified_assessment_sessions')
-    .select('id')
+    .select('id, completed_at')
     .eq('member_id', memberId)
     .eq('assessment_definition_id', definition.id)
     .eq('status', 'completed')
@@ -433,7 +473,12 @@ export async function getMyRplOfferAction(): Promise<RplOffer | null> {
 
   const lscContext = await getLatestLscContextForRpl(supabase, memberId);
   const scoring = computeRplScoring(session.answers, lscContext);
-  return { sessionId: session.id, scoring };
+  return {
+    sessionId: session.id,
+    scoring,
+    completedAt: (data as { completed_at: string | null }).completed_at,
+    subjectKey: rplExperimentTitleAndProtocol(scoring).subjectKey,
+  };
 }
 
 export type RplExperimentStatus = {

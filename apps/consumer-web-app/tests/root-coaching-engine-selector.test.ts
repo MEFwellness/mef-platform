@@ -189,6 +189,7 @@ describe('selectCoachingCandidates — experiment-driven candidates', () => {
       sourceSessionId: null,
       sourceExperienceKey: null,
       day7AcknowledgedAt: null,
+    subjectKey: null,
       title: 'A 10-minute evening wind-down',
       protocol: 'x',
       startDate: '2026-07-10',
