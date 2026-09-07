@@ -19,7 +19,12 @@
  *     sitting without ever dragging anything.
  *   THE DRAG IS AN ENHANCEMENT, AND IT NEVER DOUBLE FIRES. A pointer that
  *     travelled and was released on the shelf places ONE card, not two,
- *     because the click the browser fires after a drag is swallowed.
+ *     because the click the browser fires after a drag is ignored. And a
+ *     TAP is never captured, because a captured tap's click is retargeted
+ *     away from the card's own button and the card becomes unplaceable by
+ *     tapping. That one shipped and was found on production: a click
+ *     dispatched straight at a button in a test never goes through the
+ *     retargeting, so the invariant is asserted directly instead.
  *   REDUCED MOTION REMOVES THE DRAG ENTIRELY. No pointer handling at all, so
  *     nothing follows her finger and nothing travels. The card is placed by
  *     a tap and simply appears.
@@ -283,6 +288,80 @@ describe('the drag is an enhancement, and it never double fires', () => {
       card.click();
     });
     expect(onPlace).toHaveBeenCalledTimes(1);
+  });
+
+  it('A TAP IS NEVER CAPTURED, because a captured tap cannot place anything', () => {
+    // THE BUG THIS PINS, found on production on 2026-09-07. Capturing the
+    // pointer on pointerdown captures every tap as well as every drag, and
+    // a captured pointer's click is dispatched to the CAPTURING element
+    // rather than to what was under the finger. So the card's own button
+    // never received a click and no card could be placed by tapping, which
+    // is the only way a member without a mouse has.
+    //
+    // The retargeting itself is a browser behaviour jsdom does not model,
+    // so what is asserted is the invariant underneath it: nothing is
+    // captured until a drag has genuinely begun.
+    const captured = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
+      configurable: true,
+      writable: true,
+      value: captured,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'releasePointerCapture', {
+      configurable: true,
+      writable: true,
+      value: () => {},
+    });
+
+    const onPlace = vi.fn();
+    deckAndShelf(onPlace, false);
+    const card = container.querySelector('button') as HTMLElement;
+
+    act(() => {
+      card.dispatchEvent(pointer('pointerdown', 10, 10));
+      card.dispatchEvent(pointer('pointerup', 10, 10));
+      card.click();
+    });
+    expect(captured).not.toHaveBeenCalled();
+    expect(onPlace).toHaveBeenCalledTimes(1);
+
+    // A real drag still takes the pointer, which is what keeps the card
+    // following her finger once it leaves the card's own bounds.
+    act(() => {
+      card.dispatchEvent(pointer('pointerdown', 10, 10));
+      card.dispatchEvent(pointer('pointermove', 90, 120));
+      card.dispatchEvent(pointer('pointerup', 90, 120));
+    });
+    expect(captured).toHaveBeenCalledTimes(1);
+  });
+
+  it('a drag that swallowed its own click never swallows the NEXT genuine tap', () => {
+    // The other half of the same browser behaviour. A drag's own click is
+    // delivered to the capturing element, so it never reaches this button
+    // to clear a flag. A flag would therefore still be set minutes later
+    // and would eat a tap she made on purpose. What guards it expires on
+    // its own instead.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onPlace = vi.fn();
+    deckAndShelf(onPlace, false);
+    const card = container.querySelector('button') as HTMLElement;
+
+    act(() => {
+      card.dispatchEvent(pointer('pointerdown', 10, 10));
+      card.dispatchEvent(pointer('pointermove', 90, 120));
+      card.dispatchEvent(pointer('pointerup', 90, 120));
+    });
+    expect(onPlace).toHaveBeenCalledTimes(1);
+
+    // The click that drag produced never arrives here at all.
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    act(() => {
+      card.click();
+    });
+    expect(onPlace).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 });
 

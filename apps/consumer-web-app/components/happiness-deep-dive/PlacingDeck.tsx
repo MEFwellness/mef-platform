@@ -20,9 +20,26 @@
  * and a stylus alike.
  *
  * A DRAG IS NOT A TAP, AND THIS ONE CANNOT BE BOTH. A pointer that moved
- * past the threshold sets a flag that swallows the click the browser fires
- * afterwards, so a drag that ends on the shelf places one card rather than
- * two.
+ * past the threshold stamps the moment it ended, and a click arriving
+ * within a few hundred milliseconds of that stamp is the browser's own
+ * post-drag click and is ignored. So a drag that ends on the shelf places
+ * one card rather than two.
+ *
+ * A STAMP RATHER THAN A FLAG, and that is not a style preference. When a
+ * pointer is captured, the click the browser fires afterwards is dispatched
+ * to the CAPTURING element rather than to whatever was under the finger, so
+ * it never reaches the card's own button and a flag set by the drag would
+ * never be cleared by it. The next genuine tap would then be swallowed by a
+ * drag that happened ten minutes earlier. A stamp clears itself.
+ *
+ * AND THE POINTER IS NOT CAPTURED UNTIL A DRAG ACTUALLY BEGINS, for the
+ * same reason read the other way round. Capturing on pointerdown captures
+ * every TAP too, and a captured tap's click is retargeted away from the
+ * button, so the card's own onClick never runs and nothing is ever placed.
+ * That was real: it shipped, and only a real browser could find it, because
+ * a click dispatched straight at the button in a test never goes through
+ * that retargeting at all. Capture is taken in the MOVE handler, once the
+ * threshold has been crossed and it is genuinely a drag.
  *
  * REDUCED MOTION MEANS TAP TO PLACE AND NOTHING ELSE. No pointer handlers
  * are attached at all, so there is no travel to see and nothing follows her
@@ -33,6 +50,14 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react';
 import { WordCard, type WordCardTone } from './WordCard';
 import { HDD_CARD_SETTLE_MS, HDD_DRAG_THRESHOLD_PX } from '@/lib/happiness-deep-dive/interactive';
+
+/**
+ * How long after a drag a click is still that drag's own click.
+ *
+ * Long enough to cover the browser's own post-pointerup click, short enough
+ * that it can never reach a tap she made deliberately afterwards.
+ */
+const DRAG_CLICK_GRACE_MS = 400;
 
 export function PlacingDeck({
   text,
@@ -62,10 +87,11 @@ export function PlacingDeck({
   const [offset, setOffset] = useState<{ x: number; y: number } | null>(null);
   const origin = useRef<{ x: number; y: number } | null>(null);
   const dragging = useRef(false);
-  // Set the moment a drag ends, and cleared by the click the browser fires
-  // straight after it. Without this, one drag onto the shelf would place
-  // one card by the drop and a second by the click.
-  const swallowClick = useRef(false);
+  // When the last drag ended. A click arriving within DRAG_CLICK_GRACE_MS of
+  // it is the browser's own post-drag click, and placing on it as well as on
+  // the drop would put one card on the shelf twice. It expires on its own,
+  // which is what makes it safe when that click never reaches this button.
+  const dragEndedAt = useRef(0);
 
   function overBoard(x: number, y: number): boolean {
     const rect = boardRef.current?.getBoundingClientRect();
@@ -84,9 +110,11 @@ export function PlacingDeck({
     if (still) return;
     // Primary pointer only. A right click or a second finger is not a drag.
     if (event.button !== 0 && event.pointerType === 'mouse') return;
+    // NOTHING IS CAPTURED HERE. See this file's header: capturing a tap
+    // retargets its click away from the card's own button, and the card is
+    // then unplaceable by tapping, which is the only way some members have.
     origin.current = { x: event.clientX, y: event.clientY };
     dragging.current = false;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -95,7 +123,12 @@ export function PlacingDeck({
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (!dragging.current && Math.hypot(dx, dy) < HDD_DRAG_THRESHOLD_PX) return;
-    dragging.current = true;
+    if (!dragging.current) {
+      dragging.current = true;
+      // NOW it is a drag, so the pointer is taken, which is what keeps the
+      // card following her finger when it leaves the card's own bounds.
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    }
     setOffset({ x: dx, y: dy });
     onOverBoardChange(overBoard(event.clientX, event.clientY));
   }
@@ -103,20 +136,17 @@ export function PlacingDeck({
   function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     const wasDragging = dragging.current;
     const landed = wasDragging && overBoard(event.clientX, event.clientY);
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (wasDragging) event.currentTarget.releasePointerCapture?.(event.pointerId);
     reset();
     if (!wasDragging) return;
-    swallowClick.current = true;
+    dragEndedAt.current = Date.now();
     // A drag released anywhere but the shelf simply returns the card to her
     // hand. Nothing is placed and nothing is lost.
     if (landed) onPlace();
   }
 
   function handleClick() {
-    if (swallowClick.current) {
-      swallowClick.current = false;
-      return;
-    }
+    if (Date.now() - dragEndedAt.current < DRAG_CLICK_GRACE_MS) return;
     onPlace();
   }
 

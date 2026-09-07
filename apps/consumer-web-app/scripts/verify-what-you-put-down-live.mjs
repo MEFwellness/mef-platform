@@ -297,6 +297,27 @@ async function setSlider(page, value) {
   }, value);
 }
 
+/**
+ * One account's id, from its email.
+ *
+ * profiles has no email column, so the auth directory is the only place
+ * that mapping exists. Paged rather than assumed to fit in one call, and
+ * matched case insensitively, because an email is not case sensitive and a
+ * near miss here would address the wrong person.
+ */
+async function findUserIdByEmail(service, email) {
+  const wanted = email.trim().toLowerCase();
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await service.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const users = data?.users ?? [];
+    const hit = users.find((user) => (user.email ?? '').toLowerCase() === wanted);
+    if (hit) return hit.id;
+    if (users.length < 200) return null;
+  }
+  return null;
+}
+
 async function main() {
   if (!canMintSessions()) throw new Error('Session minting is not configured.');
   if (!STAFF_EMAIL || !MEMBER_EMAIL) {
@@ -308,19 +329,21 @@ async function main() {
   let dashes = 0;
 
   // The fixture is resolved by EMAIL rather than taken from an id in the
-  // environment, and then re-read by id, so a typo cannot address a
-  // stranger's account.
-  const { data: byEmail } = await service
+  // environment, so a typo in an id cannot address a stranger's account.
+  // profiles carries no email column, so the auth directory is what is
+  // asked, and the id it returns is then re-read from profiles and refused
+  // unless it is a seeded test account.
+  const MEMBER_ID = await findUserIdByEmail(service, MEMBER_EMAIL);
+  if (!MEMBER_ID) throw new Error('That test member email resolves to no account.');
+  const { data: byId } = await service
     .from('profiles')
-    .select('id, timezone, is_test, email')
-    .eq('email', MEMBER_EMAIL)
+    .select('id, timezone, is_test')
+    .eq('id', MEMBER_ID)
     .maybeSingle();
-  if (!byEmail?.id) throw new Error('That test member email resolves to no profile.');
-  if (!byEmail.is_test) {
+  if (!byId?.is_test) {
     throw new Error('Refusing to run: that member is not a seeded test account.');
   }
-  const MEMBER_ID = byEmail.id;
-  const timezone = byEmail.timezone ?? 'America/New_York';
+  const timezone = byId.timezone ?? 'America/New_York';
   const memberToday = todayIn(timezone);
   note(`member ${MEMBER_ID} today ${memberToday} in ${timezone}`);
 
@@ -513,9 +536,11 @@ async function main() {
       firstCardLabel === `Put it on the shelf: ${LINES[0]}`,
       String(firstCardLabel)
     );
+    // Case insensitive on purpose: that counter is styled `uppercase`, and
+    // innerText reports the CSS-transformed text rather than the source.
     check(
       'shelf: she is told how many are in her hand',
-      /1 of 4/.test(await page.innerText('body'))
+      /\b1 of 4\b/i.test(await page.innerText('body'))
     );
 
     // Place every card by TAPPING it. Nothing here drags.
