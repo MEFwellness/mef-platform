@@ -74,6 +74,41 @@ fixed line beneath would have landed while the rewrite was still arriving. A
 template that passes nothing is worth one, which is what the shelf is, so
 the six earlier closings are untouched.
 
+### LIVE VERIFICATION, PRODUCTION, 2026-09-07
+
+**137 checks, 137 passing** on `app.mefwellness.com`, signed in as the real
+coach and as the seeded fixture through minted sessions retired afterwards
+with scope `local`. Zero em dashes and zero console errors on every screen
+either of them saw.
+
+`apps/consumer-web-app/scripts/verify-your-own-company-live.mjs` drives the
+whole journey: the coach assigns from the real button, the pop-up knocks
+once, one delivery receipt is written though two surfaces fire the tracker,
+question one shows two real cards with NO writing box until she taps one and
+the written half arrives only after her pick, the round asks all five
+phrases one at a time in the approved order and its tally reads "You said
+Never 4 times out of 5." for the four Nevers it actually gave, THE TAB IS
+CLOSED MID-SITTING and a brand new tab brings back all three picks, the
+whole round, the tally and every written answer, her three question three
+lines become the three cards, question eight quotes the one she tapped
+character for character, the closing shows the old sentence ALONE first and
+then the rewrite (measured on the real page at 0.45 and 1.0 opacity) under
+the fixed line, holds nine seconds and several server round trips without
+moving, the experiment starts and logs a day, and the coach reads her three
+lines, the rewrite beside the original, the picks under the questions they
+answer, the same tally sentence she read, and all nine written answers. It
+walks the first six questions again in a browser context that asks for
+reduced motion, at 390px, where a chosen card carries no transition at all
+and the round still counts correctly.
+
+**State left on production: none.** Every row the run created was deleted in
+a `finally` and confirmed absent by query afterwards, sittings, assignments,
+attempts, experiments and pop-up dismissals alike. Confirmed separately by
+direct SQL: the fixture holds zero experiments, zero Your Own Company rows
+of any kind, and exactly the one pre-existing Being Seen sitting it had
+before. All six earlier template cards were checked standing before and
+after.
+
 ### PART 2: YOUR OWN COMPANY
 
 Route `/your-own-company`. Nine questions across The Voice, The Double
