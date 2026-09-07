@@ -1,3 +1,187 @@
+## Your Own Company, the seventh Happiness deep-dive, and the format rotation (2026-09-07)
+
+Two things shipped together, and they are different kinds of thing. One is
+a template. The other is a SECOND standing rule for the experience TYPE,
+written down beside the first one it joins.
+
+### PART 1: THE RULE, AND THE THREE PIECES BUILT TO SERVE IT
+
+**THE FORMAT ROTATES. No two consecutive templates share an interactive
+signature.** A set of seven nine-question sittings that all feel alike is
+one experience delivered seven times. What You Put Down's signature is the
+shelf, the drag and the two-pole line, and NONE of those appears here. This
+one's signature is the INSTINCT PICK: a this-or-that answered from the gut,
+in half a second, with no scale and no third option, and then the written
+half that slows her down to examine what the gut just said. The rule is
+written at the top of `lib/happiness-deep-dive/interactive.ts` beside the
+one it joins ("an interactive element always sets up writing rather than
+replacing it"), and `tests/your-own-company-copy.test.ts` asserts the
+rotation against the real source: this template imports no CardShelf, no
+PlacingDeck and no PoleSlider, attaches no pointer handling and contains no
+range input.
+
+Four new pieces, in `components/happiness-deep-dive/` beside the shared
+motion treatment, and none of them knows which template is using it
+(asserted):
+
+  **`InstinctPair`** is two cards side by side and one tap. A real
+    radiogroup with two real buttons, so Tab reaches both, Enter and Space
+    work, and a screen reader hears the standing question as the group's
+    name. Neither card is drawn as the right one, both carry identical
+    weight, and the only difference after a tap is which one is lit. She may
+    change it with no confirmation step, because a first instinct that
+    cannot be corrected is a trap rather than a question.
+  **`RapidRound`** is a run of those pairs at gut speed with her own count
+    at the end. NOTHING ADVANCES ON ITS OWN: there is no countdown and no
+    pair that answers itself if she pauses. The only timer is the short beat
+    between her tap and the next pair, so the card she tapped is visibly lit
+    before it is replaced. The whole round is driven by the answers the
+    caller holds, which is what makes save and resume free.
+  **`SupersededPair`** is two sentences she wrote where the second takes the
+    place of the first. The first FADES BACK rather than being removed or
+    struck through: she wrote it, it is still true that she wrote it, and it
+    stays legible under the one replacing it.
+  **`FollowUpPrompt`** is the written half of a question that opened with
+    something she did, typed in Root's voice at the same pace the question
+    above it was. It is QuestionStage minus the counter and the h1, because
+    a screen never carries two question numbers and never two first-level
+    headings.
+
+**THE ONE NUMBER IS HERS, AND IT IS COMPUTED IN ONE PLACE.**
+`hddRoundTallySentence` turns her own taps into a sentence ("You said Never
+4 times out of 5."), and both her screen and her coach's card read it, so
+the two can never disagree. It NAMES THE SIDE SHE CHOSE MORE OFTEN rather
+than a fixed side, because a fixed side would print "You said Never 0 times
+out of 5" at somebody who answered the other way every time. The tally is
+never stored beside the five answers it counts: two sources of truth for one
+number, and the stale one would be the coach's.
+
+**TAPS ALONE ARE ENOUGH, ON EVERY DEVICE, and REDUCED MOTION IS NONE OF IT
+rather than a slower version of it.** No pointer handling is attached
+anywhere, the round's beats are zero, a chosen card is a static state with
+no transition, and both closing sentences are present on the first frame
+with the rewrite visually primary by exactly the same means. Proved by
+rendering the real components against the real media query in
+`tests/happiness-interactive.test.tsx` and
+`tests/happiness-motion-reduced.test.tsx`, and again on production in a
+browser context that asks for it.
+
+**THE CLOSING CENTERPIECE CAN NOW SAY A PICTURE TAKES MORE THAN ONE BEAT.**
+`visualBeats` is how many steps of the staged reveal the picture occupies,
+and everything behind it waits that many. This closing is two sentences
+arriving one after the other, so it is worth two; without saying so, the
+fixed line beneath would have landed while the rewrite was still arriving. A
+template that passes nothing is worth one, which is what the shelf is, so
+the six earlier closings are untouched.
+
+### PART 2: YOUR OWN COMPANY
+
+Route `/your-own-company`. Nine questions across The Voice, The Double
+Standard and Better Company. Coach-assignable only, and the assignment is
+the whole gate: no tier lock, no visibility key and NO PREREQUISITE on any
+of the six templates before it.
+
+Migration 218 is what migration 217 said a further template would cost: a
+catalog row, one clause on the insert policy, one arm in the trigger's
+pairing, plus the structured storage this template's own brief asks for. No
+new table, no second assignment ledger, no second pop-up mechanism, no
+second receipt and no second experiment machinery.
+
+**ALL NINE OF THEM ARE WRITING. FIVE OF THEM OPEN WITH SOMETHING SHE TAPS.**
+That is the difference between a rotation and a dilution: nothing here
+collects a choice INSTEAD of a sentence.
+
+  **Questions one, two and four** are single this-or-that pairs, and the
+    written half arrives only once she has committed, typed rather than
+    printed, so the pick reads as Root answering her with the real question
+    instead of a form field she filled in.
+  **Question six is the round.** Five phrases at gut speed under one
+    standing question, then her own count, then the writing the count was
+    there to set up. The written question is genuinely absent until the
+    tally is on screen.
+  **Question eight shows her the three lines she wrote at question three**,
+    as cards, and asks which one cuts deepest. **Its written half then
+    quotes that line back at her VERBATIM** inside its own prompt: `You
+    wrote: "..."`. Nothing about her line is edited, not its case, not its
+    punctuation, not its length. Changing which line she names re-types the
+    question, because it is genuinely a different question.
+
+**EVERY LINE SHE CHOOSES BETWEEN IS ONE SHE WROTE, AND THAT IS ENFORCED
+RATHER THAN INTENDED.** The list is DERIVED from the text of her question
+three answer, on the screen and again on the server before anything is
+stored (`sanitizeYocInstinctState`). A posted state is only ever a set of
+references into her own lines plus picks filed under keys this template
+actually asks, so a hand-built request cannot put a sentence in front of her
+that she did not type. `fromRow` rebuilds it on every read too.
+
+**SHE MAY GO BACK AND CHANGE QUESTION THREE, and her pick is re-hung BY
+TEXT.** A line she kept keeps her mark; a line she deleted takes it with it.
+Index based ids would have silently moved her deepest-cut pick one sentence
+down the moment she inserted a line above it, and would have passed every
+other assertion in the suite. That is its own test.
+
+**SAVE AND RESUME COVERS BOTH HALVES.** Five of the nine carry a choice that
+leaves no prose at all, so a resume that only restored writing would drop a
+member who had just answered a whole rapid round. Every Continue writes the
+writing AND the picks, `firstUnfinishedIndex` reads both, and the server
+refuses a completion whose picks are unfinished as well as one whose sheet
+is (`yocSittingComplete`), because a stale page and a hand-made POST both
+exist.
+
+**EIGHT COLUMNS, EIGHT MEANINGS.** `rewritten_line` holds question eight,
+the line that cuts deepest rewritten the way the kindest voice she has known
+would say it. It is a NEW column, not a reuse of `held_sentence`,
+`twenty_minute_joy`, `deposit_request`, `kind_no`, `noticed_wish` or
+`doorway`. `instinct_state` is a jsonb column of its own holding her three
+picks, her five round answers, her own lines and the one she named, because
+those are choices rather than sentences and a coach card parsing prose to
+find out which card she tapped would be the wrong shape.
+
+**NO FOLLOW-UP ARM, AND THAT IS ENFORCED RATHER THAN INTENDED.** This
+template never reads another template's rows, so
+`follow_up_source_experience_key` is null on every row it writes. The way
+that is guaranteed is that neither `lib/your-own-company/data.ts` nor
+`app/actions/yourOwnCompany.ts` names the column at all.
+
+**THE CLOSING PRINTS TWO SENTENCES SHE WROTE, AND ONE FIXED LINE.** The line
+she named as cutting deepest, labelled "The voice you had.", and then her
+rewrite arriving under "The voice you are building." as the first fades
+back. Then, after the pause, one fixed line: "You wrote both. Only one of
+them is true." That line is a statement about TWO SENTENCES, both printed
+directly above it and both printed on her coach's card. It names no
+attribute of hers, predicts nothing, and does not say which of the two it
+means, because the whole point of the last screen is that she is the one who
+decides.
+
+**THE COACH CARD OPENS WITH HER THREE LINES**, because on this template they
+are the session: what the voice says on repeat, in her own words, with the
+one she said cuts deepest marked. Then the rewrite BESIDE the original, both
+labelled, because a rewrite on its own is a pleasant sentence with nothing
+behind it. Then her three picks and her round, each printed under the
+question it answers, because "Someone I know" on its own is not a readable
+fact about anybody. Then all nine written answers raw, grouped by the three
+screens. Nothing is scored, ranked or summarised.
+
+The weekly experiment is "Catch the voice once a day and answer it with your
+rewrite, out loud or in your head", seven days, asking "Did you catch the
+voice today? Catching it counts even if the rewrite did not come." with Yes
+and Not today. It never bakes her own rewrite into the stored protocol, for
+the reason the six before it do not: a stored protocol is read days later
+and would go stale the moment those words stopped being true. The resource
+is "You Live With Your Voice", 418 words, summary first: self-talk is a
+habit rather than a character trait, and the goal is honest kindness rather
+than positivity.
+
+### THE TEST ACCOUNT
+
+The standing fixture (8weeks2fab@gmail.com, `is_test`) was carrying one
+leftover ACTIVE experiment from an earlier Being Seen run ("One uninvited
+thing", started 2026-09-07). With the two-active cap that could have refused
+the experiment this sitting offers, so it was deleted before the live run
+and the account confirmed by query to hold zero experiments. Its finished
+Being Seen sitting and that sitting's completed assignment were left alone:
+they block nothing, and the brief named only the experiment.
+
 ## What You Put Down, the sixth Happiness deep-dive, and the first interactive questions (2026-09-07)
 
 Two things shipped together, and they are different kinds of thing. One is

@@ -6,9 +6,13 @@
  * What You Put Down is the first template in this family whose questions are
  * not all writing, and the three pieces it introduces are shared: a card
  * carrying her own words, the shelf it goes on with the deck she places it
- * from, and the two-pole line she puts a mark on. Later templates will use
- * them in different combinations, so what they promise has to be proved
- * against the real components rather than against a description of them.
+ * from, and the two-pole line she puts a mark on. Your Own Company adds
+ * three more, and adds them because the format ROTATES: the this-or-that
+ * pair answered from the gut, the round of them with her own count at the
+ * end, and the sentence that takes another sentence's place. Later
+ * templates will use all six in different combinations, so what they
+ * promise has to be proved against the real components rather than against
+ * a description of them.
  *
  * FIVE THINGS ARE PROVED, and each one is a way an interactive element is
  * usually got wrong:
@@ -39,7 +43,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -54,6 +58,15 @@ const { ClosingCenterpiece } = await import(
 const { WYPD_POLES } = await import('@/lib/what-you-put-down/shelf');
 const { WYPD_CLOSING_LABEL, WYPD_CLOSING_LINE, WYPD_SHELF_COPY } = await import(
   '@/lib/what-you-put-down/copy'
+);
+const { InstinctPair } = await import('@/components/happiness-deep-dive/InstinctPair');
+const { RapidRound } = await import('@/components/happiness-deep-dive/RapidRound');
+const { SupersededPair } = await import('@/components/happiness-deep-dive/SupersededPair');
+const { YOC_RAPID_PAIR, YOC_RAPID_PHRASES, YOC_RAPID_QUESTION } = await import(
+  '@/lib/your-own-company/questions'
+);
+const { YOC_CLOSING_FIRST_LABEL, YOC_CLOSING_SECOND_LABEL } = await import(
+  '@/lib/your-own-company/copy'
 );
 
 declare global {
@@ -556,7 +569,16 @@ describe('the two-pole line', () => {
 describe('the interactive pieces are shared, not owned by one template', () => {
   it('live in components/happiness-deep-dive and are exported from its one barrel', () => {
     const barrel = read('components/happiness-deep-dive/index.ts');
-    for (const name of ['WordCard', 'CardShelf', 'PlacingDeck', 'PoleSlider']) {
+    for (const name of [
+      'WordCard',
+      'CardShelf',
+      'PlacingDeck',
+      'PoleSlider',
+      'InstinctPair',
+      'RapidRound',
+      'SupersededPair',
+      'FollowUpPrompt',
+    ]) {
       expect(barrel, name).toContain(name);
     }
     const experience = read('components/what-you-put-down/WhatYouPutDownExperience.tsx');
@@ -577,6 +599,10 @@ describe('the interactive pieces are shared, not owned by one template', () => {
       'components/happiness-deep-dive/CardShelf.tsx',
       'components/happiness-deep-dive/PlacingDeck.tsx',
       'components/happiness-deep-dive/PoleSlider.tsx',
+      'components/happiness-deep-dive/InstinctPair.tsx',
+      'components/happiness-deep-dive/RapidRound.tsx',
+      'components/happiness-deep-dive/SupersededPair.tsx',
+      'components/happiness-deep-dive/FollowUpPrompt.tsx',
     ]) {
       expect(read(file), file).toContain("'use client'");
     }
@@ -588,12 +614,343 @@ describe('the interactive pieces are shared, not owned by one template', () => {
       'components/happiness-deep-dive/CardShelf.tsx',
       'components/happiness-deep-dive/PlacingDeck.tsx',
       'components/happiness-deep-dive/PoleSlider.tsx',
+      'components/happiness-deep-dive/InstinctPair.tsx',
+      'components/happiness-deep-dive/RapidRound.tsx',
+      'components/happiness-deep-dive/SupersededPair.tsx',
+      'components/happiness-deep-dive/FollowUpPrompt.tsx',
     ]) {
       const source = read(file)
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/^\s*\/\/.*$/gm, '');
       expect(source, file).not.toContain('WYPD_');
       expect(source, file).not.toContain('what-you-put-down');
+      expect(source, file).not.toContain('YOC_');
+      expect(source, file).not.toContain('your-own-company');
     }
+  });
+});
+
+// ---------------------------------------------------------------------
+// The instinct pick, the round of them, and the sentence that replaces
+// another. Your Own Company's signature, and the rotation rule in practice.
+// ---------------------------------------------------------------------
+
+/** A pair that actually holds her pick, so changing her mind can be driven. */
+function LivePair({ still = false }: { still?: boolean }) {
+  const [value, setValue] = useState<'a' | 'b' | null>(null);
+  return (
+    <InstinctPair
+      question="The voice sounds most like..."
+      a="Someone I know"
+      b="No one but me"
+      value={value}
+      onPick={setValue}
+      still={still}
+    />
+  );
+}
+
+/** A round that actually holds her answers, so the whole five can be driven. */
+function LiveRound({ tally = 'You said Never 5 times out of 5.' }: { tally?: string }) {
+  const [answers, setAnswers] = useState<Record<string, 'a' | 'b'>>({});
+  return (
+    <RapidRound
+      question={YOC_RAPID_QUESTION}
+      items={YOC_RAPID_PHRASES}
+      labels={YOC_RAPID_PAIR}
+      answers={answers}
+      onAnswer={(id, side) => setAnswers((previous) => ({ ...previous, [id]: side }))}
+      tallySentence={tally}
+      counterFor={(index, total) => `${index} of ${total}`}
+    >
+      <p data-testid="after-the-round">the written question</p>
+    </RapidRound>
+  );
+}
+
+function radios(): HTMLButtonElement[] {
+  return Array.from(container.querySelectorAll('[role="radio"]')) as HTMLButtonElement[];
+}
+
+/** Let the zero length beats a reduced-motion round schedules actually run. */
+async function settle() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+describe('the instinct pair', () => {
+  beforeEach(() => setReducedMotion(false));
+
+  it('is two real buttons in one radio group, named by the standing question', () => {
+    act(() => {
+      root.render(<LivePair />);
+    });
+    const group = container.querySelector('[role="radiogroup"]');
+    expect(group?.getAttribute('aria-label')).toBe('The voice sounds most like...');
+    expect(radios()).toHaveLength(2);
+    for (const button of radios()) {
+      expect(button.tagName).toBe('BUTTON');
+      expect(button.getAttribute('aria-checked')).toBe('false');
+    }
+    expect(container.textContent).toContain('Someone I know');
+    expect(container.textContent).toContain('No one but me');
+  });
+
+  it('a tap picks one, and the pick is announced rather than only coloured', () => {
+    act(() => {
+      root.render(<LivePair />);
+    });
+    act(() => {
+      radios()[0]!.click();
+    });
+    expect(radios()[0]!.getAttribute('aria-checked')).toBe('true');
+    expect(radios()[1]!.getAttribute('aria-checked')).toBe('false');
+    expect(radios()[0]!.getAttribute('data-chosen')).toBe('true');
+  });
+
+  it('she may change it: tapping the other card moves the pick, with no confirmation', () => {
+    act(() => {
+      root.render(<LivePair />);
+    });
+    act(() => {
+      radios()[0]!.click();
+    });
+    act(() => {
+      radios()[1]!.click();
+    });
+    expect(radios()[0]!.getAttribute('aria-checked')).toBe('false');
+    expect(radios()[1]!.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('never shortens the words on a card to make the two fit', () => {
+    const long =
+      'It happens, you are okay, and none of this is the disaster it feels like at four in the afternoon';
+    act(() => {
+      root.render(
+        <InstinctPair question="q" a={long} b="short" value={null} onPick={() => {}} />
+      );
+    });
+    expect(container.textContent).toContain(long);
+    expect(container.innerHTML).not.toContain('line-clamp');
+    expect(container.innerHTML).not.toContain('truncate');
+  });
+
+  it('neither card is drawn as the right one before she has chosen', () => {
+    act(() => {
+      root.render(<LivePair />);
+    });
+    const [first, second] = radios();
+    // The same classes on both, so nothing on the screen suggests an answer.
+    expect(first!.className).toBe(second!.className);
+  });
+});
+
+describe('the rapid round', () => {
+  beforeEach(() => setReducedMotion(false));
+
+  it('shows one pair at a time, with the phrase above it and where she is', () => {
+    act(() => {
+      root.render(<LiveRound />);
+    });
+    expect(container.textContent).toContain('You should have known better');
+    expect(container.textContent).not.toContain('You always do this');
+    expect(container.textContent).toContain('1 of 5');
+    expect(radios()).toHaveLength(2);
+  });
+
+  it('NOTHING ADVANCES ON ITS OWN: with no tap, the same pair is still there', async () => {
+    act(() => {
+      root.render(<LiveRound />);
+    });
+    await settle();
+    expect(container.textContent).toContain('You should have known better');
+    expect(container.textContent).toContain('1 of 5');
+  });
+
+  it('holds the pair she tapped on screen, lit, before it is replaced', () => {
+    act(() => {
+      root.render(<LiveRound />);
+    });
+    act(() => {
+      radios()[1]!.click();
+    });
+    // Still phrase one, and her answer is showing on it.
+    expect(container.textContent).toContain('You should have known better');
+    expect(radios()[1]!.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('the written question it sets up is genuinely absent until the round is finished', async () => {
+    setReducedMotion(true);
+    act(() => {
+      root.render(<LiveRound />);
+    });
+    for (let index = 0; index < 4; index += 1) {
+      act(() => {
+        radios()[1]!.click();
+      });
+      await settle();
+      expect(container.querySelector('[data-testid="after-the-round"]')).toBeNull();
+    }
+    act(() => {
+      radios()[1]!.click();
+    });
+    await settle();
+    expect(container.querySelector('[data-testid="after-the-round"]')).not.toBeNull();
+  });
+
+  it('prints the tally it was handed, and never computes one of its own', async () => {
+    setReducedMotion(true);
+    act(() => {
+      root.render(<LiveRound tally="You said Never 4 times out of 5." />);
+    });
+    for (let index = 0; index < 5; index += 1) {
+      act(() => {
+        radios()[1]!.click();
+      });
+      await settle();
+    }
+    const tally = container.querySelector('[data-rapid-tally="true"]');
+    expect(tally?.textContent).toBe('You said Never 4 times out of 5.');
+    // The component holds no arithmetic at all: the sentence is the
+    // caller's, from one shared function.
+    const source = read('components/happiness-deep-dive/RapidRound.tsx')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    expect(source).not.toContain('filter(');
+    expect(source).not.toContain('+= 1');
+  });
+
+  it('resumes: a round she already answered arrives at her tally, with nothing replayed', async () => {
+    const answered = Object.fromEntries(
+      YOC_RAPID_PHRASES.map((phrase) => [phrase.id, 'b' as const])
+    );
+    act(() => {
+      root.render(
+        <RapidRound
+          question={YOC_RAPID_QUESTION}
+          items={YOC_RAPID_PHRASES}
+          labels={YOC_RAPID_PAIR}
+          answers={answered}
+          onAnswer={() => {}}
+          tallySentence="You said Never 5 times out of 5."
+          counterFor={(index, total) => `${index} of ${total}`}
+        >
+          <p data-testid="after-the-round">the written question</p>
+        </RapidRound>
+      );
+    });
+    // On the very first frame, with no timer having run.
+    expect(container.querySelector('[data-rapid-tally="true"]')?.textContent).toBe(
+      'You said Never 5 times out of 5.'
+    );
+    expect(container.querySelector('[data-testid="after-the-round"]')).not.toBeNull();
+  });
+});
+
+describe('the sentence that takes another sentence’s place', () => {
+  const OLD = 'You should have known better';
+  const NEW = 'That went badly and I know why';
+
+  beforeEach(() => setReducedMotion(false));
+
+  it('shows the first sentence alone, and the second is genuinely absent until it is due', () => {
+    act(() => {
+      root.render(
+        <SupersededPair
+          firstCaption={YOC_CLOSING_FIRST_LABEL}
+          first={OLD}
+          secondCaption={YOC_CLOSING_SECOND_LABEL}
+          second={NEW}
+        />
+      );
+    });
+    expect(container.querySelector('[data-superseded="first"]')?.textContent).toBe(OLD);
+    expect(container.querySelector('[data-superseded="second"]')).toBeNull();
+  });
+
+  it('keeps the first legible rather than removing or striking it out', () => {
+    act(() => {
+      root.render(
+        <SupersededPair
+          firstCaption={YOC_CLOSING_FIRST_LABEL}
+          first={OLD}
+          secondCaption={YOC_CLOSING_SECOND_LABEL}
+          second={NEW}
+          instant
+        />
+      );
+    });
+    const first = container.querySelector('[data-superseded="first"]');
+    expect(first?.textContent).toBe(OLD);
+    expect(container.innerHTML).not.toContain('line-through');
+    expect(container.querySelector('[data-superseded="second"]')?.textContent).toBe(NEW);
+  });
+
+  it('reproduces both sentences character for character, including her line breaks', () => {
+    const messy = 'i AM so, so tired of this...\n  and nobody cares';
+    act(() => {
+      root.render(
+        <SupersededPair
+          firstCaption="a"
+          first={messy}
+          secondCaption="b"
+          second={NEW}
+          instant
+        />
+      );
+    });
+    expect(container.querySelector('[data-superseded="first"]')?.textContent).toBe(messy);
+  });
+});
+
+describe('with reduced motion asked for, the instinct pieces', () => {
+  beforeEach(() => setReducedMotion(true));
+
+  it('a chosen card is simply the chosen card, with nothing left to animate', () => {
+    act(() => {
+      root.render(<LivePair still />);
+    });
+    act(() => {
+      radios()[0]!.click();
+    });
+    const chosen = radios()[0]!;
+    expect(chosen.getAttribute('aria-checked')).toBe('true');
+    expect(chosen.style.transition).toBe('');
+  });
+
+  it('the round has no beats: the next pair is simply there', async () => {
+    act(() => {
+      root.render(<LiveRound />);
+    });
+    act(() => {
+      radios()[1]!.click();
+    });
+    await settle();
+    expect(container.textContent).toContain('You always do this');
+    expect(container.textContent).toContain('2 of 5');
+    expect(container.innerHTML).not.toContain('mef-fade-in');
+  });
+
+  it('both closing sentences are present on the first frame, with the rewrite primary', () => {
+    act(() => {
+      root.render(
+        <SupersededPair
+          firstCaption={YOC_CLOSING_FIRST_LABEL}
+          first="You should have known better"
+          secondCaption={YOC_CLOSING_SECOND_LABEL}
+          second="That went badly and I know why"
+        />
+      );
+    });
+    const first = container.querySelector('[data-superseded="first"]');
+    const second = container.querySelector('[data-superseded="second"]');
+    expect(first?.textContent).toBe('You should have known better');
+    expect(second?.textContent).toBe('That went badly and I know why');
+    // Nothing is timed, and the rewrite is the larger of the two by the
+    // same means it is with motion on.
+    expect(container.innerHTML).not.toContain('mef-fade-in');
+    expect(second?.className).toContain('text-[26px]');
+    expect(first?.className).toContain('text-[20px]');
   });
 });

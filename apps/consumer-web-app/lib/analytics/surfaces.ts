@@ -65,6 +65,11 @@ export const PRODUCT_SURFACES = [
   // she wrote, not a card on her shelf, not which one stings and not where
   // she put her mark, reaches an analytics payload.
   'what_you_put_down',
+  // Your Own Company, the seventh of the Happiness deep-dives. Same rule as
+  // the six above it: a surface she opened, and nothing else. Not a word she
+  // wrote, not a single instinct pick, not her count in the rapid round and
+  // not which line she said cuts deepest, reaches an analytics payload.
+  'your_own_company',
   'root_score',
   'insights',
   'noticing',

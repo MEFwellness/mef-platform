@@ -76,6 +76,7 @@ export const PROTECTED_POPUP_KINDS: readonly string[] = [
   'the_weight_of_yes_assigned',
   'being_seen_assigned',
   'what_you_put_down_assigned',
+  'your_own_company_assigned',
   'priority_card',
   'hydration_focus',
   'cvs_day3',

@@ -202,6 +202,7 @@ describe('member analytics', () => {
       the_weight_of_yes: '/the-weight-of-yes',
       being_seen: '/being-seen',
       what_you_put_down: '/what-you-put-down',
+      your_own_company: '/your-own-company',
       root_score: '/root-score',
       insights: '/insights',
       noticing: '/noticing',

@@ -1,13 +1,13 @@
 /**
  * The shared Happiness deep-dive motion treatment: the numbers, and the
- * proof that all six templates actually inherit it.
+ * proof that all seven templates actually inherit it.
  *
- * WHY THE INHERITANCE IS ASSERTED IN THE SOURCE. "All six templates render
- * with this treatment" is not a value any function returns. It is a fact
- * about which components six files import and use, and the failure mode is
- * a seventh template, or a refactor of one of the six, quietly going back
- * to a plain heading and a textarea. So the six experience files are read
- * and required to use every part of it.
+ * WHY THE INHERITANCE IS ASSERTED IN THE SOURCE. "All seven templates
+ * render with this treatment" is not a value any function returns. It is a
+ * fact about which components seven files import and use, and the failure
+ * mode is an eighth template, or a refactor of one of the seven, quietly
+ * going back to a plain heading and a textarea. So the seven experience
+ * files are read and required to use every part of it.
  *
  * WHY THE TIMINGS ARE ASSERTED AT ALL. The philosophy is motion that makes
  * a pause, never motion that entertains, and the one way that fails in
@@ -44,17 +44,19 @@ import { TGL_QUESTIONS } from '@/lib/the-giving-ledger/questions';
 import { TWOY_QUESTIONS } from '@/lib/the-weight-of-yes/questions';
 import { BSN_QUESTIONS } from '@/lib/being-seen/questions';
 import { WYPD_QUESTIONS } from '@/lib/what-you-put-down/questions';
+import { YOC_QUESTIONS } from '@/lib/your-own-company/questions';
 import { OYV_SECTIONS } from '@/lib/owning-your-value/copy';
 import { WYJL_SECTIONS } from '@/lib/where-your-joy-lives/copy';
 import { TGL_SECTIONS } from '@/lib/the-giving-ledger/copy';
 import { TWOY_SECTIONS } from '@/lib/the-weight-of-yes/copy';
 import { BSN_SECTIONS } from '@/lib/being-seen/copy';
 import { WYPD_SECTIONS } from '@/lib/what-you-put-down/copy';
+import { YOC_SECTIONS } from '@/lib/your-own-company/copy';
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const read = (rel: string) => readFileSync(path.join(APP_ROOT, rel), 'utf8');
 
-/** The six templates, and the one file each renders its question flow from. */
+/** The seven templates, and the one file each renders its question flow from. */
 const TEMPLATES = [
   {
     name: 'Owning Your Value',
@@ -92,6 +94,12 @@ const TEMPLATES = [
     questions: WYPD_QUESTIONS,
     sections: WYPD_SECTIONS,
   },
+  {
+    name: 'Your Own Company',
+    experience: 'components/your-own-company/YourOwnCompanyExperience.tsx',
+    questions: YOC_QUESTIONS,
+    sections: YOC_SECTIONS,
+  },
 ] as const;
 
 const ALL_PROMPTS = TEMPLATES.flatMap((template) =>
@@ -101,9 +109,9 @@ const ALL_TITLES = TEMPLATES.flatMap((template) =>
   template.sections.map((section) => section.title)
 );
 
-describe('all six templates inherit the treatment', () => {
-  it('there are six of them, and they are the whole family', () => {
-    expect(TEMPLATES).toHaveLength(6);
+describe('all seven templates inherit the treatment', () => {
+  it('there are seven of them, and they are the whole family', () => {
+    expect(TEMPLATES).toHaveLength(7);
   });
 
   it('every one renders its questions through the shared QuestionStage', () => {
@@ -271,8 +279,8 @@ describe('the chapter beat is about two seconds', () => {
     }
   });
 
-  it('there are eighteen section titles, three on each of the six templates', () => {
-    expect(ALL_TITLES).toHaveLength(18);
+  it('there are twenty one section titles, three on each of the seven templates', () => {
+    expect(ALL_TITLES).toHaveLength(21);
     for (const template of TEMPLATES) {
       expect(template.sections, template.name).toHaveLength(3);
     }

@@ -41,6 +41,8 @@ import { BSN_DEFINITION_ID } from '../being-seen/constants';
 import { BSN_AREA, BSN_LABEL } from '../being-seen/copy';
 import { WYPD_DEFINITION_ID } from '../what-you-put-down/constants';
 import { WYPD_AREA, WYPD_LABEL } from '../what-you-put-down/copy';
+import { YOC_DEFINITION_ID } from '../your-own-company/constants';
+import { YOC_AREA, YOC_LABEL } from '../your-own-company/copy';
 import type { AssessmentKey } from '../assessment-registry/types';
 import type { AssignmentRowStatus } from './status';
 
@@ -133,6 +135,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
     definitionId: WYPD_DEFINITION_ID,
     displayName: WYPD_LABEL,
     areaLabel: WYPD_AREA,
+  },
+  {
+    id: 'your-own-company',
+    definitionId: YOC_DEFINITION_ID,
+    displayName: YOC_LABEL,
+    areaLabel: YOC_AREA,
   },
 ];
 

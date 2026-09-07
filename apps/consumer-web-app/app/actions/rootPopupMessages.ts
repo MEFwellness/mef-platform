@@ -142,6 +142,7 @@ import {
   theWeightOfYesPopupMessageKey,
   beingSeenPopupMessageKey,
   whatYouPutDownPopupMessageKey,
+  yourOwnCompanyPopupMessageKey,
   hydrationFocusPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
@@ -175,10 +176,13 @@ import { TWOY_COPY } from '@/lib/the-weight-of-yes/copy';
 import { TWOY_ROUTE } from '@/lib/the-weight-of-yes/constants';
 import { getMyBeingSeen } from '@/lib/being-seen/view';
 import { getMyWhatYouPutDown } from '@/lib/what-you-put-down/view';
+import { getMyYourOwnCompany } from '@/lib/your-own-company/view';
 import { BSN_COPY } from '@/lib/being-seen/copy';
 import { BSN_ROUTE } from '@/lib/being-seen/constants';
 import { WYPD_COPY } from '@/lib/what-you-put-down/copy';
 import { WYPD_ROUTE } from '@/lib/what-you-put-down/constants';
+import { YOC_COPY } from '@/lib/your-own-company/copy';
+import { YOC_ROUTE } from '@/lib/your-own-company/constants';
 import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import type { RenderedReview } from '@/lib/weekly-review/types';
 import { resolveLocalDate } from './checkin';
@@ -433,6 +437,25 @@ export type RootPopupMessage =
    */
   | {
       kind: 'what_you_put_down_assigned';
+      messageKey: string;
+      assignmentId: string;
+      title: string;
+      body: string;
+      primaryHref: string;
+    }
+  /**
+   * Your Own Company, the seventh Happiness deep-dive, coach assigned only.
+   *
+   * Same shape and the same reasons as the six above it. It has no
+   * follow-up arm of its own, so this knock names no other experience and
+   * cannot: it is handed a title, a body and a route and nothing else.
+   *
+   * Carries no questions and no reading. This message is an INVITATION into
+   * an experience on its own route, so it renders through the same
+   * RootInvitePopup and inherits its real Maybe later and Ignore buttons.
+   */
+  | {
+      kind: 'your_own_company_assigned';
       messageKey: string;
       assignmentId: string;
       title: string;
@@ -1024,6 +1047,38 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
         title: WYPD_COPY.popupTitle,
         body: WYPD_COPY.popupBody,
         primaryHref: WYPD_ROUTE,
+      };
+    }
+  }
+
+  // Your Own Company, immediately below What You Put Down and for the
+  // identical reasons: a coach's direct action for this member, and finite,
+  // because finishing it closes the assignment out so it can never starve
+  // anything below it.
+  //
+  // BELOW the six templates it joins, and that order is the only opinion
+  // held here. When a coach has sent more than one, the one sent first is
+  // the one Root asks about first, and this one is still due on her next
+  // open because its key has no dismissal row yet. None of the seven is
+  // ever swallowed by another.
+  //
+  // getMyYourOwnCompany returns null for every member who was never
+  // assigned this, so the gate and the offer are one read rather than two
+  // checks here that could drift from the route's. Its own branch checks
+  // its own due-ness and falls through, per this file's one rule: a branch
+  // that returned a candidate the outer due-check then threw away would
+  // silence everything below it.
+  const yourOwnCompany = await getMyYourOwnCompany();
+  if (yourOwnCompany?.status === 'pending') {
+    const messageKey = yourOwnCompanyPopupMessageKey(yourOwnCompany.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'your_own_company_assigned',
+        messageKey,
+        assignmentId: yourOwnCompany.assignmentId,
+        title: YOC_COPY.popupTitle,
+        body: YOC_COPY.popupBody,
+        primaryHref: YOC_ROUTE,
       };
     }
   }

@@ -46,6 +46,14 @@
  * everything else steps back by one so her sentence still lands after it
  * rather than beside it. A template that has no picture passes nothing and
  * the timing is exactly what it always was.
+ *
+ * A PICTURE THAT ARRIVES IN MORE THAN ONE BEAT SAYS SO. `visualBeats` is
+ * how many steps of the sequence the picture occupies, and everything
+ * behind it waits that many. Your Own Company's closing is two sentences
+ * where the second takes the place of the first, so it is worth two, and
+ * without saying so the one fixed line beneath would land while the second
+ * sentence was still arriving. A picture that is one thing passes nothing
+ * and is worth one, which is what the shelf is.
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
@@ -157,6 +165,7 @@ export function ClosingCenterpiece({
   layout = 'single',
   fixedLine,
   visual,
+  visualBeats = 1,
   instant = false,
 }: {
   /** A short gold label above her words. Names whose words they are and does nothing else. */
@@ -167,14 +176,17 @@ export function ClosingCenterpiece({
   fixedLine?: string | undefined;
   /** Something the template built with her, shown one last time above her words. Takes the first beat. */
   visual?: ReactNode | undefined;
+  /** How many beats the picture occupies. Only a picture that arrives in stages needs more than one. */
+  visualBeats?: number;
   instant?: boolean;
 }) {
   const reducedMotion = useReducedMotion();
   const skip = instant || reducedMotion;
 
   // A picture takes the first beat, and everything after it steps back by
-  // one, so her sentence lands after the picture rather than on top of it.
-  const offset = visual ? 1 : 0;
+  // as many beats as the picture actually takes, so her sentence lands
+  // after the picture has finished rather than while it is still arriving.
+  const offset = visual ? Math.max(1, Math.round(visualBeats)) : 0;
 
   // How many beats the fixed line has to wait behind: her own lines, plus
   // the picture's beat when there is one.

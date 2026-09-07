@@ -215,6 +215,19 @@ export function whatYouPutDownPopupMessageKey(assignmentId: string): string {
 }
 
 /**
+ * Your Own Company's own key, scoped to the assignment exactly as the seven
+ * above are, and with the identical recurring dismissal lifetime.
+ *
+ * A DISTINCT PREFIX, not a shared "happiness_deep_dive" one, for the reason
+ * the templates above it have theirs: seven templates now write to one
+ * table, a member can legitimately have all seven assigned at once, and a
+ * shared prefix would let one dismissal silence the others' invitations.
+ */
+export function yourOwnCompanyPopupMessageKey(assignmentId: string): string {
+  return `your_own_company:${assignmentId}`;
+}
+
+/**
  * Conditional water tracking's own one-time question, for members who
  * finished intake before it existed (migration 163). A fixed constant key,
  * unlike every other key in this file: this is not scoped to a row, a date

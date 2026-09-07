@@ -108,6 +108,8 @@ import { BeingSeenEntry } from '@/components/being-seen/BeingSeenEntry';
 import { getMyBeingSeen } from '@/lib/being-seen/view';
 import { WhatYouPutDownEntry } from '@/components/what-you-put-down/WhatYouPutDownEntry';
 import { getMyWhatYouPutDown } from '@/lib/what-you-put-down/view';
+import { YourOwnCompanyEntry } from '@/components/your-own-company/YourOwnCompanyEntry';
+import { getMyYourOwnCompany } from '@/lib/your-own-company/view';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -441,6 +443,7 @@ async function DayFrameRegion() {
     theWeightOfYes,
     beingSeen,
     whatYouPutDown,
+    yourOwnCompany,
     catalog,
     bodyAssessmentCard,
   ] = await Promise.all([
@@ -474,6 +477,9 @@ async function DayFrameRegion() {
       // Request-memoized, exactly as the seven above are, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyWhatYouPutDown(),
+      // Request-memoized, exactly as the eight above are, and the pop-up
+      // chain in PopupRegion asks for the same thing on the same render.
+      getMyYourOwnCompany(),
       homeQuestionnaireCatalog(),
       homeBodyAssessmentAssignment(),
     ]);
@@ -699,6 +705,43 @@ async function DayFrameRegion() {
             hasDraft={
               Object.keys(whatYouPutDown.draft).length > 0 ||
               whatYouPutDown.shelf.placed.length > 0
+            }
+          />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* YOUR OWN COMPANY, persistent, coach assigned only.     */}
+      {/*                                                        */}
+      {/* Directly below What You Put Down and for the identical */}
+      {/* reasons. All seven Happiness deep-dives can be open at */}
+      {/* once, and when they are, all seven cards stand: none   */}
+      {/* replaces another and none hides another.               */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately. The */}
+      {/* assignment is the whole gate                           */}
+      {/* (lib/your-own-company/access.ts) and there is no check  */}
+      {/* that she finished any template above this one either.  */}
+      {/* A second rule on top would be the invisible lock the   */}
+      {/* standing rules forbid.                                 */}
+      {/*                                                        */}
+      {/* A DRAFT HERE IS MORE THAN WRITING. Five of its nine    */}
+      {/* questions open with a pick that leaves no prose, so a  */}
+      {/* member who answered a whole rapid round and closed the */}
+      {/* app has a genuine sitting in progress. The resume      */}
+      {/* label reads her picks as well as her writing, or it    */}
+      {/* would tell her to start something she is halfway       */}
+      {/* through.                                               */}
+      {/* ==================================================== */}
+      {yourOwnCompany?.status === 'pending' && (
+        <div className="pt-3">
+          <YourOwnCompanyEntry
+            assignmentId={yourOwnCompany.assignmentId}
+            hasDraft={
+              Object.keys(yourOwnCompany.draft).length > 0 ||
+              Object.keys(yourOwnCompany.instinct.picks).length > 0 ||
+              Object.keys(yourOwnCompany.instinct.rapid).length > 0 ||
+              yourOwnCompany.instinct.deepestCutLineId !== null
             }
           />
         </div>

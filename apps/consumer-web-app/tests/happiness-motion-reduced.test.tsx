@@ -12,7 +12,7 @@
  * So this file mounts the real components into a real DOM with the real
  * media query answering "reduce", and asserts on the real HTML.
  *
- * FOUR THINGS ARE PROVED, and each one is a way this treatment could have
+ * SIX THINGS ARE PROVED, and each one is a way this treatment could have
  * gone wrong in exactly the way an accessibility preference is usually got
  * wrong, by being made slower instead of being turned off:
  *
@@ -25,6 +25,13 @@
  *     shows its mark, drawn complete, with the box open beside it.
  *   THE CLOSING IS WHOLE ON ARRIVAL, her own words and the fixed line both,
  *     and her words are still character for character what was stored.
+ *   THE SECOND HALF OF A QUESTION IS THERE TOO. Your Own Company's five
+ *     interactive questions type their written half after she has picked,
+ *     through the same shared arrival, so under reduced motion that prompt
+ *     is complete and its box is open on the first frame.
+ *   A CLOSING THAT CARRIES A PICTURE IN TWO BEATS still arrives whole. The
+ *     one worth two beats is a sentence replaced by another, and a reduced
+ *     motion reader gets both of them with the fixed line, immediately.
  *
  * The last of those is asserted with motion ON as well, because "verbatim"
  * has to survive the staged reveal: the lines are spans inside one
@@ -40,7 +47,13 @@ const { QuestionStage } = await import('@/components/happiness-deep-dive/Questio
 const { ClosingCenterpiece } = await import(
   '@/components/happiness-deep-dive/ClosingCenterpiece'
 );
+const { FollowUpPrompt } = await import('@/components/happiness-deep-dive/FollowUpPrompt');
+const { SupersededPair } = await import('@/components/happiness-deep-dive/SupersededPair');
 const { BSN_QUESTIONS } = await import('@/lib/being-seen/questions');
+const { YOC_QUESTIONS } = await import('@/lib/your-own-company/questions');
+const { YOC_CLOSING_FIRST_LABEL, YOC_CLOSING_LINE, YOC_CLOSING_SECOND_LABEL } = await import(
+  '@/lib/your-own-company/copy'
+);
 const { BSN_CLOSING_LABEL, BSN_CLOSING_LINE, BSN_HOLD_LABEL } = await import(
   '@/lib/being-seen/copy'
 );
@@ -219,5 +232,111 @@ describe('with motion on', () => {
     const block = container.querySelector('p.whitespace-pre-wrap');
     expect(block?.textContent).toBe(stored);
     expect(container.textContent).toContain(BSN_CLOSING_LINE);
+  });
+});
+
+// ---------------------------------------------------------------------
+// The second half of a question, and a closing that carries a picture
+// which arrives in two beats. Your Own Company's shapes, on the shared
+// treatment.
+// ---------------------------------------------------------------------
+
+const FOLLOW_UP = YOC_QUESTIONS[1]!;
+
+function renderFollowUp() {
+  act(() => {
+    root.render(
+      <FollowUpPrompt prompt={FOLLOW_UP.prompt} revealKey={`${FOLLOW_UP.key}#written`}>
+        <textarea aria-label={FOLLOW_UP.prompt} />
+      </FollowUpPrompt>
+    );
+  });
+}
+
+function renderSupersededClosing() {
+  act(() => {
+    root.render(
+      <ClosingCenterpiece
+        entries={[]}
+        fixedLine={YOC_CLOSING_LINE}
+        visualBeats={2}
+        visual={
+          <SupersededPair
+            firstCaption={YOC_CLOSING_FIRST_LABEL}
+            first="You should have known better"
+            secondCaption={YOC_CLOSING_SECOND_LABEL}
+            second="That went badly and I know why"
+          />
+        }
+      />
+    );
+  });
+}
+
+describe('with reduced motion asked for, the second half of a question', () => {
+  beforeEach(() => setReducedMotion(true));
+
+  it('is complete on arrival, not typed faster', () => {
+    renderFollowUp();
+    expect(container.textContent).toContain(FOLLOW_UP.prompt);
+    expect(container.querySelector('.mef-typewriter-caret')).toBeNull();
+  });
+
+  it('has its writing box open on the first frame', () => {
+    renderFollowUp();
+    expect(container.querySelector('textarea')).not.toBeNull();
+    expect(container.querySelectorAll('.mef-fade-in')).toHaveLength(0);
+  });
+
+  it('is a paragraph rather than a second first-level heading on the same screen', () => {
+    renderFollowUp();
+    expect(container.querySelector('h1')).toBeNull();
+    expect(container.querySelector('p')).not.toBeNull();
+  });
+});
+
+describe('with reduced motion asked for, a closing worth two beats', () => {
+  beforeEach(() => setReducedMotion(true));
+
+  it('arrives whole: both her sentences and the fixed line, together', () => {
+    renderSupersededClosing();
+    expect(container.textContent).toContain('You should have known better');
+    expect(container.textContent).toContain('That went badly and I know why');
+    expect(container.textContent).toContain(YOC_CLOSING_LINE);
+    expect(container.querySelectorAll('.mef-fade-in')).toHaveLength(0);
+  });
+});
+
+describe('with motion on, the second half and the two beat closing', () => {
+  beforeEach(() => setReducedMotion(false));
+
+  it('the follow-up box is genuinely absent until its prompt has finished', () => {
+    renderFollowUp();
+    expect(container.querySelector('textarea')).toBeNull();
+    // The screen reader still has the whole prompt from the first frame.
+    expect(container.querySelector('.sr-only')?.textContent).toBe(FOLLOW_UP.prompt);
+  });
+
+  it('the closing is quiet first, and the fixed line waits out both beats', async () => {
+    vi.useFakeTimers();
+    renderSupersededClosing();
+    expect(container.textContent).not.toContain('You should have known better');
+    expect(container.textContent).not.toContain(YOC_CLOSING_LINE);
+
+    // Twice, deliberately. The picture's own second beat is scheduled by an
+    // effect that only exists once the centerpiece has mounted the picture,
+    // and an effect registered during a timer advance has nothing left to
+    // advance it. Real time has no such seam.
+    await act(async () => {
+      vi.advanceTimersByTime(30000);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30000);
+    });
+    vi.useRealTimers();
+
+    expect(container.textContent).toContain('You should have known better');
+    expect(container.textContent).toContain('That went badly and I know why');
+    expect(container.textContent).toContain(YOC_CLOSING_LINE);
   });
 });
