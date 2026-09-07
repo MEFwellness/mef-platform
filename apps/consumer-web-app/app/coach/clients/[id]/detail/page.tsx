@@ -159,6 +159,8 @@ import { OwningYourValuePanel } from '../OwningYourValuePanel';
 import { getClientOwningYourValuePanelAction } from '@/app/actions/owningYourValue';
 import { WhereYourJoyLivesPanel } from '../WhereYourJoyLivesPanel';
 import { getClientWhereYourJoyLivesPanelAction } from '@/app/actions/whereYourJoyLives';
+import { TheGivingLedgerPanel } from '../TheGivingLedgerPanel';
+import { getClientTheGivingLedgerPanelAction } from '@/app/actions/theGivingLedger';
 import { assignmentNameRecord } from '@/lib/assignments/experienceNames';
 import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
 import { MovementProfilePanel } from '../MovementProfilePanel';
@@ -277,6 +279,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     stressLoadPanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
+    theGivingLedgerPanel,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -320,6 +323,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientStressLoadPanelAction(profile.id),
     getClientOwningYourValuePanelAction(profile.id),
     getClientWhereYourJoyLivesPanelAction(profile.id),
+    getClientTheGivingLedgerPanelAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -718,6 +722,15 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             */}
             <div id="detail-card-where-your-joy-lives" className="scroll-mt-24">
               <WhereYourJoyLivesPanel clientId={profile.id} state={whereYourJoyLivesPanel} />
+            </div>
+
+            {/*
+              The Giving Ledger, beside the three deep-dives above it, and
+              keeping its own Assign button on its own card. No prerequisite
+              on either template above it: a coach may start any client here.
+            */}
+            <div id="detail-card-the-giving-ledger" className="scroll-mt-24">
+              <TheGivingLedgerPanel clientId={profile.id} state={theGivingLedgerPanel} />
             </div>
 
             {/* Coach assignment minimum interface — Assessment Registry

@@ -163,6 +163,19 @@ export function whereYourJoyLivesPopupMessageKey(assignmentId: string): string {
 }
 
 /**
+ * The Giving Ledger's own key, scoped to the assignment exactly as the
+ * three above are, and with the identical recurring dismissal lifetime.
+ *
+ * A DISTINCT PREFIX, not a shared "happiness_deep_dive" one, for the reason
+ * the template above it has one: three templates now write to one table, a
+ * member can legitimately have all three assigned at once, and a shared
+ * prefix would let one dismissal silence the others' invitations.
+ */
+export function theGivingLedgerPopupMessageKey(assignmentId: string): string {
+  return `the_giving_ledger:${assignmentId}`;
+}
+
+/**
  * Conditional water tracking's own one-time question, for members who
  * finished intake before it existed (migration 163). A fixed constant key,
  * unlike every other key in this file: this is not scoped to a row, a date

@@ -45,6 +45,11 @@ export const PRODUCT_SURFACES = [
   // word she wrote, and neither of the two answers her closing screen
   // places side by side, reaches an analytics payload.
   'where_your_joy_lives',
+  // The Giving Ledger, the third of the Happiness deep-dives. Same rule as
+  // the two above it: a surface she opened, and nothing else. Not a word
+  // she wrote, not the deposit she named and not the sentence her closing
+  // screen prints back to her, reaches an analytics payload.
+  'the_giving_ledger',
   'root_score',
   'insights',
   'noticing',

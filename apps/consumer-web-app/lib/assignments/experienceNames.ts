@@ -5,7 +5,7 @@
  * every coach assignment, and lib/assessment-registry/registry.ts names
  * most of them. It deliberately does not name the coach-assigned-only
  * experiences (the Stress & Load Deep-Dive, Owning Your Value, Where Your
- * Joy Lives), because a registry entry is what builds the Questionnaires
+ * Joy Lives, The Giving Ledger), because a registry entry is what builds the Questionnaires
  * catalog and the plan map, and those experiences belong to neither. The
  * consequence was that any screen listing assignments printed "Assessment"
  * beside them, so a coach with two open rows could not tell which one was
@@ -27,6 +27,8 @@ import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_LABEL } from '../owning-your-value/copy';
 import { WYJL_DEFINITION_ID } from '../where-your-joy-lives/constants';
 import { WYJL_LABEL } from '../where-your-joy-lives/copy';
+import { TGL_DEFINITION_ID } from '../the-giving-ledger/constants';
+import { TGL_LABEL } from '../the-giving-ledger/copy';
 
 /** What a row is called when nothing above names it. Kept as one constant so the two callers print the same word. */
 export const UNNAMED_ASSIGNMENT_LABEL = 'Assessment';
@@ -40,6 +42,7 @@ export function assignmentNamesByDefinitionId(): Map<string, string> {
     [STRESS_LOAD_DEFINITION_ID, STRESS_LOAD_LABEL],
     [OYV_DEFINITION_ID, OYV_LABEL],
     [WYJL_DEFINITION_ID, WYJL_LABEL],
+    [TGL_DEFINITION_ID, TGL_LABEL],
   ]);
 }
 

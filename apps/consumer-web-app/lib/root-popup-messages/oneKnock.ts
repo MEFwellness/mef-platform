@@ -72,6 +72,7 @@ export const PROTECTED_POPUP_KINDS: readonly string[] = [
   'stress_load_assigned',
   'owning_your_value_assigned',
   'where_your_joy_lives_assigned',
+  'the_giving_ledger_assigned',
   'priority_card',
   'hydration_focus',
   'cvs_day3',

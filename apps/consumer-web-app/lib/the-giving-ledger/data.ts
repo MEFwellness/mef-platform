@@ -1,17 +1,21 @@
 /**
- * Owning Your Value's table (migration 211) and the reads its gate needs.
+ * The Giving Ledger on the shared Happiness table (migrations 211, 212 and
+ * 213), and the reads its gate needs.
  *
  * Same discipline as every other data.ts here: pure functions taking a
  * caller-scoped SupabaseClient, RLS decides who may read or write what, and
  * a failed read returns a safe value rather than throwing, since every
  * caller is on a page render the member is already waiting on.
  *
+ * EVERY READ IS SCOPED BY experience_key. The table now holds THREE
+ * Happiness templates, so a query that forgot that clause would hand a
+ * coach one template's answers under another template's questions. There is
+ * no unscoped read in this file.
+ *
  * NO RENDER WRITES ANYTHING IN THIS FEATURE. There is a draft row, because
  * this experience saves and resumes, but nothing on a read path creates or
  * touches it. The two writers below are both reached from a server action
- * she triggers by tapping Continue or Finish. That is the standing rule as
- * written: a page render may read, it may not insert, claim, upsert or
- * schedule.
+ * she triggers by tapping Continue or Finish.
  *
  * "NO ERROR" IS NOT "IT WORKED". Every write reads the row back, so a write
  * that matched no RLS policy (which returns zero rows and no error) is
@@ -19,22 +23,22 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { HAPPINESS_DEEP_DIVE_TABLE, OYV_DEFINITION_ID, OYV_KEY } from './constants';
-import { readOyvAnswers, sanitizeOyvDraft, type OyvAnswers, type OyvDraft } from './questions';
+import { HAPPINESS_DEEP_DIVE_TABLE, TGL_DEFINITION_ID, TGL_KEY } from './constants';
+import { readTglAnswers, sanitizeTglDraft, type TglAnswers, type TglDraft } from './questions';
 
 const SESSION_COLUMNS =
-  'id, assignment_id, experience_key, questions_version, answers, held_sentence, follow_up_source_experience_key, started_at, completed_at, created_at';
+  'id, assignment_id, experience_key, questions_version, answers, deposit_request, follow_up_source_experience_key, started_at, completed_at, created_at';
 
-export type OyvSessionRecord = {
+export type TglSessionRecord = {
   id: string;
   assignmentId: string | null;
   questionsVersion: number;
   /** Whatever is stored, complete or not. A draft is legitimately partial. */
-  draft: OyvDraft;
+  draft: TglDraft;
   /** Null unless the stored answers are a complete set of nine. Never half an answer sheet. */
-  answers: OyvAnswers | null;
-  /** The sentence she wrote at question nine, from its own column. */
-  heldSentence: string | null;
+  answers: TglAnswers | null;
+  /** Question eight, from its own column (migration 213). */
+  depositRequest: string | null;
   /** Which earlier experience this sitting follows. Null for this template. */
   followUpSourceExperienceKey: string | null;
   startedAt: string;
@@ -48,21 +52,21 @@ type SessionRow = {
   experience_key: string;
   questions_version: number;
   answers: unknown;
-  held_sentence: string | null;
+  deposit_request: string | null;
   follow_up_source_experience_key: string | null;
   started_at: string;
   completed_at: string | null;
   created_at: string;
 };
 
-function fromRow(row: SessionRow): OyvSessionRecord {
+function fromRow(row: SessionRow): TglSessionRecord {
   return {
     id: row.id,
     assignmentId: row.assignment_id,
     questionsVersion: row.questions_version,
-    draft: sanitizeOyvDraft(row.answers) ?? {},
-    answers: readOyvAnswers(row.answers),
-    heldSentence: row.held_sentence,
+    draft: sanitizeTglDraft(row.answers) ?? {},
+    answers: readTglAnswers(row.answers),
+    depositRequest: row.deposit_request,
     followUpSourceExperienceKey: row.follow_up_source_experience_key,
     startedAt: row.started_at,
     completedAt: row.completed_at,
@@ -70,7 +74,7 @@ function fromRow(row: SessionRow): OyvSessionRecord {
   };
 }
 
-export type OyvAssignment = {
+export type TglAssignment = {
   id: string;
   createdAt: string;
   reason: string | null;
@@ -81,29 +85,29 @@ export type OyvAssignment = {
 /**
  * Her open assignment for this experience, if she has one.
  *
- * "No row" and "the read did not work" are kept apart, exactly as the
- * Stress & Load Deep-Dive keeps them apart and for the same reason: a
- * failed read that looked like "no assignment" would silently take the
- * experience away from a member her coach had just assigned, and a failed
- * read that looked like "assigned" would offer it to somebody who was never
- * given it. `ok: false` means: decide nothing this render.
+ * "No row" and "the read did not work" are kept apart, exactly as the two
+ * templates beside it keep them apart and for the same reason: a failed
+ * read that looked like "no assignment" would silently take the experience
+ * away from a member her coach had just assigned, and a failed read that
+ * looked like "assigned" would offer it to somebody who was never given it.
+ * `ok: false` means: decide nothing this render.
  */
-export async function fetchPendingOyvAssignment(
+export async function fetchPendingTglAssignment(
   supabase: SupabaseClient,
   memberId: string
-): Promise<{ ok: boolean; assignment: OyvAssignment | null }> {
+): Promise<{ ok: boolean; assignment: TglAssignment | null }> {
   const { data, error } = await supabase
     .from('assessment_assignments')
     .select('id, created_at, reason, due_at')
     .eq('member_id', memberId)
-    .eq('assessment_definition_id', OYV_DEFINITION_ID)
+    .eq('assessment_definition_id', TGL_DEFINITION_ID)
     .eq('status', 'pending')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    console.error('fetchPendingOyvAssignment failed', error);
+    console.error('fetchPendingTglAssignment failed', error);
     return { ok: false, assignment: null };
   }
   if (!data) return { ok: true, assignment: null };
@@ -127,22 +131,22 @@ export async function fetchPendingOyvAssignment(
  * instead of being turned away. Drafts are deliberately excluded: an
  * unfinished sitting is not something a coach should read as an answer.
  */
-export async function listOyvSessions(
+export async function listTglSessions(
   supabase: SupabaseClient,
   memberId: string,
   limit = 24
-): Promise<{ ok: boolean; records: OyvSessionRecord[] }> {
+): Promise<{ ok: boolean; records: TglSessionRecord[] }> {
   const { data, error } = await supabase
     .from(HAPPINESS_DEEP_DIVE_TABLE)
     .select(SESSION_COLUMNS)
     .eq('member_id', memberId)
-    .eq('experience_key', OYV_KEY)
+    .eq('experience_key', TGL_KEY)
     .not('completed_at', 'is', null)
     .order('completed_at', { ascending: false })
     .limit(limit);
 
   if (error) {
-    console.error('listOyvSessions failed', error);
+    console.error('listTglSessions failed', error);
     return { ok: false, records: [] };
   }
   return { ok: true, records: ((data ?? []) as unknown as SessionRow[]).map(fromRow) };
@@ -151,30 +155,24 @@ export async function listOyvSessions(
 /**
  * The row for one assignment, finished or not.
  *
- * Scoped by experience_key as well as by assignment. When this was written
- * there was one template on this table and the assignment id alone was a
- * sufficient scope, because an assignment belongs to exactly one
- * definition. There are three templates on it now, and this was the only
- * read in the family that did not say which one it wanted, so it is said
- * here too: the scoping rule is now uniform across all three and provable
- * by reading the files rather than by reasoning about assignment ids.
- * Nothing about which rows come back changes.
+ * Scoped by experience_key as well as by assignment, so this can never
+ * return one of the two other templates' sittings that share this table.
  */
-export async function fetchOyvSessionForAssignment(
+export async function fetchTglSessionForAssignment(
   supabase: SupabaseClient,
   memberId: string,
   assignmentId: string
-): Promise<OyvSessionRecord | null> {
+): Promise<TglSessionRecord | null> {
   const { data, error } = await supabase
     .from(HAPPINESS_DEEP_DIVE_TABLE)
     .select(SESSION_COLUMNS)
     .eq('member_id', memberId)
-    .eq('experience_key', OYV_KEY)
+    .eq('experience_key', TGL_KEY)
     .eq('assignment_id', assignmentId)
     .maybeSingle();
 
   if (error) {
-    console.error('fetchOyvSessionForAssignment failed', error);
+    console.error('fetchTglSessionForAssignment failed', error);
     return null;
   }
   return data ? fromRow(data as unknown as SessionRow) : null;
@@ -193,12 +191,12 @@ export async function fetchOyvSessionForAssignment(
  * Returns the row it actually read back, so a write that matched no policy
  * is caught by the caller instead of being reported as a save.
  */
-export async function saveOyvDraft(
+export async function saveTglDraft(
   supabase: SupabaseClient,
   memberId: string,
-  params: { assignmentId: string; questionsVersion: number; draft: OyvDraft }
-): Promise<OyvSessionRecord | null> {
-  const existing = await fetchOyvSessionForAssignment(supabase, memberId, params.assignmentId);
+  params: { assignmentId: string; questionsVersion: number; draft: TglDraft }
+): Promise<TglSessionRecord | null> {
+  const existing = await fetchTglSessionForAssignment(supabase, memberId, params.assignmentId);
 
   if (existing?.completedAt) return existing;
 
@@ -210,7 +208,7 @@ export async function saveOyvDraft(
       .eq('member_id', memberId)
       .select(SESSION_COLUMNS)
       .maybeSingle();
-    if (error) console.error('saveOyvDraft update failed', error);
+    if (error) console.error('saveTglDraft update failed', error);
     return data ? fromRow(data as unknown as SessionRow) : null;
   }
 
@@ -218,7 +216,7 @@ export async function saveOyvDraft(
     .from(HAPPINESS_DEEP_DIVE_TABLE)
     .insert({
       member_id: memberId,
-      experience_key: OYV_KEY,
+      experience_key: TGL_KEY,
       assignment_id: params.assignmentId,
       questions_version: params.questionsVersion,
       answers: params.draft,
@@ -232,33 +230,32 @@ export async function saveOyvDraft(
   // Either the unique index rejected a second row for this assignment (a
   // second tab, a double tap), or the insert wrote nothing. Both resolve
   // the same way: read back whatever is actually there.
-  if (error) console.error('saveOyvDraft insert failed', error);
-  return await fetchOyvSessionForAssignment(supabase, memberId, params.assignmentId);
+  if (error) console.error('saveTglDraft insert failed', error);
+  return await fetchTglSessionForAssignment(supabase, memberId, params.assignmentId);
 }
 
 /**
- * Stamps her sitting finished, with the complete sheet and the sentence she
- * wants held.
+ * Stamps her sitting finished, with the complete sheet and the deposit she
+ * named in its own column.
  *
  * WRITE ONCE. An already-completed row is handed straight back untouched,
  * and the completing update carries `.is('completed_at', null)` so two
- * concurrent submits cannot both stamp it. That is the same discipline the
- * assessment runtime's own completion holds, and migration 211's update
- * policy enforces the identical thing in the database.
+ * concurrent submits cannot both stamp it. Migration 211's update policy
+ * enforces the identical thing in the database.
  */
-export async function completeOyvSession(
+export async function completeTglSession(
   supabase: SupabaseClient,
   memberId: string,
   params: {
     assignmentId: string;
     questionsVersion: number;
-    answers: OyvAnswers;
-    heldSentence: string;
+    answers: TglAnswers;
+    depositRequest: string;
   }
-): Promise<OyvSessionRecord | null> {
+): Promise<TglSessionRecord | null> {
   const existing =
-    (await fetchOyvSessionForAssignment(supabase, memberId, params.assignmentId)) ??
-    (await saveOyvDraft(supabase, memberId, {
+    (await fetchTglSessionForAssignment(supabase, memberId, params.assignmentId)) ??
+    (await saveTglDraft(supabase, memberId, {
       assignmentId: params.assignmentId,
       questionsVersion: params.questionsVersion,
       draft: params.answers,
@@ -271,7 +268,7 @@ export async function completeOyvSession(
     .from(HAPPINESS_DEEP_DIVE_TABLE)
     .update({
       answers: params.answers,
-      held_sentence: params.heldSentence,
+      deposit_request: params.depositRequest,
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -281,10 +278,10 @@ export async function completeOyvSession(
     .select(SESSION_COLUMNS)
     .maybeSingle();
 
-  if (error) console.error('completeOyvSession failed', error);
+  if (error) console.error('completeTglSession failed', error);
   if (data) return fromRow(data as unknown as SessionRow);
 
   // Lost the race, or the update matched nothing. Read back what actually
   // stands, so a member who lost it still sees the sitting that won.
-  return await fetchOyvSessionForAssignment(supabase, memberId, params.assignmentId);
+  return await fetchTglSessionForAssignment(supabase, memberId, params.assignmentId);
 }

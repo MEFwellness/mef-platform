@@ -1,3 +1,89 @@
+## The Giving Ledger, the third Happiness deep-dive (2026-09-06)
+
+Template 3 of the coach-assigned Happiness set, built on exactly the
+machinery migrations 211 and 212 left standing. Migration 213 is what
+migration 212's header said a further template would cost: a catalog row,
+one clause on the insert policy, one arm in the trigger's pairing, plus the
+one structured column this template's own brief asks for. No new table, no
+second assignment ledger, no second pop-up mechanism, no second receipt and
+no second experiment machinery.
+
+Route `/the-giving-ledger`. Nine open written questions, one per screen,
+across What Goes Out, What Comes Back and The Balance. Coach-assignable
+only, and the assignment is the whole gate: no tier lock, no visibility key
+and NO PREREQUISITE on either template before it. A coach may start any
+member here.
+
+### THE CLOSING PRINTS HER OWN SENTENCE AND NOTHING ELSE
+
+Question nine ("write one sentence about what your ledger is telling you")
+is reproduced verbatim in the serif face under the label "What your ledger
+says", and beneath it one fixed line: "You keep the ledger. You get to
+change it." That line claims nothing specific about this member. It says
+who the ledger belongs to and that it can be changed, which is true of
+anyone who answered the nine questions, and it does not tell her what her
+ledger says because the line directly above it is her own sentence saying
+exactly that. Root adds nothing else.
+
+The closing HOLDS until she taps, by the same construction the two
+templates beside it use: the route never redirects a completed sitting, and
+the pending-versus-completed branch lives inside the mounted client
+component, so the Server Action re-render that arrives behind the
+completion reconciles that tree instead of navigating her off it.
+
+### THREE COLUMNS, THREE MEANINGS
+
+`deposit_request` holds question eight, the specific deposit she could ask a
+person in her life for. It is a NEW column, not a reuse of `held_sentence`
+(Owning Your Value) or `twenty_minute_joy` (Where Your Joy Lives), because
+those three answer three different questions and a later feature reading the
+family by one shared column would get three meanings with no way to tell
+them apart. Each column is null on every row that is not its own template's.
+
+The coach card opens with question SIX (where she keeps giving with nothing
+coming back), deliberately neither the stored column nor the closing
+sentence, then prints all nine raw answers grouped by screen. The follow-up
+flag is null for this template by design.
+
+### THE THREE-TEMPLATE SCOPING PROOF, AND WHAT IT FOUND
+
+`tests/the-giving-ledger-gate.test.ts` extends the scoped-reads proof to all
+three templates at once: it reads every `.from(HAPPINESS_DEEP_DIVE_TABLE)`
+statement in all three data layers and requires each one to name its
+`experience_key` (or to be addressed by primary key, resolved by a scoped
+read above it).
+
+It found one. `fetchOyvSessionForAssignment` was the only read in the family
+that did not say which template it wanted. It could not return a wrong row
+today, because an assignment id already belongs to exactly one definition,
+but it was written when one template was on the table and three are on it
+now. It says `experience_key` now. Nothing about which rows come back
+changes, and the rule is uniform and provable by reading the files rather
+than by reasoning about assignment ids.
+
+### THE VERIFICATION SCRIPT GAP, CLOSED IN BOTH PLACES
+
+`scripts/verify-owning-your-value-live.mjs` deleted the shared Happiness
+table WITHOUT an `experience_key` clause and left the pop-up dismissal row
+that "Maybe later" writes behind, because that row is keyed to the
+assignment by a string rather than by a foreign key. Both halves are fixed,
+the same way the template 2 script already fixed them, and the two cleanup
+sites (the pre-run clean slate and the `finally`) are now one shared
+`clearFixture`. Confirmed by query: production holds zero
+`owning_your_value:` dismissal rows.
+
+### CHECKS
+
+Typecheck clean. Lint clean. Full suite 525 files / 9412 tests, zero
+failures. Production build clean, `/the-giving-ledger` at 8.52 kB.
+Migration 213 applied to production and verified there: catalog row present,
+three distinct columns, insert policy carrying all three templates, trigger
+carrying three arms.
+
+`tests/role-based-home-routing.test.ts` caught the new surface before a
+human did: its route map guard requires every analytics surface to be a path
+staff are redirected away from, and `the_giving_ledger` was missing one.
+
 ## A full performance and stability audit, measured on production (2026-09-06)
 
 Every number below is a median of five runs against app.mefwellness.com,

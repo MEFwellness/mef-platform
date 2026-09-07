@@ -88,6 +88,7 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
       { id: 'detail-card-stress-load', title: 'Stress and Load Deep-Dive' },
       { id: 'detail-card-owning-your-value', title: 'Owning Your Value' },
       { id: 'detail-card-where-your-joy-lives', title: 'Where Your Joy Lives' },
+      { id: 'detail-card-the-giving-ledger', title: 'The Giving Ledger' },
       { id: 'detail-card-assign-assessment', title: 'Assign an Assessment' },
     ],
   },

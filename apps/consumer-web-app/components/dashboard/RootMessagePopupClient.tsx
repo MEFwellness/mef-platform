@@ -49,6 +49,7 @@ import { TrackAssignmentDelivered } from '@/components/assignments/TrackAssignme
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
 import { OYV_COPY } from '@/lib/owning-your-value/copy';
 import { WYJL_COPY } from '@/lib/where-your-joy-lives/copy';
+import { TGL_COPY } from '@/lib/the-giving-ledger/copy';
 import { ROOT_WELCOME_COPY } from '@/lib/public-entry/copy';
 import {
   TrackTrialArcDelivered,
@@ -68,6 +69,7 @@ type WhereYourJoyLivesMessage = Extract<
   RootPopupMessage,
   { kind: 'where_your_joy_lives_assigned' }
 >;
+type TheGivingLedgerMessage = Extract<RootPopupMessage, { kind: 'the_giving_ledger_assigned' }>;
 type HydrationFocusMessage = Extract<RootPopupMessage, { kind: 'hydration_focus' }>;
 type PublicEntryWelcomeMessage = Extract<RootPopupMessage, { kind: 'public_entry_welcome' }>;
 type TrialArcMessage = Extract<RootPopupMessage, { kind: 'trial_arc_day' }>;
@@ -515,6 +517,29 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
+  if (message.kind === 'the_giving_ledger_assigned') {
+    const m: TheGivingLedgerMessage = message;
+    return (
+      <>
+        {/* The same receipt as the four branches above, on the same table:
+            this is an assessment_assignments row like any other coach
+            assignment, so it gets the one receipt system rather than a
+            second one of its own. */}
+        <TrackAssignmentDelivered assignmentId={m.assignmentId} presentation="popup" />
+        <RootInvitePopup
+          eyebrow={TGL_COPY.popupEyebrow}
+          title={m.title}
+          body={m.body}
+          ctaLabel={TGL_COPY.popupCta}
+          href={m.primaryHref}
+          isPending={isPending}
+          onMaybeLater={handleMaybeLater}
+          onIgnore={handleIgnore}
+        />
+      </>
+    );
+  }
+
   if (isOffer) {
     return <RootOfferPopup message={message as OfferMessage} onClose={() => setClosed(true)} />;
   }
@@ -537,6 +562,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | StressLoadMessage
     | OwningYourValueMessage
     | WhereYourJoyLivesMessage
+    | TheGivingLedgerMessage
     | HydrationFocusMessage
     | PublicEntryWelcomeMessage
     | TrialArcMessage

@@ -27,6 +27,7 @@ import { getMyLscExperimentStatusAction, getMyLscOfferAction } from '@/app/actio
 import { getMyRplExperimentStatusAction, getMyRplOfferAction } from '@/app/actions/readinessPulse';
 import { getMyOwningYourValueExperimentAction } from '@/app/actions/owningYourValue';
 import { getMyWhereYourJoyLivesExperimentAction } from '@/app/actions/whereYourJoyLives';
+import { getMyTheGivingLedgerExperimentAction } from '@/app/actions/theGivingLedger';
 import { getMyStressLoadExperimentAction } from '@/app/actions/stressLoad';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { getMyRootPopupDismissalAction } from '@/app/actions/rootPopupMessages';
@@ -40,6 +41,7 @@ import { LscExperimentPanel } from '@/components/life-signal-check/LscExperiment
 import { RplExperimentPanel } from '@/components/readiness-pulse/RplExperimentPanel';
 import { OwningYourValueExperimentPanel } from '@/components/owning-your-value/OwningYourValueExperimentPanel';
 import { WhereYourJoyLivesExperimentPanel } from '@/components/where-your-joy-lives/WhereYourJoyLivesExperimentPanel';
+import { TheGivingLedgerExperimentPanel } from '@/components/the-giving-ledger/TheGivingLedgerExperimentPanel';
 import { StressLoadExperimentPanel } from '@/components/stress-load/StressLoadExperimentPanel';
 
 // Same zone-heading treatment as every other dashboard section (see the
@@ -77,7 +79,16 @@ function RecommendationExperimentRow({
 }
 
 export async function ActiveExperimentsSection() {
-  const [cvsStatus, lscStatus, rplStatus, oyvStatus, wyjlStatus, slStatus, allExperiments] = await Promise.all([
+  const [
+    cvsStatus,
+    lscStatus,
+    rplStatus,
+    oyvStatus,
+    wyjlStatus,
+    tglStatus,
+    slStatus,
+    allExperiments,
+  ] = await Promise.all([
     getMyCvsExperimentStatusAction(),
     getMyLscExperimentStatusAction(),
     getMyRplExperimentStatusAction(),
@@ -90,6 +101,10 @@ export async function ActiveExperimentsSection() {
     // same reason: it is accepted or declined on the closing screen itself,
     // so the action returns null unless one is actually running.
     getMyWhereYourJoyLivesExperimentAction(),
+    // The Giving Ledger's experiment has no offer half either, for the
+    // same reason: it is accepted or declined on the closing screen itself,
+    // so the action returns null unless one is actually running.
+    getMyTheGivingLedgerExperimentAction(),
     // The Stress & Load Deep-Dive's experiment has no offer half either: it
     // is accepted or declined on the closing screen itself. It was missing
     // from this section entirely until 2026-09-06, which is why an accepted
@@ -131,6 +146,7 @@ export async function ActiveExperimentsSection() {
         rplOffer ||
         oyvStatus ||
         wyjlStatus ||
+        tglStatus ||
         slStatus
     ) ||
     recommendationExperiments.length > 0;
@@ -228,6 +244,8 @@ export async function ActiveExperimentsSection() {
         {oyvStatus && <OwningYourValueExperimentPanel status={oyvStatus} />}
 
         {wyjlStatus && <WhereYourJoyLivesExperimentPanel status={wyjlStatus} />}
+
+        {tglStatus && <TheGivingLedgerExperimentPanel status={tglStatus} />}
 
         {slStatus && <StressLoadExperimentPanel status={slStatus} />}
 

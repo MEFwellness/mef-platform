@@ -33,6 +33,8 @@ import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_AREA, OYV_LABEL } from '../owning-your-value/copy';
 import { WYJL_DEFINITION_ID } from '../where-your-joy-lives/constants';
 import { WYJL_AREA, WYJL_LABEL } from '../where-your-joy-lives/copy';
+import { TGL_DEFINITION_ID } from '../the-giving-ledger/constants';
+import { TGL_AREA, TGL_LABEL } from '../the-giving-ledger/copy';
 import type { AssessmentKey } from '../assessment-registry/types';
 import type { AssignmentRowStatus } from './status';
 
@@ -101,6 +103,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
     definitionId: WYJL_DEFINITION_ID,
     displayName: WYJL_LABEL,
     areaLabel: WYJL_AREA,
+  },
+  {
+    id: 'the-giving-ledger',
+    definitionId: TGL_DEFINITION_ID,
+    displayName: TGL_LABEL,
+    areaLabel: TGL_AREA,
   },
 ];
 
