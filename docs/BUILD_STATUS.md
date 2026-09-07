@@ -1,3 +1,129 @@
+## The Weight of Yes, the fourth Happiness deep-dive, and the first follow-up (2026-09-06)
+
+Template 4 of the coach-assigned Happiness set, built on exactly the
+machinery migrations 211, 212 and 213 left standing. Migration 214 is what
+migration 213's header said a further template would cost: a catalog row,
+one clause on the insert policy, one arm in the trigger's pairing, plus the
+one structured column this template's own brief asks for. No new table, no
+second assignment ledger, no second pop-up mechanism, no second receipt and
+no second experiment machinery.
+
+Route `/the-weight-of-yes`. Nine open written questions, one per screen,
+across The Automatic Yes, The Cost and The No. Coach-assignable only, and
+the assignment is the whole gate.
+
+### THE ONE NEW MECHANISM: A TEMPLATE THAT CAN FOLLOW ANOTHER
+
+This is the first template that can follow up on an earlier one, and it
+needed NO schema at all, because migration 211 created the column for it and
+nothing has used it until now. When a member has a COMPLETED The Giving
+Ledger sitting, question one runs in a version that quotes the deposit she
+named there back to her verbatim, and the sitting records that fact in
+`follow_up_source_experience_key` rather than leaving it in a coach's
+memory.
+
+THE CHECK IS AT DELIVERY TIME, NOT ASSIGNMENT TIME. It is asked when she is
+actually about to be shown question one, so a member who finishes The Giving
+Ledger after the assignment lands but before she opens this one gets the
+follow-up, which is the reading that matches what she has actually done.
+Once she has written a word, the STORED flag decides, because it records the
+version of question one she was shown: a Giving Ledger finished between her
+question three and her question four can never rewrite a question she has
+already answered.
+
+THERE IS STILL NO PREREQUISITE, and on this template that is the load
+bearing sentence. `lib/the-weight-of-yes/access.ts` has never heard of the
+earlier template, does not import it, and cannot be made to care. The
+follow-up is one question's WORDING, resolved after the gate has already
+said yes. A coach may start any member here.
+
+A MEMBER WHO NEVER DID IT SEES NO TRACE OF IT. Not in the intro, not in the
+questions, not on the closing, not in the pop-up, not on the experiment and
+not in the reading. That is asserted twice over in
+`tests/the-weight-of-yes-follow-up.test.ts`: against every member-facing
+STRING this feature can produce in standalone mode, and against the SOURCE
+of every member-facing component, which cannot name it because it is never
+given it. The only place it is named is the coach card, which is why those
+strings live in a separate `TWOY_COACH_COPY` block.
+
+### THE CLOSING PRINTS HER OWN REWRITE AND NOTHING ELSE
+
+Question eight ("what is the kindest true version of that no") is reproduced
+verbatim in the serif face under the label "Your no, in your own words", and
+beneath it one fixed line: "A no to them is a yes to you. You already wrote
+it." That line claims nothing specific about this member. It says what a no
+is for and that she has already written one, both true of anyone who reached
+that screen. Root adds nothing else.
+
+The closing HOLDS until she taps, by the same construction the three
+templates beside it use, and it was watched holding on production through
+nine seconds and several server round trips in both runs.
+
+### FOUR COLUMNS, FOUR MEANINGS
+
+`kind_no` holds question eight. It is a NEW column, not a reuse of
+`held_sentence` (Owning Your Value), `twenty_minute_joy` (Where Your Joy
+Lives) or `deposit_request` (The Giving Ledger), because those four answer
+four different questions and a later feature reading the family by one
+shared column would get four meanings with no way to tell them apart.
+
+The coach card opens with question SEVEN (the raw no she has been needing to
+say), then prints all nine raw answers grouped by screen, with question one
+rendered under the wording she was actually shown. Above all of it, when the
+sitting ran as a follow-up, a band labelled "Follow-up from The Giving
+Ledger" puts the deposit that was standing when she wrote this sitting
+beside what she wrote at question one. A standalone sitting says so in one
+line rather than showing nothing, so a coach never has to guess whether the
+follow-up failed or never applied.
+
+### CHECKS
+
+Typecheck clean. Lint clean (zero errors). Full suite 528 files / 9,513
+tests, zero failures, including 99 new checks across
+`tests/the-weight-of-yes-copy.test.ts` (28),
+`tests/the-weight-of-yes-gate.test.ts` (46, with the scoped-reads proof now
+covering all FOUR templates) and `tests/the-weight-of-yes-follow-up.test.ts`
+(25). Production build clean, `/the-weight-of-yes` at 8.71 kB. Migration 214
+applied to production and verified there: catalog row present, `kind_no`
+readable, insert policy carrying all four templates, trigger carrying four
+arms.
+
+### LIVE ON PRODUCTION, TWICE: 160/160
+
+`scripts/verify-the-weight-of-yes-live.mjs` drives the whole journey on
+`app.mefwellness.com` twice, signed in as the real test member and the real
+staff account through minted sessions retired afterwards with scope `local`.
+
+RUN A, STANDALONE. No completed Giving Ledger on the account. Question one
+ran in its standalone version, and NO screen she saw across the whole run,
+twelve of them, mentioned The Giving Ledger or gestured at an earlier
+sitting. The coach card showed no follow-up band and said out loud that the
+sitting ran standalone. The experiment was declined, which exercised that
+path and left the shared two-slot cap alone.
+
+RUN B, FOLLOW-UP. A real Giving Ledger sitting was completed first, by
+typing nine real answers into the real screens including the deposit
+question. Question one then quoted that deposit verbatim, the closing held
+and printed her question eight rewrite under the fixed line, the experiment
+started and its dashboard card carried the approved daily question at Day 1
+of 7, and the coach card showed the band with both answers side by side and
+question seven on top.
+
+Both runs: save and resume across a genuinely new page, exactly one delivery
+receipt though two surfaces fire the tracker, the real name on the /detail
+assignment list, all three earlier template cards standing before and after,
+zero em dashes and zero console errors.
+
+STATE LEFT ON PRODUCTION: NONE. Every row both runs created was deleted and
+confirmed absent by query. The pre-existing leftovers named in the brief
+were cleared first and confirmed gone: one Where Your Joy Lives sitting
+(with its assignment, attempt row, delivery receipt and pop-up dismissal)
+and two active experiments (with their daily logs). The account now carries
+zero Happiness sittings, zero active experiments and zero pending
+assignments. One inert row was deliberately left alone and is worth naming:
+a `expired_no_reflection` stress-load experiment from 2026-08-29, which was
+outside the named cleanup scope and blocks nothing.
+
 ## The Giving Ledger, the third Happiness deep-dive (2026-09-06)
 
 Template 3 of the coach-assigned Happiness set, built on exactly the
