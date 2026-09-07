@@ -60,6 +60,58 @@ everything else steps back by one, so her sentence still lands after it
 rather than beside it. A template that passes none is timed exactly as
 before, which is why the five earlier closings are untouched.
 
+### THE ONE BUG THIS BUILD SHIPPED, AND WHAT FOUND IT
+
+`PlacingDeck` took the pointer on `pointerdown`. That captures every TAP as
+well as every drag, and a captured pointer's `click` is dispatched to the
+CAPTURING element rather than to whatever was under the finger, so the
+card's own button never received one and NO CARD COULD BE PLACED BY
+TAPPING. Tapping is the only way in for a member without a mouse, so
+question two was unanswerable.
+
+Typecheck, lint, 9,792 local tests and the production build all passed
+with that defect in place, because a `click()` dispatched straight at a
+button in jsdom never goes through the retargeting at all. The first live
+walk of the shelf found it in about four seconds: four taps, four times the
+same card.
+
+Capture is now taken in the MOVE handler once the drag threshold has
+actually been crossed. The same browser behaviour broke the other half of
+the guard: a drag's own click is delivered to the capturing element too, so
+it never reached the button to clear the boolean the drag had set, and the
+next genuine tap minutes later would have been swallowed. That is a
+self-expiring timestamp now. Both are pinned by
+`tests/happiness-interactive.test.tsx`, which asserts the invariant
+underneath the behaviour (nothing is captured until a drag has begun),
+because the retargeting itself cannot be reproduced in jsdom.
+
+### LIVE VERIFICATION, PRODUCTION, 2026-09-07
+
+**131 checks, 131 passing** on `app.mefwellness.com`, signed in as the real
+coach and as the seeded fixture through minted sessions retired afterwards
+with scope `local`. Zero em dashes and zero console errors on every screen
+either of them saw.
+
+`apps/consumer-web-app/scripts/verify-what-you-put-down-live.mjs` drives the
+whole journey: the coach assigns from the real button, the pop-up knocks
+once, one delivery receipt is written though two surfaces fire the tracker,
+a real four line list becomes four cards carrying her exact words, every
+card is placed by TAPPING, question three quotes her sting pick character
+for character, the two-pole line is set and its written half appears only
+then, THE TAB IS CLOSED MID-SITTING and a brand new tab brings back the
+whole shelf, the mark and the slider at exactly 78, a card is lifted and is
+the only gold one, the closing holds with the shelf and her own sentence,
+the experiment starts and logs a day, and the coach reads the shelf, the
+position in words ("Placed her at: closer to A stranger"), question seven
+on top and all seven written answers. It walks the whole first screen again
+in a browser context that asks for reduced motion, at 390px.
+
+**State left on production: none.** Every row the run created was deleted in
+a `finally` and confirmed absent by query afterwards, sittings, assignments,
+attempts, experiments and pop-up dismissals alike. All five earlier template
+cards were checked standing before and after.
+
+
 ### PART 2: WHAT YOU PUT DOWN
 
 Route `/what-you-put-down`. Nine questions across What Was Carried Away, The

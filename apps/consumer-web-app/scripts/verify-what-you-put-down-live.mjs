@@ -627,11 +627,15 @@ async function main() {
 
     await waitForQuestion(page, 5, 'slider');
     const beforeMark = await page.innerText('body');
+    // The two pole labels are styled `uppercase`, and innerText reports the
+    // CSS-transformed text rather than the source, so they are matched case
+    // insensitively. The question itself is set in the serif face and is not
+    // transformed, so it is matched exactly.
     check(
       'line: it asks how far away she feels, with both ends named',
       beforeMark.includes('How far away does she feel?') &&
-        beforeMark.includes('Right here') &&
-        beforeMark.includes('A stranger')
+        /\bRight here\b/i.test(beforeMark) &&
+        /\bA stranger\b/i.test(beforeMark)
     );
     check(
       'line: nothing is written yet, because she has not placed her mark',
@@ -791,9 +795,10 @@ async function main() {
         lifted.find((card) => card.tone === 'lifted')?.text.includes(LIFT) === true,
       JSON.stringify(lifted.map((c) => c.tone))
     );
+    // Same reason as the pole labels: that note is styled `uppercase`.
     check(
       'lift: it says what the gold means, in her hand',
-      (await page.innerText('body')).includes('Still has a pulse')
+      /Still has a pulse/i.test(await page.innerText('body'))
     );
     check(
       'lift: and it is off the shelf, not merely highlighted on it',
@@ -935,8 +940,17 @@ async function main() {
     check('experiment: there is a real way to decline', /Not right now/.test(offer));
     await shot(page, '20-experiment-offer');
 
+    // WAIT ON THE NEXT SCREEN'S OWN CONTROL, NEVER ON A CLOCK. Accepting the
+    // experiment runs a Server Action that also revalidates Home, and Home
+    // is a heavy page, so the response can take well over five seconds. A
+    // fixed wait read the offer screen again and reported four failures for
+    // a write the server had already made. The last screen's own way out is
+    // the honest signal that it has arrived.
     await page.getByRole('button', { name: /I'm in: start the 7 days/ }).click();
-    await page.waitForTimeout(5000);
+    await page
+      .getByRole('button', { name: 'Back to home' })
+      .first()
+      .waitFor({ state: 'visible', timeout: 60000 });
     const done = await page.innerText('body');
     check('experiment: she is told where it went', done.includes('It is on your dashboard now'));
     check('closing: the piece of reading is offered, summary first', done.includes(RESOURCE_TITLE));
