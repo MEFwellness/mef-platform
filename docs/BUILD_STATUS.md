@@ -62,6 +62,19 @@ immediately, because `resolveSubjectKey` recovers a legacy row's subject
 from the title it already stores, through the SIGNAL_LABEL / AREA_LABEL
 reverse lookups that already existed for the daily prompt.
 
+VERIFIED ON PRODUCTION, 14 of 14, on the account that actually had the
+duplicate (8weeks2fab@gmail.com, is_test). Home draws one Energy offer
+instead of two, the survivor is the Readiness Pulse's, the Life Signal
+Check's wording is genuinely absent from the page rather than hidden,
+starting it converts the offer into a running card with its own daily
+question, the Life Signal Check then stops offering the same thing because
+the subject is running, a hand-made insert that skips every application
+guard is refused with 23505, and there were zero console errors. The run is
+`scripts/verify-duplicate-experiment-offers-live.mjs`, it writes only to
+that one is_test account, and it left production on exactly the 19 rows it
+found. The real member's two running Tension experiments were read and
+asserted untouched.
+
 NOT TOUCHED, ON PURPOSE. The 2-active cap, decline behavior, every line of
 experiment copy, and the Root pop-up chain. The chain returns one message
 at a time so it can never show both offers at once, but it can still offer
