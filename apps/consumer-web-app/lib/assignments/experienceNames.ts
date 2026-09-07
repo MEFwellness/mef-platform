@@ -33,6 +33,8 @@ import { TWOY_DEFINITION_ID } from '../the-weight-of-yes/constants';
 import { TWOY_LABEL } from '../the-weight-of-yes/copy';
 import { BSN_DEFINITION_ID } from '../being-seen/constants';
 import { BSN_LABEL } from '../being-seen/copy';
+import { WYPD_DEFINITION_ID } from '../what-you-put-down/constants';
+import { WYPD_LABEL } from '../what-you-put-down/copy';
 
 /** What a row is called when nothing above names it. Kept as one constant so the two callers print the same word. */
 export const UNNAMED_ASSIGNMENT_LABEL = 'Assessment';
@@ -49,6 +51,7 @@ export function assignmentNamesByDefinitionId(): Map<string, string> {
     [TGL_DEFINITION_ID, TGL_LABEL],
     [TWOY_DEFINITION_ID, TWOY_LABEL],
     [BSN_DEFINITION_ID, BSN_LABEL],
+    [WYPD_DEFINITION_ID, WYPD_LABEL],
   ]);
 }
 

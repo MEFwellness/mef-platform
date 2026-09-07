@@ -60,6 +60,11 @@ export const PRODUCT_SURFACES = [
   // wrote, and not the thing she wishes somebody would notice, reaches an
   // analytics payload.
   'being_seen',
+  // What You Put Down, the sixth of the Happiness deep-dives. Same rule as
+  // the five above it: a surface she opened, and nothing else. Not a word
+  // she wrote, not a card on her shelf, not which one stings and not where
+  // she put her mark, reaches an analytics payload.
+  'what_you_put_down',
   'root_score',
   'insights',
   'noticing',

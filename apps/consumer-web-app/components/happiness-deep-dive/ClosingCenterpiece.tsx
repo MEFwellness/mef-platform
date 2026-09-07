@@ -38,6 +38,14 @@
  * what the already-finished panel and the last screen pass, because the
  * staged arrival belongs to the moment she finishes and nothing is gained
  * by making her sit through it again on the way out.
+ *
+ * A TEMPLATE MAY BRING A PICTURE OF ITS OWN. `visual` is anything a
+ * template built with her during the sitting and wants to show her one last
+ * time: What You Put Down hands it the shelf she filled, with the card she
+ * lifted glowing gold. It arrives FIRST, in a beat of its own, and
+ * everything else steps back by one so her sentence still lands after it
+ * rather than beside it. A template that has no picture passes nothing and
+ * the timing is exactly what it always was.
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
@@ -148,6 +156,7 @@ export function ClosingCenterpiece({
   entries,
   layout = 'single',
   fixedLine,
+  visual,
   instant = false,
 }: {
   /** A short gold label above her words. Names whose words they are and does nothing else. */
@@ -156,19 +165,26 @@ export function ClosingCenterpiece({
   layout?: 'single' | 'pair';
   /** The one fixed sentence beneath. Omitted by a template that keeps its Root line outside the figure. */
   fixedLine?: string | undefined;
+  /** Something the template built with her, shown one last time above her words. Takes the first beat. */
+  visual?: ReactNode | undefined;
   instant?: boolean;
 }) {
   const reducedMotion = useReducedMotion();
   const skip = instant || reducedMotion;
 
-  // How many lines of her own writing there are in total, which is what the
-  // fixed line has to wait behind.
-  const lineCount = entries.reduce((total, entry) => total + hddClosingLines(entry.text).length, 0);
+  // A picture takes the first beat, and everything after it steps back by
+  // one, so her sentence lands after the picture rather than on top of it.
+  const offset = visual ? 1 : 0;
+
+  // How many beats the fixed line has to wait behind: her own lines, plus
+  // the picture's beat when there is one.
+  const lineCount =
+    offset + entries.reduce((total, entry) => total + hddClosingLines(entry.text).length, 0);
   const fixedLineDelay = hddClosingFixedLineDelayMs(lineCount);
 
   // Where each entry's lines start in that overall sequence, so two answers
   // side by side still read as one staged reveal rather than two races.
-  let cursor = 0;
+  let cursor = offset;
   const starts = entries.map((entry) => {
     const start = cursor;
     cursor += hddClosingLines(entry.text).length;
@@ -183,8 +199,14 @@ export function ClosingCenterpiece({
         isPair ? '' : 'text-center'
       }`}
     >
+      {visual && (
+        <Beat delayMs={hddClosingLineDelayMs(0)} instant={skip} className="mb-7 text-left">
+          {visual}
+        </Beat>
+      )}
+
       {eyebrow && (
-        <Beat delayMs={hddClosingLineDelayMs(0)} instant={skip}>
+        <Beat delayMs={hddClosingLineDelayMs(offset)} instant={skip}>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[#C4A050]">
             {eyebrow}
           </p>
@@ -197,7 +219,7 @@ export function ClosingCenterpiece({
             key={index}
             delayMs={hddClosingLineDelayMs(starts[index] ?? 0)}
             instant={skip}
-            className={!isPair && (eyebrow || index > 0) ? 'mt-4' : undefined}
+            className={!isPair && (eyebrow || visual || index > 0) ? 'mt-4' : undefined}
           >
             {entry.caption && (
               <p

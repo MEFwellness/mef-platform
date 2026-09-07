@@ -106,6 +106,8 @@ import { TheWeightOfYesEntry } from '@/components/the-weight-of-yes/TheWeightOfY
 import { getMyTheWeightOfYes } from '@/lib/the-weight-of-yes/view';
 import { BeingSeenEntry } from '@/components/being-seen/BeingSeenEntry';
 import { getMyBeingSeen } from '@/lib/being-seen/view';
+import { WhatYouPutDownEntry } from '@/components/what-you-put-down/WhatYouPutDownEntry';
+import { getMyWhatYouPutDown } from '@/lib/what-you-put-down/view';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -438,6 +440,7 @@ async function DayFrameRegion() {
     theGivingLedger,
     theWeightOfYes,
     beingSeen,
+    whatYouPutDown,
     catalog,
     bodyAssessmentCard,
   ] = await Promise.all([
@@ -468,6 +471,9 @@ async function DayFrameRegion() {
       // Request-memoized, exactly as the six above are, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyBeingSeen(),
+      // Request-memoized, exactly as the seven above are, and the pop-up
+      // chain in PopupRegion asks for the same thing on the same render.
+      getMyWhatYouPutDown(),
       homeQuestionnaireCatalog(),
       homeBodyAssessmentAssignment(),
     ]);
@@ -660,6 +666,40 @@ async function DayFrameRegion() {
           <BeingSeenEntry
             assignmentId={beingSeen.assignmentId}
             hasDraft={Object.keys(beingSeen.draft).length > 0}
+          />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* WHAT YOU PUT DOWN, persistent, coach assigned only.    */}
+      {/*                                                        */}
+      {/* Directly below Being Seen and for the identical        */}
+      {/* reasons. All six Happiness deep-dives can be open at   */}
+      {/* once, and when they are, all six cards stand: none     */}
+      {/* replaces another and none hides another.               */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately. The */}
+      {/* assignment is the whole gate                           */}
+      {/* (lib/what-you-put-down/access.ts) and there is no check */}
+      {/* that she finished any template above this one either.  */}
+      {/* A second rule on top would be the invisible lock the   */}
+      {/* standing rules forbid.                                 */}
+      {/*                                                        */}
+      {/* A DRAFT HERE IS MORE THAN WRITING. Two of its nine     */}
+      {/* questions leave no prose at all, so a member who       */}
+      {/* placed every card and closed the app has a genuine     */}
+      {/* sitting in progress. The resume label reads the shelf  */}
+      {/* as well as the writing, or it would tell her to start  */}
+      {/* something she is halfway through.                      */}
+      {/* ==================================================== */}
+      {whatYouPutDown?.status === 'pending' && (
+        <div className="pt-3">
+          <WhatYouPutDownEntry
+            assignmentId={whatYouPutDown.assignmentId}
+            hasDraft={
+              Object.keys(whatYouPutDown.draft).length > 0 ||
+              whatYouPutDown.shelf.placed.length > 0
+            }
           />
         </div>
       )}

@@ -39,6 +39,8 @@ import { TWOY_DEFINITION_ID } from '../the-weight-of-yes/constants';
 import { TWOY_AREA, TWOY_LABEL } from '../the-weight-of-yes/copy';
 import { BSN_DEFINITION_ID } from '../being-seen/constants';
 import { BSN_AREA, BSN_LABEL } from '../being-seen/copy';
+import { WYPD_DEFINITION_ID } from '../what-you-put-down/constants';
+import { WYPD_AREA, WYPD_LABEL } from '../what-you-put-down/copy';
 import type { AssessmentKey } from '../assessment-registry/types';
 import type { AssignmentRowStatus } from './status';
 
@@ -125,6 +127,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
     definitionId: BSN_DEFINITION_ID,
     displayName: BSN_LABEL,
     areaLabel: BSN_AREA,
+  },
+  {
+    id: 'what-you-put-down',
+    definitionId: WYPD_DEFINITION_ID,
+    displayName: WYPD_LABEL,
+    areaLabel: WYPD_AREA,
   },
 ];
 

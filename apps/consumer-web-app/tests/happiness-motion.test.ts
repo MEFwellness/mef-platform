@@ -1,18 +1,18 @@
 /**
  * The shared Happiness deep-dive motion treatment: the numbers, and the
- * proof that all five templates actually inherit it.
+ * proof that all six templates actually inherit it.
  *
- * WHY THE INHERITANCE IS ASSERTED IN THE SOURCE. "All five templates render
+ * WHY THE INHERITANCE IS ASSERTED IN THE SOURCE. "All six templates render
  * with this treatment" is not a value any function returns. It is a fact
- * about which components five files import and use, and the failure mode is
- * a sixth template, or a refactor of one of the five, quietly going back to
- * a plain heading and a textarea. So the five experience files are read and
- * required to use every part of it.
+ * about which components six files import and use, and the failure mode is
+ * a seventh template, or a refactor of one of the six, quietly going back
+ * to a plain heading and a textarea. So the six experience files are read
+ * and required to use every part of it.
  *
  * WHY THE TIMINGS ARE ASSERTED AT ALL. The philosophy is motion that makes
  * a pause, never motion that entertains, and the one way that fails in
  * practice is a member being made to wait. Every duration below is checked
- * against the actual longest prompt any of the five templates carries, so
+ * against the actual longest prompt any of the six templates carries, so
  * "a question types at a calm speaking pace" is a measured claim rather
  * than an intention.
  *
@@ -43,16 +43,18 @@ import { WYJL_QUESTIONS } from '@/lib/where-your-joy-lives/questions';
 import { TGL_QUESTIONS } from '@/lib/the-giving-ledger/questions';
 import { TWOY_QUESTIONS } from '@/lib/the-weight-of-yes/questions';
 import { BSN_QUESTIONS } from '@/lib/being-seen/questions';
+import { WYPD_QUESTIONS } from '@/lib/what-you-put-down/questions';
 import { OYV_SECTIONS } from '@/lib/owning-your-value/copy';
 import { WYJL_SECTIONS } from '@/lib/where-your-joy-lives/copy';
 import { TGL_SECTIONS } from '@/lib/the-giving-ledger/copy';
 import { TWOY_SECTIONS } from '@/lib/the-weight-of-yes/copy';
 import { BSN_SECTIONS } from '@/lib/being-seen/copy';
+import { WYPD_SECTIONS } from '@/lib/what-you-put-down/copy';
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const read = (rel: string) => readFileSync(path.join(APP_ROOT, rel), 'utf8');
 
-/** The five templates, and the one file each renders its question flow from. */
+/** The six templates, and the one file each renders its question flow from. */
 const TEMPLATES = [
   {
     name: 'Owning Your Value',
@@ -84,6 +86,12 @@ const TEMPLATES = [
     questions: BSN_QUESTIONS,
     sections: BSN_SECTIONS,
   },
+  {
+    name: 'What You Put Down',
+    experience: 'components/what-you-put-down/WhatYouPutDownExperience.tsx',
+    questions: WYPD_QUESTIONS,
+    sections: WYPD_SECTIONS,
+  },
 ] as const;
 
 const ALL_PROMPTS = TEMPLATES.flatMap((template) =>
@@ -93,9 +101,9 @@ const ALL_TITLES = TEMPLATES.flatMap((template) =>
   template.sections.map((section) => section.title)
 );
 
-describe('all five templates inherit the treatment', () => {
-  it('there are five of them, and they are the whole family', () => {
-    expect(TEMPLATES).toHaveLength(5);
+describe('all six templates inherit the treatment', () => {
+  it('there are six of them, and they are the whole family', () => {
+    expect(TEMPLATES).toHaveLength(6);
   });
 
   it('every one renders its questions through the shared QuestionStage', () => {
@@ -200,7 +208,7 @@ describe('a question types at a calm speaking pace', () => {
     expect(hddQuestionTypingMs(longest)).toBeLessThanOrEqual(HDD_QUESTION_MAX_TYPING_MS);
   });
 
-  it('every prompt in all five templates finishes typing inside three and a half seconds', () => {
+  it('every prompt in all six templates finishes typing inside three and a half seconds', () => {
     for (const prompt of ALL_PROMPTS) {
       expect(hddQuestionTypingMs(prompt), prompt.slice(0, 40)).toBeLessThanOrEqual(
         HDD_QUESTION_MAX_TYPING_MS
@@ -249,7 +257,7 @@ describe('the chapter beat is about two seconds', () => {
     }
   });
 
-  it('is about two seconds for every section title in all five templates', () => {
+  it('is about two seconds for every section title in all six templates', () => {
     for (const title of ALL_TITLES) {
       expect(hddChapterBeatMs(title), title).toBeGreaterThanOrEqual(1800);
       expect(hddChapterBeatMs(title), title).toBeLessThanOrEqual(2600);
@@ -263,8 +271,8 @@ describe('the chapter beat is about two seconds', () => {
     }
   });
 
-  it('there are fifteen section titles, three on each of the five templates', () => {
-    expect(ALL_TITLES).toHaveLength(15);
+  it('there are eighteen section titles, three on each of the six templates', () => {
+    expect(ALL_TITLES).toHaveLength(18);
     for (const template of TEMPLATES) {
       expect(template.sections, template.name).toHaveLength(3);
     }

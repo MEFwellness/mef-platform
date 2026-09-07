@@ -165,6 +165,8 @@ import { TheWeightOfYesPanel } from '../TheWeightOfYesPanel';
 import { getClientTheWeightOfYesPanelAction } from '@/app/actions/theWeightOfYes';
 import { BeingSeenPanel } from '../BeingSeenPanel';
 import { getClientBeingSeenPanelAction } from '@/app/actions/beingSeen';
+import { WhatYouPutDownPanel } from '../WhatYouPutDownPanel';
+import { getClientWhatYouPutDownPanelAction } from '@/app/actions/whatYouPutDown';
 import { assignmentNameRecord } from '@/lib/assignments/experienceNames';
 import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
 import { MovementProfilePanel } from '../MovementProfilePanel';
@@ -286,6 +288,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     theGivingLedgerPanel,
     theWeightOfYesPanel,
     beingSeenPanel,
+    whatYouPutDownPanel,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -332,6 +335,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientTheGivingLedgerPanelAction(profile.id),
     getClientTheWeightOfYesPanelAction(profile.id),
     getClientBeingSeenPanelAction(profile.id),
+    getClientWhatYouPutDownPanelAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -759,6 +763,10 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             */}
             <div id="detail-card-being-seen" className="scroll-mt-24">
               <BeingSeenPanel clientId={profile.id} state={beingSeenPanel} />
+            </div>
+
+            <div id="detail-card-what-you-put-down" className="scroll-mt-24">
+              <WhatYouPutDownPanel clientId={profile.id} state={whatYouPutDownPanel} />
             </div>
 
             {/* Coach assignment minimum interface — Assessment Registry

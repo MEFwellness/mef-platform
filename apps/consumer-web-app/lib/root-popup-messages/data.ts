@@ -202,6 +202,19 @@ export function beingSeenPopupMessageKey(assignmentId: string): string {
 }
 
 /**
+ * What You Put Down's own key, scoped to the assignment exactly as the six
+ * above are, and with the identical recurring dismissal lifetime.
+ *
+ * A DISTINCT PREFIX, not a shared "happiness_deep_dive" one, for the reason
+ * the templates above it have theirs: six templates now write to one table,
+ * a member can legitimately have all six assigned at once, and a shared
+ * prefix would let one dismissal silence the others' invitations.
+ */
+export function whatYouPutDownPopupMessageKey(assignmentId: string): string {
+  return `what_you_put_down:${assignmentId}`;
+}
+
+/**
  * Conditional water tracking's own one-time question, for members who
  * finished intake before it existed (migration 163). A fixed constant key,
  * unlike every other key in this file: this is not scoped to a row, a date

@@ -1,3 +1,158 @@
+## What You Put Down, the sixth Happiness deep-dive, and the first interactive questions (2026-09-07)
+
+Two things shipped together, and they are different kinds of thing. One is
+a template. The other is a standing rule for the experience TYPE, with the
+first three pieces built to serve it, shared from the start rather than
+lifted out later.
+
+### PART 1: A STANDING RULE, AND THREE SHARED PIECES
+
+**These templates now mix written questions with interactive elements, and
+an interactive element always SETS UP writing rather than replacing it.**
+She commits to a position or a choice, and then she writes about why. Depth
+of writing stays the soul of a deep-dive; the interaction exists so that she
+has already committed by the time she starts explaining. The rule is written
+at the top of `lib/happiness-deep-dive/interactive.ts`, beside the numbers
+and the pure helpers that serve it.
+
+Three pieces, in `components/happiness-deep-dive/` beside the shared motion
+treatment, and none of them knows which template is using it (asserted):
+
+  **`WordCard`** is one card carrying words a member wrote. Four tones, and
+    each one means something she did: waiting, resting, marked (the one she
+    named), lifted (the one she took back). Her text is never truncated,
+    clamped, re-wrapped or re-punctuated. A long line is allowed to be long.
+  **`CardShelf`** is a stack of planks, one card per plank, lying on a thin
+    gold rule. That shape is why it works on a 320px phone with a whole
+    sentence on a card: a grid of tiles would have to shorten her words.
+    It does exactly one of three jobs at a time (display, drop target,
+    choose from), never two, because a shelf that was itself a button AND
+    full of buttons is a nested control.
+  **`PlacingDeck`** is the card in her hand and the act of putting it down.
+  **`PoleSlider`** is a line with a word at each end and her mark on it,
+    painted over a real `<input type="range">`, so a finger, a mouse, a
+    stylus, arrow keys and a screen reader all work without any of that
+    being reimplemented.
+
+**TAPS ALONE ARE ENOUGH, ON EVERY DEVICE.** Every one of those is a real
+button or a real input. Dragging a card is an ENHANCEMENT layered on with
+pointer events (not HTML5 drag and drop, which does not exist on a touch
+screen), and nothing anywhere requires it. A drag that travelled past the
+threshold swallows the click the browser fires after it, so one drag onto
+the shelf places one card rather than two.
+
+**REDUCED MOTION IS NONE OF IT, NOT A SLOWER VERSION OF IT.** No pointer
+handling is attached at all, so nothing follows her finger. Cards are placed
+rather than settling in from above. The gold on a lifted card is a static
+state with nothing left to animate. Proved by rendering the real components
+against the real media query in `tests/happiness-interactive.test.tsx`, and
+again on production in a browser context that asks for it.
+
+**THE POSITION ON THE LINE IS READ BACK IN WORDS, NEVER AS A NUMBER.**
+`hddPolePositionInWords` gives five coarse bands ("closer to A stranger"),
+and the member's own screen and her coach's card both read that one
+function, so they are always looking at the same sentence. A number there
+would look like a score, and this experience scores nothing.
+
+**THE CLOSING CENTERPIECE CAN NOW CARRY A PICTURE.** `visual` is anything a
+template built with her during the sitting; it takes the first beat and
+everything else steps back by one, so her sentence still lands after it
+rather than beside it. A template that passes none is timed exactly as
+before, which is why the five earlier closings are untouched.
+
+### PART 2: WHAT YOU PUT DOWN
+
+Route `/what-you-put-down`. Nine questions across What Was Carried Away, The
+Story Around It and Picking It Back Up. Coach-assignable only, and the
+assignment is the whole gate: no tier lock, no visibility key and NO
+PREREQUISITE on any of the five templates before it.
+
+Migration 217 is what migration 215 said a further template would cost: a
+catalog row, one clause on the insert policy, one arm in the trigger's
+pairing, plus the structured storage this template's own brief asks for. No
+new table, no second assignment ledger, no second pop-up mechanism, no
+second receipt and no second experiment machinery.
+
+**SIX OF THE NINE ARE WRITING. THREE ARE NOT, AND EACH ONE SETS UP THE
+QUESTION AFTER IT.**
+
+  **Question two, the shelf.** Root turns each line of her question one
+    answer into a card carrying her own words, and she places every one of
+    them, one at a time, then names the one that stings most to read back.
+  **Question three quotes that card back at her VERBATIM**, inside its own
+    prompt, as the completed sentence she wrote: `You wrote: "I used to be
+    someone who ..."`. Nothing about her line is edited, not its case, not
+    its punctuation, not its length.
+  **Question five, the line.** "Right here" at one end, "A stranger" at the
+    other. She places her mark, and only then does "Why there, and not
+    further away?" appear with its writing box.
+  **Question seven, the lift.** The shelf comes back and she lifts one card
+    back off it. It leaves the row of planks and stands on its own in gold,
+    which is what the question asked her to do. She may put it back, and
+    choosing a different one simply moves the lift.
+
+**EVERY CARD IS A LINE SHE WROTE, AND THAT IS ENFORCED RATHER THAN
+INTENDED.** The card list is DERIVED from the text of her question one
+answer, on the screen and again on the server before anything is stored
+(`sanitizeWypdShelf`). A posted shelf is only ever a set of references into
+her own lines, so a hand-built request cannot put a sentence on her shelf
+that she did not type. `fromRow` rebuilds it on every read too, so even a
+row edited directly in the database cannot make the screen show words that
+are not hers.
+
+**SHE MAY GO BACK AND CHANGE QUESTION ONE, and the shelf is re-hung BY
+TEXT.** A line she kept keeps its place, its mark and its lift; a line she
+deleted takes them with it. Index based ids would have silently moved her
+sting pick one sentence down the moment she inserted a line above it, and
+would have passed every other assertion in the suite. That is its own test.
+
+**SAVE AND RESUME COVERS BOTH HALVES.** Two of the nine questions leave no
+prose at all, so a resume that only restored writing would drop a member who
+filled her whole shelf back at question two. Every Continue writes the
+writing AND the shelf, `firstUnfinishedIndex` reads both, and the server
+refuses a completion whose shelf is unfinished as well as one whose sheet
+is (`wypdSittingComplete`), because a stale page and a hand-made POST both
+exist.
+
+**SEVEN COLUMNS, SEVEN MEANINGS.** `doorway` holds question eight, the
+smallest possible return, something within reach in the next two weeks. It
+is a NEW column, not a reuse of `held_sentence`, `twenty_minute_joy`,
+`deposit_request`, `kind_no` or `noticed_wish`. `shelf_state` is a jsonb
+column of its own holding her cards, the order she shelved them, her sting
+pick, her 0 to 100 position and her lifted card, because those are positions
+and choices rather than sentences and a coach card parsing prose to find out
+which card she picked would be the wrong shape.
+
+**NO FOLLOW-UP ARM, AND THAT IS ENFORCED RATHER THAN INTENDED.** This
+template never reads another template's rows, so
+`follow_up_source_experience_key` is null on every row it writes. The way
+that is guaranteed is that neither `lib/what-you-put-down/data.ts` nor
+`app/actions/whatYouPutDown.ts` names the column at all.
+
+**THE CLOSING PRINTS HER SHELF AND HER OWN SENTENCE.** The whole shelf one
+last time with her lifted card glowing gold and set apart, then her question
+nine sentence in the serif face under "To the one who put it down", then,
+after the pause, one fixed line: "She is still in there. She just read
+this." That line is true BY CONSTRUCTION rather than by hope: question nine
+asked her to write to the version of herself who put it down, and the person
+reading that sentence on this screen is her. It claims nothing about what
+she wrote or about whether she will go back to anything.
+
+**THE COACH CARD OPENS WITH THE SHELF**, because on this template the shelf
+is the sitting: every card in the order she placed them, her two picks
+marked, and her position on the line in words ("Placed her at: closer to A
+stranger"). Then question seven, the card she said still has a pulse, as the
+session opener. Then all seven written answers raw, grouped by the three
+screens. Nothing is scored, ranked or summarised.
+
+The weekly experiment is "Step through the doorway you named, once this
+week", seven days, asking "Did you touch the thing you put down today, even
+for a minute?" with Yes and Not today. It never bakes her own doorway into
+the stored protocol, for the reason the five before it do not: a stored
+protocol is read days later and would go stale the moment those words
+stopped being true. The resource is "You Are Allowed to Come Back", 398
+words, summary first.
+
 ## One experiment per subject, and the duplicate 7-day offer (2026-09-07)
 
 Home's Active Experiments section was showing one member two 7-day offer

@@ -141,6 +141,7 @@ import {
   theGivingLedgerPopupMessageKey,
   theWeightOfYesPopupMessageKey,
   beingSeenPopupMessageKey,
+  whatYouPutDownPopupMessageKey,
   hydrationFocusPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
@@ -173,8 +174,11 @@ import { getMyTheWeightOfYes } from '@/lib/the-weight-of-yes/view';
 import { TWOY_COPY } from '@/lib/the-weight-of-yes/copy';
 import { TWOY_ROUTE } from '@/lib/the-weight-of-yes/constants';
 import { getMyBeingSeen } from '@/lib/being-seen/view';
+import { getMyWhatYouPutDown } from '@/lib/what-you-put-down/view';
 import { BSN_COPY } from '@/lib/being-seen/copy';
 import { BSN_ROUTE } from '@/lib/being-seen/constants';
+import { WYPD_COPY } from '@/lib/what-you-put-down/copy';
+import { WYPD_ROUTE } from '@/lib/what-you-put-down/constants';
 import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import type { RenderedReview } from '@/lib/weekly-review/types';
 import { resolveLocalDate } from './checkin';
@@ -410,6 +414,25 @@ export type RootPopupMessage =
    */
   | {
       kind: 'being_seen_assigned';
+      messageKey: string;
+      assignmentId: string;
+      title: string;
+      body: string;
+      primaryHref: string;
+    }
+  /**
+   * What You Put Down, the sixth Happiness deep-dive, coach assigned only.
+   *
+   * Same shape and the same reasons as the five above it. It has no
+   * follow-up arm of its own, so this knock names no other experience and
+   * cannot: it is handed a title, a body and a route and nothing else.
+   *
+   * Carries no questions and no reading. This message is an INVITATION into
+   * an experience on its own route, so it renders through the same
+   * RootInvitePopup and inherits its real Maybe later and Ignore buttons.
+   */
+  | {
+      kind: 'what_you_put_down_assigned';
       messageKey: string;
       assignmentId: string;
       title: string;
@@ -969,6 +992,38 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
         title: BSN_COPY.popupTitle,
         body: BSN_COPY.popupBody,
         primaryHref: BSN_ROUTE,
+      };
+    }
+  }
+
+  // What You Put Down, immediately below Being Seen and for the identical
+  // reasons: a coach's direct action for this member, and finite, because
+  // finishing it closes the assignment out so it can never starve anything
+  // below it.
+  //
+  // BELOW the five templates it joins, and that order is the only opinion
+  // held here. When a coach has sent more than one, the one sent first is
+  // the one Root asks about first, and this one is still due on her next
+  // open because its key has no dismissal row yet. None of the six is ever
+  // swallowed by another.
+  //
+  // getMyWhatYouPutDown returns null for every member who was never
+  // assigned this, so the gate and the offer are one read rather than two
+  // checks here that could drift from the route's. Its own branch checks
+  // its own due-ness and falls through, per this file's one rule: a branch
+  // that returned a candidate the outer due-check then threw away would
+  // silence everything below it.
+  const whatYouPutDown = await getMyWhatYouPutDown();
+  if (whatYouPutDown?.status === 'pending') {
+    const messageKey = whatYouPutDownPopupMessageKey(whatYouPutDown.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'what_you_put_down_assigned',
+        messageKey,
+        assignmentId: whatYouPutDown.assignmentId,
+        title: WYPD_COPY.popupTitle,
+        body: WYPD_COPY.popupBody,
+        primaryHref: WYPD_ROUTE,
       };
     }
   }

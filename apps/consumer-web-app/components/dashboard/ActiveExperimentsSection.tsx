@@ -30,6 +30,7 @@ import { getMyWhereYourJoyLivesExperimentAction } from '@/app/actions/whereYourJ
 import { getMyTheGivingLedgerExperimentAction } from '@/app/actions/theGivingLedger';
 import { getMyTheWeightOfYesExperimentAction } from '@/app/actions/theWeightOfYes';
 import { getMyBeingSeenExperimentAction } from '@/app/actions/beingSeen';
+import { getMyWhatYouPutDownExperimentAction } from '@/app/actions/whatYouPutDown';
 import { getMyStressLoadExperimentAction } from '@/app/actions/stressLoad';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { resolveSubjectKey, suppressDuplicateOffers } from '@/lib/lifestyle-experiments';
@@ -47,6 +48,7 @@ import { WhereYourJoyLivesExperimentPanel } from '@/components/where-your-joy-li
 import { TheGivingLedgerExperimentPanel } from '@/components/the-giving-ledger/TheGivingLedgerExperimentPanel';
 import { TheWeightOfYesExperimentPanel } from '@/components/the-weight-of-yes/TheWeightOfYesExperimentPanel';
 import { BeingSeenExperimentPanel } from '@/components/being-seen/BeingSeenExperimentPanel';
+import { WhatYouPutDownExperimentPanel } from '@/components/what-you-put-down/WhatYouPutDownExperimentPanel';
 import { StressLoadExperimentPanel } from '@/components/stress-load/StressLoadExperimentPanel';
 
 // Same zone-heading treatment as every other dashboard section (see the
@@ -93,6 +95,7 @@ export async function ActiveExperimentsSection() {
     tglStatus,
     twoyStatus,
     bsnStatus,
+    wypdStatus,
     slStatus,
     allExperiments,
   ] = await Promise.all([
@@ -120,6 +123,10 @@ export async function ActiveExperimentsSection() {
     // reason: it is accepted or declined on the closing screen itself, so
     // the action returns null unless one is actually running.
     getMyBeingSeenExperimentAction(),
+    // What You Put Down's experiment has no offer half either, for the same
+    // reason: it is accepted or declined on the closing screen itself, so
+    // the action returns null unless one is actually running.
+    getMyWhatYouPutDownExperimentAction(),
     // The Stress & Load Deep-Dive's experiment has no offer half either: it
     // is accepted or declined on the closing screen itself. It was missing
     // from this section entirely until 2026-09-06, which is why an accepted
@@ -296,6 +303,8 @@ export async function ActiveExperimentsSection() {
         {twoyStatus && <TheWeightOfYesExperimentPanel status={twoyStatus} />}
 
         {bsnStatus && <BeingSeenExperimentPanel status={bsnStatus} />}
+
+        {wypdStatus && <WhatYouPutDownExperimentPanel status={wypdStatus} />}
 
         {slStatus && <StressLoadExperimentPanel status={slStatus} />}
 

@@ -201,6 +201,7 @@ describe('member analytics', () => {
       the_giving_ledger: '/the-giving-ledger',
       the_weight_of_yes: '/the-weight-of-yes',
       being_seen: '/being-seen',
+      what_you_put_down: '/what-you-put-down',
       root_score: '/root-score',
       insights: '/insights',
       noticing: '/noticing',
