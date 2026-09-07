@@ -1,3 +1,230 @@
+## Being Seen, the fifth Happiness deep-dive, and the pause all five now share (2026-09-07)
+
+Two things shipped together, and they are different kinds of thing. One is
+a template. The other is a property of the experience TYPE, built once and
+inherited by every template in it, including the four that were already
+live.
+
+### PART 1: THE SHARED MOTION TREATMENT
+
+`components/happiness-deep-dive/` is now what every Happiness deep-dive
+renders its question flow and its closing through, and
+`lib/happiness-deep-dive/motion.ts` holds every duration behind it. Owning
+Your Value, Where Your Joy Lives, The Giving Ledger, The Weight of Yes and
+Being Seen all use it. A sixth inherits it by using the same components:
+there is no per-template copy of any of it and no per-template number to
+keep in step. `tests/happiness-motion.test.ts` reads all five experience
+files and fails if one of them stops.
+
+THE PHILOSOPHY IS MOTION THAT MAKES THE PAUSE, never motion that
+entertains. Four pieces:
+
+  THE QUESTION TYPES ITSELF, in Root's voice, and the writing box is
+    GENUINELY ABSENT until it has finished. Not hidden, not disabled: not
+    rendered. That is what makes "she cannot skip ahead of the typing" true
+    rather than a wish.
+  A CHAPTER CARD holds the whole panel for about two seconds between the
+    three screens, with only the section title appearing letter by letter.
+    No eyebrow, no Back, no Close: a chapter card with chrome on it is a
+    header, not a beat.
+  AN AMBIENT FIELD drifts behind the writing, reusing the shipped
+    `.mef-gradient-drift` keyframe rather than a second one.
+  THE CLOSING ARRIVES IN BEATS. Quiet first, then her own words a line at a
+    time in the serif face, then the one fixed line last after a real
+    pause.
+
+REDUCED MOTION IS NONE OF IT, NOT A SLOWER VERSION OF IT. Complete
+question, box present, gentle fades, no timers, and no chapter beat at all,
+because a held dark pause with nothing moving is a delay rather than a
+treatment. Proved by rendering the real components against the real media
+query in `tests/happiness-motion-reduced.test.tsx`, and again on production
+in a browser context that asks for it.
+
+THE RATE IS NOT THE INTRO RATE. The shared Typewriter gained an optional
+`msPerChar`, defaulting to the shipped 45ms so every existing intro screen
+is untouched. These prompts run to forty words, and 45ms a character is a
+crawl rather than a voice, so a question types at about 45 characters a
+second with the whole prompt capped: a long question types FASTER rather
+than taking longer. Measured on production: question one landed complete
+4.1 seconds after the tap, and the box arrived 361ms behind it.
+
+SAVE AND RESUME IS UNCHANGED, and the treatment knows it. Coming back
+lands her on the question she stopped at with its text already complete and
+no beat played, because being read the question again is not what picking a
+pen back up feels like. Everything she has already written counts as seen,
+so Back never re-types either.
+
+HER WORDS ARE NOT EDITED BY THE ANIMATION. The closing splits her answer on
+the line breaks SHE typed and nothing else, renders each line as a span
+inside one pre-wrapped block, and keeps the literal newlines between them.
+So the text pulled off that element is character for character what was
+stored, even mid-reveal. A single line answer is one line: inventing breaks
+inside her sentence to make the reveal richer would be Root editing her.
+
+THE HELD-UNTIL-TAPPED GUARANTEE IS UNCHANGED. The staged arrival is a
+reveal inside a screen that is already standing. It does not navigate, does
+not advance and does not finish into anything, which is asserted directly
+against the shared centerpiece's source.
+
+### PART 2: BEING SEEN
+
+Route `/being-seen`. Nine open written questions, one per screen, across
+Invisible, Seen and Showing Yourself. Coach-assignable only, and the
+assignment is the whole gate: no tier lock, no visibility key and NO
+PREREQUISITE on any of the four templates before it.
+
+Migration 215 is what migration 214 said a further template would cost: a
+catalog row, one clause on the insert policy, one arm in the trigger's
+pairing, plus the one structured column this template's own brief asks for.
+No new table, no second assignment ledger, no second pop-up mechanism, no
+second receipt and no second experiment machinery.
+
+NO FOLLOW-UP ARM, AND THAT IS ENFORCED RATHER THAN INTENDED. This template
+never reads another template's rows, so `follow_up_source_experience_key`
+is null on every row it writes. The way that is guaranteed is that neither
+`lib/being-seen/data.ts` nor `app/actions/beingSeen.ts` names the column at
+all, which the gate test asserts against the code with its prose stripped
+out.
+
+FIVE COLUMNS, FIVE MEANINGS. `noticed_wish` holds question nine, the one
+thing she wishes somebody would notice about her without being told. It is
+a NEW column, not a reuse of `held_sentence`, `twenty_minute_joy`,
+`deposit_request` or `kind_no`, because those five answer five different
+questions and a later feature reading the family by one shared column would
+get five meanings with no way to tell them apart.
+
+THE ONE QUESTION THAT HOLDS. Question six asks what happens in the first
+five seconds after a compliment. Five seconds is a short thing to describe
+and a long thing to sit through, and the difference between those two is
+the whole question, so a ring fills over exactly five seconds between the
+question finishing and the box arriving. It is declared beside the question
+in `./questions.ts` rather than hard coded into a screen, it is part of the
+arrival rather than a gate in front of it, and reduced motion turns it into
+a still mark with no wait. Measured on production at 5.4 seconds.
+
+THE CLOSING PRINTS HER OWN ANSWER AND ONE FIXED LINE. Question nine is
+reproduced verbatim in the serif face under "What you wish someone would
+see", and beneath it: "Now two people know. That is how being seen starts."
+That line is true BY CONSTRUCTION rather than by hope: she wrote it, and
+her coach reads it on their own client screen the moment she finishes. It
+claims nothing about what her answer means, because the line directly above
+it is her answer saying exactly that.
+
+THE COACH CARD OPENS WITH QUESTION NINE, which is unusual in this family
+and deliberate: it is the same answer her closing printed and the same one
+the column stores, and it is the one thing a coach can act on in the first
+minute of a session, by noticing it out loud. All nine raw answers sit
+underneath, grouped by the three screens.
+
+### CHECKS
+
+Typecheck clean. Lint clean (zero errors). Full suite 532 files / 9,628
+tests, zero failures, including 113 new checks across
+`tests/being-seen-copy.test.ts` (29), `tests/being-seen-gate.test.ts` (47,
+with the scoped-reads proof now covering all FIVE templates),
+`tests/happiness-motion.test.ts` (28) and
+`tests/happiness-motion-reduced.test.tsx` (9, which mounts the real
+components against the real media query). Production build clean,
+`/being-seen` at 6.42 kB. Migration 215 applied to production and verified
+there: catalog row present, `noticed_wish` readable, insert policy carrying
+all five templates, trigger carrying five arms.
+
+One existing test changed rather than broke:
+`tests/where-your-joy-lives-copy.test.ts` asserted the serif face and the
+two column grid against that template's own file. That markup is now the
+shared centerpiece, so the assertion moved to it. What the template still
+owns, which two answers go in the centerpiece and what labels them, is
+still asserted where it lives.
+
+### WHAT THE VERIFICATION SCRIPT LEARNED, AND WHY IT MATTERS
+
+`scripts/verify-being-seen-live.mjs` MEASURES the motion from inside the
+page rather than asserting it exists in the source: a 40ms sampler is
+installed before the tap that triggers each arrival, and it records whether
+the question was ever seen half typed, whether a caret was showing, whether
+the box existed before the prompt finished, and when each thing landed.
+
+Its first run failed, and the failure was in the script rather than in the
+app. It waited for "a textarea is visible" to decide the next question had
+arrived. Continue calls a Server Action inside a React transition, and a
+transition deliberately keeps the PREVIOUS screen up until it resolves, so
+that wait resolved on the box she had just finished with and the next
+answer was typed into a screen that was about to be replaced. The counter
+is the honest signal, because it names the question and is absent entirely
+during the chapter beat, so `waitForQuestion` waits for the counter to say
+the question it wants and only then for that question's own box. The same
+correction is why the sampler now ignores everything until the outgoing
+screen is genuinely gone. A live probe against the real page confirmed
+first that filling and Continue work exactly as they should, before any of
+this was changed.
+
+The second run found one more thing worth keeping: reading the closing the
+moment the fixed line lands reads it HALF ARRIVED, because the heading, the
+body and the way onward are due after the fixed line has had its own pause.
+That is the treatment working. The script now waits for the closing's own
+Continue before reading the screen, which is the same rule as "never
+screenshot a submit in flight".
+
+### LIVE ON PRODUCTION: 113/113
+
+`scripts/verify-being-seen-live.mjs` drives the whole journey on
+`app.mefwellness.com`, signed in as the real test member and the real staff
+account through minted sessions retired afterwards with scope `local`.
+
+THE TEMPLATE, END TO END. The coach pressed the real Assign button on the
+client screen. One assignment row, pending, due seven days from HER
+calendar day. Root knocked with the approved sentence on her next open, the
+persistent card stood on Home, and exactly ONE delivery receipt was written
+though two surfaces fire the tracker. Nine real answers were typed into the
+real screens. Save and resume survived a genuinely new page: she landed
+back on question five, Back brought her question four answer with her, and
+the draft held exactly four answers with `noticed_wish` still null and the
+follow-up flag null. The closing held through nine seconds and several
+server round trips, printing her question nine answer verbatim under the
+one fixed line and never being replaced by the already-done panel. The
+sitting stored all nine answers with question nine in its own column, the
+assignment closed itself out, the experiment started for seven days from
+her own day with the approved protocol and no words of hers baked into it,
+its dashboard card carried the approved daily question at Day 1 of 7, her
+evening tap was recorded, and the coach's card showed all nine answers raw
+with question nine on top and no follow-up band.
+
+THE MOTION, MEASURED RATHER THAN ASSERTED. A sampler inside the page
+recorded every arrival:
+
+    chapter card into section one                    "Invisible"
+    question one seen half typed                     102 of 103 characters
+    caret in front of the untyped words              yes
+    writing box before the question finished         never
+    box after the question finished                  359ms
+    whole question, from the tap                     4123ms
+    ambient layer drifting                           present
+    chapter card between sections                    "Seen", "Showing Yourself"
+    question six ring, then the box                  5322ms
+    ring left with the box                           yes
+    closing quiet before her words                   919ms
+    fixed line after her words                       2200ms
+
+THE TREATMENT IS INHERITED, NOT COPIED. The Giving Ledger was opened on the
+same run and played its OWN chapter card ("What Goes Out"), typed its own
+question one with the box arriving after, carried the same ambient layer,
+and was otherwise untouched.
+
+REDUCED MOTION, ON THE REAL SITE, in a browser context that asks for it: no
+chapter card at all, the question complete on arrival with no caret and
+nothing half typed, and the writing box usable 99ms after the tap.
+
+All four earlier template cards were standing before the run and still
+standing after it. Zero em dashes on any screen either of them saw, and
+zero console or page errors.
+
+STATE LEFT ON PRODUCTION: NONE. Every row the run created was deleted and
+confirmed absent by query: no sitting, no assignment, no experiment and no
+pop-up dismissal. The account now carries zero Happiness sittings, zero
+pending assignments and NO experiment at all, including the inert
+`expired_no_reflection` stress-load row from 2026-08-29 that migration
+214's run deliberately left alone. That row was the small cleanup this
+brief asked for, and it is gone.
 ## The Weight of Yes, the fourth Happiness deep-dive, and the first follow-up (2026-09-06)
 
 Template 4 of the coach-assigned Happiness set, built on exactly the

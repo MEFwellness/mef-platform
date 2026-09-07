@@ -191,6 +191,13 @@ async function installRecorder(page, prompt) {
     if (window.__hddStop) window.__hddStop();
     const rec = {
       start: performance.now(),
+      // NOTHING IS RECORDED UNTIL THE OUTGOING SCREEN HAS GONE. The tap that
+      // starts an arrival runs a Server Action inside a transition, and the
+      // previous question, including its writing box, stays on screen while
+      // that resolves. Sampling through it would record the old box as this
+      // arrival's box. The beat, or the absence of any box, is the moment
+      // the old screen is genuinely gone.
+      armed: false,
       chapterAt: null,
       chapterTitle: null,
       partialPrompt: null,
@@ -204,6 +211,10 @@ async function installRecorder(page, prompt) {
     window.__hdd = rec;
     const id = setInterval(() => {
       const chapter = document.querySelector('[data-hdd-chapter-card]');
+      if (!rec.armed) {
+        if (!chapter && document.querySelector('textarea')) return;
+        rec.armed = true;
+      }
       if (chapter && rec.chapterAt === null) {
         rec.chapterAt = performance.now();
         rec.chapterTitle = chapter.getAttribute('data-hdd-chapter-card');
@@ -249,10 +260,17 @@ async function installClosingRecorder(page, wish, line) {
       const rec = { figureAt: null, wishAt: null, lineAt: null };
       window.__hddClose = rec;
       const id = setInterval(() => {
-        const text = document.body.innerText || '';
-        if (rec.figureAt === null && document.querySelector('figure')) {
+        // NOTHING IS LOOKED FOR UNTIL THE CLOSING FIGURE EXISTS. Her answer
+        // is sitting in a textarea on the screen before this one, and
+        // whether innerText reports a form control's value is a browser
+        // detail this run must not depend on. The figure is the closing
+        // screen's own frame, so waiting for it makes the three timestamps
+        // measure the closing and only the closing.
+        if (rec.figureAt === null) {
+          if (!document.querySelector('figure')) return;
           rec.figureAt = performance.now();
         }
+        const text = document.body.innerText || '';
         if (rec.wishAt === null && text.includes(wishText)) rec.wishAt = performance.now();
         if (rec.lineAt === null && text.includes(lineText)) rec.lineAt = performance.now();
       }, 40);
@@ -356,8 +374,28 @@ async function assignFromCoachScreen(coachPage, service, template) {
   return data ?? [];
 }
 
-/** Waits for the writing box, however long the arrival takes. */
-async function waitForBox(page, timeout = 20000) {
+/**
+ * Waits for a NAMED question to be on screen and ready to write in.
+ *
+ * WHY NOT SIMPLY WAIT FOR A TEXTAREA. Continue calls a Server Action inside
+ * a React transition, and a transition deliberately keeps the PREVIOUS
+ * screen on screen until it resolves. So for a second or so after the tap,
+ * the old question, the old answer and the old writing box are all still
+ * there. A wait that resolved on "a textarea is visible" resolved on the
+ * one she had just finished with, and the next answer was typed into a box
+ * that was about to be replaced.
+ *
+ * The counter is the honest signal: it names the question, it renders the
+ * moment the new question mounts, and it is absent entirely during the
+ * chapter beat. So this waits for the counter to say the question it is
+ * waiting for, and only then for that question's own box to arrive, which
+ * is what the treatment holds back until the prompt has finished typing.
+ */
+async function waitForQuestion(page, number, timeout = 60000) {
+  await page
+    .getByText(new RegExp(`Question ${number} of 9`, 'i'))
+    .first()
+    .waitFor({ state: 'visible', timeout });
   await page.locator('textarea').first().waitFor({ state: 'visible', timeout });
 }
 
@@ -538,7 +576,7 @@ async function main() {
 
     await installRecorder(page, PROMPTS[0]);
     await page.getByRole('button', { name: 'Begin' }).click();
-    await waitForBox(page);
+    await waitForQuestion(page, 1);
     const arrival = await readRecorder(page);
 
     check(
@@ -605,7 +643,7 @@ async function main() {
       const last = i === 2;
       if (last) await installRecorder(page, PROMPTS[3]);
       await page.getByRole('button', { name: 'Continue' }).click();
-      await waitForBox(page);
+      await waitForQuestion(page, i + 2);
       seenScreens.push(await page.innerText('body'));
     }
     const intoSeen = await readRecorder(page);
@@ -629,7 +667,7 @@ async function main() {
     // -----------------------------------------------------------------
     await page.locator('textarea').fill(ANSWERS[3]);
     await page.getByRole('button', { name: 'Continue' }).click();
-    await waitForBox(page);
+    await waitForQuestion(page, 5);
     check(
       'member: the screen says her writing is saved',
       (await page.innerText('body')).includes('Saved. You can close this and come back to it.')
@@ -664,7 +702,7 @@ async function main() {
     watch(page, errors);
     await installRecorderOnLoad(page, PROMPTS[4]);
     await page.goto(`${BASE}/${BSN.key}`, { waitUntil: 'domcontentloaded' });
-    await waitForBox(page);
+    await waitForQuestion(page, 5);
     await page.waitForTimeout(1500);
     const resumeMotion = await readRecorder(page);
     const resumed = await page.innerText('body');
@@ -686,13 +724,13 @@ async function main() {
     await shot(page, '08-resumed');
 
     await page.getByRole('button', { name: 'Back' }).click();
-    await page.waitForTimeout(1200);
+    await waitForQuestion(page, 4);
     check(
       'resume: the answer she wrote before leaving came back with her',
       (await page.locator('textarea').inputValue()) === ANSWERS[3]
     );
     await page.getByRole('button', { name: 'Continue' }).click();
-    await waitForBox(page);
+    await waitForQuestion(page, 5);
 
     // -----------------------------------------------------------------
     // 6. Question six, and the five seconds she is asked to sit inside.
@@ -700,7 +738,7 @@ async function main() {
     await page.locator('textarea').fill(ANSWERS[4]);
     await installRecorder(page, PROMPTS[5]);
     await page.getByRole('button', { name: 'Continue' }).click();
-    await waitForBox(page, 30000);
+    await waitForQuestion(page, 6);
     const ring = await readRecorder(page);
     seenScreens.push(await page.innerText('body'));
 
@@ -731,7 +769,7 @@ async function main() {
     await page.locator('textarea').fill(ANSWERS[5]);
     await installRecorder(page, PROMPTS[6]);
     await page.getByRole('button', { name: 'Continue' }).click();
-    await waitForBox(page);
+    await waitForQuestion(page, 7);
     const intoShowing = await readRecorder(page);
     check(
       'motion: a chapter card held the screen between section two and section three',
@@ -742,7 +780,7 @@ async function main() {
     for (let i = 6; i < 8; i++) {
       await page.locator('textarea').fill(ANSWERS[i]);
       await page.getByRole('button', { name: 'Continue' }).click();
-      await waitForBox(page);
+      await waitForQuestion(page, i + 2);
       seenScreens.push(await page.innerText('body'));
     }
     const q9 = await page.innerText('body');
@@ -784,6 +822,17 @@ async function main() {
         ? `${Math.round(closingMotion.lineAt - closingMotion.wishAt)}ms after her words`
         : 'not measured'
     );
+
+    // WAIT FOR THE LAST BEAT BEFORE READING THE SCREEN. The heading, the
+    // body and the way onward arrive after the fixed line has had its own
+    // pause, which is the treatment doing exactly what it is for. Reading
+    // the closing the moment the fixed line lands reads it half arrived,
+    // and reports a sentence as missing that is simply not due yet. The
+    // tail's own Continue is the honest signal that the closing is whole.
+    await page
+      .getByRole('button', { name: 'Continue' })
+      .first()
+      .waitFor({ state: 'visible', timeout: 20000 });
 
     const closing = await page.innerText('body');
     seenScreens.push(closing);
@@ -991,7 +1040,7 @@ async function main() {
     await tglPage.waitForTimeout(3000);
     await installRecorder(tglPage, TGL_FIRST_PROMPT);
     await tglPage.getByRole('button', { name: 'Begin' }).click();
-    await waitForBox(tglPage, 30000);
+    await waitForQuestion(tglPage, 1);
     const inherited = await readRecorder(tglPage);
     check(
       'inheritance: The Giving Ledger plays the chapter card too, with ITS own section title',
@@ -1029,7 +1078,7 @@ async function main() {
       await calmPage.waitForTimeout(3000);
       await installRecorder(calmPage, TGL_FIRST_PROMPT);
       await calmPage.getByRole('button', { name: 'Begin' }).click();
-      await waitForBox(calmPage, 15000);
+      await waitForQuestion(calmPage, 1);
       await calmPage.waitForTimeout(1500);
       const reduced = await readRecorder(calmPage);
       check(
