@@ -50,6 +50,7 @@ import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
 import { OYV_COPY } from '@/lib/owning-your-value/copy';
 import { WYJL_COPY } from '@/lib/where-your-joy-lives/copy';
 import { TGL_COPY } from '@/lib/the-giving-ledger/copy';
+import { TWOY_COPY } from '@/lib/the-weight-of-yes/copy';
 import { ROOT_WELCOME_COPY } from '@/lib/public-entry/copy';
 import {
   TrackTrialArcDelivered,
@@ -70,6 +71,7 @@ type WhereYourJoyLivesMessage = Extract<
   { kind: 'where_your_joy_lives_assigned' }
 >;
 type TheGivingLedgerMessage = Extract<RootPopupMessage, { kind: 'the_giving_ledger_assigned' }>;
+type TheWeightOfYesMessage = Extract<RootPopupMessage, { kind: 'the_weight_of_yes_assigned' }>;
 type HydrationFocusMessage = Extract<RootPopupMessage, { kind: 'hydration_focus' }>;
 type PublicEntryWelcomeMessage = Extract<RootPopupMessage, { kind: 'public_entry_welcome' }>;
 type TrialArcMessage = Extract<RootPopupMessage, { kind: 'trial_arc_day' }>;
@@ -540,6 +542,29 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
+  if (message.kind === 'the_weight_of_yes_assigned') {
+    const m: TheWeightOfYesMessage = message;
+    return (
+      <>
+        {/* The same receipt as the five branches above, on the same table:
+            this is an assessment_assignments row like any other coach
+            assignment, so it gets the one receipt system rather than a
+            second one of its own. */}
+        <TrackAssignmentDelivered assignmentId={m.assignmentId} presentation="popup" />
+        <RootInvitePopup
+          eyebrow={TWOY_COPY.popupEyebrow}
+          title={m.title}
+          body={m.body}
+          ctaLabel={TWOY_COPY.popupCta}
+          href={m.primaryHref}
+          isPending={isPending}
+          onMaybeLater={handleMaybeLater}
+          onIgnore={handleIgnore}
+        />
+      </>
+    );
+  }
+
   if (isOffer) {
     return <RootOfferPopup message={message as OfferMessage} onClose={() => setClosed(true)} />;
   }
@@ -563,6 +588,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | OwningYourValueMessage
     | WhereYourJoyLivesMessage
     | TheGivingLedgerMessage
+    | TheWeightOfYesMessage
     | HydrationFocusMessage
     | PublicEntryWelcomeMessage
     | TrialArcMessage

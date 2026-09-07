@@ -28,6 +28,7 @@ import { getMyRplExperimentStatusAction, getMyRplOfferAction } from '@/app/actio
 import { getMyOwningYourValueExperimentAction } from '@/app/actions/owningYourValue';
 import { getMyWhereYourJoyLivesExperimentAction } from '@/app/actions/whereYourJoyLives';
 import { getMyTheGivingLedgerExperimentAction } from '@/app/actions/theGivingLedger';
+import { getMyTheWeightOfYesExperimentAction } from '@/app/actions/theWeightOfYes';
 import { getMyStressLoadExperimentAction } from '@/app/actions/stressLoad';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { getMyRootPopupDismissalAction } from '@/app/actions/rootPopupMessages';
@@ -42,6 +43,7 @@ import { RplExperimentPanel } from '@/components/readiness-pulse/RplExperimentPa
 import { OwningYourValueExperimentPanel } from '@/components/owning-your-value/OwningYourValueExperimentPanel';
 import { WhereYourJoyLivesExperimentPanel } from '@/components/where-your-joy-lives/WhereYourJoyLivesExperimentPanel';
 import { TheGivingLedgerExperimentPanel } from '@/components/the-giving-ledger/TheGivingLedgerExperimentPanel';
+import { TheWeightOfYesExperimentPanel } from '@/components/the-weight-of-yes/TheWeightOfYesExperimentPanel';
 import { StressLoadExperimentPanel } from '@/components/stress-load/StressLoadExperimentPanel';
 
 // Same zone-heading treatment as every other dashboard section (see the
@@ -86,6 +88,7 @@ export async function ActiveExperimentsSection() {
     oyvStatus,
     wyjlStatus,
     tglStatus,
+    twoyStatus,
     slStatus,
     allExperiments,
   ] = await Promise.all([
@@ -105,6 +108,10 @@ export async function ActiveExperimentsSection() {
     // same reason: it is accepted or declined on the closing screen itself,
     // so the action returns null unless one is actually running.
     getMyTheGivingLedgerExperimentAction(),
+    // The Weight of Yes's experiment has no offer half either, for the
+    // same reason: it is accepted or declined on the closing screen itself,
+    // so the action returns null unless one is actually running.
+    getMyTheWeightOfYesExperimentAction(),
     // The Stress & Load Deep-Dive's experiment has no offer half either: it
     // is accepted or declined on the closing screen itself. It was missing
     // from this section entirely until 2026-09-06, which is why an accepted
@@ -246,6 +253,8 @@ export async function ActiveExperimentsSection() {
         {wyjlStatus && <WhereYourJoyLivesExperimentPanel status={wyjlStatus} />}
 
         {tglStatus && <TheGivingLedgerExperimentPanel status={tglStatus} />}
+
+        {twoyStatus && <TheWeightOfYesExperimentPanel status={twoyStatus} />}
 
         {slStatus && <StressLoadExperimentPanel status={slStatus} />}
 

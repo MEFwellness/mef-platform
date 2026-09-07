@@ -161,6 +161,8 @@ import { WhereYourJoyLivesPanel } from '../WhereYourJoyLivesPanel';
 import { getClientWhereYourJoyLivesPanelAction } from '@/app/actions/whereYourJoyLives';
 import { TheGivingLedgerPanel } from '../TheGivingLedgerPanel';
 import { getClientTheGivingLedgerPanelAction } from '@/app/actions/theGivingLedger';
+import { TheWeightOfYesPanel } from '../TheWeightOfYesPanel';
+import { getClientTheWeightOfYesPanelAction } from '@/app/actions/theWeightOfYes';
 import { assignmentNameRecord } from '@/lib/assignments/experienceNames';
 import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
 import { MovementProfilePanel } from '../MovementProfilePanel';
@@ -280,6 +282,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     owningYourValuePanel,
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
+    theWeightOfYesPanel,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -324,6 +327,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientOwningYourValuePanelAction(profile.id),
     getClientWhereYourJoyLivesPanelAction(profile.id),
     getClientTheGivingLedgerPanelAction(profile.id),
+    getClientTheWeightOfYesPanelAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -731,6 +735,17 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             */}
             <div id="detail-card-the-giving-ledger" className="scroll-mt-24">
               <TheGivingLedgerPanel clientId={profile.id} state={theGivingLedgerPanel} />
+            </div>
+
+            {/*
+              The Weight of Yes, beside the four deep-dives above it, and
+              keeping its own Assign button on its own card. No prerequisite
+              on any template above it, including The Giving Ledger, which
+              this one can follow up on: the follow-up changes one
+              question's wording and never who may be sent this.
+            */}
+            <div id="detail-card-the-weight-of-yes" className="scroll-mt-24">
+              <TheWeightOfYesPanel clientId={profile.id} state={theWeightOfYesPanel} />
             </div>
 
             {/* Coach assignment minimum interface — Assessment Registry

@@ -35,6 +35,8 @@ import { WYJL_DEFINITION_ID } from '../where-your-joy-lives/constants';
 import { WYJL_AREA, WYJL_LABEL } from '../where-your-joy-lives/copy';
 import { TGL_DEFINITION_ID } from '../the-giving-ledger/constants';
 import { TGL_AREA, TGL_LABEL } from '../the-giving-ledger/copy';
+import { TWOY_DEFINITION_ID } from '../the-weight-of-yes/constants';
+import { TWOY_AREA, TWOY_LABEL } from '../the-weight-of-yes/copy';
 import type { AssessmentKey } from '../assessment-registry/types';
 import type { AssignmentRowStatus } from './status';
 
@@ -109,6 +111,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
     definitionId: TGL_DEFINITION_ID,
     displayName: TGL_LABEL,
     areaLabel: TGL_AREA,
+  },
+  {
+    id: 'the-weight-of-yes',
+    definitionId: TWOY_DEFINITION_ID,
+    displayName: TWOY_LABEL,
+    areaLabel: TWOY_AREA,
   },
 ];
 

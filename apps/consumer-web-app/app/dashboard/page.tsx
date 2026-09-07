@@ -102,6 +102,8 @@ import { WhereYourJoyLivesEntry } from '@/components/where-your-joy-lives/WhereY
 import { getMyWhereYourJoyLives } from '@/lib/where-your-joy-lives/view';
 import { TheGivingLedgerEntry } from '@/components/the-giving-ledger/TheGivingLedgerEntry';
 import { getMyTheGivingLedger } from '@/lib/the-giving-ledger/view';
+import { TheWeightOfYesEntry } from '@/components/the-weight-of-yes/TheWeightOfYesEntry';
+import { getMyTheWeightOfYes } from '@/lib/the-weight-of-yes/view';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -432,6 +434,7 @@ async function DayFrameRegion() {
     owningYourValue,
     whereYourJoyLives,
     theGivingLedger,
+    theWeightOfYes,
     catalog,
     bodyAssessmentCard,
   ] = await Promise.all([
@@ -456,6 +459,9 @@ async function DayFrameRegion() {
       // Request-memoized, exactly as the four above are, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyTheGivingLedger(),
+      // Request-memoized, exactly as the five above are, and the pop-up
+      // chain in PopupRegion asks for the same thing on the same render.
+      getMyTheWeightOfYes(),
       homeQuestionnaireCatalog(),
       homeBodyAssessmentAssignment(),
     ]);
@@ -600,6 +606,31 @@ async function DayFrameRegion() {
           <TheGivingLedgerEntry
             assignmentId={theGivingLedger.assignmentId}
             hasDraft={Object.keys(theGivingLedger.draft).length > 0}
+          />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* THE WEIGHT OF YES, persistent, coach assigned only.    */}
+      {/*                                                        */}
+      {/* Directly below The Giving Ledger and for the identical */}
+      {/* reasons. All four Happiness deep-dives can be open at  */}
+      {/* once, and when they are, all four cards stand: none    */}
+      {/* replaces another and none hides another.               */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately. The */}
+      {/* assignment is the whole gate                           */}
+      {/* (lib/the-weight-of-yes/access.ts). There is no check   */}
+      {/* that she finished any template above this one either,  */}
+      {/* including the one this can follow up on: that follow-  */}
+      {/* up changes one question's wording and never whether    */}
+      {/* she is offered this at all.                            */}
+      {/* ==================================================== */}
+      {theWeightOfYes?.status === 'pending' && (
+        <div className="pt-3">
+          <TheWeightOfYesEntry
+            assignmentId={theWeightOfYes.assignmentId}
+            hasDraft={Object.keys(theWeightOfYes.draft).length > 0}
           />
         </div>
       )}

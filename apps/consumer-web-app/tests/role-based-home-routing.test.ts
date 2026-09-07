@@ -199,6 +199,7 @@ describe('member analytics', () => {
       owning_your_value: '/owning-your-value',
       where_your_joy_lives: '/where-your-joy-lives',
       the_giving_ledger: '/the-giving-ledger',
+      the_weight_of_yes: '/the-weight-of-yes',
       root_score: '/root-score',
       insights: '/insights',
       noticing: '/noticing',
