@@ -31,6 +31,16 @@
  *      same coach screen, before and after the whole run.
  *  11. No em dash and no console error on any screen either of them saw.
  *
+ * THE TWO-EXPERIMENT CAP IS SHARED, AND THIS RUN RESPECTS IT RATHER THAN
+ * FIGHTING IT. A fixture carrying two already-active experiments (from an
+ * earlier run of another experience, say) would make the offer step fail
+ * for a reason that has nothing to do with this template: the cap would
+ * refuse the third, correctly. So this run PARKS one active experiment for
+ * the length of the offer step and puts it back exactly as it found it in
+ * the `finally`, the same shift-the-row-and-restore-it discipline the trial
+ * arc rig uses. It parks at most one, it records the row's original status
+ * first, and it never touches an experiment it did not park.
+ *
  * IT WRITES ONLY TO ONE SEEDED TEST ACCOUNT, and every write is undone in
  * a `finally` whether the run passes or not. Every delete is scoped by
  * experience_key, because three templates now share one table and this run
@@ -171,6 +181,79 @@ async function clearFixture(service) {
     .like('message_key', `${EXPERIENCE_KEY.replace(/-/g, '_')}:%`);
 }
 
+/**
+ * Opens the "Assessments and Findings" fold on the coach's client screen.
+ *
+ * The six sections on that page are collapsed on arrival and a folded
+ * section renders NOTHING into the document (see DetailSection.tsx), so
+ * every card inside it is genuinely absent until a coach presses the
+ * header. A run that looked for the panel without pressing it would report
+ * a missing card that is not missing.
+ *
+ * Idempotent: it presses only when the header says it is closed, and it
+ * waits for the panel itself rather than for a fixed number of
+ * milliseconds.
+ */
+/**
+ * Frees one experiment slot if, and only if, the fixture is already at the
+ * shared two-active cap.
+ *
+ * Returns what it parked so the `finally` can put it back, or null when it
+ * parked nothing (which is the ordinary case on a clean fixture).
+ */
+async function parkOneExperimentIfAtCap(service) {
+  const { data } = await service
+    .from('lifestyle_experiments')
+    .select('id, title, status, source_experience_key')
+    .eq('member_id', MEMBER_ID)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true });
+
+  const active = data ?? [];
+  // Never park one of this template's own: this run created none yet, and
+  // a future re-run should not cannibalise the row it is about to check.
+  const parkable = active.filter((row) => row.source_experience_key !== EXPERIENCE_KEY);
+  if (active.length < 2 || parkable.length === 0) return null;
+
+  const target = parkable[0];
+  const { error } = await service
+    .from('lifestyle_experiments')
+    .update({ status: 'completed' })
+    .eq('id', target.id)
+    .eq('member_id', MEMBER_ID);
+  if (error) return null;
+
+  note(`parked one active experiment to free a slot: ${target.title}`);
+  return { id: target.id, status: target.status };
+}
+
+/** Puts back exactly what parkOneExperimentIfAtCap took, and nothing else. */
+async function unparkExperiment(service, parked) {
+  if (!parked) return;
+  await service
+    .from('lifestyle_experiments')
+    .update({ status: parked.status })
+    .eq('id', parked.id)
+    .eq('member_id', MEMBER_ID);
+  note('restored the parked experiment to its original status');
+}
+
+async function openAssessmentsFold(page) {
+  const header = page.locator('section#detail-section-assessments button[aria-expanded]').first();
+  await header.waitFor({ state: 'visible', timeout: 20000 });
+  if ((await header.getAttribute('aria-expanded')) !== 'true') {
+    await header.click();
+  }
+  await page
+    .locator(`section[aria-label="${LABEL}"]`)
+    .waitFor({ state: 'attached', timeout: 20000 })
+    .catch(() => {
+      // The caller checks and reports. This only stops the run from
+      // racing a fold that is still mounting its children.
+    });
+  await page.waitForTimeout(800);
+}
+
 async function main() {
   if (!canMintSessions()) throw new Error('Session minting is not configured.');
   if (!STAFF_EMAIL || !MEMBER_EMAIL || !MEMBER_ID) {
@@ -211,6 +294,7 @@ async function main() {
   let staff = null;
   let member = null;
   let assignmentId = null;
+  let parked = null;
 
   try {
     // -----------------------------------------------------------------
@@ -225,6 +309,7 @@ async function main() {
       waitUntil: 'domcontentloaded',
     });
     await coachPage.waitForTimeout(2500);
+    await openAssessmentsFold(coachPage);
 
     // Addressed by the card's own accessible name, never by its copy, so a
     // second panel that mentions the same words cannot be pressed instead.
@@ -272,6 +357,7 @@ async function main() {
 
     await coachPage.reload({ waitUntil: 'domcontentloaded' });
     await coachPage.waitForTimeout(2500);
+    await openAssessmentsFold(coachPage);
     const afterAssign = coachPage.locator(`section[aria-label="${LABEL}"]`);
     const sentLine = (await afterAssign.count()) === 1 ? await afterAssign.innerText() : '';
     check('coach: the card now prints a sent-and-not-yet-seen sentence', /Sent/.test(sentLine), sentLine.slice(0, 160));
@@ -508,6 +594,12 @@ async function main() {
     // -----------------------------------------------------------------
     // 5. The experiment.
     // -----------------------------------------------------------------
+    // The cap is shared across every experience. If the fixture is already
+    // running two, the offer below would be refused for a reason that has
+    // nothing to do with this template, so one slot is freed here and put
+    // back in the `finally`.
+    parked = await parkOneExperimentIfAtCap(service);
+
     await page.getByRole('button', { name: 'Continue' }).click();
     await page.waitForTimeout(1800);
     const offer = await page.innerText('body');
@@ -558,9 +650,19 @@ async function main() {
       'home: the experiment card carries the approved daily question',
       home.includes('Did anything come back to you today? Name it, however small.')
     );
-    // The day label is rendered uppercase by CSS, and innerText reports the
-    // transformed text, so this is matched case insensitively.
-    check('home: it says which day of seven she is on', /Day 1 of 7/i.test(home));
+    // Addressed through THIS experiment's own card rather than through the
+    // page, because another experience's experiment can legitimately be
+    // running beside it and would print its own "Day 1 of 7". The card is
+    // the element carrying this template's daily question. The day label is
+    // rendered uppercase by CSS and innerText reports the transformed text,
+    // so it is matched case insensitively.
+    const experimentCard = page
+      .locator('div', {
+        hasText: 'Did anything come back to you today? Name it, however small.',
+      })
+      .last();
+    const cardText = (await experimentCard.count()) ? await experimentCard.innerText() : '';
+    check('home: it says which day of seven she is on', /Day 1 of 7/i.test(cardText), cardText.slice(0, 80));
     check(
       'home: the assignment card is gone now that the sitting is finished',
       !home.includes(`From your coach: ${LABEL}`)
@@ -568,7 +670,7 @@ async function main() {
     await shot(page, '14-home-experiment-card');
     if (await emDashOn(page)) dashes++;
 
-    const yes = page.getByRole('button', { name: 'Yes', exact: true });
+    const yes = experimentCard.getByRole('button', { name: 'Yes', exact: true });
     if (await yes.count()) {
       // Home carries fixed chrome, so an ordinary click can sit behind it.
       // Scroll it in, then dispatch the real click on the element itself.
@@ -599,6 +701,7 @@ async function main() {
       waitUntil: 'domcontentloaded',
     });
     await coachPage.waitForTimeout(3000);
+    await openAssessmentsFold(coachPage);
     const card = coachPage.locator(`section[aria-label="${LABEL}"]`);
     const cardFound = (await card.count()) === 1;
     check('coach: the finished sitting is on the card', cardFound);
@@ -660,7 +763,10 @@ async function main() {
     check('no console or page error on any screen', errors.length === 0, errors.slice(0, 4).join(' | '));
   } finally {
     // Undo every write, pass or fail. Scoped by experience_key throughout,
-    // and it takes the pop-up dismissal row with it.
+    // and it takes the pop-up dismissal row with it. The parked experiment
+    // is put back first, so a fixture this run borrowed a slot from is left
+    // exactly as it was found.
+    await unparkExperiment(service, parked);
     await clearFixture(service);
     if (assignmentId) {
       await service.from('member_assignment_deliveries').delete().eq('assignment_id', assignmentId);

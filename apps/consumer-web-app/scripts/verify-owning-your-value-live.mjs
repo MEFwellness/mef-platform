@@ -48,6 +48,7 @@ const MEMBER_ID = process.env.TEST_MEMBER_ID;
 const SHOTS = process.env.SHOTS_DIR ?? './live-shots-owning-your-value';
 const DEFINITION_ID = 'c1d7a4f2-8b36-4e09-a5c7-2f9d63b48e15';
 const EXPERIENCE_KEY = 'owning-your-value';
+const LABEL = 'Owning Your Value';
 const TABLE = 'member_happiness_deep_dive_sessions';
 
 const results = [];
@@ -158,6 +159,36 @@ async function clearFixture(service) {
     .like('message_key', `${EXPERIENCE_KEY.replace(/-/g, '_')}:%`);
 }
 
+/**
+ * Opens the "Assessments and Findings" fold on the coach's client screen.
+ *
+ * The six sections on that page are collapsed on arrival and a folded
+ * section renders NOTHING into the document (see DetailSection.tsx), so
+ * every card inside it is genuinely absent until a coach presses the
+ * header. A run that looked for the panel without pressing it would report
+ * a missing card that is not missing. Found while building template 3, on
+ * a run whose very first check failed for this reason.
+ *
+ * Idempotent: it presses only when the header says it is closed, and it
+ * waits for the panel itself rather than for a fixed number of
+ * milliseconds.
+ */
+async function openAssessmentsFold(page, label) {
+  const header = page.locator('section#detail-section-assessments button[aria-expanded]').first();
+  await header.waitFor({ state: 'visible', timeout: 20000 });
+  if ((await header.getAttribute('aria-expanded')) !== 'true') {
+    await header.click();
+  }
+  await page
+    .locator(`section[aria-label="${label}"]`)
+    .waitFor({ state: 'attached', timeout: 20000 })
+    .catch(() => {
+      // The caller checks and reports. This only stops the run from
+      // racing a fold that is still mounting its children.
+    });
+  await page.waitForTimeout(800);
+}
+
 async function main() {
   if (!canMintSessions()) throw new Error('Session minting is not configured.');
   if (!STAFF_EMAIL || !MEMBER_EMAIL || !MEMBER_ID) {
@@ -198,6 +229,7 @@ async function main() {
     await coachPage.goto(`${BASE}/coach/clients/${MEMBER_ID}/detail`, {
       waitUntil: 'domcontentloaded',
     });
+    await openAssessmentsFold(coachPage, LABEL);
     // Addressed by the card's own accessible name, never by its copy, so a
     // second panel that mentions the same words cannot be pressed instead.
     const panel = coachPage.locator('section[aria-label="Owning Your Value"]');
@@ -238,6 +270,7 @@ async function main() {
     );
 
     await coachPage.reload({ waitUntil: 'domcontentloaded' });
+    await openAssessmentsFold(coachPage, LABEL);
     const afterAssign = coachPage.locator('section[aria-label="Owning Your Value"]');
     const sentLine = (await afterAssign.count()) === 1 ? await afterAssign.innerText() : '';
     check('coach: the card now prints a sent-and-not-yet-seen sentence', /Sent/.test(sentLine), sentLine.slice(0, 160));
@@ -346,9 +379,14 @@ async function main() {
     await shot(page, '07-question-5-before-leaving');
 
     const { data: draftRows } = await service
-      .from('member_happiness_deep_dive_sessions')
+      .from(TABLE)
       .select('id, answers, completed_at, held_sentence, experience_key, follow_up_source_experience_key')
-      .eq('member_id', MEMBER_ID);
+      // Scoped by experience_key. Three templates share this table
+      // now, so a read by member alone would count another
+      // template's sitting and report two rows for a run that
+      // wrote one.
+      .eq('member_id', MEMBER_ID)
+      .eq('experience_key', EXPERIENCE_KEY);
     check('draft: one row exists, unfinished', (draftRows ?? []).length === 1 && !draftRows?.[0]?.completed_at);
     check('draft: it holds exactly the four answers she wrote', Object.keys(draftRows?.[0]?.answers ?? {}).length === 4);
     check('draft: the held sentence column is still empty', draftRows?.[0]?.held_sentence === null);
@@ -438,9 +476,14 @@ async function main() {
     await shot(page, '11-closing-still-holding');
 
     const { data: finishedRows } = await service
-      .from('member_happiness_deep_dive_sessions')
+      .from(TABLE)
       .select('id, held_sentence, answers, completed_at')
-      .eq('member_id', MEMBER_ID);
+      // Scoped by experience_key. Three templates share this table
+      // now, so a read by member alone would count another
+      // template's sitting and report two rows for a run that
+      // wrote one.
+      .eq('member_id', MEMBER_ID)
+      .eq('experience_key', EXPERIENCE_KEY);
     check('storage: the sitting is completed', Boolean(finishedRows?.[0]?.completed_at));
     check(
       'storage: the sentence is in its own column, verbatim',
@@ -551,6 +594,7 @@ async function main() {
       waitUntil: 'domcontentloaded',
     });
     await coachPage.waitForTimeout(2500);
+    await openAssessmentsFold(coachPage, LABEL);
     const card = coachPage.locator('section[aria-label="Owning Your Value"]');
     const cardFound = (await card.count()) === 1;
     check('coach: the finished sitting is on the card', cardFound);

@@ -72,6 +72,33 @@ sites (the pre-run clean slate and the `finally`) are now one shared
 `clearFixture`. Confirmed by query: production holds zero
 `owning_your_value:` dismissal rows.
 
+### WHAT THE LIVE RUN FOUND ABOUT THE VERIFICATION RIGS
+
+`scripts/verify-the-giving-ledger-live.mjs` drives the whole journey on
+production and passes 72/72. Getting there found two things about the rigs
+themselves, neither of them a defect in the app.
+
+THE COACH SECTIONS ARE FOLDED AND A FOLDED SECTION RENDERS NOTHING. Since
+the client-detail redesign, the six sections on `/coach/clients/[id]/detail`
+open closed, and `DetailSection` renders no children at all until the header
+is pressed. Every card inside is genuinely absent from the document, not
+merely hidden, so the run's first check reported a missing panel that was
+not missing. All three verification scripts now press the header first,
+through one shared `openAssessmentsFold`, and wait for the panel rather than
+for a fixed delay.
+
+THE TWO-EXPERIMENT CAP IS SHARED, AND THE FIXTURE WAS AT IT. The test
+account was already running two experiments left behind by earlier runs, so
+the offer step was refused by `MAX_ACTIVE_EXPERIMENTS` working exactly as
+designed. The run now parks one active experiment for the length of that
+step and restores it to its original status in the `finally`, the same
+shift-the-row-and-restore-it discipline the trial arc rig uses. It parks at
+most one, never one of its own, and records the original status first.
+
+The Home day-label check was also reading the page rather than the card, so
+a neighbouring experiment's "Day 1 of 7" satisfied it. It is addressed
+through this experiment's own card now.
+
 ### CHECKS
 
 Typecheck clean. Lint clean. Full suite 525 files / 9412 tests, zero
@@ -79,6 +106,13 @@ failures. Production build clean, `/the-giving-ledger` at 8.52 kB.
 Migration 213 applied to production and verified there: catalog row present,
 three distinct columns, insert policy carrying all three templates, trigger
 carrying three arms.
+
+Live on production, signed in as the real test member and the real staff
+account: 72/72, including the closing holding through nine seconds and
+several server round trips, save and resume across a full page close, one
+delivery receipt from two surfaces, and both sibling cards standing before
+and after. Every row the run created was deleted and production confirmed to
+hold none.
 
 `tests/role-based-home-routing.test.ts` caught the new surface before a
 human did: its route map guard requires every analytics surface to be a path

@@ -163,6 +163,36 @@ async function clearFixture(service) {
     .like('message_key', `${EXPERIENCE_KEY.replace(/-/g, '_')}:%`);
 }
 
+/**
+ * Opens the "Assessments and Findings" fold on the coach's client screen.
+ *
+ * The six sections on that page are collapsed on arrival and a folded
+ * section renders NOTHING into the document (see DetailSection.tsx), so
+ * every card inside it is genuinely absent until a coach presses the
+ * header. A run that looked for the panel without pressing it would report
+ * a missing card that is not missing. Found while building template 3, on
+ * a run whose very first check failed for this reason.
+ *
+ * Idempotent: it presses only when the header says it is closed, and it
+ * waits for the panel itself rather than for a fixed number of
+ * milliseconds.
+ */
+async function openAssessmentsFold(page, label) {
+  const header = page.locator('section#detail-section-assessments button[aria-expanded]').first();
+  await header.waitFor({ state: 'visible', timeout: 20000 });
+  if ((await header.getAttribute('aria-expanded')) !== 'true') {
+    await header.click();
+  }
+  await page
+    .locator(`section[aria-label="${label}"]`)
+    .waitFor({ state: 'attached', timeout: 20000 })
+    .catch(() => {
+      // The caller checks and reports. This only stops the run from
+      // racing a fold that is still mounting its children.
+    });
+  await page.waitForTimeout(800);
+}
+
 async function main() {
   if (!canMintSessions()) throw new Error('Session minting is not configured.');
   if (!STAFF_EMAIL || !MEMBER_EMAIL || !MEMBER_ID) {
@@ -213,6 +243,7 @@ async function main() {
       waitUntil: 'domcontentloaded',
     });
     await coachPage.waitForTimeout(2500);
+    await openAssessmentsFold(coachPage, LABEL);
 
     // Addressed by the card's own accessible name, never by its copy, so a
     // second panel that mentions the same words cannot be pressed instead.
@@ -259,6 +290,7 @@ async function main() {
 
     await coachPage.reload({ waitUntil: 'domcontentloaded' });
     await coachPage.waitForTimeout(2500);
+    await openAssessmentsFold(coachPage, LABEL);
     const afterAssign = coachPage.locator(`section[aria-label="${LABEL}"]`);
     const sentLine = (await afterAssign.count()) === 1 ? await afterAssign.innerText() : '';
     check('coach: the card now prints a sent-and-not-yet-seen sentence', /Sent/.test(sentLine), sentLine.slice(0, 160));
@@ -592,6 +624,7 @@ async function main() {
       waitUntil: 'domcontentloaded',
     });
     await coachPage.waitForTimeout(3000);
+    await openAssessmentsFold(coachPage, LABEL);
     const card = coachPage.locator(`section[aria-label="${LABEL}"]`);
     const cardFound = (await card.count()) === 1;
     check('coach: the finished sitting is on the card', cardFound);
