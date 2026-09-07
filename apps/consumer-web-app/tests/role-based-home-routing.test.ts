@@ -200,6 +200,7 @@ describe('member analytics', () => {
       where_your_joy_lives: '/where-your-joy-lives',
       the_giving_ledger: '/the-giving-ledger',
       the_weight_of_yes: '/the-weight-of-yes',
+      being_seen: '/being-seen',
       root_score: '/root-score',
       insights: '/insights',
       noticing: '/noticing',

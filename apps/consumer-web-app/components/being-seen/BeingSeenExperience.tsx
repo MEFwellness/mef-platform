@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Owning Your Value, whole, on one route.
+ * Being Seen, whole, on one route.
  *
  * THE ALREADY-DONE PANEL LIVES HERE, NOT ON THE PAGE, and that is not a
  * layout preference. Finishing calls a Server Action, and a Server Action
@@ -16,10 +16,8 @@
  * she taps.
  *
  * TWELVE SCREENS, ONE THING ON EACH. The invitation, then nine questions
- * one at a time, then her own sentence on a screen of its own, then the one
- * small thing, then the piece of reading and the way out. One question per
- * screen because a page with nine boxes on it is a form, and this is meant
- * to be a sitting.
+ * one at a time, then her own answer on a screen of its own, then the one
+ * small thing, then the piece of reading and the way out.
  *
  * SAVE AND RESUME. Every Continue writes the draft through a server action
  * she reached by tapping. Nothing is written by opening the screen. A save
@@ -27,40 +25,46 @@
  * how a member loses forty minutes of writing.
  *
  * ROOT SAYS NOTHING ABOUT HER. There is no scoring here, no pattern, no
- * observation and no summary of her answers. The closing screen shows the
- * sentence she wrote, exactly as she wrote it, and then says what happened.
+ * observation and no summary. The closing prints the answer she wrote at
+ * question nine and one fixed line that claims nothing specific about her.
  *
  * THE MOTION IS NOT THIS TEMPLATE'S. Every question typing itself out, the
  * writing box arriving only once it has, the chapter beat between the three
- * screens, the ambient layer behind the writing and the staged closing are
- * all components/happiness-deep-dive/, shared with the four templates
- * beside it. Nothing about the treatment is authored here and nothing here
- * can drift from it.
+ * screens, the ambient layer behind the writing, the five second ring on
+ * question six and the staged closing are all
+ * components/happiness-deep-dive/, shared with the four templates beside
+ * it. Nothing about the treatment is authored here and nothing here can
+ * drift from it. The one thing this template says for itself is WHICH
+ * question holds, and it says that in ./questions.ts beside the question.
  */
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, X } from 'lucide-react';
 import {
-  OYV_QUESTIONS,
+  BSN_CLOSING_KEY,
+  BSN_QUESTIONS,
   blockedReasonFor,
   firstUnansweredIndex,
   isAnswered,
-  type OyvAnswers,
-  type OyvDraft,
-} from '@/lib/owning-your-value/questions';
+  type BsnAnswers,
+  type BsnDraft,
+} from '@/lib/being-seen/questions';
 import {
-  OYV_COPY,
-  OYV_INTRO_BODY_LINES,
-  OYV_LABEL,
+  BSN_CLOSING_LABEL,
+  BSN_CLOSING_LINE,
+  BSN_COPY,
+  BSN_HOLD_LABEL,
+  BSN_INTRO_BODY_LINES,
+  BSN_LABEL,
   sectionFor,
-} from '@/lib/owning-your-value/copy';
-import { buildOyvExperiment } from '@/lib/owning-your-value/experiment';
+} from '@/lib/being-seen/copy';
+import { buildBsnExperiment } from '@/lib/being-seen/experiment';
 import {
-  saveOwningYourValueDraftAction,
-  startOwningYourValueExperimentAction,
-  submitOwningYourValueAction,
-} from '@/app/actions/owningYourValue';
+  saveBeingSeenDraftAction,
+  startBeingSeenExperimentAction,
+  submitBeingSeenAction,
+} from '@/app/actions/beingSeen';
 import { IntroReveal } from '@/components/IntroReveal';
 import {
   AmbientDrift,
@@ -72,11 +76,11 @@ import {
   useHappinessSittingMotion,
 } from '@/components/happiness-deep-dive';
 import { hddClosingLines, hddClosingTailDelayMs } from '@/lib/happiness-deep-dive/motion';
-import { OwningYourValueResource } from './OwningYourValueResource';
+import { BeingSeenResource } from './BeingSeenResource';
 
 const INTRO_STEP = -1;
 const FIRST_QUESTION_STEP = 0;
-const CLOSING_STEP = OYV_QUESTIONS.length;
+const CLOSING_STEP = BSN_QUESTIONS.length;
 const EXPERIMENT_STEP = CLOSING_STEP + 1;
 const DONE_STEP = CLOSING_STEP + 2;
 
@@ -89,26 +93,26 @@ const SECONDARY =
 const WRITING_BOX =
   'w-full min-h-[240px] resize-y rounded-2xl border border-[#F5F0E4]/15 bg-[#F5F0E4]/[0.06] p-4 text-[16px] leading-relaxed text-[#F5F0E4] placeholder:text-[#F5F0E4]/35 focus:border-[#C4A050] focus:outline-none';
 
-type Finished = { sessionId: string; answers: OyvAnswers; heldSentence: string };
+type Finished = { sessionId: string; answers: BsnAnswers };
 
-export function OwningYourValueExperience({
+export function BeingSeenExperience({
   status,
   draft: initialDraft,
   completed,
 }: {
   status: 'pending' | 'completed';
   /** Whatever she had already written, from the stored draft. Empty when she has not started. */
-  draft: OyvDraft;
+  draft: BsnDraft;
   /** Her most recent finished sitting, when she is opening a route she has already answered. */
   completed: Finished | null;
 }) {
   const router = useRouter();
-  const [draft, setDraft] = useState<OyvDraft>(initialDraft);
+  const [draft, setDraft] = useState<BsnDraft>(initialDraft);
   // Where she stopped. A member with nothing written starts at the
   // invitation; a member coming back lands on the first question she has
   // not answered, and never past the last one.
   const written = firstUnansweredIndex(initialDraft);
-  const landingStep = written === 0 ? INTRO_STEP : Math.min(written, OYV_QUESTIONS.length - 1);
+  const landingStep = written === 0 ? INTRO_STEP : Math.min(written, BSN_QUESTIONS.length - 1);
   const [step, setStep] = useState<number>(landingStep);
 
   // The shared treatment's own state: which questions she has already
@@ -118,28 +122,27 @@ export function OwningYourValueExperience({
   // again.
   const motion = useHappinessSittingMotion(
     initialSeenKeys(
-      OYV_QUESTIONS.filter((entry) => isAnswered(initialDraft[entry.key])).map(
+      BSN_QUESTIONS.filter((entry) => isAnswered(initialDraft[entry.key])).map(
         (entry) => entry.key
       ),
-      landingStep >= FIRST_QUESTION_STEP ? (OYV_QUESTIONS[landingStep]?.key ?? null) : null
+      landingStep >= FIRST_QUESTION_STEP ? (BSN_QUESTIONS[landingStep]?.key ?? null) : null
     )
   );
   const [finished, setFinished] = useState<Finished | null>(null);
   const [error, setError] = useState<string | null>(null);
   // True once a draft save has actually landed. It survives the move to
   // the next question on purpose: the note it drives is a fact about her
-  // sitting ("this is stored"), not about the screen she is on, and a
-  // sentence that appeared and vanished every tap would be noise.
+  // sitting ("this is stored"), not about the screen she is on.
   const [hasSaved, setHasSaved] = useState(() => firstUnansweredIndex(initialDraft) > 0);
   const [experimentNote, setExperimentNote] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const question =
-    step >= FIRST_QUESTION_STEP && step < CLOSING_STEP ? (OYV_QUESTIONS[step] ?? null) : null;
+    step >= FIRST_QUESTION_STEP && step < CLOSING_STEP ? (BSN_QUESTIONS[step] ?? null) : null;
   const answered = question ? isAnswered(draft[question.key]) : true;
   const blockedReason = question ? blockedReasonFor(draft[question.key]) : null;
   const isLastQuestion = step === CLOSING_STEP - 1;
-  const experimentOffer = useMemo(() => buildOyvExperiment(), []);
+  const experimentOffer = useMemo(() => buildBsnExperiment(), []);
 
   function leave() {
     router.push('/dashboard');
@@ -156,19 +159,19 @@ export function OwningYourValueExperience({
 
     if (!isLastQuestion) {
       startTransition(async () => {
-        const result = await saveOwningYourValueDraftAction(draft);
+        const result = await saveBeingSeenDraftAction(draft);
         if (!result.ok) {
           // Deliberately does NOT advance. Her words are still in this
           // component's state and on the screen, and the next Continue
           // sends the whole draft again.
-          setError(OYV_COPY.saveFailedNote);
+          setError(BSN_COPY.saveFailedNote);
           return;
         }
         setHasSaved(true);
         // The chapter beat, when this Continue crosses into a new screen.
         // AFTER the save has landed, so the beat is never covering a write
         // that might still fail.
-        const next = OYV_QUESTIONS[step + 1];
+        const next = BSN_QUESTIONS[step + 1];
         if (next && next.screen !== question.screen) {
           motion.playChapter(sectionFor(next.screen).title);
         }
@@ -178,16 +181,12 @@ export function OwningYourValueExperience({
     }
 
     startTransition(async () => {
-      const result = await submitOwningYourValueAction(draft);
+      const result = await submitBeingSeenAction(draft);
       if (!result.ok) {
-        setError(result.error || OYV_COPY.submitError);
+        setError(result.error || BSN_COPY.submitError);
         return;
       }
-      setFinished({
-        sessionId: result.sessionId,
-        answers: result.answers,
-        heldSentence: result.heldSentence,
-      });
+      setFinished({ sessionId: result.sessionId, answers: result.answers });
       setStep(CLOSING_STEP);
     });
   }
@@ -196,14 +195,14 @@ export function OwningYourValueExperience({
     if (!finished) return;
     setError(null);
     startTransition(async () => {
-      const result = await startOwningYourValueExperimentAction(finished.sessionId);
-      setExperimentNote(result.ok ? OYV_COPY.experimentStarted : result.error);
+      const result = await startBeingSeenExperimentAction(finished.sessionId);
+      setExperimentNote(result.ok ? BSN_COPY.experimentStarted : result.error);
       setStep(DONE_STEP);
     });
   }
 
   function declineExperiment() {
-    setExperimentNote(OYV_COPY.experimentDeclined);
+    setExperimentNote(BSN_COPY.experimentDeclined);
     setStep(DONE_STEP);
   }
 
@@ -215,25 +214,21 @@ export function OwningYourValueExperience({
       <div className={PANEL}>
         <Glow />
         <p className="relative text-[11px] font-semibold uppercase tracking-wider text-[#C4A050]">
-          {OYV_LABEL}
+          {BSN_LABEL}
         </p>
         <h1 className="relative mt-3 font-[family-name:var(--font-cormorant-garamond)] text-[30px] leading-tight text-[#F5F0E4]">
-          {OYV_COPY.alreadyDoneHeading}
+          {BSN_COPY.alreadyDoneHeading}
         </h1>
         <p className="relative mt-4 text-[16px] leading-relaxed text-[#F5F0E4]/90">
-          {OYV_COPY.alreadyDoneBody}
+          {BSN_COPY.alreadyDoneBody}
         </p>
-        {completed?.heldSentence && (
+        {completed && (
           <div className="relative mt-6">
-            <HeldSentence
-              label={OYV_COPY.alreadyDoneSentenceLabel}
-              sentence={completed.heldSentence}
-              instant
-            />
+            <WhatYouWish answers={completed.answers} instant />
           </div>
         )}
         <button type="button" onClick={leave} className={`${PRIMARY} mt-7`}>
-          {OYV_COPY.closingDone}
+          {BSN_COPY.closingDone}
         </button>
       </div>
     );
@@ -245,12 +240,12 @@ export function OwningYourValueExperience({
         <Glow />
         <div className="relative flex items-center justify-between gap-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[#C4A050]">
-            {OYV_COPY.introEyebrow}
+            {BSN_COPY.introEyebrow}
           </p>
           <button
             type="button"
             onClick={leave}
-            aria-label={OYV_COPY.exitLabel}
+            aria-label={BSN_COPY.exitLabel}
             className="mef-focus-ring mef-press -mr-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-[#F5F0E4]/60 transition hover:bg-[#F5F0E4]/10 hover:text-[#F5F0E4]"
           >
             <X className="h-5 w-5" aria-hidden="true" />
@@ -258,14 +253,14 @@ export function OwningYourValueExperience({
         </div>
         <div className="relative mt-4">
           <IntroReveal
-            title={OYV_COPY.introTitle}
+            title={BSN_COPY.introTitle}
             titleTag="h1"
             titleClassName="font-[family-name:var(--font-cormorant-garamond)] text-[34px] leading-tight text-[#F5F0E4]"
-            lines={[...OYV_INTRO_BODY_LINES]}
+            lines={[...BSN_INTRO_BODY_LINES]}
             lineClassName="text-[16px] leading-relaxed text-[#F5F0E4]/85"
-            storageKey="owning-your-value-intro"
+            storageKey="being-seen-intro"
             button={{
-              label: OYV_COPY.introButton,
+              label: BSN_COPY.introButton,
               onClick: () => {
                 motion.playChapter(sectionFor(1).title);
                 setStep(FIRST_QUESTION_STEP);
@@ -278,13 +273,6 @@ export function OwningYourValueExperience({
     );
   }
 
-  // The screen she is on is named ONCE, in the eyebrow, on every question
-  // of that screen rather than only on its first. Printing it a second time
-  // as a heading put "THE DOING" directly above "The Doing" on questions
-  // one, four and seven, which reads as a mistake rather than as emphasis.
-  // The Stress & Load Deep-Dive can carry both because its heading is a
-  // different sentence from its section name; here the brief gives three
-  // titles and nothing else, so there is one slot for them.
   // THE CHAPTER BEAT HOLDS THE WHOLE PANEL, with nothing on it but the
   // section title. Only the title, deliberately: the eyebrow, the Back
   // control and the Close are all part of the question screen, and a
@@ -301,6 +289,8 @@ export function OwningYourValueExperience({
     );
   }
 
+  // The screen she is on is named ONCE, in the eyebrow, on every question
+  // of that screen rather than only on its first.
   const section = question ? sectionFor(question.screen) : null;
 
   return (
@@ -315,7 +305,7 @@ export function OwningYourValueExperience({
               type="button"
               onClick={() => setStep((previous) => previous - 1)}
               disabled={isPending}
-              aria-label={OYV_COPY.questionBack}
+              aria-label={BSN_COPY.questionBack}
               className="mef-focus-ring mef-press -ml-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-[#F5F0E4]/70 transition hover:bg-[#F5F0E4]/10 hover:text-[#F5F0E4] disabled:opacity-40"
             >
               <ChevronLeft className="h-5 w-5" aria-hidden="true" />
@@ -323,12 +313,12 @@ export function OwningYourValueExperience({
           )}
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[#C4A050]">
             {step === CLOSING_STEP
-              ? OYV_COPY.closingEyebrow
+              ? BSN_COPY.closingEyebrow
               : step === EXPERIMENT_STEP
-                ? OYV_COPY.experimentEyebrow
+                ? BSN_COPY.experimentEyebrow
                 : step === DONE_STEP
-                  ? OYV_COPY.closingEyebrow
-                  : (section?.title ?? OYV_LABEL)}
+                  ? BSN_COPY.closingEyebrow
+                  : (section?.title ?? BSN_LABEL)}
           </p>
         </div>
 
@@ -336,7 +326,7 @@ export function OwningYourValueExperience({
           type="button"
           onClick={leave}
           disabled={isPending}
-          aria-label={OYV_COPY.exitLabel}
+          aria-label={BSN_COPY.exitLabel}
           className="mef-focus-ring mef-press -mr-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-[#F5F0E4]/60 transition hover:bg-[#F5F0E4]/10 hover:text-[#F5F0E4] disabled:opacity-40"
         >
           <X className="h-5 w-5" aria-hidden="true" />
@@ -345,18 +335,23 @@ export function OwningYourValueExperience({
 
       {question && (
         <QuestionStage
-          counter={`Question ${step + 1} of ${OYV_QUESTIONS.length}`}
+          counter={`Question ${step + 1} of ${BSN_QUESTIONS.length}`}
           prompt={question.prompt}
           revealKey={question.key}
           instant={motion.hasSeen(question.key)}
           onRevealed={() => motion.markSeen(question.key)}
+          hold={
+            question.holdSeconds
+              ? { seconds: question.holdSeconds, label: BSN_HOLD_LABEL }
+              : null
+          }
         >
           <div className="mt-5">
             <textarea
               value={draft[question.key] ?? ''}
               onChange={(event) => setAnswer(question.key, event.target.value)}
               rows={9}
-              placeholder={OYV_COPY.writingPlaceholder}
+              placeholder={BSN_COPY.writingPlaceholder}
               aria-label={question.prompt}
               className={WRITING_BOX}
             />
@@ -365,7 +360,7 @@ export function OwningYourValueExperience({
           {/* The sentence that makes a disabled Continue explainable. */}
           {blockedReason && <p className="mt-5 text-sm text-[#C4A050]">{blockedReason}</p>}
           {hasSaved && !error && (
-            <p className="mt-4 text-sm text-[#F5F0E4]/55">{OYV_COPY.saveNote}</p>
+            <p className="mt-4 text-sm text-[#F5F0E4]/55">{BSN_COPY.saveNote}</p>
           )}
           {error && <p className="mt-3 text-sm text-[#F5B7A0]">{error}</p>}
 
@@ -375,7 +370,7 @@ export function OwningYourValueExperience({
             disabled={!answered || isPending}
             className={`${PRIMARY} ${blockedReason || hasSaved || error ? 'mt-3' : 'mt-5'}`}
           >
-            {isLastQuestion ? OYV_COPY.questionSubmit : OYV_COPY.questionContinue}
+            {isLastQuestion ? BSN_COPY.questionSubmit : BSN_COPY.questionContinue}
           </button>
         </QuestionStage>
       )}
@@ -385,26 +380,31 @@ export function OwningYourValueExperience({
         route redirects a completed sitting, and the finished/pending branch
         is inside this mounted component, so the Server Action re-render
         that arrives behind the completion reconciles this same tree instead
-        of navigating her off it.
+        of navigating her off it. The staged arrival on top of that is the
+        shared treatment's, and it changes nothing about the hold: when it
+        finishes, the screen is simply fully visible, waiting for her tap.
       */}
       {step === CLOSING_STEP && finished && (
         <div className="relative mt-6">
-          <HeldSentence sentence={finished.heldSentence} />
+          <WhatYouWish answers={finished.answers} />
           <ClosingTail
-            delayMs={hddClosingTailDelayMs(hddClosingLines(finished.heldSentence).length, false)}
+            delayMs={hddClosingTailDelayMs(
+              hddClosingLines(finished.answers[BSN_CLOSING_KEY] ?? '').length,
+              true
+            )}
           >
             <h2 className="mt-8 font-[family-name:var(--font-cormorant-garamond)] text-[26px] leading-snug text-[#F5F0E4]">
-              {OYV_COPY.closingHeading}
+              {BSN_COPY.closingHeading}
             </h2>
             <p className="mt-3 text-[16px] leading-relaxed text-[#F5F0E4]/85">
-              {OYV_COPY.closingBody}
+              {BSN_COPY.closingBody}
             </p>
             <button
               type="button"
               onClick={() => setStep(EXPERIMENT_STEP)}
               className={`${PRIMARY} mt-8`}
             >
-              {OYV_COPY.closingContinue}
+              {BSN_COPY.closingContinue}
             </button>
           </ClosingTail>
         </div>
@@ -416,14 +416,14 @@ export function OwningYourValueExperience({
             {experimentOffer.title}
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-[#F5F0E4]/60">
-            {OYV_COPY.experimentIntro}
+            {BSN_COPY.experimentIntro}
           </p>
           <p className="mt-4 text-[16px] leading-relaxed text-[#F5F0E4]/90">
             {experimentOffer.action}
           </p>
           <div className="mt-4 rounded-2xl border border-[#F5F0E4]/15 bg-[#F5F0E4]/[0.06] p-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[#C4A050]">
-              {OYV_COPY.experimentHardDayLabel}
+              {BSN_COPY.experimentHardDayLabel}
             </p>
             <p className="mt-1 text-[15px] leading-relaxed text-[#F5F0E4]/85">
               {experimentOffer.hardDay}
@@ -436,7 +436,7 @@ export function OwningYourValueExperience({
             disabled={isPending}
             className={`${PRIMARY} mt-6`}
           >
-            {OYV_COPY.experimentAccept}
+            {BSN_COPY.experimentAccept}
           </button>
           <button
             type="button"
@@ -444,22 +444,22 @@ export function OwningYourValueExperience({
             disabled={isPending}
             className={`${SECONDARY} mt-3`}
           >
-            {OYV_COPY.experimentDecline}
+            {BSN_COPY.experimentDecline}
           </button>
         </div>
       )}
 
       {step === DONE_STEP && (
         <div className="relative mt-4">
-          {finished && <HeldSentence sentence={finished.heldSentence} instant />}
+          {finished && <WhatYouWish answers={finished.answers} instant />}
           {experimentNote && (
             <p className="mt-6 text-[15px] leading-relaxed text-[#C4A050]">{experimentNote}</p>
           )}
           <div className="mt-6">
-            <OwningYourValueResource />
+            <BeingSeenResource />
           </div>
           <button type="button" onClick={leave} className={`${PRIMARY} mt-7`}>
-            {OYV_COPY.closingDone}
+            {BSN_COPY.closingDone}
           </button>
         </div>
       )}
@@ -477,24 +477,35 @@ function Glow() {
 }
 
 /**
- * Her sentence, exactly as she wrote it.
+ * The closing centerpiece: the thing she wrote at question nine, in the
+ * serif face, under one fixed line.
  *
- * The one piece of editorial treatment in this experience, and the reason
- * it exists: this is the screen worth keeping. Rendered as her own words
- * with nothing added, no quotation marks placed around them and no
- * capitalisation or punctuation corrected, because the moment Root tidies
- * her sentence it stops being hers.
+ * WHAT IS HERS AND WHAT IS ROOT'S, kept visibly apart. Her answer is
+ * reproduced exactly: no quotation marks added around it, no capitalisation
+ * or punctuation corrected, nothing trimmed to fit. Above it is a small
+ * label naming whose words those are, and nothing else.
+ *
+ * THE ONE LINE BENEATH IS FIXED AND CLAIMS NOTHING ABOUT HER. "Now two
+ * people know" is true by construction: she wrote it, and her coach reads
+ * it on their own client screen the moment she finishes. It does not tell
+ * her what her answer means, because the line directly above it is her
+ * answer saying exactly that. That is the whole of what Root writes on this
+ * screen.
+ *
+ * THE ARRIVAL IS THE SHARED ONE (ClosingCenterpiece): quiet first, then her
+ * words a line at a time, then the fixed line last after a real pause. A
+ * long answer is allowed to be long: nothing here truncates, clamps or
+ * scrolls her writing away.
  */
-function HeldSentence({
-  sentence,
-  label,
-  instant = false,
-}: {
-  sentence: string;
-  label?: string;
-  instant?: boolean;
-}) {
+function WhatYouWish({ answers, instant = false }: { answers: BsnAnswers; instant?: boolean }) {
+  const wish = answers[BSN_CLOSING_KEY] ?? '';
+
   return (
-    <ClosingCenterpiece eyebrow={label} entries={[{ text: sentence }]} instant={instant} />
+    <ClosingCenterpiece
+      eyebrow={BSN_CLOSING_LABEL}
+      entries={[{ text: wish }]}
+      fixedLine={BSN_CLOSING_LINE}
+      instant={instant}
+    />
   );
 }

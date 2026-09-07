@@ -14,6 +14,13 @@
  * visually-hidden duplicate); the visible, partially-typed text is
  * `aria-hidden`, so the letter-by-letter reveal is a purely visual
  * effect, never a comprehension delay for assistive tech.
+ *
+ * `msPerChar` is optional and defaults to the shipped 45ms rate, so every
+ * existing call site is unchanged. It exists because the Happiness
+ * deep-dives type whole QUESTIONS rather than short headlines, and forty
+ * words at 45ms a character is a crawl rather than a voice (see
+ * lib/happiness-deep-dive/motion.ts). Giving this one implementation a rate
+ * is the alternative to a second typewriter.
  */
 
 import { useEffect, useRef, useState, type ElementType } from 'react';
@@ -25,12 +32,15 @@ export function Typewriter({
   className = '',
   /** Render the finished state immediately with no animation — a revisit, reduced motion, or a member tapping to skip. */
   skip = false,
+  /** Milliseconds per character. Defaults to the shipped 45ms rate every existing call site was built on. */
+  msPerChar = REVEAL_MS_PER_CHAR,
   onDone,
 }: {
   text: string;
   as?: ElementType;
   className?: string;
   skip?: boolean;
+  msPerChar?: number;
   onDone?: () => void;
 }) {
   const [charCount, setCharCount] = useState(skip ? text.length : 0);
@@ -58,10 +68,10 @@ export function Typewriter({
           onDone?.();
         }
       }
-    }, REVEAL_MS_PER_CHAR);
+    }, Math.max(1, msPerChar));
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skip, text]);
+  }, [skip, text, msPerChar]);
 
   return (
     <Tag className={className}>

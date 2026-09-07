@@ -140,6 +140,7 @@ import {
   whereYourJoyLivesPopupMessageKey,
   theGivingLedgerPopupMessageKey,
   theWeightOfYesPopupMessageKey,
+  beingSeenPopupMessageKey,
   hydrationFocusPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
@@ -171,6 +172,9 @@ import { TGL_ROUTE } from '@/lib/the-giving-ledger/constants';
 import { getMyTheWeightOfYes } from '@/lib/the-weight-of-yes/view';
 import { TWOY_COPY } from '@/lib/the-weight-of-yes/copy';
 import { TWOY_ROUTE } from '@/lib/the-weight-of-yes/constants';
+import { getMyBeingSeen } from '@/lib/being-seen/view';
+import { BSN_COPY } from '@/lib/being-seen/copy';
+import { BSN_ROUTE } from '@/lib/being-seen/constants';
 import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import type { RenderedReview } from '@/lib/weekly-review/types';
 import { resolveLocalDate } from './checkin';
@@ -387,6 +391,25 @@ export type RootPopupMessage =
    */
   | {
       kind: 'the_weight_of_yes_assigned';
+      messageKey: string;
+      assignmentId: string;
+      title: string;
+      body: string;
+      primaryHref: string;
+    }
+  /**
+   * Being Seen, the fifth Happiness deep-dive, coach assigned only.
+   *
+   * Same shape and the same reasons as the four above it. It has no
+   * follow-up arm of its own, so this knock names no other experience and
+   * cannot: it is handed a title, a body and a route and nothing else.
+   *
+   * Carries no questions and no reading. This message is an INVITATION into
+   * an experience on its own route, so it renders through the same
+   * RootInvitePopup and inherits its real Maybe later and Ignore buttons.
+   */
+  | {
+      kind: 'being_seen_assigned';
       messageKey: string;
       assignmentId: string;
       title: string;
@@ -914,6 +937,38 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
         title: TWOY_COPY.popupTitle,
         body: TWOY_COPY.popupBody,
         primaryHref: TWOY_ROUTE,
+      };
+    }
+  }
+
+  // Being Seen, immediately below The Weight of Yes and for the identical
+  // reasons: a coach's direct action for this member, and finite, because
+  // finishing it closes the assignment out so it can never starve anything
+  // below it.
+  //
+  // BELOW the four templates it joins, and that order is the only opinion
+  // held here. When a coach has sent more than one, the one sent first is
+  // the one Root asks about first, and this one is still due on her next
+  // open because its key has no dismissal row yet. None of the five is ever
+  // swallowed by another.
+  //
+  // getMyBeingSeen returns null for every member who was never assigned
+  // this, so the gate and the offer are one read rather than two checks
+  // here that could drift from the route's. Its own branch checks its own
+  // due-ness and falls through, per this file's one rule: a branch that
+  // returned a candidate the outer due-check then threw away would silence
+  // everything below it.
+  const beingSeen = await getMyBeingSeen();
+  if (beingSeen?.status === 'pending') {
+    const messageKey = beingSeenPopupMessageKey(beingSeen.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'being_seen_assigned',
+        messageKey,
+        assignmentId: beingSeen.assignmentId,
+        title: BSN_COPY.popupTitle,
+        body: BSN_COPY.popupBody,
+        primaryHref: BSN_ROUTE,
       };
     }
   }

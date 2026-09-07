@@ -189,6 +189,19 @@ export function theWeightOfYesPopupMessageKey(assignmentId: string): string {
 }
 
 /**
+ * Being Seen's own key, scoped to the assignment exactly as the five above
+ * are, and with the identical recurring dismissal lifetime.
+ *
+ * A DISTINCT PREFIX, not a shared "happiness_deep_dive" one, for the reason
+ * the templates above it have theirs: five templates now write to one
+ * table, a member can legitimately have all five assigned at once, and a
+ * shared prefix would let one dismissal silence the others' invitations.
+ */
+export function beingSeenPopupMessageKey(assignmentId: string): string {
+  return `being_seen:${assignmentId}`;
+}
+
+/**
  * Conditional water tracking's own one-time question, for members who
  * finished intake before it existed (migration 163). A fixed constant key,
  * unlike every other key in this file: this is not scoped to a row, a date

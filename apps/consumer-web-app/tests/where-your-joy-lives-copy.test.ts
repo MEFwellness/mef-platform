@@ -219,19 +219,30 @@ describe('the closing', () => {
   });
 
   it('places her two answers in the serif face, each labelled with its own question', () => {
+    // THE MARKUP MOVED, THE RULE DID NOT. The closing centerpiece is now
+    // components/happiness-deep-dive/ClosingCenterpiece.tsx, shared by all
+    // five Happiness deep-dives, so the serif face and the two column
+    // layout are asserted there. What this template still owns, and what is
+    // still asserted here, is WHICH two answers go in it and what labels
+    // them.
     const experience = read('components/where-your-joy-lives/WhereYourJoyLivesExperience.tsx');
     expect(experience).toContain('WYJL_CLOSING_PAIR_KEYS');
     expect(experience).toContain('WYJL_CLOSING_LINE');
-    expect(experience).toContain('font-cormorant-garamond');
-    // Stacked on a phone, two columns from the medium breakpoint up.
-    expect(experience).toContain('md:grid-cols-2');
+    expect(experience).toContain('layout="pair"');
     // The label is the question itself, not a word Root invented for it.
-    expect(experience).toContain('entry.prompt');
+    expect(experience).toContain("questionFor(key)?.prompt");
+
+    const centerpiece = read('components/happiness-deep-dive/ClosingCenterpiece.tsx');
+    expect(centerpiece).toContain('font-cormorant-garamond');
+    // Stacked on a phone, two columns from the medium breakpoint up.
+    expect(centerpiece).toContain('md:grid-cols-2');
     // Nothing clamps, truncates or scrolls her writing away. Asserted on
-    // the code with the prose stripped out, because this file's own
+    // the code with the prose stripped out, because these files' own
     // comments describe the rule in the same words the classes would use.
     expect(stripComments(experience)).not.toContain('line-clamp');
     expect(stripComments(experience)).not.toContain('truncate');
+    expect(stripComments(centerpiece)).not.toContain('line-clamp');
+    expect(stripComments(centerpiece)).not.toContain('truncate');
   });
 
   it('Root reports what happened and says nothing about her', () => {

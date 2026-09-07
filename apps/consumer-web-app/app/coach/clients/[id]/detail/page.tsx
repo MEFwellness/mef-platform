@@ -163,6 +163,8 @@ import { TheGivingLedgerPanel } from '../TheGivingLedgerPanel';
 import { getClientTheGivingLedgerPanelAction } from '@/app/actions/theGivingLedger';
 import { TheWeightOfYesPanel } from '../TheWeightOfYesPanel';
 import { getClientTheWeightOfYesPanelAction } from '@/app/actions/theWeightOfYes';
+import { BeingSeenPanel } from '../BeingSeenPanel';
+import { getClientBeingSeenPanelAction } from '@/app/actions/beingSeen';
 import { assignmentNameRecord } from '@/lib/assignments/experienceNames';
 import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
 import { MovementProfilePanel } from '../MovementProfilePanel';
@@ -283,6 +285,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
     theWeightOfYesPanel,
+    beingSeenPanel,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -328,6 +331,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientWhereYourJoyLivesPanelAction(profile.id),
     getClientTheGivingLedgerPanelAction(profile.id),
     getClientTheWeightOfYesPanelAction(profile.id),
+    getClientBeingSeenPanelAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -746,6 +750,15 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             */}
             <div id="detail-card-the-weight-of-yes" className="scroll-mt-24">
               <TheWeightOfYesPanel clientId={profile.id} state={theWeightOfYesPanel} />
+            </div>
+
+            {/*
+              Being Seen, beside the five deep-dives above it, and keeping
+              its own Assign button on its own card. No prerequisite on any
+              template above it: a coach may start any client here.
+            */}
+            <div id="detail-card-being-seen" className="scroll-mt-24">
+              <BeingSeenPanel clientId={profile.id} state={beingSeenPanel} />
             </div>
 
             {/* Coach assignment minimum interface — Assessment Registry

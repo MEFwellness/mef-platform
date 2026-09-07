@@ -34,6 +34,13 @@
  * ROOT SAYS NOTHING ABOUT HER. There is no scoring here, no pattern, no
  * observation and no summary. The closing prints the sentence she wrote at
  * question eight and one fixed line that claims nothing specific about her.
+ *
+ * THE MOTION IS NOT THIS TEMPLATE'S. Every question typing itself out, the
+ * writing box arriving only once it has, the chapter beat between the three
+ * screens, the ambient layer behind the writing and the staged closing are
+ * all components/happiness-deep-dive/, shared with the four templates
+ * beside it. Nothing about the treatment is authored here and nothing here
+ * can drift from it.
  */
 
 import { useMemo, useState, useTransition } from 'react';
@@ -65,6 +72,16 @@ import {
   submitTheWeightOfYesAction,
 } from '@/app/actions/theWeightOfYes';
 import { IntroReveal } from '@/components/IntroReveal';
+import {
+  AmbientDrift,
+  ChapterCard,
+  ClosingCenterpiece,
+  ClosingTail,
+  initialSeenKeys,
+  QuestionStage,
+  useHappinessSittingMotion,
+} from '@/components/happiness-deep-dive';
+import { hddClosingLines, hddClosingTailDelayMs } from '@/lib/happiness-deep-dive/motion';
 import { TheWeightOfYesResource } from './TheWeightOfYesResource';
 
 const INTRO_STEP = -1;
@@ -106,11 +123,23 @@ export function TheWeightOfYesExperience({
   // Where she stopped. A member with nothing written starts at the
   // invitation; a member coming back lands on the first question she has
   // not answered, and never past the last one.
-  const [step, setStep] = useState<number>(() => {
-    const written = firstUnansweredIndex(initialDraft);
-    if (written === 0) return INTRO_STEP;
-    return Math.min(written, TWOY_QUESTIONS.length - 1);
-  });
+  const written = firstUnansweredIndex(initialDraft);
+  const landingStep = written === 0 ? INTRO_STEP : Math.min(written, TWOY_QUESTIONS.length - 1);
+  const [step, setStep] = useState<number>(landingStep);
+
+  // The shared treatment's own state: which questions she has already
+  // watched arrive, and whether a chapter beat is holding the screen. Seeded
+  // with everything she has written plus the question a resume lands her on,
+  // so coming back picks the pen up rather than reading her the question
+  // again.
+  const motion = useHappinessSittingMotion(
+    initialSeenKeys(
+      TWOY_QUESTIONS.filter((entry) => isAnswered(initialDraft[entry.key])).map(
+        (entry) => entry.key
+      ),
+      landingStep >= FIRST_QUESTION_STEP ? (TWOY_QUESTIONS[landingStep]?.key ?? null) : null
+    )
+  );
   const [finished, setFinished] = useState<Finished | null>(null);
   const [error, setError] = useState<string | null>(null);
   // True once a draft save has actually landed. It survives the move to
@@ -156,6 +185,13 @@ export function TheWeightOfYesExperience({
           return;
         }
         setHasSaved(true);
+        // The chapter beat, when this Continue crosses into a new screen.
+        // AFTER the save has landed, so the beat is never covering a write
+        // that might still fail.
+        const next = TWOY_QUESTIONS[step + 1];
+        if (next && next.screen !== question.screen) {
+          motion.playChapter(sectionFor(next.screen).title);
+        }
         setStep((previous) => previous + 1);
       });
       return;
@@ -205,7 +241,7 @@ export function TheWeightOfYesExperience({
         </p>
         {completed && (
           <div className="relative mt-6">
-            <YourNo answers={completed.answers} />
+            <YourNo answers={completed.answers} instant />
           </div>
         )}
         <button type="button" onClick={leave} className={`${PRIMARY} mt-7`}>
@@ -242,11 +278,30 @@ export function TheWeightOfYesExperience({
             storageKey="the-weight-of-yes-intro"
             button={{
               label: TWOY_COPY.introButton,
-              onClick: () => setStep(FIRST_QUESTION_STEP),
+              onClick: () => {
+                motion.playChapter(sectionFor(1).title);
+                setStep(FIRST_QUESTION_STEP);
+              },
               className: `${PRIMARY} mt-8`,
             }}
           />
         </div>
+      </div>
+    );
+  }
+
+  // THE CHAPTER BEAT HOLDS THE WHOLE PANEL, with nothing on it but the
+  // section title. Only the title, deliberately: the eyebrow, the Back
+  // control and the Close are all part of the question screen, and a
+  // chapter card with chrome on it is a header, not a beat. It ends on its
+  // own timer (ChapterCard), and her draft was already saved before it
+  // started.
+  if (motion.chapterTitle) {
+    return (
+      <div className={PANEL}>
+        <Glow />
+        <AmbientDrift />
+        <ChapterCard title={motion.chapterTitle} onDone={motion.endChapter} />
       </div>
     );
   }
@@ -258,6 +313,7 @@ export function TheWeightOfYesExperience({
   return (
     <div className={PANEL}>
       <Glow />
+      {question && <AmbientDrift />}
 
       <div className="relative flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
@@ -295,15 +351,13 @@ export function TheWeightOfYesExperience({
       </div>
 
       {question && (
-        <div className="relative mt-4">
-          <p className="text-[11px] uppercase tracking-wider text-[#F5F0E4]/45">
-            {`Question ${step + 1} of ${TWOY_QUESTIONS.length}`}
-          </p>
-
-          <h1 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-[28px] leading-snug text-[#F5F0E4]">
-            {prompt}
-          </h1>
-
+        <QuestionStage
+          counter={`Question ${step + 1} of ${TWOY_QUESTIONS.length}`}
+          prompt={prompt}
+          revealKey={question.key}
+          instant={motion.hasSeen(question.key)}
+          onRevealed={() => motion.markSeen(question.key)}
+        >
           <div className="mt-5">
             <textarea
               value={draft[question.key] ?? ''}
@@ -330,7 +384,7 @@ export function TheWeightOfYesExperience({
           >
             {isLastQuestion ? TWOY_COPY.questionSubmit : TWOY_COPY.questionContinue}
           </button>
-        </div>
+        </QuestionStage>
       )}
 
       {/*
@@ -343,19 +397,26 @@ export function TheWeightOfYesExperience({
       {step === CLOSING_STEP && finished && (
         <div className="relative mt-6">
           <YourNo answers={finished.answers} />
-          <h2 className="mt-8 font-[family-name:var(--font-cormorant-garamond)] text-[26px] leading-snug text-[#F5F0E4]">
-            {TWOY_COPY.closingHeading}
-          </h2>
-          <p className="mt-3 text-[16px] leading-relaxed text-[#F5F0E4]/85">
-            {TWOY_COPY.closingBody}
-          </p>
-          <button
-            type="button"
-            onClick={() => setStep(EXPERIMENT_STEP)}
-            className={`${PRIMARY} mt-8`}
+          <ClosingTail
+            delayMs={hddClosingTailDelayMs(
+              hddClosingLines(finished.answers[TWOY_CLOSING_KEY] ?? '').length,
+              true
+            )}
           >
-            {TWOY_COPY.closingContinue}
-          </button>
+            <h2 className="mt-8 font-[family-name:var(--font-cormorant-garamond)] text-[26px] leading-snug text-[#F5F0E4]">
+              {TWOY_COPY.closingHeading}
+            </h2>
+            <p className="mt-3 text-[16px] leading-relaxed text-[#F5F0E4]/85">
+              {TWOY_COPY.closingBody}
+            </p>
+            <button
+              type="button"
+              onClick={() => setStep(EXPERIMENT_STEP)}
+              className={`${PRIMARY} mt-8`}
+            >
+              {TWOY_COPY.closingContinue}
+            </button>
+          </ClosingTail>
         </div>
       )}
 
@@ -400,7 +461,7 @@ export function TheWeightOfYesExperience({
 
       {step === DONE_STEP && (
         <div className="relative mt-4">
-          {finished && <YourNo answers={finished.answers} />}
+          {finished && <YourNo answers={finished.answers} instant />}
           {experimentNote && (
             <p className="mt-6 text-[15px] leading-relaxed text-[#C4A050]">{experimentNote}</p>
           )}
@@ -443,24 +504,15 @@ function Glow() {
  * A long sentence is allowed to be long: nothing here truncates, clamps or
  * scrolls her writing away.
  */
-function YourNo({ answers }: { answers: TwoyAnswers }) {
+function YourNo({ answers, instant = false }: { answers: TwoyAnswers; instant?: boolean }) {
   const sentence = answers[TWOY_CLOSING_KEY] ?? '';
 
   return (
-    <figure className="rounded-[24px] border border-[#C4A050]/35 bg-[#F5F0E4]/[0.05] px-6 py-8 text-center">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#C4A050]">
-        {TWOY_CLOSING_LABEL}
-      </p>
-
-      <p className="mt-4 whitespace-pre-wrap break-words font-[family-name:var(--font-cormorant-garamond)] text-[26px] leading-[1.35] text-[#F5F0E4]">
-        {sentence}
-      </p>
-
-      <span aria-hidden="true" className="mx-auto mt-8 block h-px w-12 bg-[#C4A050]/50" />
-
-      <figcaption className="mt-6 text-[15px] leading-relaxed text-[#C4A050]">
-        {TWOY_CLOSING_LINE}
-      </figcaption>
-    </figure>
+    <ClosingCenterpiece
+      eyebrow={TWOY_CLOSING_LABEL}
+      entries={[{ text: sentence }]}
+      fixedLine={TWOY_CLOSING_LINE}
+      instant={instant}
+    />
   );
 }

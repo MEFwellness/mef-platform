@@ -38,11 +38,19 @@ export function canMintSessions() {
  * on a fresh browser context, or null when minting is unavailable or the
  * account could not be minted.
  */
-export async function mintSessionContext(browser, email, { baseUrl, viewport }) {
+export async function mintSessionContext(browser, email, { baseUrl, viewport, contextOptions }) {
   const minted = await mintSessionCookies(email, { baseUrl });
   if (!minted) return null;
 
-  const context = await browser.newContext({ viewport: viewport ?? { width: 1280, height: 900 } });
+  // `contextOptions` is passed straight to Playwright. It exists so a run
+  // can mint a context that asks for reduced motion, which is the only way
+  // to check that half of an animation on the real site: the media query is
+  // a property of the browser context, not something a page can be told
+  // afterwards. Every existing call site omits it and is unchanged.
+  const context = await browser.newContext({
+    viewport: viewport ?? { width: 1280, height: 900 },
+    ...(contextOptions ?? {}),
+  });
   await context.addCookies(minted.cookies);
 
   return { context, session: minted.session, service: minted.service };

@@ -90,6 +90,7 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
       { id: 'detail-card-where-your-joy-lives', title: 'Where Your Joy Lives' },
       { id: 'detail-card-the-giving-ledger', title: 'The Giving Ledger' },
       { id: 'detail-card-the-weight-of-yes', title: 'The Weight of Yes' },
+      { id: 'detail-card-being-seen', title: 'Being Seen' },
       { id: 'detail-card-assign-assessment', title: 'Assign an Assessment' },
     ],
   },

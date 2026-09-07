@@ -104,6 +104,8 @@ import { TheGivingLedgerEntry } from '@/components/the-giving-ledger/TheGivingLe
 import { getMyTheGivingLedger } from '@/lib/the-giving-ledger/view';
 import { TheWeightOfYesEntry } from '@/components/the-weight-of-yes/TheWeightOfYesEntry';
 import { getMyTheWeightOfYes } from '@/lib/the-weight-of-yes/view';
+import { BeingSeenEntry } from '@/components/being-seen/BeingSeenEntry';
+import { getMyBeingSeen } from '@/lib/being-seen/view';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -435,6 +437,7 @@ async function DayFrameRegion() {
     whereYourJoyLives,
     theGivingLedger,
     theWeightOfYes,
+    beingSeen,
     catalog,
     bodyAssessmentCard,
   ] = await Promise.all([
@@ -462,6 +465,9 @@ async function DayFrameRegion() {
       // Request-memoized, exactly as the five above are, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyTheWeightOfYes(),
+      // Request-memoized, exactly as the six above are, and the pop-up
+      // chain in PopupRegion asks for the same thing on the same render.
+      getMyBeingSeen(),
       homeQuestionnaireCatalog(),
       homeBodyAssessmentAssignment(),
     ]);
@@ -631,6 +637,29 @@ async function DayFrameRegion() {
           <TheWeightOfYesEntry
             assignmentId={theWeightOfYes.assignmentId}
             hasDraft={Object.keys(theWeightOfYes.draft).length > 0}
+          />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* BEING SEEN, persistent, coach assigned only.           */}
+      {/*                                                        */}
+      {/* Directly below The Weight of Yes and for the identical */}
+      {/* reasons. All five Happiness deep-dives can be open at  */}
+      {/* once, and when they are, all five cards stand: none    */}
+      {/* replaces another and none hides another.               */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately. The */}
+      {/* assignment is the whole gate (lib/being-seen/access.ts)*/}
+      {/* and there is no check that she finished any template   */}
+      {/* above this one either. A second rule on top would be   */}
+      {/* the invisible lock the standing rules forbid.          */}
+      {/* ==================================================== */}
+      {beingSeen?.status === 'pending' && (
+        <div className="pt-3">
+          <BeingSeenEntry
+            assignmentId={beingSeen.assignmentId}
+            hasDraft={Object.keys(beingSeen.draft).length > 0}
           />
         </div>
       )}

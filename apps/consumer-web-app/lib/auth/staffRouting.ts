@@ -98,6 +98,12 @@ export const MEMBER_ONLY_PREFIXES = [
   // sitting. Whether she was assigned it is a separate question, enforced
   // inside the route.
   '/the-weight-of-yes',
+  // Being Seen (coach assigned only), the fifth of the Happiness
+  // deep-dives. Listed for the same reason: a coach or an administrator who
+  // taps an old link belongs on their own dashboard, not inside a member's
+  // sitting. Whether she was assigned it is a separate question, enforced
+  // inside the route.
+  '/being-seen',
   // The trial arc's day 6 recap, "What This Week Showed" (/trial/week).
   // Listed for the same reason every other member experience is: a coach or
   // an administrator who taps an old link belongs on their own dashboard,

@@ -55,6 +55,11 @@ export const PRODUCT_SURFACES = [
   // she wrote, not the no she rewrote and not whether her question one ran
   // as a follow-up, reaches an analytics payload.
   'the_weight_of_yes',
+  // Being Seen, the fifth of the Happiness deep-dives. Same rule as the
+  // four above it: a surface she opened, and nothing else. Not a word she
+  // wrote, and not the thing she wishes somebody would notice, reaches an
+  // analytics payload.
+  'being_seen',
   'root_score',
   'insights',
   'noticing',

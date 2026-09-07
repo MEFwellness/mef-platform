@@ -37,6 +37,8 @@ import { TGL_DEFINITION_ID } from '../the-giving-ledger/constants';
 import { TGL_AREA, TGL_LABEL } from '../the-giving-ledger/copy';
 import { TWOY_DEFINITION_ID } from '../the-weight-of-yes/constants';
 import { TWOY_AREA, TWOY_LABEL } from '../the-weight-of-yes/copy';
+import { BSN_DEFINITION_ID } from '../being-seen/constants';
+import { BSN_AREA, BSN_LABEL } from '../being-seen/copy';
 import type { AssessmentKey } from '../assessment-registry/types';
 import type { AssignmentRowStatus } from './status';
 
@@ -117,6 +119,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
     definitionId: TWOY_DEFINITION_ID,
     displayName: TWOY_LABEL,
     areaLabel: TWOY_AREA,
+  },
+  {
+    id: 'being-seen',
+    definitionId: BSN_DEFINITION_ID,
+    displayName: BSN_LABEL,
+    areaLabel: BSN_AREA,
   },
 ];
 
