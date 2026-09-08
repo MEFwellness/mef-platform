@@ -16932,3 +16932,182 @@ entries page was opened read-only.
   locked brand warm gold, in 75, across the member side as well as the
   staff side. Unifying them is a platform-wide brand decision, not a
   coach-side presentation one.
+
+## The Life You're Building, the eighth Happiness template (2026-09-07)
+
+The closer of the Happiness set. Nine questions that all face forward,
+across three screens (Where You Stand, The Materials, The First Stone).
+Coach assigned only, no prerequisite, no tier lock, no visibility key.
+Migration 219, applied to production and verified there.
+
+### The format rotates, and this one's signature is the place-yourself slider
+
+Template seven's signature was the instinct pick, the rapid round and the
+sentence that replaces another. **None of those appears here**, and there is
+no shelf and nothing dragged either. Three of the nine questions open with a
+line that has a word at each end. She commits to a position between them,
+and only then does the written half arrive, typed in Root's voice.
+
+- "The life I am living is..." between **Built by me** and **Handed to me**
+- "Right now I feel..." between **At the beginning** and **Almost there**
+- "The main thing between me and that life is..." between **Outside me** and
+  **Inside me**
+
+The slider is `PoleSlider`, the shared component template six introduced,
+used three times as this template's whole signature. That is the rotation
+rule working rather than a contradiction of it: the rule is about
+CONSECUTIVE templates, and the line that was one question inside template
+six's shelf is the entire signature of template eight.
+
+**One new shared piece:** `components/happiness-deep-dive/PoleMap.tsx`, the
+read-only picture of several two-pole lines with her marks on them. It is
+what the closing shows her and it knows nothing about which template is
+using it (asserted).
+
+### The follow-up mechanism, used a second time
+
+Migration 214 built it for The Weight of Yes following The Giving Ledger.
+This is the first REUSE of it, and the shape of
+`lib/the-life-youre-building/followUp.ts` deliberately mirrors that one so
+the two read side by side.
+
+When a member has a COMPLETED Owning Your Value sitting at the moment she is
+about to see the intro:
+
+- the intro carries one extra typed beat ("A while back, you wrote a
+  sentence and asked Root to hold onto it. Root kept it. You will see it
+  again at the end.")
+- question nine quotes her stored `held_sentence` verbatim and asks what she
+  wants to say back to it
+- the closing prints **Then** (her earlier sentence) above **Now** (what she
+  said back), under "You wrote the first one too. Look how far the writer
+  has come."
+- the coach's card carries a "Follow-up from Owning Your Value" band
+
+When she does not, question nine asks for the sentence she would want Root
+to hold onto from today, the closing prints it alone under "This one Root
+will hold onto too.", and **nothing anywhere a member can read mentions that
+another template exists.** That half is proved twice over: against every
+member-facing STRING this feature can produce in standalone mode, and
+against the SOURCE of every member-facing file, none of which imports the
+earlier template at all. The one read of it lives behind
+`tlybFollowUpSourceSittings`, so the route and the coach action reach it
+without ever naming it.
+
+The check happens at DELIVERY TIME, and once her sitting exists the STORED
+flag decides. An Owning Your Value finished mid-sitting cannot rewrite the
+question she is inside.
+
+### Three columns of its own (migration 219)
+
+- `first_stone` (question eight, the one concrete commitment)
+- `forward_sentence` (question nine, written in **both** modes so a later
+  arc can bring the sentence back without knowing which one ran)
+- `slider_positions` (`{"positions": {"<question key>": 0 to 100}}`)
+
+No shared column is reused, for the reason migrations 213 through 218
+argued: eight templates would otherwise mean eight different questions in
+one column with no way to tell them apart. Nothing is scored: her three
+positions are never combined, averaged or given an adjective, and the only
+thing built on top of one is putting it back into words through the shared
+`hddPolePositionInWords`, which her screen and her coach's card both read.
+
+### Tests
+
+Three new files: `the-life-youre-building-copy.test.ts` (44),
+`the-life-youre-building-gate.test.ts` (57),
+`the-life-youre-building-follow-up.test.ts` (31). The eight-template
+scoped-reads proof, both question-nine modes, the delivery-time rule, the
+standalone-mentions-nothing proof, slider save and resume, and the rotation
+enforcement all live in those. `happiness-motion.test.ts` and
+`happiness-interactive.test.tsx` were extended to eight templates and to the
+new shared piece, and `happiness-motion-reduced.test.tsx` gained the new
+closing shape.
+
+Full suite 547 files, 10,175 tests, all passing. Typecheck clean, lint
+clean, production build clean.
+
+### Two real bugs the live run found, both fixed
+
+**1. The exact middle of a line was a dead spot.** A range input fires
+`change` only when its value CHANGES, so a member who felt exactly halfway
+and tapped the middle of a line she had not placed yet, whose mark is
+already drawn at 50, moved nothing: no event, no commit, no written half,
+and a screen that looked like it had not noticed her. The same hole sits at
+each end, where an arrow key cannot move the value further. `PoleSlider` now
+commits the current value on the way out of the gesture as well
+(`onPointerUp`, `onKeyUp`), which is idempotent. **This is the shared
+component, so What You Put Down's own line is fixed by the same change.**
+Two regression tests, both proved by deleting the fix.
+
+**2. The question the screen typed was not the one the sitting was asking.**
+Question nine is a plain WRITTEN question and also the one that adapts, so
+it is rendered through the path a question with no interactive half takes.
+That path read the raw prompt, so a member in follow-up mode was shown the
+STANDALONE question nine while her stored flag, her closing and her coach's
+card all correctly said follow-up. `tlybLeadPromptFor` now falls through to
+`tlybPromptFor`, and every caller that renders a question to a member hands
+it the follow-up. Regression test proved by reverting the fix.
+
+Neither was visible to any test that reads source or math. Both needed the
+real site.
+
+### Live verification, production, 2026-09-07
+
+**275 checks, 275 passing**, on `app.mefwellness.com`, driving the real
+journey end to end TWICE.
+`scripts/verify-the-life-youre-building-live.mjs` is the run.
+
+| run | checks |
+| --- | --- |
+| RUN A, standalone | 128/128 |
+| RUN B, follow-up | 128/128 |
+| both runs, regression and cleanliness | 8/8 |
+| cleanup | 9/9 |
+
+Both runs cover: the coach assigning from the real button with a due date
+seven days out from HER calendar day; one delivery receipt though two
+surfaces fire the tracker; all three marks placed with a real pointer on the
+real line; the written half of each of those genuinely absent until the mark
+is placed; the tab genuinely CLOSED mid-sitting and a brand new page
+restoring the position and the writing exactly; the closing held for nine
+seconds and several server round trips with the URL never moving; the
+experiment started and its dashboard card carrying the approved daily
+question on Day 1 of 7; and the coach reading the whole thing back.
+
+Run A additionally proves the intro has no held-sentence line, question nine
+is the standalone question, no screen mentions Owning Your Value, and the
+coach's card shows no follow-up band and says plainly that the sitting ran
+on its own. Run B completes a real Owning Your Value sitting first, through
+its own screens with real typed answers, and then proves the intro carries
+the extra line, question nine quotes the held sentence character for
+character, the closing shows Then before Now (checked as two separate
+arrivals, not just as two things present), and the coach's band carries
+both.
+
+Zero em dashes and zero console or page errors on every screen either of
+them saw. All seven earlier template cards standing before and after.
+
+**State left on production: none.** Both runs' rows were deleted in a
+`finally` and confirmed absent by an independent query afterwards: no
+sitting, no assignment, no attempt row, no experiment, no daily log and no
+pop-up dismissal. The one Being Seen sitting on the fixture predates this
+work and was counted before and after and never touched.
+
+### Three script bugs worth writing down
+
+The first live run reported ten failures. Seven of them were the two real
+bugs above. **The other three were the instrument, not the app**, and each
+one is a standing trap:
+
+- `innerText` reports CSS-transformed text, so a case-sensitive match for
+  "Built by me" fails against a screen displaying exactly that in an
+  uppercased label. Playwright's own `getByText` does not have this problem
+  because it matches the DOM text rather than the rendered transform, which
+  is why the same string could be waited for and then not found.
+- **jsonb does not preserve key order.** It sorts keys by length and then
+  bytewise, so a `JSON.stringify` comparison of a stored object fails on the
+  storage engine's ordering rather than on anything about the data.
+- A substring search for a LABEL finds the ordinary word inside somebody
+  else's copy. "Right now I feel..." sits above the Then/Now pair and
+  contains "now", so the ordering check has to match whole lines.

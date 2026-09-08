@@ -797,12 +797,18 @@ async function driveSitting(ctx, { followUp }) {
       'closing: her earlier sentence is printed above it, verbatim',
       closing.includes(HELD_SENTENCE)
     );
-    const lower = closing.toLowerCase();
+    // MATCHED AS WHOLE LINES, not as substrings. Each label is a line of
+    // its own above the sentence it names, and one of the map's own labels
+    // is "Right now I feel...", which sits above both of them: a substring
+    // search for "now" finds that instead and reports an ordering defect
+    // that is not there.
+    const lines = closing.split('\n').map((line) => line.trim().toLowerCase());
+    const thenAt = lines.indexOf('then');
+    const nowAt = lines.indexOf('now');
     check(
       'closing: they are labelled Then and Now, in that order',
-      lower.indexOf('then') > -1 &&
-        lower.indexOf('now') > lower.indexOf('then') &&
-        closing.indexOf(HELD_SENTENCE) < closing.indexOf(FOLLOW_UP_ANSWER)
+      thenAt > -1 && nowAt > thenAt && closing.indexOf(HELD_SENTENCE) < closing.indexOf(FOLLOW_UP_ANSWER),
+      `then at line ${thenAt}, now at line ${nowAt}`
     );
     check(
       'closing: the standalone fixed line is nowhere on it',
