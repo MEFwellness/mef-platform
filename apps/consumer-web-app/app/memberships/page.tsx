@@ -3,6 +3,7 @@ import Image from 'next/image';
 import {
   ASSESSMENT_INCLUDES,
   FAQ_ITEMS,
+  MEMBERSHIP_CHECKOUT_URLS,
   MEMBERSHIP_PRICES,
   MEMBERSHIP_TIERS,
   PHILOSOPHY_PILLARS,
@@ -11,7 +12,11 @@ import {
   TRAVEL_CLOSE_LINE,
   type DisclosureItem,
 } from '@/lib/memberships/content';
-import { assessmentBookingUrl, ASSESSMENT_CTA_LABEL } from '@/lib/memberships/booking';
+import {
+  assessmentBookingUrl,
+  ASSESSMENT_CTA_LABEL,
+  CHECKOUT_LINK_PROPS,
+} from '@/lib/memberships/booking';
 
 /**
  * THE PUBLIC MEF WELLNESS MEMBERSHIP PAGE.
@@ -40,7 +45,10 @@ import { assessmentBookingUrl, ASSESSMENT_CTA_LABEL } from '@/lib/memberships/bo
  *
  * IT DECIDES NOTHING AND WRITES NOTHING. A pure render: no insert, no
  * claim, no schedule, no analytics beacon. There is no migration behind
- * this page and no row anywhere that knows it was opened.
+ * this page and no row anywhere that knows it was opened. The buy buttons
+ * are links to Stripe Checkout, which does the whole transaction on its own
+ * page: this app takes no card, learns of no purchase, and grants nothing
+ * because somebody paid.
  *
  * THE COPY IS APPROVED AND VERBATIM, and lives in lib/memberships/content.ts
  * so it can be read and checked without reading layout. The four prices are
@@ -85,6 +93,27 @@ const BTN_ON_CREAM = `${BTN} border-[#F5F0E4] bg-[#F5F0E4] text-[#1B3A2D] hover:
 
 /** Outlined cream, the quiet second action beside a primary one on forest. */
 const BTN_QUIET_ON_FOREST = `${BTN} border-[#F5F0E4] bg-transparent text-[#F5F0E4] hover:bg-[#F5F0E4] hover:text-[#1B3A2D]`;
+
+/**
+ * The join button at the foot of a tier card.
+ *
+ * Outlined rather than filled, smaller than the page's own calls to action,
+ * and full width inside its card. That is the whole intent: the assessment
+ * remains the one primary thing this page asks for, because the approved
+ * copy says three separate times that the assessment comes first and the
+ * recommendation follows it. A prospect who already knows which level she
+ * wants can still buy it without a conversation, but the page never leads
+ * with that.
+ *
+ * Two tones because the middle card is forest and the outer two are white,
+ * and an outline has to be visible on whichever one it sits on.
+ */
+const BTN_JOIN =
+  'mt-6 block w-full rounded-full border-2 bg-transparent px-6 py-3 text-center text-[15px] font-bold no-underline transition-colors duration-200 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#C4A050] focus-visible:ring-offset-[3px]';
+
+const BTN_JOIN_ON_WHITE = `${BTN_JOIN} border-[#1B3A2D] text-[#1B3A2D] hover:bg-[#1B3A2D] hover:text-[#F5F0E4]`;
+
+const BTN_JOIN_ON_FOREST = `${BTN_JOIN} border-[#F5F0E4] text-[#F5F0E4] hover:bg-[#F5F0E4] hover:text-[#1B3A2D]`;
 
 const DESCRIPTION =
   'MEF Wellness combines personal training, movement, recovery, and holistic coaching into one ongoing relationship. In-person training in Brooklyn and Manhattan, with coaching that continues wherever life takes you.';
@@ -184,7 +213,7 @@ export default function MembershipsPage() {
                 actually live.
               </p>
               <div className="flex flex-wrap items-center gap-3.5">
-                <a className={BTN_ON_CREAM} href={BOOKING_URL}>
+                <a className={BTN_ON_CREAM} href={BOOKING_URL} {...CHECKOUT_LINK_PROPS}>
                   {ASSESSMENT_CTA_LABEL}
                 </a>
                 <a className={BTN_QUIET_ON_FOREST} href="#memberships">
@@ -295,7 +324,7 @@ export default function MembershipsPage() {
               <div className="mb-6">
                 <Checks items={ASSESSMENT_INCLUDES} tone="ink" />
               </div>
-              <a className={BTN_PRIMARY} href={BOOKING_URL}>
+              <a className={BTN_PRIMARY} href={BOOKING_URL} {...CHECKOUT_LINK_PROPS}>
                 Book Your Assessment
               </a>
             </div>
@@ -361,6 +390,13 @@ export default function MembershipsPage() {
                 <div className="mt-[18px] flex-1">
                   <Checks items={tier.bullets} tone={tier.featured ? 'cream' : 'ink'} />
                 </div>
+                <a
+                  className={tier.featured ? BTN_JOIN_ON_FOREST : BTN_JOIN_ON_WHITE}
+                  href={MEMBERSHIP_CHECKOUT_URLS[tier.key]}
+                  {...CHECKOUT_LINK_PROPS}
+                >
+                  {tier.joinLabel}
+                </a>
               </div>
             ))}
           </div>
@@ -513,7 +549,7 @@ export default function MembershipsPage() {
             Your first session gives us everything we need to map the right path forward: how you
             move, where you are starting, and the level of support that fits your life.
           </p>
-          <a className={BTN_ON_CREAM} href={BOOKING_URL}>
+          <a className={BTN_ON_CREAM} href={BOOKING_URL} {...CHECKOUT_LINK_PROPS}>
             {ASSESSMENT_CTA_LABEL}
           </a>
           <p className="mt-4 text-[14px] text-[#CFC9B8]">

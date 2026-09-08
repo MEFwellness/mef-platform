@@ -31,6 +31,25 @@ const URL_UNDER_TEST = `${ORIGIN}/memberships`;
 
 const PRICES = ['$175', '$550', '$1,050', '$1,350'];
 
+/**
+ * Which button must lead to which Stripe checkout, stated here rather than
+ * read off the page, so this is a check and not a tautology. The four
+ * addresses were each loaded in a browser and read on 2026-09-08: the
+ * assessment one charges $175.00 once, and the three tier ones subscribe at
+ * their monthly figure, billed monthly.
+ */
+const ASSESSMENT_CHECKOUT = 'https://buy.stripe.com/6oU14mgSu3DX2WFaLKdQQ05';
+
+const EXPECTED_CHECKOUTS = [
+  // Twice on purpose: the hero and the close carry the same approved label
+  // for the same offer.
+  { text: 'Start With Your Assessment', href: ASSESSMENT_CHECKOUT, count: 2 },
+  { text: 'Book Your Assessment', href: ASSESSMENT_CHECKOUT, count: 1 },
+  { text: 'Join Essential', href: 'https://buy.stripe.com/00wbJ031E1vP68R4nmdQQ06', count: 1 },
+  { text: 'Join Performance', href: 'https://buy.stripe.com/14A00iau66Q9btb4nmdQQ07', count: 1 },
+  { text: 'Join Total Wellness', href: 'https://buy.stripe.com/3cIfZgbya6Q98gZ9HGdQQ08', count: 1 },
+];
+
 const results = [];
 function check(name, passed, detail = '') {
   results.push({ name, passed, detail });
@@ -159,21 +178,54 @@ async function walk(browser, label, viewport) {
     (await faq.evaluate((el) => el.open)) === false
   );
 
-  // 6. Every call to action resolves to one address.
-  const hrefs = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('a')).map((a) => a.getAttribute('href'))
-  );
-  const booking = hrefs.filter((h) => h && h !== '#memberships');
-  check(`${label}: three assessment buttons plus one in-page anchor`, hrefs.length === 4, hrefs.join(' | '));
-  check(
-    `${label}: every assessment CTA resolves to one and the same address`,
-    booking.length === 3 && new Set(booking).size === 1,
-    booking[0] ?? 'none'
+  // 6. Every button leads where it is supposed to, by its own visible label.
+  const links = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('a')).map((a) => ({
+      text: (a.textContent || '').trim(),
+      href: a.getAttribute('href'),
+      target: a.getAttribute('target'),
+      rel: a.getAttribute('rel'),
+    }))
   );
   check(
-    `${label}: that address is a real destination, not a placeholder token`,
-    Boolean(booking[0]) && !booking[0].startsWith('#'),
-    booking[0] ?? 'none'
+    `${label}: seven links out, three assessment plus three tiers plus the in-page anchor`,
+    links.length === 7,
+    `${links.length} links`
+  );
+
+  for (const { text, href: expectedHref, count } of EXPECTED_CHECKOUTS) {
+    const matching = links.filter((l) => l.text === text);
+    check(
+      `${label}: ${count} "${text}" button${count === 1 ? '' : 's'}`,
+      matching.length === count,
+      `${matching.length} found`
+    );
+    // EVERY one of them, not just the first: two buttons sharing a label
+    // that lead to two different places is exactly the bug worth catching.
+    for (const link of matching) {
+      check(
+        `${label}: "${text}" leads to its own Stripe checkout`,
+        link.href === expectedHref,
+        link.href ?? 'no href'
+      );
+      check(
+        `${label}: "${text}" opens in a new tab with the opener closed off`,
+        link.target === '_blank' && (link.rel || '').includes('noopener'),
+        `target=${link.target} rel=${link.rel}`
+      );
+    }
+  }
+
+  const anchor = links.find((l) => l.href === '#memberships');
+  check(
+    `${label}: the in-page "See the Memberships" anchor does NOT open a tab`,
+    Boolean(anchor) && anchor.target !== '_blank',
+    anchor ? `target=${anchor.target}` : 'not found'
+  );
+  check(
+    `${label}: no button points at the old mail draft any more`,
+    links.every((l) => !(l.href || '').startsWith('mailto:')),
+    links.map((l) => l.href).filter((h) => (h || '').startsWith('mailto:')).join(', ') || 'none'
   );
 
   // 7. Nothing overflows sideways. A marketing page that scrolls

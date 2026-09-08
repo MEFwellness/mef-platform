@@ -44,6 +44,7 @@ import {
   ASSESSMENT_CTA_LABEL,
   assessmentBookingUrl,
 } from '../lib/memberships/booking';
+import { MEMBERSHIP_CHECKOUT_URLS } from '../lib/memberships/content';
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const MONOREPO_ROOT = path.resolve(REPO_ROOT, '..', '..');
@@ -230,22 +231,41 @@ describe('the four prices', () => {
 describe('every call to action points at one address', () => {
   const hrefs = [...html.matchAll(/<a\b[^>]*href="([^"]*)"/g)].map((m) => m[1]!);
 
-  it('renders four links out of the page: three assessment buttons and the in-page anchor', () => {
-    expect(hrefs).toHaveLength(4);
+  it('renders seven links out of the page: three assessment buttons, three tier buttons, and the in-page anchor', () => {
+    expect(hrefs).toHaveLength(7);
     expect(hrefs.filter((href) => href === '#memberships')).toHaveLength(1);
   });
 
-  it('sends all three assessment buttons to one and the same resolved booking address', () => {
-    const booking = hrefs.filter((href) => href !== '#memberships');
+  it('sends all three assessment buttons to one and the same resolved address', () => {
+    const booking = hrefs.filter((href) => href === assessmentBookingUrl());
     expect(booking).toHaveLength(3);
-    expect(new Set(booking).size).toBe(1);
-    expect(booking[0]).toBe(assessmentBookingUrl());
   });
 
-  it('falls back to an honest mailto when NEXT_PUBLIC_ASSESSMENT_BOOKING_URL is unset, so the button always does something', () => {
+  it('resolves the assessment buttons to the committed Stripe one-time checkout, not the mail draft', () => {
     // Nothing is configured in the test environment, which is exactly the
-    // state production is in until the real booking link is set.
-    expect(assessmentBookingUrl()).toBe(ASSESSMENT_BOOKING_FALLBACK);
+    // state production runs in: no override set, so the committed address
+    // is what a prospect gets.
+    expect(assessmentBookingUrl()).toBe(MEMBERSHIP_CHECKOUT_URLS.assessment);
+    expect(assessmentBookingUrl()).not.toBe(ASSESSMENT_BOOKING_FALLBACK);
+  });
+
+  it('still lets NEXT_PUBLIC_ASSESSMENT_BOOKING_URL override it, so a link can be changed with no deploy', () => {
+    // Read at call time rather than captured at module load, which is what
+    // makes the override a configuration change rather than a rebuild.
+    const before = process.env.NEXT_PUBLIC_ASSESSMENT_BOOKING_URL;
+    try {
+      process.env.NEXT_PUBLIC_ASSESSMENT_BOOKING_URL = 'https://example.test/override';
+      expect(assessmentBookingUrl()).toBe('https://example.test/override');
+      // Whitespace is not a destination: it falls through to the committed one.
+      process.env.NEXT_PUBLIC_ASSESSMENT_BOOKING_URL = '   ';
+      expect(assessmentBookingUrl()).toBe(MEMBERSHIP_CHECKOUT_URLS.assessment);
+    } finally {
+      if (before === undefined) delete process.env.NEXT_PUBLIC_ASSESSMENT_BOOKING_URL;
+      else process.env.NEXT_PUBLIC_ASSESSMENT_BOOKING_URL = before;
+    }
+  });
+
+  it('keeps the mail draft as the floor under both, so the button can never go nowhere', () => {
     expect(ASSESSMENT_BOOKING_FALLBACK).toBe(
       'mailto:info@mefwellness.com?subject=Assessment%20Booking'
     );
@@ -256,11 +276,17 @@ describe('every call to action points at one address', () => {
     expect(pageText.split(ASSESSMENT_CTA_LABEL).length - 1).toBe(2);
   });
 
-  it('builds no checkout, takes no payment and posts nowhere', () => {
+  it('builds no checkout of its own: Stripe does the whole transaction on its own page', () => {
     const pageSrc = fs.readFileSync(path.resolve(REPO_ROOT, 'app/memberships/page.tsx'), 'utf-8');
+    // Links out, never a form in. Nothing here collects a card, posts a
+    // payment, or records that one happened.
     expect(pageSrc).not.toContain('<form');
-    expect(pageSrc).not.toContain('stripe');
+    expect(pageSrc).not.toContain('<input');
     expect(html).not.toContain('<form');
+    expect(html).not.toContain('<input');
+    // And the page never types a Stripe address of its own: every one comes
+    // from the single table in content.ts.
+    expect(pageSrc).not.toContain('buy.stripe.com');
   });
 
   it('never repoints the Rooted Reset app links: this page does not read MEMBERSHIP_PRICING_URL or the discovery call', () => {
@@ -280,6 +306,110 @@ describe('every call to action points at one address', () => {
     );
     expect(conversionSrc).not.toContain('ASSESSMENT_BOOKING');
     expect(conversionSrc).not.toContain('/memberships');
+  });
+});
+
+describe('the four Stripe checkout links', () => {
+  const anchors = [...html.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]);
+
+  /** The opening tag of the one link whose href is exactly this. */
+  function anchorFor(href: string): string {
+    const found = anchors.filter((tag) => tag.includes(`href="${href}"`));
+    expect(found.length, `expected at least one link to ${href}`).toBeGreaterThan(0);
+    return found[0]!;
+  }
+
+  it('are the four addresses verified in a browser on 2026-09-08, unchanged', () => {
+    // These exact strings were each loaded and read before they shipped:
+    // the assessment page says "Pay MEF Wellness" and $175.00 with no
+    // recurring terms, and the three tier pages each say "Subscribe to"
+    // that tier, its monthly figure, and "Billed monthly". If one of these
+    // changes, re-verify it the same way before trusting it.
+    expect(MEMBERSHIP_CHECKOUT_URLS).toEqual({
+      assessment: 'https://buy.stripe.com/6oU14mgSu3DX2WFaLKdQQ05',
+      essential: 'https://buy.stripe.com/00wbJ031E1vP68R4nmdQQ06',
+      performance: 'https://buy.stripe.com/14A00iau66Q9btb4nmdQQ07',
+      total: 'https://buy.stripe.com/3cIfZgbya6Q98gZ9HGdQQ08',
+    });
+  });
+
+  it('are four different addresses, so no two buttons charge the same thing', () => {
+    const all = Object.values(MEMBERSHIP_CHECKOUT_URLS);
+    expect(new Set(all).size).toBe(4);
+    for (const url of all) expect(url.startsWith('https://buy.stripe.com/')).toBe(true);
+  });
+
+  it('cover exactly the four priced things, keyed identically to the prices', () => {
+    expect(Object.keys(MEMBERSHIP_CHECKOUT_URLS).sort()).toEqual(
+      Object.keys(MEMBERSHIP_PRICES).sort()
+    );
+  });
+
+  it('live in one file: neither the page nor the booking module types a Stripe address', () => {
+    for (const file of ['app/memberships/page.tsx', 'lib/memberships/booking.ts']) {
+      const src = fs.readFileSync(path.resolve(REPO_ROOT, file), 'utf-8');
+      expect(src, `${file} types a Stripe URL of its own`).not.toContain('buy.stripe.com');
+    }
+    const contentSrc = fs.readFileSync(
+      path.resolve(REPO_ROOT, 'lib/memberships/content.ts'),
+      'utf-8'
+    );
+    // Once each in the table, and nowhere else in that file either.
+    for (const url of Object.values(MEMBERSHIP_CHECKOUT_URLS)) {
+      expect(contentSrc.split(url).length - 1).toBe(1);
+    }
+  });
+
+  it('gives each tier card its own button, pointing at that tier and no other', () => {
+    for (const tier of MEMBERSHIP_TIERS) {
+      const href = MEMBERSHIP_CHECKOUT_URLS[tier.key];
+      const matching = anchors.filter((tag) => tag.includes(`href="${href}"`));
+      expect(matching, `${tier.name} has no button`).toHaveLength(1);
+      expect(pageText).toContain(tier.joinLabel);
+    }
+  });
+
+  it('labels the three tier buttons the way a customer reads them', () => {
+    expect(MEMBERSHIP_TIERS.map((t) => t.joinLabel)).toEqual([
+      'Join Essential',
+      'Join Performance',
+      'Join Total Wellness',
+    ]);
+  });
+
+  it('keeps the assessment as the primary action: the tier buttons are outlined, never filled', () => {
+    // A filled background that is NOT behind a hover: prefix. The tier
+    // buttons may well fill on hover, and should; they must not arrive
+    // filled, which is what would make them read as the main action.
+    const restingFill = /(^|\s)bg-\[#[0-9A-Fa-f]{6}\]/;
+    for (const tier of MEMBERSHIP_TIERS) {
+      const tag = anchorFor(MEMBERSHIP_CHECKOUT_URLS[tier.key]);
+      expect(tag).toContain('bg-transparent');
+      expect(tag, `${tier.name} arrives filled`).not.toMatch(restingFill);
+    }
+    // While the assessment buttons stay filled at rest.
+    expect(anchorFor(assessmentBookingUrl())).toMatch(restingFill);
+  });
+
+  it('opens every checkout in a new tab, with the opener closed off', () => {
+    const checkoutHrefs = [assessmentBookingUrl(), ...Object.values(MEMBERSHIP_CHECKOUT_URLS)];
+    for (const href of new Set(checkoutHrefs)) {
+      for (const tag of anchors.filter((t) => t.includes(`href="${href}"`))) {
+        expect(tag, `not new-tab: ${href}`).toContain('target="_blank"');
+        expect(tag, `no rel=noopener: ${href}`).toContain('rel="noopener"');
+      }
+    }
+  });
+
+  it('leaves the in-page anchor alone: "See the Memberships" must not open a tab', () => {
+    const anchor = anchorFor('#memberships');
+    expect(anchor).not.toContain('target="_blank"');
+  });
+
+  it('adds no urgency copy and no new sentence beside a price', () => {
+    for (const word of ['Limited', 'limited time', 'Only', 'Hurry', 'spots left', 'Save ', 'Best value']) {
+      expect(pageText).not.toContain(word);
+    }
   });
 });
 

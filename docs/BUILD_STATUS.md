@@ -1,3 +1,95 @@
+## Real Stripe checkout on /memberships (2026-09-08)
+
+Link wiring only. No price, no word of copy, no layout, no membership
+structure and nothing about Rooted Reset changed. The page a prospect
+reads is the page that was approved; it now has somewhere to go.
+
+### THE FOUR LINKS, VERIFIED BEFORE THEY SHIPPED
+
+Each Stripe address was loaded in a real browser and read, because a link
+that charges the wrong amount or the wrong cadence is the one mistake on
+this page that costs a customer money. Curl cannot answer this: all four
+return a byte identical SPA shell and fetch their own data afterwards.
+
+  **Assessment** says "Pay MEF Wellness", $175.00, "Initial Assessment &
+    Training Session", with no recurring terms anywhere on the page.
+  **MEF Essential** says "Subscribe to MEF Essential", $550.00 per month,
+    "Billed monthly".
+  **MEF Performance** says "Subscribe to MEF Performance", $1,050.00 per
+    month, "Billed monthly".
+  **MEF Total Wellness** says "Subscribe to MEF Total Wellness", $1,350.00
+    per month, "Billed monthly".
+
+All four match the approved prices on the page. Re-verify the same way if
+any of them is ever edited.
+
+### WHERE THEY LIVE
+
+`MEMBERSHIP_CHECKOUT_URLS` in `lib/memberships/content.ts`, directly under
+`MEMBERSHIP_PRICES` and keyed identically, with
+`satisfies Record<MembershipPriceKey, string>` so the compiler refuses a
+tier that has a price and no way to buy it, or a link filed under the
+wrong tier. A price and the button that charges it are one fact. Neither
+`app/memberships/page.tsx` nor `lib/memberships/booking.ts` types a Stripe
+address of its own, and a test enforces that.
+
+### WHAT EACH BUTTON DOES NOW
+
+  "Start With Your Assessment" (hero) and again at the close, and "Book
+    Your Assessment" on the assessment card: all three to the $175 one
+    time checkout.
+  "Join Essential", "Join Performance", "Join Total Wellness": one new
+    button at the foot of each tier card, to that tier's own subscription.
+
+The tier buttons are outlined, not filled, smaller than the page's own
+calls to action, and full width inside their card so all three line up.
+That is deliberate: the approved copy says three separate times that the
+assessment comes first and the recommendation follows it, so the
+assessment stays the one primary action and a prospect who already knows
+what she wants can still buy it without a conversation. No urgency copy
+was added and nothing else on the cards moved.
+
+Every checkout link opens in a new tab with `rel="noopener"`, so the page
+survives behind the purchase and the opened tab cannot reach back through
+`window.opener`. Deliberately not `noreferrer` as well: that would strip
+the header telling Stripe which page the customer came from, and
+`noopener` alone closes the real hole. The in-page "See the Memberships"
+anchor is untouched and still scrolls rather than opening a tab.
+
+### THE ENVIRONMENT VARIABLE IS NOW AN OVERRIDE
+
+`assessmentBookingUrl()` resolves in three steps:
+`NEXT_PUBLIC_ASSESSMENT_BOOKING_URL` if set, then the committed Stripe
+address, then the mail draft. The variable is unset in production, so the
+committed address is what a prospect gets; setting it in Vercel still
+swaps the assessment link with no deploy. The mail draft is the floor
+under both and is not a step anybody walks today.
+
+### STRIPE OWNS THE TRANSACTION, THIS APP OWNS NOTHING ABOUT IT
+
+These are addresses, not an integration. Nothing here takes a card, holds
+a slot, creates a row or learns that a purchase happened, and buying
+through one of these grants no account and no Rooted Reset entitlement.
+Worth remembering before anybody assumes this page gates anything.
+`MEMBERSHIP_PRICING_URL`, the trial lock and the root payment flow were
+not read or touched.
+
+### TESTS
+
+`tests/memberships-page.test.tsx` is now 87 checks, including a new block
+for the checkout wiring: the four addresses pinned, all four distinct, the
+keys matching the price keys exactly, one file naming them, per tier
+button to per tier link, every checkout new tab with noopener, the in page
+anchor NOT a new tab, the tier buttons never arriving filled, and no
+urgency copy. Full suite: 548 files, 10,275 tests, all passing. Typecheck
+clean, lint 0 errors, production build clean.
+
+`scripts/verify-memberships-page.mjs` grew the same coverage in a real
+browser and now runs 89 checks, addressing each button by its own visible
+label and checking EVERY link carrying that label, not just the first,
+because two buttons sharing a label and leading to two different places is
+exactly the bug worth catching.
+
 ## The public membership page, /memberships (2026-09-08)
 
 A marketing page for people who are NOT members yet. Nothing a current

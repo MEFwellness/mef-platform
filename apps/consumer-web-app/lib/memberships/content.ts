@@ -17,6 +17,14 @@
  * four is written down; app/memberships/page.tsx renders from here and
  * never types a dollar figure of its own.
  *
+ * AND THE FOUR CHECKOUT ADDRESSES SIT BESIDE THEM, KEYED THE SAME WAY, for
+ * a reason worth stating: a price and the button that charges it are one
+ * fact, not two. `MEMBERSHIP_CHECKOUT_URLS` uses the identical four keys as
+ * `MEMBERSHIP_PRICES`, so the compiler will not let a tier exist with a
+ * price and no way to buy it, or with a link that belongs to a different
+ * tier. If a price ever changes, the address directly underneath it is the
+ * thing that has to change with it, and it is impossible to miss.
+ *
  * WHAT THIS PAGE IS NOT. It is marketing for NEW in-person training
  * clients. It has nothing to do with Rooted Reset app subscriptions, the
  * trial lock, the app's own pricing link or any entitlement this app
@@ -49,6 +57,36 @@ export const MEMBERSHIP_PRICES = {
 
 export type MembershipPriceKey = keyof typeof MEMBERSHIP_PRICES;
 
+/**
+ * The four Stripe Checkout addresses, one per price above and keyed
+ * identically.
+ *
+ * VERIFIED AGAINST THE REAL PAGES BEFORE THEY SHIPPED, in a browser, on
+ * 2026-09-08. Each one was loaded and read: the assessment link says "Pay
+ * MEF Wellness" and $175.00 with no recurring terms, and the three tier
+ * links each say "Subscribe to <that tier>", the matching monthly figure,
+ * and "Billed monthly". A link whose amount or billing type stops matching
+ * the price beside it is a customer charged the wrong thing, so re-check
+ * them the same way if either is ever edited.
+ *
+ * STRIPE OWNS THE CHECKOUT AND THIS APP DOES NOT. These are addresses, not
+ * an integration: nothing here takes a payment, holds a card, creates a
+ * row, or learns whether a purchase happened. Nobody who buys through one
+ * of these gets an account, an entitlement or a Rooted Reset tier from it.
+ * That is deliberate for now and worth remembering before anybody assumes
+ * this page grants anything.
+ */
+export const MEMBERSHIP_CHECKOUT_URLS = {
+  /** Pay $175.00 once. Initial Assessment & Training Session. */
+  assessment: 'https://buy.stripe.com/6oU14mgSu3DX2WFaLKdQQ05',
+  /** Subscribe to MEF Essential, $550.00 per month, billed monthly. */
+  essential: 'https://buy.stripe.com/00wbJ031E1vP68R4nmdQQ06',
+  /** Subscribe to MEF Performance, $1,050.00 per month, billed monthly. */
+  performance: 'https://buy.stripe.com/14A00iau66Q9btb4nmdQQ07',
+  /** Subscribe to MEF Total Wellness, $1,350.00 per month, billed monthly. */
+  total: 'https://buy.stripe.com/3cIfZgbya6Q98gZ9HGdQQ08',
+} as const satisfies Record<MembershipPriceKey, string>;
+
 export interface MembershipTier {
   /** Stable key, used for React keys and for the price lookup. */
   key: Exclude<MembershipPriceKey, 'assessment'>;
@@ -60,11 +98,19 @@ export interface MembershipTier {
   /** Rendered on the forest panel rather than the white card. */
   featured?: boolean;
   bullets: readonly string[];
+  /**
+   * The quiet button at the foot of the card. Deliberately not derived from
+   * `name` by trimming "MEF ": a label a customer reads is written, not
+   * computed, and a future tier whose name does not start that way would
+   * silently produce nonsense.
+   */
+  joinLabel: string;
 }
 
 export const MEMBERSHIP_TIERS: readonly MembershipTier[] = [
   {
     key: 'essential',
+    joinLabel: 'Join Essential',
     name: 'MEF Essential',
     audience:
       'For the self-motivated person who wants expert direction, a weekly anchor, and a plan that holds together on their own days.',
@@ -79,6 +125,7 @@ export const MEMBERSHIP_TIERS: readonly MembershipTier[] = [
   },
   {
     key: 'performance',
+    joinLabel: 'Join Performance',
     name: 'MEF Performance',
     flag: 'The core MEF membership',
     featured: true,
@@ -95,6 +142,7 @@ export const MEMBERSHIP_TIERS: readonly MembershipTier[] = [
   },
   {
     key: 'total',
+    joinLabel: 'Join Total Wellness',
     name: 'MEF Total Wellness',
     audience:
       'For the person who wants MEF Wellness involved in the whole picture: how you train, recover, eat, sleep, and live.',
