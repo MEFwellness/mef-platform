@@ -28,6 +28,7 @@ import { ALERT_TIER_MEANING } from '@/lib/intelligence-engine/alertTiers';
 import type { CoachDashboard } from '@/lib/coach-dashboard/types';
 import type { ThisWeekBand } from '@/lib/coach-week/types';
 import { ThisWeekBandView } from './ThisWeekBandView';
+import { OPEN_FULL_DETAIL_LABEL, openFullDetailAriaLabel } from './FullDetailLink';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -385,7 +386,14 @@ export function CoachDashboardView({
       </section>
 
       {/*
-        The door to the full detail page. Same route, same destination, same
+        The SECOND door to the full detail page, and the end of the brief.
+        The first is a compact gold pill under the client's name in the
+        page header (./FullDetailLink.tsx), because this one sits below
+        several screens of reading and a coach who came for the whole file
+        had to scroll all of it to reach the way in. Both carry the same
+        label from the same constant and go to the same route.
+
+        Same route, same destination, same
         whole-card tap target it has always had: coaches simply did not read
         "Everything else about her" plus a corner arrow as the way in, so it
         now says what it is and carries a gold button label saying what
@@ -397,7 +405,7 @@ export function CoachDashboardView({
       <Link
         href={`/coach/clients/${memberId}/detail` as Route}
         data-detail-link="true"
-        aria-label={`Open full detail for ${her}`}
+        aria-label={openFullDetailAriaLabel(her)}
         className={`mef-focus-ring mef-press ${CARD} block border-2 border-[#C4A050] px-5 py-5 transition-colors hover:bg-[#C4A050]/[0.08]`}
       >
         <span className="block text-sm font-semibold uppercase tracking-wider text-[#3E5C46]">
@@ -408,7 +416,7 @@ export function CoachDashboardView({
           unchanged.
         </span>
         <span className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#C4A050] px-5 py-3 text-sm font-semibold text-[#1B3A2D] sm:w-auto">
-          Open full detail
+          {OPEN_FULL_DETAIL_LABEL}
           <ArrowUpRight className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />
         </span>
       </Link>

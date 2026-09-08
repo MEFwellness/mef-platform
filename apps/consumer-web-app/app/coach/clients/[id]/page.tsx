@@ -29,6 +29,7 @@ import { resolveLocalDate } from '@/app/actions/checkin';
 import { buildAllClientSummaries } from '@/app/coach/lib';
 import { buildCoachDashboard } from '@/lib/coach-dashboard/build';
 import { CoachDashboardView } from './CoachDashboardView';
+import { OpenFullDetailAction } from './FullDetailLink';
 import { TestAccountChip } from '@/components/staff/TestAccountChip';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 
@@ -112,6 +113,12 @@ export default async function ClientDashboardPage({ params }: { params: { id: st
           {dashboard.loggedDaysWindow} days behind everything below.
         </p>
 
+        {/* The full record, reachable without scrolling. The card at the
+            foot of the brief below is the same route and stays there as
+            the end-of-page exit: this is the one a coach who came here for
+            the whole file can take immediately. */}
+        <OpenFullDetailAction memberId={profile.id} firstName={firstName} className="mt-4" />
+
         {/* "What she entered" stays above the interpretation, for the same
             reason it always did: what she actually said is the question a
             coach opens a member to answer, and everything below is derived
@@ -146,7 +153,11 @@ export default async function ClientDashboardPage({ params }: { params: { id: st
           className="mef-focus-ring mt-4 flex items-center justify-between gap-4 rounded-[28px] bg-white px-5 py-4 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-colors hover:bg-[#1B3A2D]/[0.03]"
         >
           <span className="flex items-center gap-2">
-            <Layers className="h-4 w-4 shrink-0 text-[#3E5C46]" strokeWidth={1.75} aria-hidden="true" />
+            <Layers
+              className="h-4 w-4 shrink-0 text-[#3E5C46]"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
             <span>
               <span className="block text-sm font-semibold uppercase tracking-wider text-[#3E5C46]">
                 What {firstName}&apos;s app contains

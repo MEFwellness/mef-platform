@@ -1,3 +1,68 @@
+## Two coach-side presentation fixes: the client card, and the door to the full record (2026-09-07)
+
+Presentation only. No query changed, no score changed, no rule in
+`app/coach/lib.ts` or in "What to ask next" changed, and no member-facing
+screen was opened.
+
+### FIX 1: A CLIENT CARD IS THE MOST IMPORTANT OBJECT ON /coach AND WAS THE
+### LEAST VISIBLE THING ON IT
+
+The cards in "Your Clients" were borrowing the page's ordinary flat panel
+styling: white, no border, a 10 percent shadow, sitting on a #EFF6F1 to
+#FAFAF8 gradient. Nothing said these were the tappable objects a coach came
+to the page for. Four things changed and nothing was added to or removed
+from what a card shows.
+
+  **It separates itself from the page.** A real 12 percent forest border, a
+    deeper resting shadow, a gold border and a lift on hover, `.mef-press`
+    for the physical tap and `.mef-focus-ring` for the keyboard. It is still
+    one whole-card link to the client, with nothing nested inside it.
+  **The name is the anchor.** `text-lg font-bold` instead of the same
+    `text-base` as the caption under it.
+  **The score is the focal point.** It was a bare number on white. It is
+    now Cormorant Garamond at 2.75rem on its own tinted block in its band's
+    own brand color, read from `lib/wellness/status.ts` exactly as before.
+    A client with no score gets the same block saying "No score yet" on the
+    no-data tint, so the cards keep one rhythm instead of collapsing to
+    different heights.
+  **The status dot says what it means.** It was a 10px circle in the corner
+    carrying `aria-hidden`, so a coach had to already know the color code
+    and a screen reader was told nothing. It is a chip now: the same dot in
+    the same color, beside the label `STATUS_LABEL` already holds. No new
+    status vocabulary was invented, and a test asserts the file contains no
+    hand-typed band name.
+
+"Checked in today" and "Last check-in: Sep 3" are word for word what they
+were, as a chip rather than a grey caption. The attention reasons are still
+the same reasons, still at most two, in the same poor band. A flagged
+client still carries the Test account label.
+
+### FIX 2: THE FULL CLIENT DETAIL PAGE HAD ONE DOOR, AT THE VERY BOTTOM
+
+`/coach/clients/[id]` runs to several screens: safety, This Week, Worth
+discussing, and the six sections after that. The gold "Open full detail"
+card was the last element on it, so a coach who opened a client to read the
+whole file had to scroll the entire brief to reach the way in.
+
+There are two doors now, one route. A compact gold pill sits under the
+client's name in the page header, above every panel, visible on load with
+no scrolling. The card at the foot of the brief stays exactly where it was
+as the natural end-of-page exit. Both read their label and their accessible
+name from one constant in `app/coach/clients/[id]/FullDetailLink.tsx`, so
+the two can never drift apart, and both go to the same
+`/coach/clients/[id]/detail` route.
+
+### TESTS
+
+`tests/coach-presentation-fixes.test.tsx`, 28 checks, rendering the real
+components to real HTML and reading the real source of the page that cannot
+render without a database. They pin what changed AND what must not have:
+the same fields, the same words, the same routes, no em dash, no date
+computed on the card, and the search and five sort rules untouched.
+
+Full suite: 545 files, 10,124 tests, all passing. Typecheck clean, lint
+clean on every changed file, production build clean.
+
 ## Your Own Company, the seventh Happiness deep-dive, and the format rotation (2026-09-07)
 
 Two things shipped together, and they are different kinds of thing. One is
