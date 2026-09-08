@@ -99,6 +99,20 @@ const PUBLIC_PATHS = [
   // sits under the same prefix and resolves the member from her own session
   // cookie inside the handler, returning 204 when there is none.
   '/api/guest-preview',
+  // The public MEF Wellness membership page (app/memberships/page.tsx) —
+  // marketing for prospective IN-PERSON training clients, who by definition
+  // have no account. A logged-out direct load and a hard refresh both have
+  // to render it, so it belongs here for exactly the reason /start does.
+  //
+  // The trailing 's' is load-bearing and this entry is deliberately NOT
+  // '/membership'. That singular route is the member's own Rooted Reset
+  // subscription screen and stays as protected as it has always been: it is
+  // in MEMBER_ONLY_PREFIXES, whose matcher respects path boundaries
+  // (lib/auth/staffRouting.ts, matchesPrefix), so '/memberships' is not
+  // swallowed by it and nothing about '/membership' is loosened here.
+  // startsWith is safe in the other direction too: '/membership' does not
+  // begin with '/memberships'.
+  '/memberships',
 ];
 
 export async function middleware(request: NextRequest) {

@@ -1,3 +1,115 @@
+## The public membership page, /memberships (2026-09-08)
+
+A marketing page for people who are NOT members yet. Nothing a current
+member or a current client touches was changed: no schema, no migration,
+no entitlement, no tier, no lock screen, no member route's protection.
+
+### WHAT SHIPPED
+
+`/memberships` inside this app, on the existing deployment. Not a
+microsite, not a second Vercel project, not Leadpages. The approved
+reference (`docs/assessments/memberships-reference.html`) was rebuilt as a
+real page in this codebase, wearing the design system every public surface
+here already wears: forest #1B3A2D, gold #C4A050, cream #F5F0E4, Cormorant
+Garamond for display and DM Sans for body. It carries no member chrome,
+the same decision `/start` and `/energy` made.
+
+**The copy is verbatim.** Every headline, tier bullet, price, policy
+sentence, all twelve FAQ items, the final call to action and the footer
+are the approved words, ported without a rewrite, a shortening or an
+addition. `tests/memberships-page.test.tsx` reads the reference file
+itself and checks the shipped page against it, so the suite cannot drift
+from the source of truth by having someone retype a sentence into a test.
+
+**The four prices live in one file.** `lib/memberships/content.ts` holds
+$175, $550, $1,050 and $1,350, once each, and the page renders from there.
+The page types no dollar figure of its own and a test enforces it.
+
+**No client JavaScript.** A server component throughout. The fourteen
+accordions are native `<details>` elements, so they open, close, take
+keyboard focus and answer the browser's own find-in-page with nothing
+loaded, which is what makes the page open instantly on a phone.
+
+### THE THREE PHOTOGRAPHS
+
+Served from `public/images/memberships/` through `next/image`, which
+generates the responsive candidate set and the modern formats. No format
+variants were pre-generated. Each figure has a fixed height per breakpoint
+inside `overflow-hidden`, so the space is reserved before the file arrives
+and nothing on the page moves when it does. Every one has real alt text
+describing the photograph, and no text is laid over any of them.
+
+  **membership-hero.jpg**, beside "More than training. A system for your
+    health." Priority loaded. Desktop: the right-hand column of the
+    editorial hero. Phone: below the copy, cropped left of centre
+    (`object-[35%_28%]`) so she stays the subject.
+  **membership-travel.jpg**, beside the travel copy, which keeps the
+    no-unlimited-make-up-sessions and no-stacking sentences in full.
+  **membership-rooted.jpg**, above the green Rooted Reset panel, per the
+    approved layout. Rooted Reset reads as the digital platform within MEF
+    Wellness throughout, never as a separate company.
+
+### WHERE THE BUTTONS GO
+
+Every call to action points at one address, resolved in
+`lib/memberships/booking.ts` from `NEXT_PUBLIC_ASSESSMENT_BOOKING_URL`.
+Unset today, so all three currently open
+`mailto:info@mefwellness.com?subject=Assessment%20Booking`: an honest
+action rather than a dead button or a fake checkout. Setting that variable
+in Vercel connects the real booking page with no code change and no
+deploy of this file.
+
+That module is deliberately NOT `lib/config/conversionLinks.ts`, which
+owns the Rooted Reset APP's own two links (the discovery call and the
+post-trial pricing page). Different offer, different buyer. Neither was
+read, repointed or touched, and `tests/trial-arc-close-guard.test.ts`
+still passes unchanged.
+
+No booking, payment or checkout functionality was built.
+
+### PUBLIC, AND NOTHING ELSE MOVED
+
+`/memberships` is on `PUBLIC_PATHS` in `middleware.ts`. The trailing s is
+load-bearing: `/membership` singular is the member's own Rooted Reset
+subscription screen, it stays in `MEMBER_ONLY_PREFIXES`, and both
+matchers respect path boundaries, so nothing about it was loosened.
+Verified in a real browser, logged out: `/membership`, `/dashboard` and
+`/today` still redirect to `/login`, and `/start`, `/energy`,
+`/wellness-check` and `/login` still open exactly as before. The three
+photographs needed no allowlist change, because the middleware matcher
+has always excluded `images/`.
+
+### ONE LINK IN
+
+The bottom of the public entry result screen ("Where Your Energy Goes",
+`components/public-entry/EnergyResultView.tsx`): one quiet line, below the
+free result, below both ways into an account and below the email step, so
+it competes with none of them. Not `/start`, whose own standing rule is
+that no call to action on that page leads anywhere except its chat panel
+(`tests/start-page.test.ts`), and nowhere in member navigation.
+
+### THE DOMAIN
+
+`app.mefwellness.com` is the only domain attached to the `mef-platform`
+Vercel project, so the live address is
+`https://app.mefwellness.com/memberships`. The apex `mefwellness.com`
+exists under the team but is not attached to any project and its
+nameservers still point at Wix. No DNS or domain setting was changed.
+
+### TESTS
+
+`tests/memberships-page.test.tsx`, 75 checks, rendering the real page
+through `renderToStaticMarkup` and reading the real HTML. Full suite: 548
+files, 10,263 tests, all passing. Typecheck clean, lint 0 errors,
+production build clean.
+
+`apps/consumer-web-app/scripts/verify-memberships-page.mjs` is the durable
+browser walk: fresh logged-out contexts at 390px and 1440px, direct load
+and hard refresh, every photograph decoded, each price exactly once, an
+accordion pressed open and pressed closed, one CTA address, no horizontal
+overflow, plus the seven neighbouring-route protection checks. Point it at
+any origin with `MEMBERSHIPS_ORIGIN`.
+
 ## Assessments and Findings opens on the status of every assessment (2026-09-08)
 
 Presentation and layout only. No assignment logic changed, no data model

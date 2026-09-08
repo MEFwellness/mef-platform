@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEF Wellness Memberships</title>
+<!--
+  ============================================================
+  MEF WELLNESS MEMBERSHIP PAGE  (Leadpages HTML block)
+  ============================================================
+  HOW TO EDIT PRICES (each price appears exactly ONCE below):
+    - Assessment $175 ........ search for: id="price-assessment"
+    - Essential $550 ......... search for: id="price-essential"
+    - Performance $1,050 ..... search for: id="price-performance"
+    - Total Wellness $1,350 .. search for: id="price-total"
+
+  LINKS TO CONNECT (replace everywhere they appear):
+    - #BOOKING_LINK  -> your Calendly or Stripe link for the
+                        $175 Initial Assessment & Training Session
+
+  PHOTOGRAPHY (3 image slots, page looks finished without them):
+    - Hero .............. search for: img-slot img-hero
+    - Travel ............ search for: img-slot img-travel
+    - Rooted Reset ...... search for: img-slot img-rooted
+    To add a photo, paste inside the slot:
+      <img src="YOUR_PHOTO.jpg" alt="describe the photo">
+    and delete the <div class="img-mark"> line in that slot.
+  ============================================================
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@400;500;700&display=swap');
+
+#mefw, #mefw * { margin:0; padding:0; box-sizing:border-box; }
+#mefw {
+  --forest:#1B3A2D;
+  --forest-deep:#132A20;
+  --gold:#C4A050;
+  --cream:#F5F0E4;
+  --white:#FFFFFF;
+  --ink:#2A3B33;
+  color-scheme: light;
+  background:var(--cream);
+  color:var(--ink);
+  font-family:'DM Sans',system-ui,sans-serif;
+  font-size:17px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+#mefw h1, #mefw h2, #mefw h3 {
+  font-family:'Cormorant Garamond',Georgia,serif;
+  color:var(--forest);
+  font-weight:600;
+  line-height:1.15;
+}
+#mefw .wrap { max-width:1040px; margin:0 auto; padding:0 22px; }
+#mefw section { padding:64px 0; }
+#mefw p { max-width:62ch; }
+
+/* Buttons */
+#mefw .btn {
+  display:inline-block;
+  font-family:'DM Sans',sans-serif;
+  font-weight:700;
+  font-size:16px;
+  text-decoration:none;
+  border-radius:999px;
+  padding:16px 34px;
+  transition:background .2s ease, color .2s ease, border-color .2s ease;
+}
+#mefw .btn-primary { background:var(--forest); color:var(--cream); border:2px solid var(--forest); }
+#mefw .btn-primary:hover { background:var(--forest-deep); border-color:var(--forest-deep); }
+#mefw .btn-quiet { background:transparent; color:var(--forest); border:2px solid var(--forest); }
+#mefw .btn-quiet:hover { background:var(--forest); color:var(--cream); }
+#mefw .btn-oncream { background:var(--cream); color:var(--forest); border:2px solid var(--cream); }
+#mefw .btn-oncream:hover { background:var(--gold); border-color:var(--gold); color:var(--forest-deep); }
+#mefw a:focus-visible, #mefw summary:focus-visible {
+  outline:3px solid var(--gold); outline-offset:3px; border-radius:6px;
+}
+
+/* Image slots (placeholders until final photography) */
+#mefw .img-slot {
+  position:relative; overflow:hidden; border-radius:18px;
+  background:linear-gradient(150deg, #24473A 0%, var(--forest) 55%, var(--forest-deep) 100%);
+  min-height:230px;
+}
+#mefw .img-slot img {
+  position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:2;
+}
+#mefw .img-mark {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+}
+#mefw .img-mark span {
+  font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; font-size:22px;
+  letter-spacing:.28em; padding-left:.28em; color:var(--gold);
+  border:1px solid rgba(196,160,80,.55); border-radius:50%;
+  width:96px; height:96px; display:flex; align-items:center; justify-content:center;
+}
+#mefw .img-hero { min-height:300px; border:1px solid rgba(196,160,80,.35); }
+#mefw .img-travel { min-height:280px; border:1px solid rgba(196,160,80,.35);
+  background:linear-gradient(160deg, #2A5142 0%, #24473A 50%, var(--forest) 100%); }
+#mefw .img-rooted { min-height:200px; border:1px solid #E3DCC8; margin-bottom:18px; }
+
+/* Hero */
+#mefw .hero { background:var(--forest); color:var(--cream); padding:84px 0 76px; }
+#mefw .hero-grid { display:grid; gap:36px; }
+@media (min-width:900px){
+  #mefw .hero-grid { grid-template-columns:1.1fr .9fr; align-items:center; gap:52px; }
+  #mefw .img-hero { min-height:380px; }
+}
+#mefw .hero .brand {
+  font-family:'DM Sans',sans-serif; font-weight:700; font-size:15px;
+  letter-spacing:.14em; color:var(--gold); margin-bottom:26px;
+}
+#mefw .hero h1 {
+  color:var(--cream); font-size:clamp(38px,6.5vw,60px); max-width:16ch; margin-bottom:20px;
+}
+#mefw .hero .lede { font-size:19px; color:#E8E2D2; max-width:56ch; margin-bottom:36px; }
+#mefw .hero .cta-row { display:flex; flex-wrap:wrap; gap:14px; align-items:center; }
+#mefw .hero .cta-note { font-size:14px; color:#CFC9B8; margin-top:16px; }
+
+/* Philosophy */
+#mefw .rule { width:56px; height:3px; background:var(--gold); border:0; margin:0 0 22px; }
+#mefw .pull {
+  font-family:'Cormorant Garamond',Georgia,serif;
+  font-size:clamp(24px,3.6vw,32px); font-weight:600; color:var(--forest);
+  line-height:1.3; max-width:26ch; margin:28px 0 8px;
+}
+#mefw .pillars { display:grid; gap:26px; margin-top:40px; }
+@media (min-width:820px){ #mefw .pillars { grid-template-columns:1fr 1fr 1fr; } }
+#mefw .pillar h3 { font-size:24px; margin-bottom:8px; }
+#mefw .pillar p { font-size:16px; }
+
+/* Start / assessment */
+#mefw .start { background:var(--white); }
+#mefw .start-grid { display:grid; gap:36px; }
+@media (min-width:880px){ #mefw .start-grid { grid-template-columns:1.1fr .9fr; align-items:center; } }
+#mefw .start h2, #mefw .memberships h2, #mefw .travel h2, #mefw .policy h2,
+#mefw .rooted h2, #mefw .faq h2, #mefw .final h2 { font-size:clamp(30px,4.6vw,42px); margin-bottom:16px; }
+#mefw .assess-card {
+  background:var(--cream); border:1px solid #E3DCC8; border-radius:18px; padding:34px 30px;
+}
+#mefw .assess-card .kicker { font-weight:700; color:var(--forest); font-size:15px; margin-bottom:6px; }
+#mefw .assess-card h3 { font-size:28px; margin-bottom:6px; }
+#mefw .price { font-family:'DM Sans',sans-serif; font-weight:700; color:var(--forest); }
+#mefw .assess-card .price { font-size:22px; margin-bottom:18px; display:block; }
+#mefw .assess-card .price small { font-weight:500; color:#6B7A70; font-size:15px; }
+#mefw ul.checks { list-style:none; margin:0 0 24px; }
+#mefw ul.checks li { padding-left:26px; position:relative; margin-bottom:10px; font-size:16px; }
+#mefw ul.checks li::before {
+  content:""; position:absolute; left:0; top:9px; width:9px; height:9px;
+  border-radius:50%; background:var(--gold);
+}
+
+/* Memberships */
+#mefw .memberships { background:var(--cream); }
+#mefw .memberships .intro { margin-bottom:8px; }
+#mefw .tiers { display:grid; gap:22px; margin-top:36px; }
+@media (min-width:920px){ #mefw .tiers { grid-template-columns:1fr 1fr 1fr; align-items:stretch; } }
+#mefw .tier {
+  background:var(--white); border:1px solid #E3DCC8; border-radius:18px;
+  padding:34px 28px; display:flex; flex-direction:column;
+}
+#mefw .tier h3 { font-size:27px; margin-bottom:4px; }
+#mefw .tier .for { font-size:15px; color:#5C6B62; margin-bottom:14px; min-height:0; }
+#mefw .tier .price { font-size:30px; }
+#mefw .tier .per { font-size:15px; font-weight:500; color:#6B7A70; }
+#mefw .tier ul.checks { margin-top:18px; margin-bottom:0; flex:1; }
+#mefw .tier-featured {
+  background:var(--forest); border-color:var(--forest);
+}
+#mefw .tier-featured h3 { color:var(--cream); }
+#mefw .tier-featured .for { color:#CFC9B8; }
+#mefw .tier-featured .price { color:var(--cream); }
+#mefw .tier-featured .per { color:#B9C4BC; }
+#mefw .tier-featured ul.checks li { color:#EFEADB; }
+#mefw .tier-featured .flag {
+  display:inline-block; background:var(--gold); color:var(--forest-deep);
+  font-weight:700; font-size:13px; letter-spacing:.04em;
+  border-radius:999px; padding:5px 14px; margin-bottom:16px; align-self:flex-start;
+}
+#mefw .tiers-note { margin-top:30px; font-size:16px; }
+#mefw .tiers-note strong { color:var(--forest); }
+
+/* Travel */
+#mefw .travel { background:var(--forest); color:#E8E2D2; }
+#mefw .travel-grid { display:grid; gap:36px; }
+@media (min-width:900px){
+  #mefw .travel-grid { grid-template-columns:1fr .85fr; align-items:center; gap:52px; }
+  #mefw .img-travel { min-height:380px; }
+}
+#mefw .travel h2 { color:var(--cream); max-width:20ch; }
+#mefw .travel p { color:#E8E2D2; }
+#mefw .travel-list { list-style:none; margin:24px 0 0; display:grid; gap:10px; max-width:560px; }
+#mefw .travel-list li { padding-left:26px; position:relative; }
+#mefw .travel-list li::before {
+  content:""; position:absolute; left:0; top:10px; width:9px; height:9px;
+  border-radius:50%; background:var(--gold);
+}
+#mefw .travel .close-line {
+  font-family:'Cormorant Garamond',Georgia,serif; font-size:24px; color:var(--gold);
+  margin-top:28px;
+}
+
+/* Policy (compact accordions) */
+#mefw .policy { background:var(--white); }
+#mefw .policy details { border-bottom:1px solid #E3DCC8; padding:4px 0; }
+#mefw .policy details:first-of-type { border-top:1px solid #E3DCC8; margin-top:26px; }
+#mefw .policy summary {
+  cursor:pointer; list-style:none; display:flex; justify-content:space-between; gap:16px;
+  align-items:center; padding:15px 4px; font-weight:700; color:var(--forest); font-size:17px;
+}
+#mefw .policy summary::-webkit-details-marker { display:none; }
+#mefw .policy summary::after {
+  content:"+"; font-family:'DM Sans',sans-serif; font-weight:500; font-size:24px;
+  color:var(--gold); flex:none; transition:transform .2s ease;
+}
+#mefw .policy details[open] summary::after { transform:rotate(45deg); }
+#mefw .policy .a { padding:0 4px 16px; font-size:16px; max-width:66ch; }
+
+/* Tighter mobile rhythm */
+@media (max-width:640px){
+  #mefw section { padding:46px 0; }
+  #mefw .hero { padding:56px 0 50px; }
+  #mefw .final { padding:60px 0; }
+  #mefw .img-hero { min-height:220px; }
+  #mefw .img-travel { min-height:210px; }
+  #mefw .img-rooted { min-height:170px; }
+}
+
+/* Rooted Reset */
+#mefw .rooted { background:var(--cream); }
+#mefw .rooted .badge {
+  font-weight:700; font-size:14px; color:var(--gold); letter-spacing:.1em; margin-bottom:14px;
+}
+#mefw .rooted-grid { display:grid; gap:32px; }
+@media (min-width:860px){ #mefw .rooted-grid { grid-template-columns:1.1fr .9fr; align-items:center; } }
+#mefw .rooted-panel {
+  background:var(--forest); color:#EFEADB; border-radius:18px; padding:32px 28px;
+}
+#mefw .rooted-panel h3 { color:var(--cream); font-size:24px; margin-bottom:12px; }
+#mefw .rooted-panel ul { list-style:none; }
+#mefw .rooted-panel li { padding-left:26px; position:relative; margin-bottom:10px; font-size:16px; }
+#mefw .rooted-panel li::before {
+  content:""; position:absolute; left:0; top:9px; width:9px; height:9px; border-radius:50%; background:var(--gold);
+}
+
+/* FAQ */
+#mefw .faq { background:var(--white); }
+#mefw .faq details {
+  border-bottom:1px solid #E3DCC8; padding:6px 0;
+}
+#mefw .faq details:first-of-type { border-top:1px solid #E3DCC8; margin-top:28px; }
+#mefw .faq summary {
+  cursor:pointer; list-style:none; display:flex; justify-content:space-between; gap:16px;
+  align-items:center; padding:16px 4px;
+  font-weight:700; color:var(--forest); font-size:17px;
+}
+#mefw .faq summary::-webkit-details-marker { display:none; }
+#mefw .faq summary::after {
+  content:"+"; font-family:'DM Sans',sans-serif; font-weight:500; font-size:24px;
+  color:var(--gold); flex:none; transition:transform .2s ease;
+}
+#mefw .faq details[open] summary::after { transform:rotate(45deg); }
+#mefw .faq .a { padding:0 4px 18px; font-size:16px; max-width:66ch; }
+
+/* Final CTA */
+#mefw .final { background:var(--forest); text-align:center; padding:80px 0; }
+#mefw .final h2 { color:var(--cream); margin-left:auto; margin-right:auto; max-width:18ch; }
+#mefw .final p { color:#E8E2D2; margin:0 auto 32px; }
+#mefw .final .cta-note { font-size:14px; color:#CFC9B8; margin-top:16px; }
+
+/* Footer */
+#mefw footer { background:var(--forest-deep); color:#B9C4BC; padding:34px 0; font-size:14px; }
+#mefw footer .foot-brand { color:var(--cream); font-weight:700; letter-spacing:.12em; font-size:14px; margin-bottom:6px; }
+
+@media (prefers-reduced-motion: reduce){
+  #mefw * { transition:none !important; }
+}
+html { scroll-behavior:smooth; }
+</style>
+</head>
+<body>
+<div id="mefw">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <div class="brand">MEF WELLNESS</div>
+          <h1>More than training. A system for your health.</h1>
+          <p class="lede">MEF Wellness combines personal training, movement, recovery, and holistic coaching into one ongoing relationship, built around your body, your goals, and the way you actually live.</p>
+          <div class="cta-row">
+            <a class="btn btn-oncream" href="#BOOKING_LINK">Start With Your Assessment</a>
+            <a class="btn btn-quiet" style="color:var(--cream); border-color:var(--cream);" href="#memberships">See the Memberships</a>
+          </div>
+          <p class="cta-note">In-person training in Brooklyn and Manhattan. Coaching that continues wherever life takes you.</p>
+        </div>
+        <figure class="img-slot img-hero" aria-hidden="true">
+          <!-- HERO PHOTO: paste <img src="YOUR_PHOTO.jpg" alt="..."> here and delete the div below -->
+          <div class="img-mark"><span>MEF</span></div>
+        </figure>
+      </div>
+    </div>
+  </header>
+
+  <!-- PHILOSOPHY -->
+  <section class="philosophy">
+    <div class="wrap">
+      <hr class="rule">
+      <h2 style="font-size:clamp(30px,4.6vw,42px); margin-bottom:16px;">This is not personal training by the hour.</h2>
+      <p>Anyone can sell you a workout. What most people are missing is a system that holds together between sessions: a plan that fits your life, someone paying attention to your progress, and support for the things that quietly decide your results: recovery, stress, sleep, and consistency.</p>
+      <p class="pull">You are not purchasing workout sessions. You are entering an ongoing wellness and training system.</p>
+      <div class="pillars">
+        <div class="pillar">
+          <h3>Train with intention</h3>
+          <p>In-person coaching built on a real assessment of your movement, posture, history, and goals. Every session has a purpose inside a larger plan.</p>
+        </div>
+        <div class="pillar">
+          <h3>Supported between sessions</h3>
+          <p>Individualized programming, guidance, and accountability through the Rooted Reset platform, so progress continues on the days we are not together.</p>
+        </div>
+        <div class="pillar">
+          <h3>The whole picture</h3>
+          <p>Strength is one piece. We also pay attention to recovery, stress, sleep, and lifestyle patterns, because that is where lasting results are made.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STARTING POINT -->
+  <section class="start" id="start">
+    <div class="wrap">
+      <div class="start-grid">
+        <div>
+          <hr class="rule">
+          <h2>Every client begins in the same place.</h2>
+          <p>Before recommending anything, I need to understand you: how you move, where you are starting from, what your life demands, and what you want your health to look like. That is what your first session is for.</p>
+          <p style="margin-top:14px;">You will train, you will experience the MEF approach firsthand, and you will leave with a clear, professional recommendation for your level of support. You never have to diagnose yourself or guess at a package. The decision is always yours, but you will not be making it alone.</p>
+        </div>
+        <div class="assess-card">
+          <div class="kicker">Your starting point</div>
+          <h3>Initial Assessment &amp; Training Session</h3>
+          <span class="price" id="price-assessment">$175 <small>one time</small></span>
+          <ul class="checks">
+            <li>A full training session, experiencing the MEF approach</li>
+            <li>Movement and posture assessment</li>
+            <li>A real conversation about your goals, history, and lifestyle</li>
+            <li>A clear recommendation for the membership that fits you</li>
+          </ul>
+          <a class="btn btn-primary" href="#BOOKING_LINK">Book Your Assessment</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MEMBERSHIPS -->
+  <section class="memberships" id="memberships">
+    <div class="wrap">
+      <hr class="rule">
+      <h2>Three levels of support.</h2>
+      <p class="intro">Every membership is an ongoing coaching relationship, billed monthly. Each one includes individualized programming, full access to Rooted Reset, and support between sessions. The difference is how much of your life we work on together.</p>
+
+      <div class="tiers">
+
+        <div class="tier">
+          <h3>MEF Essential</h3>
+          <p class="for">For the self-motivated person who wants expert direction, a weekly anchor, and a plan that holds together on their own days.</p>
+          <span class="price" id="price-essential">$550<span class="per">/month</span></span>
+          <ul class="checks">
+            <li>4 personal training sessions per month</li>
+            <li>Individualized training and programming</li>
+            <li>Rooted Reset and the MEF training platform included</li>
+            <li>Guidance for what to do between sessions</li>
+            <li>Accountability check-ins</li>
+            <li>Travel-friendly programming when you need it</li>
+          </ul>
+        </div>
+
+        <div class="tier tier-featured">
+          <span class="flag">The core MEF membership</span>
+          <h3>MEF Performance</h3>
+          <p class="for">For the person ready for a true training relationship: twice-weekly coaching, steady progression, and a coach who always knows where you are.</p>
+          <span class="price" id="price-performance">$1,050<span class="per">/month</span></span>
+          <ul class="checks">
+            <li>8 personal training sessions per month</li>
+            <li>Individualized programming that progresses with you</li>
+            <li>Rooted Reset and the MEF training platform included</li>
+            <li>Between-session guidance and accountability</li>
+            <li>Travel programming and support when you are away</li>
+            <li>Ongoing adjustment as your body and goals change</li>
+          </ul>
+        </div>
+
+        <div class="tier">
+          <h3>MEF Total Wellness</h3>
+          <p class="for">For the person who wants MEF Wellness involved in the whole picture: how you train, recover, eat, sleep, and live.</p>
+          <span class="price" id="price-total">$1,350<span class="per">/month</span></span>
+          <ul class="checks">
+            <li>Everything in MEF Performance</li>
+            <li>A dedicated monthly wellness coaching session, separate from your training</li>
+            <li>Monthly review of your Rooted Reset check-ins and patterns</li>
+            <li>Wellness priorities set with you and adjusted as your life changes</li>
+            <li>Direct, ongoing focus on sleep, recovery, stress, and nutrition and lifestyle habits</li>
+            <li>The highest level of accountability and personalization</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <p class="tiers-note"><strong>Not sure which level fits?</strong> That is what your assessment is for. After we train together, I will recommend the level that matches your body, goals, and schedule.</p>
+    </div>
+  </section>
+
+  <!-- TRAVEL -->
+  <section class="travel">
+    <div class="wrap">
+      <div class="travel-grid">
+        <div>
+          <hr class="rule">
+          <h2>Your training location may change. Your coaching relationship doesn't have to.</h2>
+          <p>Many MEF clients travel often, for work and for life. When you are away, your coaching shifts with you. Depending on your membership, remote and travel workouts, individualized programming, mobility and recovery work, and Rooted Reset guidance and accountability can replace some in-person sessions until you are back.</p>
+          <p style="margin-top:14px;">Travel shifts your support rather than storing it: it does not create unlimited make-up sessions, and unused in-person sessions do not stack up while you are away. You return on track instead of behind.</p>
+          <p class="close-line">Travel is not a pause in your progress. It is part of the plan.</p>
+        </div>
+        <figure class="img-slot img-travel" aria-hidden="true">
+          <!-- TRAVEL PHOTO: paste <img src="YOUR_PHOTO.jpg" alt="..."> here and delete the div below -->
+          <div class="img-mark"><span>MEF</span></div>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCHEDULING / POLICY -->
+  <section class="policy">
+    <div class="wrap">
+      <hr class="rule">
+      <h2>Scheduling, cancellations, and missed sessions.</h2>
+      <p>Your membership reserves dedicated coaching capacity every month. Two simple guidelines keep that time valuable for you and fair for everyone.</p>
+
+      <details>
+        <summary>Rescheduling and cancellations</summary>
+        <div class="a">Sessions are designed to be used within the month they belong to. Plans change, so with at least 24 hours notice, we will find another time that month whenever possible.</div>
+      </details>
+      <details>
+        <summary>Rollover</summary>
+        <div class="a">Up to one session canceled with proper notice may carry into the immediately following month, subject to scheduling availability. Sessions do not accumulate beyond that.</div>
+      </details>
+
+      <p style="margin-top:26px;">Real life happens. Emergencies and unusual situations are always handled personally, not by policy.</p>
+    </div>
+  </section>
+
+  <!-- ROOTED RESET -->
+  <section class="rooted">
+    <div class="wrap">
+      <div class="rooted-grid">
+        <div>
+          <div class="badge">INCLUDED WITH EVERY MEMBERSHIP</div>
+          <h2>Rooted Reset</h2>
+          <p>Rooted Reset is the MEF Wellness digital platform, and it is how your coaching continues after the session ends. It carries your programs, your daily check-ins, and your progress, and it keeps me connected to how you are actually doing between sessions.</p>
+          <p style="margin-top:14px;">Rooted Reset also offers its own standalone memberships. As an MEF Wellness member, full access is simply included.</p>
+        </div>
+        <div>
+          <figure class="img-slot img-rooted" aria-hidden="true">
+            <!-- ROOTED RESET PHOTO: paste <img src="YOUR_PHOTO.jpg" alt="..."> here and delete the div below -->
+            <div class="img-mark"><span>MEF</span></div>
+          </figure>
+          <div class="rooted-panel">
+          <h3>Your coaching doesn't end when the session does.</h3>
+          <ul>
+            <li>Daily check-ins that keep you connected to your progress</li>
+            <li>Your individualized programs, wherever you are</li>
+            <li>Guidance shaped by what you actually report</li>
+            <li>A record of your journey we both can see</li>
+          </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq">
+    <div class="wrap">
+      <hr class="rule">
+      <h2>Questions people actually ask.</h2>
+
+      <details>
+        <summary>Do I have to choose a membership before my assessment?</summary>
+        <div class="a">No. The assessment comes first on purpose. You experience the work, I learn how you move and what you need, and then I recommend a level of support. You choose from there.</div>
+      </details>
+      <details>
+        <summary>What if I'm not sure whether I need one or two sessions per week?</summary>
+        <div class="a">Most people are not sure, and that is fine. Your assessment gives me what I need to make an honest recommendation, and your membership can change later as your life and goals change.</div>
+      </details>
+      <details>
+        <summary>What happens when I travel?</summary>
+        <div class="a">Your coaching travels with you. Depending on your membership, that can mean remote workouts, programming built for the equipment you have, mobility and recovery work, and ongoing guidance through Rooted Reset until we are back in person. Travel shifts your support rather than storing it, so it does not create unlimited make-up sessions.</div>
+      </details>
+      <details>
+        <summary>Do unused sessions roll over?</summary>
+        <div class="a">Within a clear limit, yes. Up to one session canceled with proper notice may carry into the immediately following month, subject to scheduling availability. Sessions do not accumulate beyond that; your membership is an ongoing coaching relationship with reserved capacity, not a stack of stored hours.</div>
+      </details>
+      <details>
+        <summary>What if I have to cancel a session?</summary>
+        <div class="a">Give me at least 24 hours notice and we will find another time that month whenever possible. True emergencies are always handled personally.</div>
+      </details>
+      <details>
+        <summary>Is Rooted Reset included?</summary>
+        <div class="a">Yes. Full Rooted Reset access is included with every MEF Wellness membership.</div>
+      </details>
+      <details>
+        <summary>Can I train remotely while traveling?</summary>
+        <div class="a">Yes. Remote and travel support is built into the memberships, because consistency should not depend on your zip code.</div>
+      </details>
+      <details>
+        <summary>Is this only personal training?</summary>
+        <div class="a">No. Training is the anchor, but every membership includes programming, guidance, accountability, and Rooted Reset. Total Wellness goes further into recovery, stress, sleep, and lifestyle coaching.</div>
+      </details>
+      <details>
+        <summary>What is different about Total Wellness?</summary>
+        <div class="a">It is not more workouts. It is a coaching layer on top of Performance: a dedicated monthly wellness coaching session separate from your training, a monthly review of your Rooted Reset check-ins and patterns, and hands-on adjustment of your priorities across sleep, recovery, stress, and nutrition and lifestyle habits.</div>
+      </details>
+      <details>
+        <summary>Can I just purchase individual sessions?</summary>
+        <div class="a">MEF Wellness is designed around ongoing coaching relationships, because that is what actually produces results. The Initial Assessment &amp; Training Session is the way to experience the work firsthand, and from there, ongoing training is membership-based. If your situation is unusual, bring it to your assessment and we will talk it through.</div>
+      </details>
+      <details>
+        <summary>How does billing work?</summary>
+        <div class="a">Memberships bill monthly on a recurring basis. If your needs change, we talk before your next billing date and adjust your level of support.</div>
+      </details>
+      <details>
+        <summary>What happens if my schedule changes?</summary>
+        <div class="a">We adapt. Session times can move, programming can shift, and busy seasons can lean more on remote support. The relationship is built to flex with your life, not break because of it.</div>
+      </details>
+
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="final">
+    <div class="wrap">
+      <h2>Begin with MEF Wellness.</h2>
+      <p>Your first session gives us everything we need to map the right path forward: how you move, where you are starting, and the level of support that fits your life.</p>
+      <a class="btn btn-oncream" href="#BOOKING_LINK">Start With Your Assessment</a>
+      <p class="cta-note">Questions first? Ask them at your assessment. That is what it is for.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot-brand">MEF WELLNESS</div>
+      <div>In-person training in Brooklyn and Manhattan. Coaching, Rooted Reset, and travel support wherever you are.</div>
+      <div style="margin-top:6px;">Rooted Reset is the digital wellness platform of MEF Wellness.</div>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -42,6 +42,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Check, ChevronDown, Loader2 } from 'lucide-react';
 import type { EnergyResult, ThreeDayNote } from '@/lib/public-entry/result';
 import {
@@ -355,6 +356,34 @@ export function EnergyResultView({
           </form>
         </section>
       )}
+
+      {/*
+        THE IN-PERSON DOOR, LAST AND QUIET.
+
+        Everything above this is about Rooted Reset, the app: her free
+        result, and both ways into an account. Some of the people who reach
+        this screen are in New York and want a coach in the room rather than
+        a program on a phone, and until now this experience had nothing to
+        say to them. One line, below every other offer, so it competes with
+        none of them: a stranger who wanted the app has already been given
+        two buttons for it before she reaches this.
+
+        It goes here rather than on /start, whose own standing rule is that
+        no CTA on that page leads anywhere except its chat panel
+        (tests/start-page.test.ts), and rather than in the member app, where
+        a prospect page has no business at all.
+      */}
+      <div className={`${ENERGY_GOLD_DIVIDER} mt-10`} />
+      <p className={`${BODY} mt-6 pb-2`}>
+        Training in person in Brooklyn or Manhattan?{' '}
+        <Link
+          href="/memberships"
+          className="mef-focus-ring font-semibold text-[#1B3A2D] underline decoration-[#C4A050] underline-offset-4"
+        >
+          See the MEF Wellness memberships
+        </Link>
+        .
+      </p>
     </div>
   );
 }
