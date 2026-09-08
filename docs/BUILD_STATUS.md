@@ -17024,7 +17024,7 @@ enforcement all live in those. `happiness-motion.test.ts` and
 new shared piece, and `happiness-motion-reduced.test.tsx` gained the new
 closing shape.
 
-Full suite 547 files, 10,175 tests, all passing. Typecheck clean, lint
+Full suite 544 files, 10,096 tests, all passing. Typecheck clean, lint
 clean, production build clean.
 
 ### Two real bugs the live run found, both fixed
