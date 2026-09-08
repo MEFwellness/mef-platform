@@ -63,6 +63,45 @@ computed on the card, and the search and five sort rules untouched.
 Full suite: 545 files, 10,124 tests, all passing. Typecheck clean, lint
 clean on every changed file, production build clean.
 
+### LIVE VERIFICATION, PRODUCTION, 2026-09-07
+
+**30 checks, 30 passing** on `app.mefwellness.com`, signed in as the real
+coach through a one-time minted session retired afterwards with scope
+'local'. Script:
+`apps/consumer-web-app/scripts/verify-coach-presentation-fixes-live.mjs`.
+
+Every visual claim is read from the COMPUTED style, not from the class
+attribute, because a class name in the HTML proves the markup and not that
+any CSS reached it. The caseload happened to hold one of each kind, so both
+branches were checked on real rows: Cat (70 out of 100, Good) and Ebony (no
+score, No data, and still carrying her Test account label).
+
+  Card border 1px at 12 percent forest, the 6px/20px/-10px shadow rather
+    than the flat panel's, `.mef-press` and `.mef-focus-ring` attached,
+    transition on transform and box-shadow.
+  Name 18px at weight 700 on both cards.
+  Score 70 at 44px in Cormorant Garamond, `rgb(47,107,79)` on an
+    `rgb(234,241,236)` block at 16px radius. The no-score card renders the
+    same block reading "No score yet" with no "/ 100".
+  Status chips read "Good" (8px `rgb(60,127,94)` dot) and "No data", so the
+    band is legible rather than a color code.
+  Each card is one link to `/coach/clients/<id>` with zero nested links or
+    buttons inside it.
+  On a 390x844 phone with `scrollY` 0, the header action occupies y 178 to
+    218, so it is entirely inside the first screen. Label "Open full
+    detail", aria-label "Open full detail for Ebony", background
+    `rgb(196,160,80)`. Tapping it landed on the detail route, and the
+    end-of-page card points at the identical href.
+  Zero page errors and zero console errors on `/coach` and on the client
+    page.
+
+ONE THING THE FIRST RUN GOT WRONG, and it was the script, not the build.
+Chrome computes a Tailwind alpha modifier on an arbitrary hex
+(`border-[#1B3A2D]/12`) as `oklab(L a b / .12)`, not as `rgba()`, so an
+rgb-only parser reported a border that was plainly on the screen as
+missing. The parser now reads the alpha out of any functional color
+notation. Worth knowing for every future computed-style assertion.
+
 ## Your Own Company, the seventh Happiness deep-dive, and the format rotation (2026-09-07)
 
 Two things shipped together, and they are different kinds of thing. One is
