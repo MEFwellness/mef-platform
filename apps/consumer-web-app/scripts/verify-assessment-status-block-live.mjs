@@ -105,10 +105,25 @@ async function openSection(page, clientId) {
   });
   const header = page.locator('button[aria-controls="detail-section-assessments-content"]');
   const digest = (await header.innerText()).replace(/\s+/g, ' ').trim();
-  await header.click();
-  // Wait on the destination's own control, never on a fixed pause.
-  await page.waitForSelector('section[aria-label="Assessment Status"]', { timeout: 30000 });
-  return digest;
+  /*
+    A HEADER THAT IS PAINTED IS NOT A HEADER THAT IS LISTENING. This page
+    is several screens of server-rendered panels and the fold is a client
+    component, so a tap that lands before hydration does nothing at all and
+    says nothing about it. Wait for the section to report itself expanded,
+    and tap again if the first one fell on the floor.
+  */
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await header.click();
+    const opened = await page
+      .waitForSelector('section[aria-label="Assessment Status"]', { timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    if (opened) return digest;
+    // A tap that DID register would have expanded it, so fold it back
+    // before trying again rather than toggling it shut on the next one.
+    if ((await header.getAttribute('aria-expanded')) === 'true') await header.click();
+  }
+  throw new Error('Assessments and Findings never opened');
 }
 
 /** Everything the block says about itself, read out of the real DOM. */

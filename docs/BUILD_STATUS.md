@@ -103,11 +103,39 @@ clean (0 errors), production build clean.
 
 ### LIVE VERIFICATION, PRODUCTION, 2026-09-08
 
+**30 checks, 30 passing** on `app.mefwellness.com`. Script:
 `apps/consumer-web-app/scripts/verify-assessment-status-block-live.mjs`,
 on a 390px phone, signed in as the real coach through a one-time minted
 session retired afterwards with scope 'local'. The read-only checks run on
 a real client's own page. The one check that writes runs on the seeded
-test fixture and deletes its row in a `finally`.
+test fixture and deletes its row in a `finally`, which it did: the fixture
+ended the run with the nine assignment rows it started with, and the real
+client's single row was never touched.
+
+  Groups in order, Not Yet Assigned (18), Assigned Waiting (0),
+    Completed (1), each header counting the rows really under it, and the
+    folded header reading "1 completed, 18 not yet assigned" over the same
+    three numbers.
+  Status block 21px into the section, the whole nineteen-row list 1,317px
+    tall, findings starting at 1,933px. Zero occurrences of the old
+    repeated sentence, one group context line, no em dash.
+  Section total 8,748px to 7,912px on the real client and 10,101px to
+    8,746px on the fixture.
+  The pinned search finding Where Your Joy Lives, opening the section,
+    scrolling to that row and marking it, with all nineteen rows still on
+    screen.
+  The inline form assigning Four Doctors Assessment with a due date, the
+    row moving to Waiting reading "Sent Sep 8. Not seen yet, they have not
+    opened a screen it appears on. Due Sep 20. Required.", both counts
+    moving, and the stored `due_at` holding 2026-09-20 as that calendar
+    day.
+  The same assignment on her own `/questionnaires` list, reading as a
+    coach assignment exactly as one always has.
+  Zero console errors and zero page errors on every screen visited.
+
+The measurement of "before" was taken from these same two pages on
+production immediately BEFORE the deploy, which is the only moment it
+could honestly be taken.
 
 ## Two coach-side presentation fixes: the client card, and the door to the full record (2026-09-07)
 
