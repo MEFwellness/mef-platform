@@ -471,7 +471,10 @@ export function TheLifeYoureBuildingExperience({
           counter={`Question ${step + 1} of ${TLYB_QUESTIONS.length}`}
           // What Root says first: the half-finished statement her mark
           // completes, or, on a plain written question, the whole question.
-          prompt={tlybLeadPromptFor(question)}
+          // The follow-up is handed in because question nine is a plain
+          // written question AND the one that adapts, so the prompt this
+          // stage types is the one this sitting is actually asking.
+          prompt={tlybLeadPromptFor(question, followUp)}
           revealKey={question.key}
           instant={motion.hasSeen(question.key)}
           onRevealed={() => motion.markSeen(question.key)}

@@ -230,13 +230,29 @@ export function isAnswered(value: string | undefined): boolean {
 /**
  * What Root says first on this question.
  *
- * A plain written question asks its one prompt. A slider question says its
- * half-finished statement above the line, and the written half arrives
- * after she has placed her mark (tlybPromptFor). One function, so the
- * screen and the coach's card can never disagree about which half is which.
+ * A slider question says its half-finished statement above the line, and
+ * the written half arrives after she has placed her mark (tlybPromptFor). A
+ * plain written question has no first half: what Root says first IS its
+ * question, which is why this falls through to tlybPromptFor rather than to
+ * `question.prompt`.
+ *
+ * THAT FALL-THROUGH IS LOAD BEARING, and it was found the hard way on the
+ * live site. Question nine is a plain written question AND the one that
+ * adapts, so a version of this that returned the raw `question.prompt`
+ * showed a member in follow-up mode the standalone question while her
+ * closing, her stored flag and her coach's card all said follow-up. The
+ * follow-up therefore has to reach this function, and every caller that
+ * renders a question to a member passes it.
+ *
+ * A caller that only ever asks about SLIDER questions (the coach card's
+ * list of her three positions) may omit it: a slider question has its own
+ * lead prompt and never adapts.
  */
-export function tlybLeadPromptFor(question: TlybQuestion): string {
-  return question.leadPrompt ?? question.prompt;
+export function tlybLeadPromptFor(
+  question: TlybQuestion,
+  followUp: TlybFollowUp | null = null
+): string {
+  return question.leadPrompt ?? tlybPromptFor(question, followUp);
 }
 
 /**

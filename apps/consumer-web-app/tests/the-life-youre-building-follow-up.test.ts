@@ -42,6 +42,7 @@ import {
   TLYB_FOLLOW_UP_KEY,
   TLYB_QUESTIONS,
   TLYB_SENTENCE_KEY,
+  tlybLeadPromptFor,
   tlybPromptFor,
 } from '@/lib/the-life-youre-building/questions';
 import {
@@ -259,6 +260,35 @@ describe('question nine, in both of its modes', () => {
     // And the adapting question is the last one, by key, not by position in
     // some other list.
     expect(TLYB_QUESTIONS[8]?.key).toBe(TLYB_FOLLOW_UP_KEY);
+  });
+
+  it('THE QUESTION THE SCREEN ACTUALLY TYPES IS THE ONE THIS SITTING ASKS', async () => {
+    // Found on the live site. Question nine is a plain WRITTEN question and
+    // also the one that adapts, so it is rendered through the same path a
+    // question with no interactive half takes. A version of that path that
+    // read `question.prompt` directly showed a member in follow-up mode the
+    // standalone question while her closing, her stored flag and her
+    // coach's card all said follow-up.
+    world.sessions = [owningYourValueRow()];
+    const state = await buildTlybState(fakeClient(), MEMBER);
+    const followUp = state?.status === 'pending' ? state.followUp : null;
+    expect(followUp).not.toBeNull();
+
+    const nine = TLYB_QUESTIONS[8]!;
+    expect(tlybLeadPromptFor(nine, followUp)).toBe(tlybPromptFor(nine, followUp));
+    expect(tlybLeadPromptFor(nine, followUp)).toContain(HELD);
+    expect(tlybLeadPromptFor(nine, followUp)).not.toBe(nine.prompt);
+    // And standalone still asks the standalone question.
+    expect(tlybLeadPromptFor(nine, null)).toBe(nine.prompt);
+    // A slider question is untouched by the follow-up in either direction.
+    const one = TLYB_QUESTIONS[0]!;
+    expect(tlybLeadPromptFor(one, followUp)).toBe(one.leadPrompt);
+    expect(tlybLeadPromptFor(one, null)).toBe(one.leadPrompt);
+
+    // And the screen hands it in rather than dropping it on the floor.
+    expect(
+      read('components/the-life-youre-building/TheLifeYoureBuildingExperience.tsx')
+    ).toContain('prompt={tlybLeadPromptFor(question, followUp)}');
   });
 
   it('the intro carries the extra line in follow-up mode and not otherwise', () => {

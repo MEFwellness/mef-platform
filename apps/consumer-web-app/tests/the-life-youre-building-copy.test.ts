@@ -316,7 +316,7 @@ describe('the three screens and the nine questions', () => {
   });
 
   it('the three things Root says first above a line are the approved statements', () => {
-    expect(TLYB_QUESTIONS.map(tlybLeadPromptFor)).toEqual([
+    expect(TLYB_QUESTIONS.map((question) => tlybLeadPromptFor(question))).toEqual([
       'The life I am living is...',
       'Right now I feel...',
       // A plain written question asks its own prompt and nothing before it.

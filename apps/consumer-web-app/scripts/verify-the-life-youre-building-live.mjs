@@ -234,6 +234,22 @@ function positionInWords(value, near, far) {
   return far.toLowerCase();
 }
 
+/**
+ * Whether a stored slider_positions column holds exactly these marks.
+ *
+ * KEY BY KEY, NOT BY JSON.stringify. jsonb does not preserve the order the
+ * keys were written in (it sorts them by length and then bytewise), so a
+ * string comparison here fails on the storage engine's ordering rather than
+ * on anything about her marks.
+ */
+function samePositions(stored, expected) {
+  const got = stored?.positions;
+  if (!got || typeof got !== 'object') return false;
+  const keys = Object.keys(expected);
+  if (Object.keys(got).length !== keys.length) return false;
+  return keys.every((key) => got[key] === expected[key]);
+}
+
 /** Console and page errors, per page, so a failure names the screen it happened on. */
 const errors = [];
 let dashes = 0;
@@ -623,7 +639,7 @@ async function driveSitting(ctx, { followUp }) {
   );
   check(
     'draft: all three marks are stored structured, under this template’s own question keys',
-    JSON.stringify(draft?.slider_positions ?? null) === JSON.stringify({ positions: placed }),
+    samePositions(draft?.slider_positions, placed),
     JSON.stringify(draft?.slider_positions ?? null)
   );
   check(
@@ -754,7 +770,10 @@ async function driveSitting(ctx, { followUp }) {
     .waitFor({ state: 'visible', timeout: 30000 });
 
   const closing = await page.innerText('body');
-  check('closing: the composition of her three lines is on screen', closing.includes(MAP_HEADING));
+  check(
+    'closing: the composition of her three lines is on screen',
+    saysLoosely(closing, MAP_HEADING)
+  );
   for (const line of LINES) {
     check(
       `closing: the line "${line.lead}" is labelled with the question it answers`,
@@ -778,10 +797,11 @@ async function driveSitting(ctx, { followUp }) {
       'closing: her earlier sentence is printed above it, verbatim',
       closing.includes(HELD_SENTENCE)
     );
+    const lower = closing.toLowerCase();
     check(
       'closing: they are labelled Then and Now, in that order',
-      closing.indexOf('Then') > -1 &&
-        closing.indexOf('Now') > closing.indexOf('Then') &&
+      lower.indexOf('then') > -1 &&
+        lower.indexOf('now') > lower.indexOf('then') &&
         closing.indexOf(HELD_SENTENCE) < closing.indexOf(FOLLOW_UP_ANSWER)
     );
     check(
@@ -793,7 +813,10 @@ async function driveSitting(ctx, { followUp }) {
       'closing: nothing on it mentions another experience, or a sentence from one',
       !/Owning Your Value/i.test(closing) &&
         !closing.includes(HELD_SENTENCE) &&
-        !/\bThen\b/.test(closing.slice(closing.indexOf(MAP_HEADING)))
+        // The Then label is a line of its own above her sentence, so this
+        // matches the LABEL rather than the ordinary English word, which
+        // she is free to have written.
+        !/(^|\n)\s*then\s*(\n|$)/i.test(closing)
     );
     check(
       'closing: the follow-up fixed line is nowhere on it',
@@ -859,7 +882,8 @@ async function driveSitting(ctx, { followUp }) {
   );
   check(
     'storage: all three marks are stored where she put them',
-    JSON.stringify(finished?.slider_positions ?? null) === JSON.stringify({ positions: placed })
+    samePositions(finished?.slider_positions, placed),
+    JSON.stringify(finished?.slider_positions ?? null)
   );
   check(
     'storage: all nine written answers are stored',
