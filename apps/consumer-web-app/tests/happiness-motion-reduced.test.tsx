@@ -57,6 +57,14 @@ const { YOC_CLOSING_FIRST_LABEL, YOC_CLOSING_LINE, YOC_CLOSING_SECOND_LABEL } = 
 const { BSN_CLOSING_LABEL, BSN_CLOSING_LINE, BSN_HOLD_LABEL } = await import(
   '@/lib/being-seen/copy'
 );
+const { PoleMap } = await import('@/components/happiness-deep-dive/PoleMap');
+const { TLYB_QUESTIONS, tlybLeadPromptFor } = await import(
+  '@/lib/the-life-youre-building/questions'
+);
+const {
+  TLYB_CLOSING_STANDALONE_LINE,
+  TLYB_SLIDER_COPY,
+} = await import('@/lib/the-life-youre-building/copy');
 
 declare global {
   // eslint-disable-next-line no-var
@@ -338,5 +346,89 @@ describe('with motion on, the second half and the two beat closing', () => {
     expect(container.textContent).toContain('You should have known better');
     expect(container.textContent).toContain('That went badly and I know why');
     expect(container.textContent).toContain(YOC_CLOSING_LINE);
+  });
+});
+
+// ---------------------------------------------------------------------
+// The Life You're Building's closing: a picture of three lines she placed
+// herself on, and one sentence beneath it. The same shared treatment, a
+// different shape.
+// ---------------------------------------------------------------------
+
+const HER_SENTENCE = 'I am building something that already has me in it';
+
+function renderPoleMapClosing() {
+  act(() => {
+    root.render(
+      <ClosingCenterpiece
+        entries={[{ text: HER_SENTENCE }]}
+        fixedLine={TLYB_CLOSING_STANDALONE_LINE}
+        visualBeats={1}
+        visual={
+          <PoleMap
+            lines={TLYB_QUESTIONS.filter((question) => question.kind === 'slider').map(
+              (question, index) => ({
+                key: question.key,
+                label: tlybLeadPromptFor(question),
+                poles: question.poles ?? { near: '', far: '' },
+                value: [8, 50, 95][index]!,
+              })
+            )}
+            heading={TLYB_SLIDER_COPY.mapHeading}
+            label={TLYB_SLIDER_COPY.mapLabel}
+            unsetLabel={TLYB_SLIDER_COPY.unset}
+          />
+        }
+      />
+    );
+  });
+}
+
+describe('with reduced motion asked for, a closing that carries her three marks', () => {
+  beforeEach(() => setReducedMotion(true));
+
+  it('arrives whole: the picture, her sentence and the fixed line, on the first frame', () => {
+    renderPoleMapClosing();
+    // Every one of her three lines, labelled and read back in words.
+    for (const question of TLYB_QUESTIONS.filter((entry) => entry.kind === 'slider')) {
+      expect(container.textContent).toContain(tlybLeadPromptFor(question));
+    }
+    expect(container.textContent).toContain('halfway between At the beginning and Almost there');
+    expect(container.textContent).toContain(HER_SENTENCE);
+    expect(container.textContent).toContain(TLYB_CLOSING_STANDALONE_LINE);
+    // Nothing is waiting, and nothing is fading.
+    expect(container.querySelectorAll('.mef-fade-in')).toHaveLength(0);
+  });
+
+  it('reproduces her sentence character for character', () => {
+    renderPoleMapClosing();
+    const words = Array.from(container.querySelectorAll('p')).find((node) =>
+      (node.textContent ?? '').includes(HER_SENTENCE)
+    );
+    expect(words?.textContent).toBe(HER_SENTENCE);
+  });
+});
+
+describe('with motion on, a closing that carries her three marks', () => {
+  beforeEach(() => setReducedMotion(false));
+
+  it('is quiet first, and the fixed line waits out the picture and her sentence', async () => {
+    vi.useFakeTimers();
+    renderPoleMapClosing();
+    expect(container.textContent).not.toContain(HER_SENTENCE);
+    expect(container.textContent).not.toContain(TLYB_CLOSING_STANDALONE_LINE);
+
+    // Twice, for the reason the superseded closing above needs it twice.
+    await act(async () => {
+      vi.advanceTimersByTime(30000);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30000);
+    });
+    vi.useRealTimers();
+
+    expect(container.textContent).toContain(TLYB_SLIDER_COPY.mapHeading);
+    expect(container.textContent).toContain(HER_SENTENCE);
+    expect(container.textContent).toContain(TLYB_CLOSING_STANDALONE_LINE);
   });
 });

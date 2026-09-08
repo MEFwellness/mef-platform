@@ -43,6 +43,8 @@ import { WYPD_DEFINITION_ID } from '../what-you-put-down/constants';
 import { WYPD_AREA, WYPD_LABEL } from '../what-you-put-down/copy';
 import { YOC_DEFINITION_ID } from '../your-own-company/constants';
 import { YOC_AREA, YOC_LABEL } from '../your-own-company/copy';
+import { TLYB_DEFINITION_ID } from '../the-life-youre-building/constants';
+import { TLYB_AREA, TLYB_LABEL } from '../the-life-youre-building/copy';
 import type { AssessmentKey } from '../assessment-registry/types';
 import type { AssignmentRowStatus } from './status';
 
@@ -141,6 +143,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
     definitionId: YOC_DEFINITION_ID,
     displayName: YOC_LABEL,
     areaLabel: YOC_AREA,
+  },
+  {
+    id: 'the-life-youre-building',
+    definitionId: TLYB_DEFINITION_ID,
+    displayName: TLYB_LABEL,
+    areaLabel: TLYB_AREA,
   },
 ];
 

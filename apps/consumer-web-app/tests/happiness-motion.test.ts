@@ -45,6 +45,7 @@ import { TWOY_QUESTIONS } from '@/lib/the-weight-of-yes/questions';
 import { BSN_QUESTIONS } from '@/lib/being-seen/questions';
 import { WYPD_QUESTIONS } from '@/lib/what-you-put-down/questions';
 import { YOC_QUESTIONS } from '@/lib/your-own-company/questions';
+import { TLYB_QUESTIONS } from '@/lib/the-life-youre-building/questions';
 import { OYV_SECTIONS } from '@/lib/owning-your-value/copy';
 import { WYJL_SECTIONS } from '@/lib/where-your-joy-lives/copy';
 import { TGL_SECTIONS } from '@/lib/the-giving-ledger/copy';
@@ -52,11 +53,12 @@ import { TWOY_SECTIONS } from '@/lib/the-weight-of-yes/copy';
 import { BSN_SECTIONS } from '@/lib/being-seen/copy';
 import { WYPD_SECTIONS } from '@/lib/what-you-put-down/copy';
 import { YOC_SECTIONS } from '@/lib/your-own-company/copy';
+import { TLYB_SECTIONS } from '@/lib/the-life-youre-building/copy';
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const read = (rel: string) => readFileSync(path.join(APP_ROOT, rel), 'utf8');
 
-/** The seven templates, and the one file each renders its question flow from. */
+/** The eight templates, and the one file each renders its question flow from. */
 const TEMPLATES = [
   {
     name: 'Owning Your Value',
@@ -100,6 +102,13 @@ const TEMPLATES = [
     questions: YOC_QUESTIONS,
     sections: YOC_SECTIONS,
   },
+  {
+    name: "The Life You're Building",
+    experience:
+      'components/the-life-youre-building/TheLifeYoureBuildingExperience.tsx',
+    questions: TLYB_QUESTIONS,
+    sections: TLYB_SECTIONS,
+  },
 ] as const;
 
 const ALL_PROMPTS = TEMPLATES.flatMap((template) =>
@@ -109,9 +118,9 @@ const ALL_TITLES = TEMPLATES.flatMap((template) =>
   template.sections.map((section) => section.title)
 );
 
-describe('all seven templates inherit the treatment', () => {
-  it('there are seven of them, and they are the whole family', () => {
-    expect(TEMPLATES).toHaveLength(7);
+describe('all eight templates inherit the treatment', () => {
+  it('there are eight of them, and they are the whole family', () => {
+    expect(TEMPLATES).toHaveLength(8);
   });
 
   it('every one renders its questions through the shared QuestionStage', () => {
@@ -216,7 +225,7 @@ describe('a question types at a calm speaking pace', () => {
     expect(hddQuestionTypingMs(longest)).toBeLessThanOrEqual(HDD_QUESTION_MAX_TYPING_MS);
   });
 
-  it('every prompt in all six templates finishes typing inside three and a half seconds', () => {
+  it('every prompt in all eight templates finishes typing inside three and a half seconds', () => {
     for (const prompt of ALL_PROMPTS) {
       expect(hddQuestionTypingMs(prompt), prompt.slice(0, 40)).toBeLessThanOrEqual(
         HDD_QUESTION_MAX_TYPING_MS
@@ -265,7 +274,7 @@ describe('the chapter beat is about two seconds', () => {
     }
   });
 
-  it('is about two seconds for every section title in all six templates', () => {
+  it('is about two seconds for every section title in all eight templates', () => {
     for (const title of ALL_TITLES) {
       expect(hddChapterBeatMs(title), title).toBeGreaterThanOrEqual(1800);
       expect(hddChapterBeatMs(title), title).toBeLessThanOrEqual(2600);
@@ -279,8 +288,8 @@ describe('the chapter beat is about two seconds', () => {
     }
   });
 
-  it('there are twenty one section titles, three on each of the seven templates', () => {
-    expect(ALL_TITLES).toHaveLength(21);
+  it('there are twenty four section titles, three on each of the eight templates', () => {
+    expect(ALL_TITLES).toHaveLength(24);
     for (const template of TEMPLATES) {
       expect(template.sections, template.name).toHaveLength(3);
     }

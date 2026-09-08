@@ -54,6 +54,7 @@ import { TWOY_COPY } from '@/lib/the-weight-of-yes/copy';
 import { BSN_COPY } from '@/lib/being-seen/copy';
 import { WYPD_COPY } from '@/lib/what-you-put-down/copy';
 import { YOC_COPY } from '@/lib/your-own-company/copy';
+import { TLYB_COPY } from '@/lib/the-life-youre-building/copy';
 import { ROOT_WELCOME_COPY } from '@/lib/public-entry/copy';
 import {
   TrackTrialArcDelivered,
@@ -83,6 +84,10 @@ type WhatYouPutDownMessage = Extract<
 type YourOwnCompanyMessage = Extract<
   RootPopupMessage,
   { kind: 'your_own_company_assigned' }
+>;
+type TheLifeYoureBuildingMessage = Extract<
+  RootPopupMessage,
+  { kind: 'the_life_youre_building_assigned' }
 >;
 type HydrationFocusMessage = Extract<RootPopupMessage, { kind: 'hydration_focus' }>;
 type PublicEntryWelcomeMessage = Extract<RootPopupMessage, { kind: 'public_entry_welcome' }>;
@@ -646,6 +651,29 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
+  if (message.kind === 'the_life_youre_building_assigned') {
+    const m: TheLifeYoureBuildingMessage = message;
+    return (
+      <>
+        {/* The same receipt as the nine branches above, on the same table:
+            this is an assessment_assignments row like any other coach
+            assignment, so it gets the one receipt system rather than a
+            second one of its own. */}
+        <TrackAssignmentDelivered assignmentId={m.assignmentId} presentation="popup" />
+        <RootInvitePopup
+          eyebrow={TLYB_COPY.popupEyebrow}
+          title={m.title}
+          body={m.body}
+          ctaLabel={TLYB_COPY.popupCta}
+          href={m.primaryHref}
+          isPending={isPending}
+          onMaybeLater={handleMaybeLater}
+          onIgnore={handleIgnore}
+        />
+      </>
+    );
+  }
+
   if (isOffer) {
     return <RootOfferPopup message={message as OfferMessage} onClose={() => setClosed(true)} />;
   }
@@ -673,6 +701,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | BeingSeenMessage
     | WhatYouPutDownMessage
     | YourOwnCompanyMessage
+    | TheLifeYoureBuildingMessage
     | HydrationFocusMessage
     | PublicEntryWelcomeMessage
     | TrialArcMessage

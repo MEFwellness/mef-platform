@@ -1,7 +1,7 @@
 /**
  * The shared Happiness deep-dive treatment, in one place.
  *
- * Seven templates import from here and none of them owns any of it: the
+ * Eight templates import from here and none of them owns any of it: the
  * question arrival, the chapter beat between screens, the ambient layer and
  * the staged closing are properties of the experience type. The numbers
  * behind them are in lib/happiness-deep-dive/motion.ts.
@@ -39,6 +39,7 @@ export { WordCard, type WordCardTone } from './WordCard';
 export { CardShelf, type ShelfCard } from './CardShelf';
 export { PlacingDeck } from './PlacingDeck';
 export { PoleSlider } from './PoleSlider';
+export { PoleMap, type PoleMapLine } from './PoleMap';
 export { InstinctPair } from './InstinctPair';
 export { RapidRound, type RapidItem } from './RapidRound';
 export { SupersededPair } from './SupersededPair';

@@ -37,6 +37,8 @@ import { WYPD_DEFINITION_ID } from '../what-you-put-down/constants';
 import { WYPD_LABEL } from '../what-you-put-down/copy';
 import { YOC_DEFINITION_ID } from '../your-own-company/constants';
 import { YOC_LABEL } from '../your-own-company/copy';
+import { TLYB_DEFINITION_ID } from '../the-life-youre-building/constants';
+import { TLYB_LABEL } from '../the-life-youre-building/copy';
 
 /** What a row is called when nothing above names it. Kept as one constant so the two callers print the same word. */
 export const UNNAMED_ASSIGNMENT_LABEL = 'Assessment';
@@ -55,6 +57,7 @@ export function assignmentNamesByDefinitionId(): Map<string, string> {
     [BSN_DEFINITION_ID, BSN_LABEL],
     [WYPD_DEFINITION_ID, WYPD_LABEL],
     [YOC_DEFINITION_ID, YOC_LABEL],
+    [TLYB_DEFINITION_ID, TLYB_LABEL],
   ]);
 }
 

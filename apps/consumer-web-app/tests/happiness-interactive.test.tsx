@@ -52,6 +52,7 @@ const { WordCard } = await import('@/components/happiness-deep-dive/WordCard');
 const { CardShelf } = await import('@/components/happiness-deep-dive/CardShelf');
 const { PlacingDeck } = await import('@/components/happiness-deep-dive/PlacingDeck');
 const { PoleSlider } = await import('@/components/happiness-deep-dive/PoleSlider');
+const { PoleMap } = await import('@/components/happiness-deep-dive/PoleMap');
 const { ClosingCenterpiece } = await import(
   '@/components/happiness-deep-dive/ClosingCenterpiece'
 );
@@ -68,6 +69,10 @@ const { YOC_RAPID_PAIR, YOC_RAPID_PHRASES, YOC_RAPID_QUESTION } = await import(
 const { YOC_CLOSING_FIRST_LABEL, YOC_CLOSING_SECOND_LABEL } = await import(
   '@/lib/your-own-company/copy'
 );
+const { TLYB_QUESTIONS, tlybLeadPromptFor } = await import(
+  '@/lib/the-life-youre-building/questions'
+);
+const { TLYB_SLIDER_COPY } = await import('@/lib/the-life-youre-building/copy');
 
 declare global {
   // eslint-disable-next-line no-var
@@ -574,6 +579,7 @@ describe('the interactive pieces are shared, not owned by one template', () => {
       'CardShelf',
       'PlacingDeck',
       'PoleSlider',
+      'PoleMap',
       'InstinctPair',
       'RapidRound',
       'SupersededPair',
@@ -599,6 +605,7 @@ describe('the interactive pieces are shared, not owned by one template', () => {
       'components/happiness-deep-dive/CardShelf.tsx',
       'components/happiness-deep-dive/PlacingDeck.tsx',
       'components/happiness-deep-dive/PoleSlider.tsx',
+      'components/happiness-deep-dive/PoleMap.tsx',
       'components/happiness-deep-dive/InstinctPair.tsx',
       'components/happiness-deep-dive/RapidRound.tsx',
       'components/happiness-deep-dive/SupersededPair.tsx',
@@ -614,6 +621,7 @@ describe('the interactive pieces are shared, not owned by one template', () => {
       'components/happiness-deep-dive/CardShelf.tsx',
       'components/happiness-deep-dive/PlacingDeck.tsx',
       'components/happiness-deep-dive/PoleSlider.tsx',
+      'components/happiness-deep-dive/PoleMap.tsx',
       'components/happiness-deep-dive/InstinctPair.tsx',
       'components/happiness-deep-dive/RapidRound.tsx',
       'components/happiness-deep-dive/SupersededPair.tsx',
@@ -626,6 +634,8 @@ describe('the interactive pieces are shared, not owned by one template', () => {
       expect(source, file).not.toContain('what-you-put-down');
       expect(source, file).not.toContain('YOC_');
       expect(source, file).not.toContain('your-own-company');
+      expect(source, file).not.toContain('TLYB_');
+      expect(source, file).not.toContain('the-life-youre-building');
     }
   });
 });
@@ -952,5 +962,106 @@ describe('with reduced motion asked for, the instinct pieces', () => {
     expect(container.innerHTML).not.toContain('mef-fade-in');
     expect(second?.className).toContain('text-[26px]');
     expect(first?.className).toContain('text-[20px]');
+  });
+});
+
+// ---------------------------------------------------------------------
+// The picture of several lines, read back. The Life You're Building's
+// closing, and the rotation rule in practice a second time.
+// ---------------------------------------------------------------------
+
+/** The three lines that template asks her to stand on, with marks on two of them. */
+function tlybLines(withThird: boolean) {
+  return TLYB_QUESTIONS.filter((question) => question.kind === 'slider').map(
+    (question, index) => ({
+      key: question.key,
+      label: tlybLeadPromptFor(question),
+      poles: question.poles ?? { near: '', far: '' },
+      value: index === 2 && !withThird ? null : [8, 50, 95][index]!,
+    })
+  );
+}
+
+function renderMap(withThird: boolean) {
+  act(() => {
+    root.render(
+      <PoleMap
+        lines={tlybLines(withThird)}
+        heading={TLYB_SLIDER_COPY.mapHeading}
+        label={TLYB_SLIDER_COPY.mapLabel}
+        unsetLabel={TLYB_SLIDER_COPY.unset}
+      />
+    );
+  });
+}
+
+describe('the picture of her lines', () => {
+  beforeEach(() => setReducedMotion(false));
+
+  it('names itself, and carries one row per line she was asked about', () => {
+    renderMap(true);
+    const map = container.querySelector(`[aria-label="${TLYB_SLIDER_COPY.mapLabel}"]`);
+    expect(map).not.toBeNull();
+    expect(map?.querySelectorAll('li')).toHaveLength(3);
+    expect(container.textContent).toContain(TLYB_SLIDER_COPY.mapHeading);
+  });
+
+  it('labels every line with the statement her mark completed, in those words', () => {
+    renderMap(true);
+    for (const question of TLYB_QUESTIONS.filter((entry) => entry.kind === 'slider')) {
+      expect(container.textContent).toContain(tlybLeadPromptFor(question));
+      expect(container.textContent).toContain(question.poles!.near);
+      expect(container.textContent).toContain(question.poles!.far);
+    }
+  });
+
+  it('reads every position back in words, never as a number', () => {
+    renderMap(true);
+    const text = container.textContent ?? '';
+    // 8, 50 and 95 on the three lines, in the shared bands.
+    expect(text).toContain('built by me');
+    expect(text).toContain('halfway between At the beginning and Almost there');
+    expect(text).toContain('inside me');
+    // No raw position anywhere on the picture.
+    expect(text).not.toMatch(/\b8\b/);
+    expect(text).not.toMatch(/\b95\b/);
+    expect(text).not.toContain('%');
+  });
+
+  it('a line she never placed says so, and is drawn with no mark', () => {
+    renderMap(false);
+    expect(container.textContent).toContain(TLYB_SLIDER_COPY.unset);
+    // Two marks on the picture, not three: the third line carries none
+    // rather than a mark quietly sitting at its middle.
+    const rows = Array.from(container.querySelectorAll('li'));
+    const marked = rows.filter((row) => row.querySelectorAll('span[style]').length > 0);
+    expect(marked).toHaveLength(2);
+  });
+
+  it('is not a control: nothing on it can be pressed or moved', () => {
+    renderMap(true);
+    expect(container.querySelectorAll('button')).toHaveLength(0);
+    expect(container.querySelectorAll('input')).toHaveLength(0);
+  });
+
+  it('never shortens her question labels to fit', () => {
+    renderMap(true);
+    expect(container.innerHTML).not.toContain('line-clamp');
+    expect(container.innerHTML).not.toContain('truncate');
+  });
+});
+
+describe('with reduced motion asked for, the picture of her lines', () => {
+  it('is identical, because it has no motion to remove', () => {
+    setReducedMotion(false);
+    renderMap(true);
+    const moving = container.innerHTML;
+
+    setReducedMotion(true);
+    renderMap(true);
+    expect(container.innerHTML).toBe(moving);
+    // And there is genuinely nothing timed on it either way.
+    expect(moving).not.toContain('transition');
+    expect(moving).not.toContain('animation');
   });
 });

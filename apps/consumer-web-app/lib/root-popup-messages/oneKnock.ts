@@ -77,6 +77,7 @@ export const PROTECTED_POPUP_KINDS: readonly string[] = [
   'being_seen_assigned',
   'what_you_put_down_assigned',
   'your_own_company_assigned',
+  'the_life_youre_building_assigned',
   'priority_card',
   'hydration_focus',
   'cvs_day3',

@@ -143,6 +143,7 @@ import {
   beingSeenPopupMessageKey,
   whatYouPutDownPopupMessageKey,
   yourOwnCompanyPopupMessageKey,
+  theLifeYoureBuildingPopupMessageKey,
   hydrationFocusPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
@@ -177,12 +178,15 @@ import { TWOY_ROUTE } from '@/lib/the-weight-of-yes/constants';
 import { getMyBeingSeen } from '@/lib/being-seen/view';
 import { getMyWhatYouPutDown } from '@/lib/what-you-put-down/view';
 import { getMyYourOwnCompany } from '@/lib/your-own-company/view';
+import { getMyTheLifeYoureBuilding } from '@/lib/the-life-youre-building/view';
 import { BSN_COPY } from '@/lib/being-seen/copy';
 import { BSN_ROUTE } from '@/lib/being-seen/constants';
 import { WYPD_COPY } from '@/lib/what-you-put-down/copy';
 import { WYPD_ROUTE } from '@/lib/what-you-put-down/constants';
 import { YOC_COPY } from '@/lib/your-own-company/copy';
 import { YOC_ROUTE } from '@/lib/your-own-company/constants';
+import { TLYB_COPY } from '@/lib/the-life-youre-building/copy';
+import { TLYB_ROUTE } from '@/lib/the-life-youre-building/constants';
 import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import type { RenderedReview } from '@/lib/weekly-review/types';
 import { resolveLocalDate } from './checkin';
@@ -456,6 +460,29 @@ export type RootPopupMessage =
    */
   | {
       kind: 'your_own_company_assigned';
+      messageKey: string;
+      assignmentId: string;
+      title: string;
+      body: string;
+      primaryHref: string;
+    }
+  /**
+   * The Life You're Building, the eighth Happiness deep-dive and the closer
+   * of the set, coach assigned only.
+   *
+   * Same shape and the same reasons as the seven above it. It CAN run as a
+   * follow-up to Owning Your Value, and this knock still names no other
+   * experience and cannot: it is handed a title, a body and a route and
+   * nothing else, and the body it is handed is the one standalone sentence.
+   * Whether the sitting behind the route runs as a follow-up is decided
+   * when she opens it, not here.
+   *
+   * Carries no questions and no reading. This message is an INVITATION into
+   * an experience on its own route, so it renders through the same
+   * RootInvitePopup and inherits its real Maybe later and Ignore buttons.
+   */
+  | {
+      kind: 'the_life_youre_building_assigned';
       messageKey: string;
       assignmentId: string;
       title: string;
@@ -1079,6 +1106,38 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
         title: YOC_COPY.popupTitle,
         body: YOC_COPY.popupBody,
         primaryHref: YOC_ROUTE,
+      };
+    }
+  }
+
+  // The Life You're Building, immediately below Your Own Company and for
+  // the identical reasons: a coach's direct action for this member, and
+  // finite, because finishing it closes the assignment out so it can never
+  // starve anything below it.
+  //
+  // BELOW the seven templates it joins, and that order is the only opinion
+  // held here. When a coach has sent more than one, the one sent first is
+  // the one Root asks about first, and this one is still due on her next
+  // open because its key has no dismissal row yet. None of the eight is
+  // ever swallowed by another.
+  //
+  // getMyTheLifeYoureBuilding returns null for every member who was never
+  // assigned this, so the gate and the offer are one read rather than two
+  // checks here that could drift from the route's. Its own branch checks
+  // its own due-ness and falls through, per this file's one rule: a branch
+  // that returned a candidate the outer due-check then threw away would
+  // silence everything below it.
+  const theLifeYoureBuilding = await getMyTheLifeYoureBuilding();
+  if (theLifeYoureBuilding?.status === 'pending') {
+    const messageKey = theLifeYoureBuildingPopupMessageKey(theLifeYoureBuilding.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'the_life_youre_building_assigned',
+        messageKey,
+        assignmentId: theLifeYoureBuilding.assignmentId,
+        title: TLYB_COPY.popupTitle,
+        body: TLYB_COPY.popupBody,
+        primaryHref: TLYB_ROUTE,
       };
     }
   }

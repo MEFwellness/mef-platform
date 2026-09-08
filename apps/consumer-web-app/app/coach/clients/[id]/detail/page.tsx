@@ -169,6 +169,8 @@ import { WhatYouPutDownPanel } from '../WhatYouPutDownPanel';
 import { getClientWhatYouPutDownPanelAction } from '@/app/actions/whatYouPutDown';
 import { YourOwnCompanyPanel } from '../YourOwnCompanyPanel';
 import { getClientYourOwnCompanyPanelAction } from '@/app/actions/yourOwnCompany';
+import { TheLifeYoureBuildingPanel } from '../TheLifeYoureBuildingPanel';
+import { getClientTheLifeYoureBuildingPanelAction } from '@/app/actions/theLifeYoureBuilding';
 import { assignmentNameRecord } from '@/lib/assignments/experienceNames';
 import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
 import { MovementProfilePanel } from '../MovementProfilePanel';
@@ -292,6 +294,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     beingSeenPanel,
     whatYouPutDownPanel,
     yourOwnCompanyPanel,
+    theLifeYoureBuildingPanel,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -340,6 +343,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientBeingSeenPanelAction(profile.id),
     getClientWhatYouPutDownPanelAction(profile.id),
     getClientYourOwnCompanyPanelAction(profile.id),
+    getClientTheLifeYoureBuildingPanelAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -780,6 +784,19 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             */}
             <div id="detail-card-your-own-company" className="scroll-mt-24">
               <YourOwnCompanyPanel clientId={profile.id} state={yourOwnCompanyPanel} />
+            </div>
+
+            {/*
+              The Life You're Building, beside the seven deep-dives above
+              it, and keeping its own Assign button on its own card. No
+              prerequisite on any template above it, including the one it
+              can follow: a coach may start any client here.
+            */}
+            <div id="detail-card-the-life-youre-building" className="scroll-mt-24">
+              <TheLifeYoureBuildingPanel
+                clientId={profile.id}
+                state={theLifeYoureBuildingPanel}
+              />
             </div>
 
             {/* Coach assignment minimum interface — Assessment Registry

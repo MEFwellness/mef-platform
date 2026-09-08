@@ -17,15 +17,22 @@
  *
  * THE SECOND STANDING RULE: THE FORMAT ROTATES. No two consecutive
  * templates share an interactive signature, because a set of nine-question
- * sittings that all feel alike is one experience delivered seven times.
+ * sittings that all feel alike is one experience delivered eight times.
  * What You Put Down's signature is the shelf, the drag and the two-pole
  * line. Your Own Company uses NONE of those: its signature is the instinct
  * pick, fast this-or-that pairs answered from the gut, each one feeding the
- * writing that slows her down to examine what the gut just said. Every
- * piece below is built to be reached for again in a different combination
- * rather than to belong to the template that needed it first, and none of
- * them knows which template is using it (asserted in
- * tests/happiness-interactive.test.tsx).
+ * writing that slows her down to examine what the gut just said. The Life
+ * You're Building uses none of Your Own Company's: its signature is the
+ * place-yourself slider, three of them, each one asking her to commit to a
+ * position between two words before the writing asks her why she is
+ * standing there. That is the rule working as intended rather than a
+ * contradiction of it: the rule is about CONSECUTIVE templates, and the
+ * line that was one question inside template six's shelf is the whole
+ * signature of template eight, three times over, with no shelf and nothing
+ * dragged anywhere near it. Every piece below is built to be reached for
+ * again in a different combination rather than to belong to the template
+ * that needed it first, and none of them knows which template is using it
+ * (asserted in tests/happiness-interactive.test.tsx).
  *
  * PLAIN MODULE, NO 'use client', for the reason ./motion.ts documents: Next
  * treats every export of a 'use client' file as a client reference, so a

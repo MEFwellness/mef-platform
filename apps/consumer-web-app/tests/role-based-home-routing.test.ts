@@ -203,6 +203,7 @@ describe('member analytics', () => {
       being_seen: '/being-seen',
       what_you_put_down: '/what-you-put-down',
       your_own_company: '/your-own-company',
+      the_life_youre_building: '/the-life-youre-building',
       root_score: '/root-score',
       insights: '/insights',
       noticing: '/noticing',

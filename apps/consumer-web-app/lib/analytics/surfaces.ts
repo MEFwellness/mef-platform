@@ -70,6 +70,12 @@ export const PRODUCT_SURFACES = [
   // wrote, not a single instinct pick, not her count in the rapid round and
   // not which line she said cuts deepest, reaches an analytics payload.
   'your_own_company',
+  // The Life You're Building, the eighth of the Happiness deep-dives. Same
+  // rule as the seven above it: a surface she opened, and nothing else. Not
+  // a word she wrote, not one of the three positions she placed herself at,
+  // not the first stone she named and not whether the sitting ran as a
+  // follow-up, reaches an analytics payload.
+  'the_life_youre_building',
   'root_score',
   'insights',
   'noticing',

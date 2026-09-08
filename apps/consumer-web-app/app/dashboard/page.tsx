@@ -110,6 +110,8 @@ import { WhatYouPutDownEntry } from '@/components/what-you-put-down/WhatYouPutDo
 import { getMyWhatYouPutDown } from '@/lib/what-you-put-down/view';
 import { YourOwnCompanyEntry } from '@/components/your-own-company/YourOwnCompanyEntry';
 import { getMyYourOwnCompany } from '@/lib/your-own-company/view';
+import { TheLifeYoureBuildingEntry } from '@/components/the-life-youre-building/TheLifeYoureBuildingEntry';
+import { getMyTheLifeYoureBuilding } from '@/lib/the-life-youre-building/view';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -444,6 +446,7 @@ async function DayFrameRegion() {
     beingSeen,
     whatYouPutDown,
     yourOwnCompany,
+    theLifeYoureBuilding,
     catalog,
     bodyAssessmentCard,
   ] = await Promise.all([
@@ -480,6 +483,9 @@ async function DayFrameRegion() {
       // Request-memoized, exactly as the eight above are, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyYourOwnCompany(),
+      // Request-memoized, exactly as the nine above are, and the pop-up
+      // chain in PopupRegion asks for the same thing on the same render.
+      getMyTheLifeYoureBuilding(),
       homeQuestionnaireCatalog(),
       homeBodyAssessmentAssignment(),
     ]);
@@ -742,6 +748,47 @@ async function DayFrameRegion() {
               Object.keys(yourOwnCompany.instinct.picks).length > 0 ||
               Object.keys(yourOwnCompany.instinct.rapid).length > 0 ||
               yourOwnCompany.instinct.deepestCutLineId !== null
+            }
+          />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* THE LIFE YOU'RE BUILDING, persistent, coach assigned   */}
+      {/* only.                                                  */}
+      {/*                                                        */}
+      {/* Directly below Your Own Company and for the identical  */}
+      {/* reasons. All eight Happiness deep-dives can be open at */}
+      {/* once, and when they are, all eight cards stand: none   */}
+      {/* replaces another and none hides another.               */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately. The */}
+      {/* assignment is the whole gate                           */}
+      {/* (lib/the-life-youre-building/access.ts) and there is   */}
+      {/* no check that she finished any template above this     */}
+      {/* one, including the one this can follow. A second rule  */}
+      {/* on top would be the invisible lock the standing rules  */}
+      {/* forbid.                                                */}
+      {/*                                                        */}
+      {/* A DRAFT HERE IS MORE THAN WRITING. Three of its nine   */}
+      {/* questions open with a mark that leaves no prose, so a  */}
+      {/* member who placed herself on two lines and closed the  */}
+      {/* app has a genuine sitting in progress. The resume      */}
+      {/* label reads her marks as well as her writing, or it    */}
+      {/* would tell her to start something she is halfway       */}
+      {/* through.                                               */}
+      {/*                                                        */}
+      {/* THIS CARD NAMES NO OTHER EXPERIENCE, in either mode.   */}
+      {/* Whether her sitting runs as a follow-up is decided     */}
+      {/* when she opens it, and the card is never told.         */}
+      {/* ==================================================== */}
+      {theLifeYoureBuilding?.status === 'pending' && (
+        <div className="pt-3">
+          <TheLifeYoureBuildingEntry
+            assignmentId={theLifeYoureBuilding.assignmentId}
+            hasDraft={
+              Object.keys(theLifeYoureBuilding.draft).length > 0 ||
+              Object.keys(theLifeYoureBuilding.sliders.positions).length > 0
             }
           />
         </div>

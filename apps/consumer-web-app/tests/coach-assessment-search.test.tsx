@@ -156,9 +156,18 @@ function render(query: string): string {
   );
 }
 
-/** React escapes &, < and > on the way into HTML, and one display name carries an ampersand. */
+/**
+ * React escapes &, <, > and ' on the way into HTML. One display name
+ * carries an ampersand and another carries an apostrophe, so both have to
+ * be escaped here or an assertion about a real name fails on the escaping
+ * rather than on the name.
+ */
 function esc(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&#x27;');
 }
 
 /** Just the searchable list, so an assertion about it cannot be satisfied by the ledger underneath. */
