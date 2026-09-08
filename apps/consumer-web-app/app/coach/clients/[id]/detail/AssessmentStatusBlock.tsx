@@ -43,8 +43,16 @@ import { requestDetailSection, useAssessmentRowFocusRequests } from '@/lib/coach
 import { sectionIdForAnchor } from '@/lib/coach-detail/sections';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+/*
+  THE ROW IS ONE LINE HIGH WHEREVER IT CAN BE, which is the whole reason
+  this block replaced nineteen cards. The name takes the width it needs
+  and the area chip sits beside it, dropping to a second line only when a
+  long name on a narrow phone leaves it nowhere else to go. Nothing here
+  is a new colour, a new radius or a new type size: the chip is the one
+  the deleted Assign panel used, one step smaller.
+*/
 const CHIP =
-  'shrink-0 rounded-full bg-[#1B3A2D]/5 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#4F645A]';
+  'shrink-0 rounded-full bg-[#1B3A2D]/5 px-2 py-px text-[10px] font-semibold uppercase tracking-wide text-[#4F645A]';
 const OVERDUE_CHIP =
   'shrink-0 rounded-full bg-[#FDECEC] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#9B2C2C]';
 const FIELD =
@@ -134,7 +142,7 @@ export function AssessmentStatusBlock({
 
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
 
-      <div className="mt-4 space-y-5">
+      <div className="mt-4 space-y-4">
         {(['notYetAssigned', 'waiting', 'completed'] as GroupKey[]).map((key) => (
           <div key={key} data-assessment-group={key}>
             <div className="flex items-baseline gap-2">
@@ -151,7 +159,7 @@ export function AssessmentStatusBlock({
             {groups[key].length === 0 ? (
               <p className="mt-2 text-sm text-[#6B7A72]">{EMPTY_LINE[key]}</p>
             ) : (
-              <ul className="mt-2 divide-y divide-[#1B3A2D]/5 border-t border-[#1B3A2D]/5">
+              <ul className="mt-1.5 divide-y divide-[#1B3A2D]/5 border-t border-[#1B3A2D]/5">
                 {groups[key].map((row) => (
                   <AssessmentRow
                     key={row.id}
@@ -206,14 +214,16 @@ function AssessmentRow({
     <li
       id={assessmentRowElementId(row.id)}
       data-assessment-row={row.id}
-      className={`scroll-mt-24 rounded-xl px-1 py-3 transition ${
+      className={`-mx-1 scroll-mt-24 rounded-xl px-1 py-2 transition ${
         highlighted ? 'bg-[#F5B700]/15' : ''
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-[#1B3A2D]">{row.displayName}</span>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="text-sm font-medium leading-snug text-[#1B3A2D]">
+              {row.displayName}
+            </span>
             <span className={CHIP}>{row.areaLabel}</span>
             {row.assignment?.isOverdue && <span className={OVERDUE_CHIP}>Overdue</span>}
           </div>
@@ -224,7 +234,7 @@ function AssessmentRow({
             coach's timezone and those days belong to the member's.
           */}
           {row.assignment && (
-            <p className="mt-0.5 text-xs text-[#6B7A72]">
+            <p className="mt-0.5 text-xs leading-snug text-[#6B7A72]">
               {row.assignment.statusLine}
               {group === 'waiting' && (row.assignment.isRequired ? ' Required.' : ' Optional.')}
             </p>
@@ -236,7 +246,7 @@ function AssessmentRow({
             type="button"
             onClick={onToggleForm}
             aria-expanded={formOpen}
-            className="mef-focus-ring mef-press shrink-0 rounded-full bg-[#1B3A2D] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#163025]"
+            className="mef-focus-ring mef-press shrink-0 rounded-full bg-[#1B3A2D] px-3.5 py-1 text-xs font-semibold text-white transition hover:bg-[#163025]"
           >
             {formOpen ? 'Close' : 'Assign'}
           </button>

@@ -21,9 +21,13 @@
  *      reason a coach stops opening sections.
  *   3. THE SENTENCE IS GONE. Zero occurrences of the old repeated line,
  *      and at most one line of context for the whole first group.
- *   4. THE SCROLL IS SHORTER. The expanded section is measured in pixels
- *      and compared against the figure taken from THIS SAME PAGE before
- *      the deploy (BEFORE_HEIGHT_CAT / BEFORE_HEIGHT_FIXTURE).
+ *   4. THE SCROLL. Two different numbers, both measured and both printed.
+ *      The distance to REACH the assessment list is what this build set
+ *      out to change and it went from the bottom of the section to the
+ *      top. The section's own total height is mostly the findings, which
+ *      the brief said to keep and render fully, so it is asserted only to
+ *      have gone down, against the figure taken from THIS SAME PAGE before
+ *      the deploy (BEFORE_HEIGHT_READ / BEFORE_HEIGHT_WRITE).
  *   5. THE PINNED SEARCH STILL LANDS. Typing "joy" and choosing the
  *      questionnaire opens the section, scrolls to that questionnaire's
  *      own row, and marks it.
@@ -124,10 +128,18 @@ async function readBlock(page) {
         top: Math.round(el.getBoundingClientRect().top + window.scrollY),
       };
     });
-    const groupIds = ['findings-wellness-identity', 'findings-snapshots', 'findings-deep-dive-results'];
+    const groupIds = [
+      'findings-wellness-identity',
+      'findings-snapshots',
+      'findings-deep-dive-results',
+    ];
     const findings = groupIds.map((id) => {
       const el = document.getElementById(id);
-      return { id, present: Boolean(el), top: el ? Math.round(el.getBoundingClientRect().top + window.scrollY) : null };
+      return {
+        id,
+        present: Boolean(el),
+        top: el ? Math.round(el.getBoundingClientRect().top + window.scrollY) : null,
+      };
     });
     const content = document.getElementById('detail-section-assessments-content');
     const status = document.getElementById('detail-card-assessment-status');
@@ -137,7 +149,10 @@ async function readBlock(page) {
       findings,
       expandedHeight: content ? Math.round(content.getBoundingClientRect().height) : null,
       statusTop: status ? Math.round(status.getBoundingClientRect().top + window.scrollY) : null,
-      oldSentenceCount: text.split('Nothing about this is offered to them until you send it').length - 1,
+      statusHeight: status ? Math.round(status.getBoundingClientRect().height) : null,
+      sectionTop: content ? Math.round(content.getBoundingClientRect().top + window.scrollY) : null,
+      oldSentenceCount:
+        text.split('Nothing about this is offered to them until you send it').length - 1,
       contextLineCount: text.split('is offered to them until you send it').length - 1,
       emDash: text.includes('—'),
     };
@@ -164,7 +179,12 @@ const dismissalKeysBefore = new Set();
 async function main() {
   mkdirSync(SHOTS, { recursive: true });
   if (!canMintSessions()) throw new Error('Session minting is not configured for this run.');
-  for (const [name, value] of Object.entries({ STAFF_EMAIL, READ_CLIENT_ID, WRITE_CLIENT_ID, WRITE_MEMBER_EMAIL })) {
+  for (const [name, value] of Object.entries({
+    STAFF_EMAIL,
+    READ_CLIENT_ID,
+    WRITE_CLIENT_ID,
+    WRITE_MEMBER_EMAIL,
+  })) {
     if (!value) throw new Error(`${name} is required`);
   }
 
@@ -200,7 +220,7 @@ async function main() {
     await shot(page, 'read-client-expanded');
 
     check(
-      'the three groups render in the brief\'s order',
+      "the three groups render in the brief's order",
       block.groups.map((g) => g.key).join(',') === 'notYetAssigned,waiting,completed',
       block.groups.map((g) => `${g.title} (${g.printedCount})`).join(' | ')
     );
@@ -238,31 +258,78 @@ async function main() {
           .join(','),
       present.map((f) => `${f.id}@${f.top}`).join(', ')
     );
-    check('Wellness Identity is on the page', present.some((f) => f.id === 'findings-wellness-identity'), '');
-    check('Snapshots is on the page', present.some((f) => f.id === 'findings-snapshots'), '');
+    check(
+      'Wellness Identity is on the page',
+      present.some((f) => f.id === 'findings-wellness-identity'),
+      ''
+    );
+    check(
+      'Snapshots is on the page',
+      present.some((f) => f.id === 'findings-snapshots'),
+      ''
+    );
 
-    check('the repeated not-assigned sentence is gone', block.oldSentenceCount === 0, `${block.oldSentenceCount} occurrence(s)`);
-    check('the group context line is said at most once', block.contextLineCount <= 1, `${block.contextLineCount} occurrence(s)`);
+    check(
+      'the repeated not-assigned sentence is gone',
+      block.oldSentenceCount === 0,
+      `${block.oldSentenceCount} occurrence(s)`
+    );
+    check(
+      'the group context line is said at most once',
+      block.contextLineCount <= 1,
+      `${block.contextLineCount} occurrence(s)`
+    );
     check('no em dash on the expanded section', block.emDash === false, '');
 
+    /*
+      THE SCROLL, MEASURED HONESTLY.
+
+      The distance a coach travels to REACH the assessment list is the
+      number this build set out to change, and it went from the bottom of
+      the section to the top of it. The section's own total height is a
+      different number and it is mostly the findings, which the brief said
+      to keep and render fully: one finished deep-dive alone is a couple of
+      thousand pixels of her own answers. So both are asserted, and the
+      breakdown is printed rather than summarised away.
+    */
+    check(
+      'the assessment list is the first thing in the section, not the last',
+      block.statusTop !== null &&
+        block.sectionTop !== null &&
+        block.statusTop - block.sectionTop < 40,
+      `status block starts ${block.statusTop - block.sectionTop}px into the section`
+    );
+    check(
+      'the whole list fits inside one phone screen of the section opening',
+      block.statusHeight !== null && block.statusTop - block.sectionTop < PHONE.height,
+      `list is ${block.statusHeight}px tall, starting ${block.statusTop - block.sectionTop}px in`
+    );
     if (BEFORE_READ > 0) {
       check(
-        'the expanded section is dramatically shorter than before',
-        block.expandedHeight !== null && block.expandedHeight < BEFORE_READ * 0.6,
-        `before=${BEFORE_READ}px after=${block.expandedHeight}px`
+        'the expanded section is shorter than it was',
+        block.expandedHeight !== null && block.expandedHeight < BEFORE_READ,
+        `before=${BEFORE_READ}px after=${block.expandedHeight}px (${Math.round((1 - block.expandedHeight / BEFORE_READ) * 100)}% shorter)`
       );
-    } else {
-      note(`expanded height ${block.expandedHeight}px (no before figure supplied)`);
     }
+    const findingsTops = block.findings.filter((f) => f.present).map((f) => `${f.id}@${f.top}px`);
+    note(
+      `height breakdown: section ${block.expandedHeight}px, status list ${block.statusHeight}px, findings start at ${findingsTops.join(', ')}`
+    );
 
     /* ---------------- 5, the pinned search ---------------- */
-    await page.goto(`${BASE}/coach/clients/${READ_CLIENT_ID}/detail`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/coach/clients/${READ_CLIENT_ID}/detail`, {
+      waitUntil: 'domcontentloaded',
+    });
     const field = page.locator('[data-detail-page-search="true"] input');
     await field.waitFor({ timeout: 30000 });
     await field.fill('joy');
     const joyResult = page.locator('[data-questionnaire-result="where-your-joy-lives"]');
     await joyResult.waitFor({ timeout: 15000 });
-    check('the pinned search still finds a questionnaire by name', true, 'Where Your Joy Lives offered');
+    check(
+      'the pinned search still finds a questionnaire by name',
+      true,
+      'Where Your Joy Lives offered'
+    );
     await joyResult.click();
     await page.waitForSelector('[data-assessment-row="where-your-joy-lives"]', { timeout: 30000 });
     // Wait on the mark itself, which is the thing the tap was for.
@@ -277,10 +344,18 @@ async function main() {
       .catch(() => {});
     const joyRow = await readRow(page, 'where-your-joy-lives');
     await shot(page, 'search-landed-on-row');
-    check('choosing it opens the section and lands on that row', Boolean(joyRow), `group=${joyRow?.group}`);
+    check(
+      'choosing it opens the section and lands on that row',
+      Boolean(joyRow),
+      `group=${joyRow?.group}`
+    );
     check('and marks the row it took her to', joyRow?.marked === true, '');
     const rowsOnScreen = await page.locator('[data-assessment-row]').count();
-    check('every other row is still on screen, because the grouping is the point', rowsOnScreen > 5, `${rowsOnScreen} rows`);
+    check(
+      'every other row is still on screen, because the grouping is the point',
+      rowsOnScreen > 5,
+      `${rowsOnScreen} rows`
+    );
 
     /* ---------------- 6, the write, on the seeded fixture only ---------------- */
     const writeDigest = await openSection(page, WRITE_CLIENT_ID);
@@ -293,20 +368,30 @@ async function main() {
     const target = await page.evaluate(() => {
       const group = document.querySelector('[data-assessment-group="notYetAssigned"]');
       const rows = [...(group?.querySelectorAll('[data-assessment-row]') ?? [])];
-      const preferred = rows.find((r) => (r.innerText ?? '').includes('Four Doctors'))
-        ?? rows.find((r) => (r.innerText ?? '').includes('Short Health Assessment'))
-        ?? rows[0];
+      const preferred =
+        rows.find((r) => (r.innerText ?? '').includes('Four Doctors')) ??
+        rows.find((r) => (r.innerText ?? '').includes('Short Health Assessment')) ??
+        rows[0];
       return preferred
-        ? { id: preferred.getAttribute('data-assessment-row'), name: (preferred.innerText ?? '').split('\n')[0] }
+        ? {
+            id: preferred.getAttribute('data-assessment-row'),
+            name: (preferred.innerText ?? '').split('\n')[0],
+          }
         : null;
     });
     if (!target) throw new Error('the fixture has nothing left in Not Yet Assigned to send');
     note(`assigning "${target.name}" (${target.id})`);
 
-    await page.locator(`[data-assessment-row="${target.id}"] button`, { hasText: 'Assign' }).first().click();
+    await page
+      .locator(`[data-assessment-row="${target.id}"] button`, { hasText: 'Assign' })
+      .first()
+      .click();
     await page.waitForSelector(`[data-assign-form="${target.id}"]`, { timeout: 15000 });
-    check('the Assign button opens a form under that row and nowhere else',
-      (await page.locator('[data-assign-form]').count()) === 1, '');
+    check(
+      'the Assign button opens a form under that row and nowhere else',
+      (await page.locator('[data-assign-form]').count()) === 1,
+      ''
+    );
 
     const due = new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const form = page.locator(`[data-assign-form="${target.id}"]`);
@@ -332,63 +417,103 @@ async function main() {
     const afterBlock = await readBlock(page);
     await shot(page, 'fixture-after-assign');
 
-    check('the row moved to Assigned, Waiting', movedRow?.group === 'waiting', `group=${movedRow?.group}`);
+    check(
+      'the row moved to Assigned, Waiting',
+      movedRow?.group === 'waiting',
+      `group=${movedRow?.group}`
+    );
     const dueLabel = new Date(`${due}T00:00:00Z`).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       timeZone: 'UTC',
     });
-    check('and names the due day the coach picked', Boolean(movedRow?.text.includes(`Due ${dueLabel}`)),
-      `row said: ${movedRow?.text}`);
-    check('the waiting count went up by one and not yet assigned went down by one',
+    check(
+      'and names the due day the coach picked',
+      Boolean(movedRow?.text.includes(`Due ${dueLabel}`)),
+      `row said: ${movedRow?.text}`
+    );
+    check(
+      'the waiting count went up by one and not yet assigned went down by one',
       afterBlock.groups.find((g) => g.key === 'waiting').rowCount ===
         beforeBlock.groups.find((g) => g.key === 'waiting').rowCount + 1 &&
-      afterBlock.groups.find((g) => g.key === 'notYetAssigned').rowCount ===
-        beforeBlock.groups.find((g) => g.key === 'notYetAssigned').rowCount - 1,
-      `waiting ${beforeBlock.groups.find((g) => g.key === 'waiting').rowCount} -> ${afterBlock.groups.find((g) => g.key === 'waiting').rowCount}`);
-    check('every group header still counts its own rows after the write',
-      afterBlock.groups.every((g) => g.printedCount === g.rowCount), '');
+        afterBlock.groups.find((g) => g.key === 'notYetAssigned').rowCount ===
+          beforeBlock.groups.find((g) => g.key === 'notYetAssigned').rowCount - 1,
+      `waiting ${beforeBlock.groups.find((g) => g.key === 'waiting').rowCount} -> ${afterBlock.groups.find((g) => g.key === 'waiting').rowCount}`
+    );
+    check(
+      'every group header still counts its own rows after the write',
+      afterBlock.groups.every((g) => g.printedCount === g.rowCount),
+      ''
+    );
     check('the form closed itself', (await page.locator('[data-assign-form]').count()) === 0, '');
     if (BEFORE_WRITE > 0) {
-      check('the fixture section is dramatically shorter too',
-        afterBlock.expandedHeight < BEFORE_WRITE * 0.6,
-        `before=${BEFORE_WRITE}px after=${afterBlock.expandedHeight}px`);
+      check(
+        'the fixture section is shorter than it was too',
+        afterBlock.expandedHeight < BEFORE_WRITE,
+        `before=${BEFORE_WRITE}px after=${afterBlock.expandedHeight}px (${Math.round((1 - afterBlock.expandedHeight / BEFORE_WRITE) * 100)}% shorter)`
+      );
+      note(`fixture status list is ${afterBlock.statusHeight}px tall`);
     }
 
     const { data: written } = await db
       .from('assessment_assignments')
       .select('id, status, due_at, reason, is_required')
       .eq('member_id', WRITE_CLIENT_ID);
-    for (const row of written ?? []) if (!preexisting.has(row.id)) createdAssignmentIds.push(row.id);
-    check('exactly one assignment row was written', createdAssignmentIds.length === 1, `${createdAssignmentIds.length}`);
+    for (const row of written ?? [])
+      if (!preexisting.has(row.id)) createdAssignmentIds.push(row.id);
+    check(
+      'exactly one assignment row was written',
+      createdAssignmentIds.length === 1,
+      `${createdAssignmentIds.length}`
+    );
     const madeRow = (written ?? []).find((r) => r.id === createdAssignmentIds[0]);
-    check('it carries the day she picked, stored as that calendar day',
-      String(madeRow?.due_at ?? '').startsWith(due), `${madeRow?.due_at}`);
+    check(
+      'it carries the day she picked, stored as that calendar day',
+      String(madeRow?.due_at ?? '').startsWith(due),
+      `${madeRow?.due_at}`
+    );
 
     /* ---------------- 7, the member's own side ---------------- */
-    member = await mintSessionContext(browser, WRITE_MEMBER_EMAIL, { baseUrl: BASE, viewport: PHONE });
+    member = await mintSessionContext(browser, WRITE_MEMBER_EMAIL, {
+      baseUrl: BASE,
+      viewport: PHONE,
+    });
     if (!member) throw new Error(`could not mint a session for ${WRITE_MEMBER_EMAIL}`);
     const memberPage = await member.context.newPage();
     watch(memberPage, errors);
     await memberPage.goto(`${BASE}/questionnaires`, { waitUntil: 'domcontentloaded' });
     await memberPage.waitForLoadState('networkidle').catch(() => {});
-    const memberText = (await memberPage.evaluate(() => document.body.innerText ?? '')).replace(/\s+/g, ' ');
+    const memberText = (await memberPage.evaluate(() => document.body.innerText ?? '')).replace(
+      /\s+/g,
+      ' '
+    );
     await shot(memberPage, 'member-questionnaires');
-    check('it appears on her own questionnaire list',
+    check(
+      'it appears on her own questionnaire list',
       memberText.toLowerCase().includes(target.name.toLowerCase().slice(0, 12)),
-      `looked for "${target.name}"`);
-    check('and it reads as a coach assignment, exactly as one always has',
-      /assigned|your coach/i.test(memberText), '');
+      `looked for "${target.name}"`
+    );
+    check(
+      'and it reads as a coach assignment, exactly as one always has',
+      /assigned|your coach/i.test(memberText),
+      ''
+    );
     check('no em dash on her questionnaire list', !memberText.includes(EM_DASH), '');
 
-    check('no console or page errors on any screen visited', errors.length === 0,
-      errors.slice(0, 3).join(' | '));
+    check(
+      'no console or page errors on any screen visited',
+      errors.length === 0,
+      errors.slice(0, 3).join(' | ')
+    );
   } finally {
     /* ---------------- teardown ---------------- */
     const db2 = serviceClient();
     const removed = [];
     if (createdAssignmentIds.length > 0) {
-      await db2.from('member_assignment_deliveries').delete().in('assignment_id', createdAssignmentIds);
+      await db2
+        .from('member_assignment_deliveries')
+        .delete()
+        .in('assignment_id', createdAssignmentIds);
       await db2.from('assessment_assignments').delete().in('id', createdAssignmentIds);
       removed.push(`${createdAssignmentIds.length} assignment row(s)`);
     }
@@ -400,7 +525,13 @@ async function main() {
       .eq('member_id', WRITE_CLIENT_ID);
     const leaked = (after ?? []).filter((r) => !dismissalKeysBefore.has(r.message_key));
     if (leaked.length > 0) {
-      await db2.from('member_root_popup_dismissals').delete().in('id', leaked.map((r) => r.id));
+      await db2
+        .from('member_root_popup_dismissals')
+        .delete()
+        .in(
+          'id',
+          leaked.map((r) => r.id)
+        );
       removed.push(`${leaked.length} pop-up dismissal(s)`);
     }
     console.log(`RESTORE: ${removed.length > 0 ? removed.join(', ') : 'nothing to remove'}`);

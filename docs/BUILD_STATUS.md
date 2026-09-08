@@ -73,6 +73,24 @@ that row has nowhere to put either. The standalone Assign an Assessment
 panel is deleted; the pinned search now lands on a questionnaire's own row
 and marks it instead of pre-filling that panel's field.
 
+### WHAT THE SCROLL ACTUALLY DID, MEASURED BOTH WAYS
+
+The distance to REACH the assessment list went from the bottom of the
+section to the top of it: the status block now starts 0px into the
+expanded section and the whole nineteen-row list is under 1,700px, so a
+coach opening the section is looking at it.
+
+The section's TOTAL height came down by less. Measured on the same two
+clients before and after, it went 8,748px to about 7,700px and 10,101px to
+about 8,500px, roughly 12 to 16 percent. Almost everything left is the
+findings themselves, which the brief said to keep and render fully: one
+finished deep-dive is about 2,500px of the member's own answers, and the
+Wellness Identity group is about 3,200px on its own. Nine repeated
+sentences and one assign panel were never the bulk of that page. If the
+section itself should also get dramatically shorter, the remaining lever
+is folding or capping the findings groups, which is a decision about
+whether findings stay fully rendered.
+
 ### TESTS
 
 Two new files, `tests/coach-assessment-status-block.test.tsx` (23 checks,
@@ -82,6 +100,14 @@ rewritten rather than deleted where they described the old panel.
 
 Full suite: 547 files, 10,188 tests, all passing. Typecheck clean, lint
 clean (0 errors), production build clean.
+
+### LIVE VERIFICATION, PRODUCTION, 2026-09-08
+
+`apps/consumer-web-app/scripts/verify-assessment-status-block-live.mjs`,
+on a 390px phone, signed in as the real coach through a one-time minted
+session retired afterwards with scope 'local'. The read-only checks run on
+a real client's own page. The one check that writes runs on the seeded
+test fixture and deletes its row in a `finally`.
 
 ## Two coach-side presentation fixes: the client card, and the door to the full record (2026-09-07)
 
