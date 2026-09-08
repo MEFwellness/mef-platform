@@ -1,3 +1,50 @@
+## The hero headline is set in capitals (2026-09-08)
+
+Osei asked for "More than training. A system for your health." in all
+capitals. Display only. Nothing else on the page moved.
+
+**CSS, not a retyped sentence.** `uppercase` on the h1. The approved
+sentence stays in the markup in its approved casing, which is what a
+screen reader announces, what a search engine indexes and what somebody
+gets when they copy the line. Retyping it as "MORE THAN TRAINING." would
+have put a second, shoutier copy of approved wording into the source for
+the two to drift apart, and the verbatim check against
+docs/assessments/memberships-reference.html would have had to be weakened
+to allow it. It was not weakened.
+
+**Capitals needed three adjustments.** A little tracking (0.015em),
+because Cormorant's capitals are drawn to sit beside lower case and crowd
+each other when set alone. Tighter leading (1.15 to 1.06), because caps
+have no descenders and the lines can close up without touching. And the
+measure widened from 16ch to 18ch, because caps are wider than the "0"
+that ch is measured against, so the old value broke the line a word early.
+Size eased from clamp(38,6.5vw,60) to clamp(36,6.2vw,58) for the same
+reason: capitals read larger at the same point size.
+
+**The stranded "A" is fixed with one character.** Set in capitals the line
+wanted to break as "MORE THAN / TRAINING. A / SYSTEM FOR / YOUR HEALTH.",
+which leaves the first word of the second sentence marooned on the line
+that ends the first. `text-wrap: balance` and `pretty` both changed
+nothing, because the measure and not the algorithm was the constraint. A
+non-breaking space between "A" and "system" ties them together, and each
+sentence now starts its own line at 390, 640, 1024 and 1440, with the same
+four lines and the same block height as before. A non-breaking space is
+still whitespace to `\s`, so the verbatim copy test is unaffected.
+
+**One heading, not all of them.** Only the hero is capitalised; every
+section heading stays sentence case, which is what gives the hero its own
+weight. A test asserts exactly one uppercase heading on the page.
+
+`tests/memberships-page.test.tsx` is now 92 checks, with a new block that
+fails if anybody retypes the sentence in capitals, drops the tracking or
+the tight leading, unties the "A", or capitalises a second heading.
+`scripts/verify-memberships-page.mjs` normalises whitespace before
+matching the headline, because innerText reports what CSS painted and the
+old case-sensitive match would have failed on a page rendering perfectly.
+
+Full suite: 548 files, 10,280 tests, all passing. Typecheck clean, lint 0
+errors, production build clean. 89 of 89 browser checks passing locally.
+
 ## Real Stripe checkout on /memberships (2026-09-08)
 
 Link wiring only. No price, no word of copy, no layout, no membership

@@ -85,10 +85,19 @@ async function walk(browser, label, viewport) {
   );
 
   // 2. The page really rendered.
-  const heading = await page.locator('h1').first().innerText();
+  // innerText reports what CSS PAINTED, and this headline is set in
+  // capitals by `uppercase`, so a case sensitive match would fail on a
+  // page that is rendering perfectly. Matched case insensitively here, and
+  // the underlying sentence is checked verbatim (unchanged casing, in the
+  // real markup) by tests/memberships-page.test.tsx.
+  // Whitespace normalised before matching, for two reasons at once: the
+  // headline wraps over four lines, and it carries a non-breaking space
+  // that keeps "A system" together (see the h1's own comment). Neither is
+  // a difference in what a reader reads.
+  const heading = (await page.locator('h1').first().innerText()).replace(/\s+/g, ' ').trim();
   check(
     `${label}: the hero headline is on screen`,
-    heading.includes('More than training'),
+    /^more than training\. a system for your health\.$/i.test(heading),
     heading
   );
 

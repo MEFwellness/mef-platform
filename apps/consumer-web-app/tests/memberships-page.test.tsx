@@ -201,6 +201,40 @@ describe('the approved copy shipped verbatim', () => {
   });
 });
 
+describe('the hero headline', () => {
+  const h1 = html.slice(html.indexOf('<h1'), html.indexOf('</h1>'));
+
+  it('is set in capitals by CSS, not by retyping the sentence in capitals', () => {
+    expect(h1).toContain('uppercase');
+    // The approved sentence, in its approved casing, is what is really in
+    // the markup: what a screen reader announces, what a search engine
+    // indexes, and what somebody gets if they copy the line.
+    expect(asText(h1)).toContain('More than training.');
+    expect(asText(h1)).toContain('system for your health.');
+    expect(html).not.toContain('MORE THAN TRAINING');
+  });
+
+  it('still reads as the approved sentence once whitespace is normalised', () => {
+    // The non-breaking space that keeps "A system" together is still a
+    // space: \s matches it, so the verbatim check above is unaffected.
+    expect(pageText).toContain('More than training. A system for your health.');
+  });
+
+  it('keeps "A" tied to the word it belongs with, so it is never stranded at a line end', () => {
+    expect(asText(h1)).toContain('A\u00A0system');
+  });
+
+  it('carries the tracking and tighter leading that capitals need', () => {
+    expect(h1).toMatch(/tracking-\[/);
+    expect(h1).toMatch(/leading-\[1\.0/);
+  });
+
+  it('is the only heading on the page set in capitals, so the hero keeps its own weight', () => {
+    const headings = [...html.matchAll(/<h[123]\b[^>]*>/g)].map((m) => m[0]);
+    expect(headings.filter((tag) => tag.includes('uppercase'))).toHaveLength(1);
+  });
+});
+
 describe('the four prices', () => {
   it('are the approved figures', () => {
     expect(MEMBERSHIP_PRICES).toEqual({

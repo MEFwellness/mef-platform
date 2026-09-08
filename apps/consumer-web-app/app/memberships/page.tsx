@@ -201,11 +201,41 @@ export default function MembershipsPage() {
               >
                 MEF WELLNESS
               </div>
+              {/*
+                SET IN CAPITALS BY CSS, NOT BY RETYPING THE SENTENCE.
+                `uppercase` is a display instruction; the approved sentence
+                stays in the markup exactly as written, which is what a
+                screen reader announces, what a search engine indexes and
+                what somebody gets if they copy the line. Retyping it as
+                "MORE THAN TRAINING." would put a second, shoutier version
+                of approved copy into the source, and the two would drift.
+
+                Capitals need two adjustments that lower case does not.
+                A little tracking, because Cormorant's capitals are drawn
+                to sit beside lower case and crowd each other when set
+                alone; and tighter leading, because caps have no descenders
+                so the lines can close up without touching. The measure
+                widens from 16ch to 18ch for the same reason capitals need
+                it: they are wider than the "0" that ch is measured
+                against, so the old value broke the line a word too early.
+
+                THE NON BREAKING SPACE AFTER "A" IS NOT A TYPO. Set in
+                capitals, the line wanted to break as "MORE THAN /
+                TRAINING. A / SYSTEM FOR / YOUR HEALTH.", which strands the
+                first word of the second sentence on the line that ends the
+                first one. Tying "A" to "system" moves them down together
+                and each sentence starts its own line at every width
+                measured (390, 640, 1024 and 1440), with no change to the
+                number of lines or the height of the block. It is a
+                character, not a rewrite: the sentence is the approved one,
+                and a space is still a space to a screen reader, to a
+                search engine and to anybody who copies the line.
+              */}
               <h1
-                className={`${DISPLAY} mb-5 max-w-[16ch] text-[clamp(38px,6.5vw,60px)] font-semibold leading-[1.15]`}
+                className={`${DISPLAY} mb-5 max-w-[18ch] text-[clamp(36px,6.2vw,58px)] font-semibold uppercase leading-[1.06] tracking-[0.015em]`}
                 style={{ color: CREAM }}
               >
-                More than training. A system for your health.
+                More than training. A{'\u00A0'}system for your health.
               </h1>
               <p className="mb-9 max-w-[56ch] text-[19px] text-[#E8E2D2]">
                 MEF Wellness combines personal training, movement, recovery, and holistic coaching
