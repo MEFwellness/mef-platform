@@ -96,6 +96,39 @@ Vercel project, so the live address is
 exists under the team but is not attached to any project and its
 nameservers still point at Wix. No DNS or domain setting was changed.
 
+### LIVE VERIFICATION, PRODUCTION, 2026-09-08
+
+Deployment `mef-platform-bv0cbddun`, Production, on the `mef-platform`
+project, serving `app.mefwellness.com`.
+
+**55 of 55 logged out**, `scripts/verify-memberships-page.mjs` against
+`https://app.mefwellness.com`. Fresh contexts with no cookies at all, at
+390px and 1440px: direct load 200, hard refresh 200, never a redirect to
+`/login`, all three photographs decoded in the browser, each of the four
+prices exactly once, a FAQ row pressed open and pressed closed, all three
+calls to action resolving to one address, no horizontal overflow, no
+console or page errors. The same run re-checked the neighbours:
+`/membership`, `/dashboard` and `/today` still send a logged-out visitor
+to `/login`, and `/start`, `/energy`, `/wellness-check` and `/login` still
+open with no session.
+
+**14 of 14 signed in**, `scripts/verify-memberships-member-unchanged.mjs`,
+as the standing test member through a one-time minted session retired
+afterwards with scope 'local'. Turnstile refused a scripted sign-in on the
+login form, which is what it is for. Home, Today, Progress, Daily Reset,
+her own `/membership` screen and Profile all still open; `/coach` and
+`/admin` still bounce her to her own Home; `/exercises` and
+`/movement/profile` still bounce her to Movement. `/memberships` opens for
+her too, with no member chrome. Nothing was written.
+
+**The apex is not attached.** `mefwellness.com` is registered under the
+team but belongs to no Vercel project and its nameservers point
+elsewhere; `mefwellness.com/memberships` today returns an unrelated page
+from whatever currently serves that domain. Serving the page from the
+apex needs the domain added to this project in Vercel and its DNS pointed
+at Vercel, which is a domain move for the whole marketing site and was
+deliberately not done here.
+
 ### TESTS
 
 `tests/memberships-page.test.tsx`, 75 checks, rendering the real page
