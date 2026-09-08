@@ -22,7 +22,19 @@
  * SHE HAS TO PLACE IT. Until she does, the mark sits at the middle at half
  * strength and the caption says so, because a slider that arrives already
  * answered has collected a default rather than a decision. `value` is null
- * until she moves it, and the caller is what decides what happens next.
+ * until she places it, and the caller is what decides what happens next.
+ *
+ * A TAP THAT LANDS WHERE THE MARK ALREADY IS STILL COUNTS AS PLACING IT.
+ * This was found on production, on the live site, and it is the reason
+ * there are three handlers below rather than one. A range input fires
+ * `change` only when its VALUE changes, so a member who felt exactly
+ * halfway and tapped the middle of an unplaced line, whose mark is drawn at
+ * 50, moved nothing: no event, no commit, no written half, and a screen
+ * that appeared not to have noticed her. The same hole sits at each end,
+ * where an arrow key cannot move the value any further. So the current
+ * value is committed on the way out of the gesture as well
+ * (`onPointerUp`, `onKeyUp`), which is idempotent: committing the value it
+ * already has changes nothing except that "she has placed it" becomes true.
  *
  * THE READOUT IS WORDS, NOT A NUMBER. She reads "closer to A stranger",
  * never "78 percent", because a number here would look like a score and
@@ -93,6 +105,11 @@ export function PoleSlider({
           aria-label={label}
           aria-valuetext={words}
           onChange={(event) => onChange(Number(event.target.value))}
+          // The two gestures that can END without the value having moved.
+          // See this file's header: without these, the exact middle of an
+          // unplaced line is a dead spot.
+          onPointerUp={(event) => onChange(Number(event.currentTarget.value))}
+          onKeyUp={(event) => onChange(Number(event.currentTarget.value))}
           onBlur={() => setFocusVisible(false)}
           onFocus={(event) => {
             // The ring belongs on the painted mark, which is not a sibling

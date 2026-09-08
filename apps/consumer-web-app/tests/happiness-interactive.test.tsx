@@ -485,6 +485,27 @@ describe('with reduced motion asked for', () => {
   });
 });
 
+/** One line, mounted with whatever state a check needs. */
+function renderSlider({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (next: number) => void;
+}) {
+  act(() => {
+    root.render(
+      <PoleSlider
+        value={value}
+        onChange={onChange}
+        poles={WYPD_POLES}
+        label={WYPD_SHELF_COPY.lineLabel}
+        unsetLabel={WYPD_SHELF_COPY.lineUnset}
+      />
+    );
+  });
+}
+
 describe('the two-pole line', () => {
   beforeEach(() => setReducedMotion(false));
 
@@ -543,6 +564,32 @@ describe('the two-pole line', () => {
     // without the readout.
     expect(container.textContent).toContain(WYPD_POLES.near);
     expect(container.textContent).toContain(WYPD_POLES.far);
+  });
+
+  it('A TAP THAT LANDS WHERE THE MARK ALREADY IS STILL PLACES IT', () => {
+    // Found on production. A range input fires `change` only when its VALUE
+    // changes, so a member who felt exactly halfway and tapped the middle
+    // of an unplaced line, whose mark is drawn at 50, moved nothing: no
+    // event, no commit, and a screen that appeared not to have noticed her.
+    const onChange = vi.fn();
+    renderSlider({ value: null, onChange });
+    const input = container.querySelector('input[type="range"]') as HTMLInputElement;
+
+    // No value change at all: exactly what a centre tap does.
+    act(() => {
+      input.dispatchEvent(new Event('pointerup', { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenCalledWith(50);
+  });
+
+  it('and so does an arrow key pressed at an end it cannot move past', () => {
+    const onChange = vi.fn();
+    renderSlider({ value: 100, onChange });
+    const input = container.querySelector('input[type="range"]') as HTMLInputElement;
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'ArrowRight' }));
+    });
+    expect(onChange).toHaveBeenCalledWith(100);
   });
 
   it('hands the caller the number she landed on', () => {
