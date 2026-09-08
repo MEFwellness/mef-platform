@@ -14,9 +14,11 @@
  * same component the member's own screen renders, from the same stored
  * descriptors, so if the two ever stopped agreeing this is where it shows.
  *
- * The three states are asserted as three different sentences, because a
- * coach reading "not assigned" about a client who is halfway through one
- * would draw the wrong conclusion.
+ * Since 2026-09-08 it is a result block: with no sitting behind it, it
+ * renders nothing at all, and whether one is assigned or waiting is said
+ * on its row in the Assessment Status block instead. What is asserted here
+ * is that emptiness, and that a fresh copy sent over an old sitting still
+ * says so on the card a coach is reading.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -27,9 +29,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 const { StressLoadPanel } = await import('@/app/coach/clients/[id]/StressLoadPanel');
-const { StressLoadReadingBody } = await import(
-  '@/components/stress-load/StressLoadReadingBody'
-);
+const { StressLoadReadingBody } = await import('@/components/stress-load/StressLoadReadingBody');
 const { buildStressLoadReading } = await import('@/lib/stress-load/patterns');
 const { STRESS_LOAD_QUESTIONS } = await import('@/lib/stress-load/questions');
 const { fullAnswers } = await import('./stress-load-questions.test');
@@ -82,28 +82,64 @@ const OPEN_PROGRESS = {
   due: { dueDate: '2026-09-03', isOverdue: false, daysOverdue: null, daysUntilDue: 5 },
 };
 
-describe('the three states, said as three different things', () => {
-  it('not assigned: the button, and a sentence saying nothing is offered yet', () => {
-    const html = panel({ pendingAssignedAt: null, sessions: [] });
-    expect(html).toContain('Assign Stress &amp; Load Deep-Dive');
-    expect(html).toContain('Not assigned.');
-    expect(html).not.toContain('not completed yet');
+describe('it draws nothing until there is a sitting behind it', () => {
+  /**
+   * REWRITTEN 2026-09-08. This panel used to say three things: not
+   * assigned (with the button), assigned and waiting, and finished. The
+   * first two are said on this assessment's ROW in the Assessment Status
+   * block at the top of Assessments and Findings now, once, in a line,
+   * beside the other eighteen assessments. Nine panels each repeating
+   * "Not assigned. Nothing about this is offered to them until you send
+   * it." was most of the height of that section and none of its
+   * information.
+   *
+   * So what is asserted here is the opposite of what was: with nothing to
+   * show, this component renders NOTHING, which is the only reason the
+   * section got short.
+   */
+  it('renders nothing at all when this client has never sat down to it', () => {
+    expect(panel({ pendingAssignedAt: null, sessions: [] })).toBe('');
   });
 
-  it('assigned and waiting: the sentence the server wrote, and no button', () => {
+  it('renders nothing while one is open and unanswered, because there is still no finding', () => {
+    expect(
+      panel({
+        pendingAssignedAt: '2026-08-27T09:00:00.000Z',
+        pendingProgress: OPEN_PROGRESS,
+        pendingStatusLine: 'Sent Aug 27. Seen Aug 28, not completed. Due Sep 3.',
+      })
+    ).toBe('');
+  });
+
+  it('never repeats the sentence the status block now says once', () => {
+    expect(panel(COMPLETED)).not.toContain('Nothing about this is offered to them');
+  });
+
+  it('finished, with no assignment open: the button comes back, and says a fresh sitting is a fresh sitting', () => {
+    const html = panel(COMPLETED);
+    expect(html).toContain('Assign Stress &amp; Load Deep-Dive');
+    expect(html).toContain('starts a fresh sitting and keeps everything below');
+  });
+
+  /**
+   * A fresh copy sent while an old sitting is on file still says so here,
+   * because this panel IS on screen in that case and a coach reading the
+   * old answers should know a new one is open.
+   */
+  it('finished with a fresh one open: the server sentence, and no second Assign button', () => {
     const html = panel({
+      ...COMPLETED,
       pendingAssignedAt: '2026-08-27T09:00:00.000Z',
       pendingProgress: OPEN_PROGRESS,
       pendingStatusLine: 'Sent Aug 27. Seen Aug 28, not completed. Due Sep 3.',
     });
     expect(html).toContain('Sent Aug 27. Seen Aug 28, not completed. Due Sep 3.');
     expect(html).not.toContain('Assign Stress &amp; Load Deep-Dive');
-    // Not late, so the badge stays away.
-    expect(html).not.toContain('Overdue');
   });
 
-  it('assigned, late: the same sentence plus the badge', () => {
+  it('finished with a late one open: the same sentence plus the badge', () => {
     const html = panel({
+      ...COMPLETED,
       pendingAssignedAt: '2026-08-20T09:00:00.000Z',
       pendingProgress: {
         ...OPEN_PROGRESS,
@@ -114,12 +150,6 @@ describe('the three states, said as three different things', () => {
     });
     expect(html).toContain('Overdue since Aug 27 (3 days).');
     expect(html).toContain('>Overdue<');
-  });
-
-  it('finished, with no assignment open: the button comes back, and says a fresh sitting is a fresh sitting', () => {
-    const html = panel(COMPLETED);
-    expect(html).toContain('Assign Stress &amp; Load Deep-Dive');
-    expect(html).toContain('starts a fresh sitting and keeps everything below');
   });
 });
 
@@ -188,7 +218,12 @@ describe('a sitting whose stored answers cannot be read', () => {
     const html = panel({
       pendingAssignedAt: null,
       sessions: [
-        { id: 'session-1', completedAt: '2026-08-29T10:04:00.000Z', answers: null, interpretation: null },
+        {
+          id: 'session-1',
+          completedAt: '2026-08-29T10:04:00.000Z',
+          answers: null,
+          interpretation: null,
+        },
       ],
     });
     expect(html).toContain('could not be read');

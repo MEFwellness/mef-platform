@@ -230,13 +230,13 @@ describe('with real member state', () => {
     expect(supported).toBeLessThan(early);
   });
 
-  it("names what she is working on, its state, and the rule that chose it", () => {
+  it('names what she is working on, its state, and the rule that chose it', () => {
     expect(html).toContain('Take a few minutes for your Daily Reset.');
     expect(html).toContain('Set aside for later');
     expect(html).toContain('Her Daily Reset');
   });
 
-  it("shows her friction answer in her own words, verbatim", () => {
+  it('shows her friction answer in her own words, verbatim', () => {
     expect(html).toContain('Too much to take on');
     expect(html).toContain('I get home and there is nothing left in the tank.');
   });
@@ -393,7 +393,9 @@ describe('what to ask next comes only from real state', () => {
     };
     const items = buildAskNext({
       friction,
-      findings: [finding({ tier: 'supported_by_checkins', tierLabel: 'Supported by repeated check-ins' })],
+      findings: [
+        finding({ tier: 'supported_by_checkins', tierLabel: 'Supported by repeated check-ins' }),
+      ],
       workingOn: null,
       revealedUntouched: [{ label: 'Food Lens', revealedAt: null }],
       safetyActive: false,
@@ -404,7 +406,7 @@ describe('what to ask next comes only from real state', () => {
   });
 });
 
-describe("an unanswered friction question is itself worth a coach knowing", () => {
+describe('an unanswered friction question is itself worth a coach knowing', () => {
   it('says she was asked and did not answer, and says nothing was assumed from it', () => {
     const items = buildInTheWay({
       friction: {
@@ -451,7 +453,7 @@ describe('nothing was deleted, only moved', () => {
       'PersonalResetPlanPanel',
       'MovementProfilePanel',
       'ClientProgramsSummaryCard',
-      'AssessmentAssignmentPanel',
+      'AssessmentStatusBlock',
       'NarrativePanel',
       'FeedPanel',
       'BaselineAssessmentView',
@@ -542,14 +544,14 @@ describe('worth discussing, the one merged flag section', () => {
 
   it('keeps urgent safety apart from routine follow-up, in that order', () => {
     const html = render(emptyDashboard(alerts));
-    expect(html.indexOf('Needs a response today')).toBeLessThan(
-      html.indexOf('Routine follow-up')
-    );
+    expect(html.indexOf('Needs a response today')).toBeLessThan(html.indexOf('Routine follow-up'));
   });
 
   it('says nothing is flagged, on either surface, rather than showing an empty box', () => {
     const html = render(emptyDashboard());
-    expect(html).toContain('Nothing is flagged for Ebony right now, on this page or on your client list.');
+    expect(html).toContain(
+      'Nothing is flagged for Ebony right now, on this page or on your client list.'
+    );
   });
 
   it('leaves what needs attention to the interpretation findings alone', () => {
@@ -585,7 +587,12 @@ describe('the this week band, on the first screen', () => {
             label: 'Week of Aug 29 to Sep 4',
           },
           rows: [
-            { key: 'checkins', label: 'Daily Reset', statement: 'Checked in on 4 of 7 days.', details: [] },
+            {
+              key: 'checkins',
+              label: 'Daily Reset',
+              statement: 'Checked in on 4 of 7 days.',
+              details: [],
+            },
           ],
         }}
       />

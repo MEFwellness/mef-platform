@@ -27,7 +27,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DetailSection } from '@/app/coach/clients/[id]/detail/DetailSection';
@@ -125,9 +125,15 @@ describe('nothing fell out, and everything landed inside a section', () => {
     'StressLoadPanel',
     'OwningYourValuePanel',
     'WhereYourJoyLivesPanel',
+    'TheGivingLedgerPanel',
+    'TheWeightOfYesPanel',
+    'BeingSeenPanel',
+    'WhatYouPutDownPanel',
+    'YourOwnCompanyPanel',
+    'TheLifeYoureBuildingPanel',
     'MovementProfilePanel',
     'ClientProgramsSummaryCard',
-    'AssessmentAssignmentPanel',
+    'AssessmentStatusBlock',
     'NarrativePanel',
     'FeedPanel',
     'BaselineAssessmentView',
@@ -144,7 +150,11 @@ describe('nothing fell out, and everything landed inside a section', () => {
   });
 
   it('the identity block stays above the sections, ungrouped', () => {
-    for (const marker of ['data-member-entries-link="true"', '<TestAccountChip', '<DetailPageSearch']) {
+    for (const marker of [
+      'data-member-entries-link="true"',
+      '<TestAccountChip',
+      '<DetailPageSearch',
+    ]) {
       const index = PAGE.indexOf(marker);
       expect(index, marker).toBeGreaterThan(-1);
       expect(insideASection(index), `${marker} was swallowed by a section`).toBe(false);
@@ -163,15 +173,20 @@ describe('no search result points at nothing', () => {
     expect(PAGE).toContain(`id="${cardId}"`);
   });
 
-  it.each(DETAIL_SECTIONS.map((s) => s.id))('%s is really rendered as a section id', (sectionId) => {
-    expect(PAGE).toContain(`id="${sectionId}"`);
-  });
+  it.each(DETAIL_SECTIONS.map((s) => s.id))(
+    '%s is really rendered as a section id',
+    (sectionId) => {
+      expect(PAGE).toContain(`id="${sectionId}"`);
+    }
+  );
 
   it('every card id rendered on the page is in the index, so nothing is unfindable', () => {
     const rendered = [...PAGE.matchAll(/id="(detail-card-[a-z0-9-]+)"/g)].map((m) => m[1]!);
     expect(rendered.length).toBeGreaterThan(20);
     for (const id of rendered) {
-      expect(indexedCardIds, `${id} is rendered but the search has never heard of it`).toContain(id);
+      expect(indexedCardIds, `${id} is rendered but the search has never heard of it`).toContain(
+        id
+      );
     }
   });
 
@@ -183,9 +198,9 @@ describe('no search result points at nothing', () => {
 describe('the search finds sections and cards, the way the assign field already matched', () => {
   it('a section word finds the section', () => {
     const results = searchDetailPage('progress');
-    expect(results.some((r) => r.kind === 'section' && r.sectionId === 'detail-section-progress')).toBe(
-      true
-    );
+    expect(
+      results.some((r) => r.kind === 'section' && r.sectionId === 'detail-section-progress')
+    ).toBe(true);
   });
 
   it('a card word finds the card and names the section it is in', () => {
@@ -197,7 +212,9 @@ describe('the search finds sections and cards, the way the assign field already 
   });
 
   it('matching is case insensitive and partial, exactly as the assign field is', () => {
-    expect(searchDetailPage('COACH NOT').map((r) => r.anchorId)).toContain('detail-card-coach-notes');
+    expect(searchDetailPage('COACH NOT').map((r) => r.anchorId)).toContain(
+      'detail-card-coach-notes'
+    );
   });
 
   it('an empty query offers nothing, because a list of every card is the page itself', () => {
@@ -209,9 +226,47 @@ describe('the search finds sections and cards, the way the assign field already 
     expect(searchDetailPage('zzzznothinghere')).toEqual([]);
   });
 
-  it('the Assign card the questionnaire results jump to is in the section they open', () => {
+  it('the status block the questionnaire results jump to is in the section they open', () => {
     expect(sectionIdForAnchor(ASSIGN_CARD_ID)).toBe(ASSIGN_SECTION_ID);
     expect(PAGE).toContain(`id="${ASSIGN_CARD_ID}"`);
+  });
+
+  /**
+   * STATUS FIRST. The whole point of the 2026-09-08 rebuild: a coach
+   * opening this section lands on where her client stands, not on the
+   * bottom of a scroll of findings.
+   */
+  it('the status block is the first thing inside Assessments and Findings', () => {
+    const sectionStart = PAGE.indexOf('id="detail-section-assessments"');
+    const status = PAGE.indexOf('id="detail-card-assessment-status"');
+    expect(status).toBeGreaterThan(sectionStart);
+    for (const later of [
+      'id="findings-wellness-identity"',
+      'id="findings-snapshots"',
+      'id="findings-deep-dive-results"',
+      'id="detail-card-intelligence-core"',
+      'id="detail-card-stress-load"',
+    ]) {
+      expect(PAGE.indexOf(later), later).toBeGreaterThan(status);
+    }
+  });
+
+  it('the three findings groups render in the order the brief named', () => {
+    const identity = PAGE.indexOf('id="findings-wellness-identity"');
+    const snapshots = PAGE.indexOf('id="findings-snapshots"');
+    const deepDives = PAGE.indexOf('id="findings-deep-dive-results"');
+    expect(identity).toBeGreaterThan(-1);
+    expect(identity).toBeLessThan(snapshots);
+    expect(snapshots).toBeLessThan(deepDives);
+  });
+
+  it('the old standalone assign panel is gone from the page and from the tree', () => {
+    expect(PAGE).not.toContain('AssessmentAssignmentPanel');
+    expect(
+      existsSync(
+        path.resolve(__dirname, '..', 'app/coach/clients/[id]/AssessmentAssignmentPanel.tsx')
+      )
+    ).toBe(false);
   });
 });
 
@@ -283,10 +338,73 @@ describe('the digests count the same things the cards under them count', () => {
     expect(PAGE).toContain("movementProfileReviewItems.filter((i) => i.status === 'pending')");
   });
 
+  /**
+   * The folded header and the three groups under it read ONE object
+   * (2026-09-08). The header used to count assignment rows while the list
+   * below counted questionnaires, so one questionnaire sent twice made
+   * "1 pending" sit above two waiting rows.
+   */
+  it('the header counts the same groups the block draws, from one call', () => {
+    expect(PAGE).toContain('const assessmentGroups = groupAssessmentsByStatus(');
+    expect(PAGE).toContain('const assessmentCounts = assessmentStatusCounts(assessmentGroups);');
+    expect(PAGE).toContain('assessments: assessmentsDigest(assessmentCounts),');
+    expect(PAGE).toContain('groups={assessmentGroups}');
+  });
+
   it('the overdue count is the same test that draws the Overdue chip', () => {
-    const panel = source('app/coach/clients/[id]/AssessmentAssignmentPanel.tsx');
-    expect(panel).toContain('assignment.progress.due.isOverdue');
-    expect(PAGE).toContain("a.status === 'pending' && a.progress.due.isOverdue");
+    const grouping = source('lib/coach-detail/assessmentStatus.ts');
+    const block = source('app/coach/clients/[id]/detail/AssessmentStatusBlock.tsx');
+    expect(grouping).toContain('current.progress.due.isOverdue');
+    expect(grouping).toContain('groups.waiting.filter((row) => row.assignment?.isOverdue)');
+    expect(block).toContain('row.assignment?.isOverdue');
+  });
+
+  /**
+   * The nine deep-dive panels draw nothing without a sitting, and the
+   * heading above them is drawn only when at least one of them will. Both
+   * halves read one predicate, so a heading over nine nulls is not a state
+   * this page can reach.
+   */
+  it('the Deep-Dive Results heading and the panels under it share one predicate', () => {
+    expect(PAGE).toContain('const hasAnyDeepDiveResults = anyDeepDiveResults(deepDivePanelStates)');
+    expect(PAGE).toContain('{hasAnyDeepDiveResults && (');
+    for (const panel of [
+      'StressLoadPanel',
+      'OwningYourValuePanel',
+      'WhereYourJoyLivesPanel',
+      'TheGivingLedgerPanel',
+      'TheWeightOfYesPanel',
+      'BeingSeenPanel',
+      'WhatYouPutDownPanel',
+      'YourOwnCompanyPanel',
+      'TheLifeYoureBuildingPanel',
+    ]) {
+      expect(source(`app/coach/clients/[id]/${panel}.tsx`), panel).toContain(
+        'if (!hasDeepDiveResults(state)) return null;'
+      );
+    }
+  });
+
+  /**
+   * The sentence this build deleted. Nine cards said it, which was most of
+   * the height of the section and none of its information.
+   */
+  it('no panel repeats the old not-assigned sentence any more', () => {
+    for (const panel of [
+      'StressLoadPanel',
+      'OwningYourValuePanel',
+      'WhereYourJoyLivesPanel',
+      'TheGivingLedgerPanel',
+      'TheWeightOfYesPanel',
+      'BeingSeenPanel',
+      'WhatYouPutDownPanel',
+      'YourOwnCompanyPanel',
+      'TheLifeYoureBuildingPanel',
+    ]) {
+      expect(source(`app/coach/clients/[id]/${panel}.tsx`), panel).not.toContain(
+        'Nothing about this is offered to them until you send it'
+      );
+    }
   });
 
   it('today being missing is read from the same list that prints the chips beside her name', () => {
@@ -374,20 +492,37 @@ describe('the dot is gold only when something is asking for something', () => {
   });
 
   it('an overdue assignment is gold, a sent one that is not late is green', () => {
-    expect(assessmentsDigest({ pending: 1, completed: 0, overdue: 1, sittings: 0 }).dot).toBe('gold');
-    expect(assessmentsDigest({ pending: 1, completed: 2, overdue: 0, sittings: 0 }).dot).toBe('green');
-    expect(assessmentsDigest({ pending: 1, completed: 2, overdue: 0, sittings: 0 }).text).toBe(
-      '1 pending, 2 completed'
-    );
-    // Live on 2026-09-06 this read "5 sitting on files".
-    expect(assessmentsDigest({ pending: 0, completed: 1, overdue: 0, sittings: 5 }).text).toBe(
-      '1 completed, 5 sittings on file'
-    );
-    expect(assessmentsDigest({ pending: 0, completed: 0, overdue: 0, sittings: 1 }).text).toBe(
-      '1 sitting on file'
-    );
-    expect(assessmentsDigest({ pending: 0, completed: 0, overdue: 0, sittings: 0 })).toEqual({
-      text: 'Nothing sent yet',
+    expect(
+      assessmentsDigest({ notYetAssigned: 18, waiting: 1, completed: 0, overdue: 1 }).dot
+    ).toBe('gold');
+    expect(
+      assessmentsDigest({ notYetAssigned: 16, waiting: 1, completed: 2, overdue: 0 }).dot
+    ).toBe('green');
+  });
+
+  /**
+   * The line the brief named, word for word: waiting, then completed, then
+   * not yet assigned, and every number is one of the three groups the
+   * block below the header actually draws.
+   */
+  it('names the three groups in the order the block renders them', () => {
+    expect(
+      assessmentsDigest({ notYetAssigned: 28, waiting: 2, completed: 1, overdue: 0 }).text
+    ).toBe('2 waiting, 1 completed, 28 not yet assigned');
+  });
+
+  it('drops a group that has nothing in it rather than printing a zero', () => {
+    expect(
+      assessmentsDigest({ notYetAssigned: 19, waiting: 0, completed: 0, overdue: 0 }).text
+    ).toBe('19 not yet assigned');
+    expect(
+      assessmentsDigest({ notYetAssigned: 19, waiting: 0, completed: 0, overdue: 0 }).dot
+    ).toBe('grey');
+  });
+
+  it('says one honest line for a library with nothing in it at all', () => {
+    expect(assessmentsDigest({ notYetAssigned: 0, waiting: 0, completed: 0, overdue: 0 })).toEqual({
+      text: 'Nothing to send and nothing sent',
       dot: 'grey',
     });
   });
@@ -411,7 +546,9 @@ describe('the dot is gold only when something is asking for something', () => {
 
   it('a reflection waiting on her is gold, a finished one is green', () => {
     expect(weeklyReflectionDigest({ reflections: 2, statusKind: 'delivered' }).dot).toBe('gold');
-    expect(weeklyReflectionDigest({ reflections: 2, statusKind: 'not_delivered' }).dot).toBe('gold');
+    expect(weeklyReflectionDigest({ reflections: 2, statusKind: 'not_delivered' }).dot).toBe(
+      'gold'
+    );
     expect(weeklyReflectionDigest({ reflections: 2, statusKind: 'completed' }).dot).toBe('green');
   });
 
@@ -437,9 +574,9 @@ describe('the dot is gold only when something is asking for something', () => {
   });
 
   it('App Controls is always grey, because switches are decisions already made', () => {
-    expect(
-      appControlsDigest({ waterTracked: true, hiddenFeatures: 3, totalFeatures: 24 })
-    ).toEqual({ text: 'Water tracking on, 3 of 24 features hidden', dot: 'grey' });
+    expect(appControlsDigest({ waterTracked: true, hiddenFeatures: 3, totalFeatures: 24 })).toEqual(
+      { text: 'Water tracking on, 3 of 24 features hidden', dot: 'grey' }
+    );
     expect(
       appControlsDigest({ waterTracked: false, hiddenFeatures: 0, totalFeatures: 24 })
     ).toEqual({ text: 'Water tracking off, all 24 features shown', dot: 'grey' });

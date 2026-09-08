@@ -1,3 +1,88 @@
+## Assessments and Findings opens on the status of every assessment (2026-09-08)
+
+Presentation and layout only. No assignment logic changed, no data model
+changed, no score changed. Every write path that existed before this build
+is the write path that runs after it.
+
+### THE PROBLEM
+
+Expanding "Assessments and Findings" on a coach's client detail page gave
+her every finding first and the actual list of assessments last. Measured
+on production before this build, on a 390px phone, the expanded section ran
+**8,748px for one client and 10,101px for another**, and the sentence
+"Not assigned. Nothing about this is offered to them until you send it."
+appeared **eight times on one page and seven on the other**, once per
+unassigned deep-dive card. The question a coach opens that section to
+answer, what has she been sent, what is she sitting on, what came back, was
+the last thing she could reach.
+
+### WHAT IT OPENS ON NOW
+
+**One Assessment Status block, first.** Nineteen assessments in three
+groups, in this order, each header carrying its own count: Not Yet Assigned,
+Assigned Waiting, Completed. One compact row each: the name, its area chip,
+one inline action. The placement rule is `currentAssignmentFor`, which was
+already the one rule for "where does this client stand on this
+questionnaire", so a withdrawn assignment reads as not yet assigned rather
+than as a fourth state.
+
+  **Not Yet Assigned** rows carry an inline Assign button. Tapping it opens
+    an assign form under that row, and opening another closes the first, so
+    a coach is never halfway through two sends. The FIELDS come from the
+    row, not from the copy: a registry questionnaire takes a reason, a
+    Required toggle and a due date, and a coach-assigned deep-dive takes a
+    due date and is always required, because that is what its own action
+    stores. On a successful assign the row moves to Waiting.
+  **Assigned, Waiting** rows carry the server's own sentence (sent, seen,
+    due or overdue, written in the MEMBER's timezone), whether it was
+    required, the Overdue chip when it is late, and Cancel.
+  **Completed** rows carry the day she finished and, where that assessment
+    has a card on this page, a "View results" control that opens the owning
+    section first and then scrolls, through the same bus the pinned search
+    uses.
+
+**Then the findings, under three sub-headers.** Wellness Identity (the
+durable profile and the body assessment findings), Snapshots (WBSA, Core
+Values Snapshot, Life Signal Check, Readiness Pulse) and Deep-Dive Results
+(the nine coach-assigned deep-dives).
+
+**The nine deep-dive panels are result blocks now.** With no sitting behind
+one, it renders nothing at all rather than a card repeating one sentence,
+and the Deep-Dive Results heading is drawn only when at least one of them
+will render, from the same predicate
+(`lib/coach-detail/deepDiveResults.ts`). Deciding to SEND one happens on its
+row. A panel with a sitting on file keeps everything it had, including its
+"send it again starts a fresh sitting" button.
+
+### ONE SOURCE OF TRUTH FOR THE THREE NUMBERS
+
+`groupAssessmentsByStatus` runs once on the server and the same object
+feeds the three group headers and the folded section digest, which now
+reads "2 waiting, 1 completed, 16 not yet assigned". It used to count
+assignment ROWS while the list below it counted questionnaires, so one
+questionnaire sent twice could put "1 pending" over two waiting rows.
+
+### THE ASSIGN PATHS DID NOT MULTIPLY
+
+`app/actions/coachAssessmentRowAssign.ts` is a dispatcher, not a tenth
+insert. A registry row goes to `assignAssessmentAction` and each deep-dive
+goes to its own `assign...Action`, which has accepted a `dueDate` argument
+since 2026-09-05. It refuses a row id nobody offers before reading
+anything, and it DROPS a reason or a Required flag on a deep-dive, because
+that row has nowhere to put either. The standalone Assign an Assessment
+panel is deleted; the pinned search now lands on a questionnaire's own row
+and marks it instead of pre-filling that panel's field.
+
+### TESTS
+
+Two new files, `tests/coach-assessment-status-block.test.tsx` (23 checks,
+jsdom, pressing the real buttons) and `tests/coach-assessment-row-assign.test.ts`
+(18 checks, every dispatch and every refusal). The existing suites were
+rewritten rather than deleted where they described the old panel.
+
+Full suite: 547 files, 10,188 tests, all passing. Typecheck clean, lint
+clean (0 errors), production build clean.
+
 ## Two coach-side presentation fixes: the client card, and the door to the full record (2026-09-07)
 
 Presentation only. No query changed, no score changed, no rule in

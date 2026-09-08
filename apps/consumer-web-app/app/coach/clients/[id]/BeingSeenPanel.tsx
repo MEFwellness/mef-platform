@@ -21,8 +21,12 @@
  * reads another template's rows, so there is nothing to put beside her
  * answers and no line to write about one.
  *
- * THREE STATES, SAID AS THREE DIFFERENT THINGS: not assigned (with the
- * button), assigned and waiting, and finished.
+ * IT IS A RESULT BLOCK NOW (2026-09-08), so it draws nothing at all until
+ * there is a sitting behind it. Deciding to SEND it happens on its row in
+ * the Assessment Status block at the top of Assessments and Findings,
+ * which is where its assigned and waiting states are said. What is left
+ * here are the two states that have something to show: a finished sitting,
+ * and a finished sitting with a fresh copy still open on her screen.
  *
  * Every row was fetched on the server by getClientBeingSeenPanelAction,
  * which is where the coach check and the test-account exclusion live.
@@ -35,6 +39,7 @@ import { formatDisplayDate } from '@/lib/time/displayDate';
 import { BSN_COACH_COPY, BSN_LABEL, sectionFor } from '@/lib/being-seen/copy';
 import { BSN_OPENER_KEY, BSN_QUESTIONS } from '@/lib/being-seen/questions';
 import { assignBeingSeenAction, type CoachBsnPanelState } from '@/app/actions/beingSeen';
+import { hasDeepDiveResults } from '@/lib/coach-detail/deepDiveResults';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -60,6 +65,16 @@ export function BeingSeenPanel({
   const [selectedId, setSelectedId] = useState<string | null>(state.sessions[0]?.id ?? null);
 
   const selected = state.sessions.find((session) => session.id === selectedId) ?? null;
+
+  /*
+    A RESULT BLOCK, SO NOTHING TO SHOW IS NOTHING TO DRAW (2026-09-08).
+    The decision to send this lives on its row in the Assessment Status
+    block at the top of Assessments and Findings. A panel with no sitting
+    behind it therefore has no finding, no narrative and no button, and it
+    renders nothing rather than a card repeating one sentence. Every hook
+    above has already run, so this return adds no conditional hook.
+  */
+  if (!hasDeepDiveResults(state)) return null;
 
   function assign() {
     setError(null);
@@ -102,9 +117,8 @@ export function BeingSeenPanel({
       ) : (
         <div className="mt-3">
           <p className="text-sm text-[#6B7A72]">
-            {state.sessions.length === 0
-              ? 'Not assigned. Nothing about this is offered to them until you send it.'
-              : 'Nothing open right now. Sending it again starts a fresh sitting and keeps everything below.'}
+            Nothing open right now. Sending it again starts a fresh sitting and keeps everything
+            below.
           </p>
           <button
             type="button"

@@ -1,11 +1,13 @@
 /**
- * THE COACH CAN TYPE INSTEAD OF SCROLL (2026-09-06).
+ * THE ASSIGNABLE LIBRARY: NAMED, FILED, MATCHED, AND PLACED.
  *
- * "Assign an Assessment" on the client detail page used to be a native
- * dropdown. The template library keeps growing, and a dropdown of names on
- * a phone gives a coach no way to type and no way to see whether the thing
- * she is about to send has already been sent, already been finished, or is
- * sitting unopened on that client's screen.
+ * Written for the searchable Assign panel on 2026-09-06. That panel is
+ * gone: since 2026-09-08 the same questionnaires are rows in the coach's
+ * Assessment Status block, grouped by where this client stands on each
+ * one, and the typing happens in the page's own pinned search. What the
+ * panel was built on did not change at all, so everything in this file
+ * that is about lib/assignments/assignableCatalog.ts is untouched, and the
+ * assertions that were about the panel's own DOM now render the block.
  *
  * Four things are worth proving, and this file proves each of them against
  * the real registry and the real rendered HTML rather than against a
@@ -17,21 +19,12 @@
  *   2. THE FILTER MATCHES ON BOTH FIELDS. A name, and an area. The area
  *      case is asserted with a word that appears in NO display name, so a
  *      test that only ever matched names could not pass it.
- *   3. THE STATUS ON A FILTERED ROW IS THE PAGE'S OWN STATUS. Character
- *      for character, the same sentence the assignment list further down
- *      the same page prints for the same client, because it is that
- *      assignment's own server written statusLine read back rather than a
- *      second one built in the picker.
- *   4. A ROW THIS PANEL CANNOT SEND IS NOT A BUTTON. The three
- *      coach-assigned deep-dives are findable here and are assigned from
- *      their own cards, so their rows carry no control at all.
- *
- * HOW A FILTERED LIST IS RENDERED WITHOUT A BROWSER. This suite runs in
- * node with no DOM, so nothing can type into the field. The panel renders
- * `filterAssignableTemplates(props, query)`, and the filter is idempotent
- * for an empty query, so handing it an already filtered list produces the
- * exact DOM typing that query produces. That is what `render(query)` below
- * does, and it is the only reason it is legitimate.
+ *   3. THE STATUS ON A ROW IS THE PAGE'S OWN STATUS. Character for
+ *      character, the sentence the server wrote for that assignment, read
+ *      back rather than rebuilt, so the two halves of one screen can never
+ *      tell a coach two different things.
+ *   4. EVERY QUESTIONNAIRE IS PLACED, ONCE. Nineteen templates go in and
+ *      nineteen rows come out, spread over exactly three groups.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -41,10 +34,11 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
 }));
 
-const { AssessmentAssignmentPanel } =
-  await import('@/app/coach/clients/[id]/AssessmentAssignmentPanel');
+const { AssessmentStatusBlock } =
+  await import('@/app/coach/clients/[id]/detail/AssessmentStatusBlock');
+const { groupAssessmentsByStatus, assessmentStatusCounts } =
+  await import('@/lib/coach-detail/assessmentStatus');
 const {
-  ASSIGNED_FROM_OWN_CARD,
   NOT_SENT_STATUS_LINE,
   currentAssignmentFor,
   filterAssignableTemplates,
@@ -62,9 +56,9 @@ const { WYJL_LABEL } = await import('@/lib/where-your-joy-lives/copy');
 const { OYV_LABEL } = await import('@/lib/owning-your-value/copy');
 const { STRESS_LOAD_LABEL } = await import('@/lib/stress-load/copy');
 
-type AssessmentAssignment = Parameters<
-  typeof AssessmentAssignmentPanel
->[0]['initialAssignments'][number];
+type AssessmentAssignment = Awaited<
+  ReturnType<typeof import('@/app/actions/assessmentAssignments').getClientAssessmentAssignments>
+>[number];
 
 const TEMPLATES = listAssignableTemplates();
 const NAMES = assignmentNameRecord();
@@ -141,19 +135,13 @@ const SENT_UNOPENED = assignment({
 });
 const ASSIGNMENTS = [SENT_UNOPENED, SEEN_AND_DUE, FINISHED];
 
-/**
- * The panel as it renders after typing `query`. See the header for why
- * pre-filtering the prop is the same DOM as typing.
- */
-function render(query: string): string {
-  return renderToStaticMarkup(
-    <AssessmentAssignmentPanel
-      clientId="client-1"
-      assignableTemplates={filterAssignableTemplates(TEMPLATES, query)}
-      assignmentsByDefinitionId={NAMES}
-      initialAssignments={ASSIGNMENTS}
-    />
-  );
+/** The three groups this fixture client produces, built by the real placement rule. */
+const GROUPS = groupAssessmentsByStatus(TEMPLATES, ASSIGNMENTS, NAMES);
+const COUNTS = assessmentStatusCounts(GROUPS);
+
+/** The status block as a coach sees it, rendered from those same groups. */
+function renderBlock(): string {
+  return renderToStaticMarkup(<AssessmentStatusBlock clientId="client-1" groups={GROUPS} />);
 }
 
 /**
@@ -170,20 +158,17 @@ function esc(text: string): string {
     .replace(/'/g, '&#x27;');
 }
 
-/** Just the searchable list, so an assertion about it cannot be satisfied by the ledger underneath. */
-function picker(html: string): string {
-  const start = html.indexOf('aria-label="Questionnaires for this client"');
-  const end = html.indexOf('Optional reason for this client');
-  expect(start).toBeGreaterThan(-1);
-  expect(end).toBeGreaterThan(start);
-  return html.slice(start, end);
-}
-
-/** Just the assignment ledger underneath the form, which is what this page printed before this build. */
-function ledger(html: string): string {
-  const start = html.indexOf('</form>');
-  expect(start).toBeGreaterThan(-1);
-  return html.slice(start);
+/**
+ * Just one group's rows, addressed by the group's own marker rather than
+ * by copy. A locator that took the first text match would happily assert
+ * about the wrong group and still report a pass.
+ */
+function group(html: string, key: 'notYetAssigned' | 'waiting' | 'completed'): string {
+  const start = html.indexOf(`data-assessment-group="${key}"`);
+  expect(start, key).toBeGreaterThan(-1);
+  const rest = html.slice(start + 1);
+  const next = rest.indexOf('data-assessment-group="');
+  return next === -1 ? rest : rest.slice(0, next);
 }
 
 describe('the area map keeps up with the library', () => {
@@ -303,91 +288,153 @@ describe('a row says where this client stands', () => {
   });
 });
 
-describe('the panel a coach actually sees', () => {
-  it('puts a search field at the top of the section', () => {
-    const html = render('');
-    expect(html).toContain('Assign an Assessment');
-    // Addressable by its accessible name, so a live check reaches this
-    // card and not another panel that happens to use the same words.
-    expect(html).toContain('aria-label="Assign an Assessment"');
-    expect(html).toContain('Search by name or area');
-    expect(html).toContain('Search questionnaires by name or area');
-    // The field is above the list it filters.
-    expect(html.indexOf('Search by name or area')).toBeLessThan(
-      html.indexOf('aria-label="Questionnaires for this client"')
-    );
+describe('every questionnaire is placed, exactly once', () => {
+  it('nineteen templates in, nineteen rows out, across three groups', () => {
+    expect(TEMPLATES.length).toBeGreaterThan(0);
+    expect(COUNTS.notYetAssigned + COUNTS.waiting + COUNTS.completed).toBe(TEMPLATES.length);
   });
 
-  it('lists every template, each with its area and this client’s standing', () => {
-    const shown = picker(render(''));
-    for (const template of TEMPLATES) {
-      expect(shown).toContain(esc(template.displayName));
-      expect(shown).toContain(esc(template.areaLabel));
-      expect(shown).toContain(templateStatusLine(ASSIGNMENTS, template.definitionId));
+  it('files each of the fixture rows by its own current assignment', () => {
+    expect(GROUPS.waiting.map((r) => r.displayName)).toEqual(
+      expect.arrayContaining([WHOLE_BODY.displayName, JOY.displayName])
+    );
+    expect(GROUPS.completed.map((r) => r.displayName)).toContain(BASELINE.displayName);
+    const placedElsewhere = new Set([
+      ...GROUPS.waiting.map((r) => r.id),
+      ...GROUPS.completed.map((r) => r.id),
+    ]);
+    for (const row of GROUPS.notYetAssigned) {
+      expect(placedElsewhere.has(row.id)).toBe(false);
     }
   });
 
-  it('shows only the matches once a name is typed', () => {
-    const shown = picker(render('joy'));
-    expect(shown).toContain(WYJL_LABEL);
-    expect(shown).not.toContain('Baseline Assessment');
-    expect(shown).not.toContain('Whole-Body Check-In');
+  /**
+   * A withdrawn assignment is not an offer. Nothing is on her screen, so
+   * the row belongs beside everything else she has never been sent rather
+   * than in a fourth group nobody asked for.
+   */
+  it('a withdrawn row reads as not yet assigned, not as waiting or completed', () => {
+    const withdrawn = assignment({
+      id: 'a-withdrawn',
+      definitionId: JOY.definitionId,
+      status: 'cancelled',
+      createdAt: '2026-09-01T12:00:00.000Z',
+      cancelledAt: '2026-09-02T12:00:00.000Z',
+    });
+    const groups = groupAssessmentsByStatus(TEMPLATES, [withdrawn], NAMES);
+    expect(groups.notYetAssigned.map((r) => r.id)).toContain(JOY.id);
+    expect(groups.waiting).toHaveLength(0);
+    expect(groups.completed).toHaveLength(0);
   });
 
-  it('shows every template in an area once the area is typed', () => {
-    const shown = picker(render('happiness'));
-    expect(shown).toContain(esc(WYJL_LABEL));
-    expect(shown).toContain(esc(OYV_LABEL));
-    expect(shown).not.toContain('Baseline Assessment');
+  it('counts overdue by the identical test that draws the Overdue chip', () => {
+    const late = assignment({
+      id: 'a-late',
+      definitionId: WHOLE_BODY.definitionId,
+      status: 'pending',
+      createdAt: '2026-08-20T12:00:00.000Z',
+      dueAt: '2026-08-25T00:00:00.000Z',
+    });
+    const counts = assessmentStatusCounts(groupAssessmentsByStatus(TEMPLATES, [late], NAMES));
+    expect(counts.overdue).toBe(1);
+    expect(late.progress.due.isOverdue).toBe(true);
+  });
+});
+
+describe('the status block a coach actually sees', () => {
+  it('is addressable by its accessible name, not by copy another card could carry', () => {
+    expect(renderBlock()).toContain('aria-label="Assessment Status"');
   });
 
-  it('says so honestly when nothing matches', () => {
-    const shown = picker(render('qzxwv'));
-    expect(shown).toContain('Nothing here matches that.');
-    expect(shown).not.toContain(WYJL_LABEL);
+  it('prints the three groups in order, each with its own count', () => {
+    const html = renderBlock();
+    const notYet = html.indexOf('Not Yet Assigned');
+    const waiting = html.indexOf('Assigned, Waiting');
+    const completed = html.indexOf('Completed<');
+    expect(notYet).toBeGreaterThan(-1);
+    expect(notYet).toBeLessThan(waiting);
+    expect(waiting).toBeLessThan(completed);
+    expect(group(html, 'notYetAssigned')).toContain(`(${COUNTS.notYetAssigned})`);
+    expect(group(html, 'waiting')).toContain(`(${COUNTS.waiting})`);
+    expect(group(html, 'completed')).toContain(`(${COUNTS.completed})`);
+  });
+
+  it('every template is on screen once, with its area beside it', () => {
+    const html = renderBlock();
+    for (const template of TEMPLATES) {
+      expect(html).toContain(esc(template.displayName));
+      expect(html).toContain(esc(template.areaLabel));
+    }
   });
 
   /**
-   * The requirement this build was given, asserted as a string identity.
-   * The sentence on a FILTERED row and the sentence on the SAME client's
-   * assignment row underneath the form are one string, so the two halves of
-   * one screen can never tell a coach two different things.
+   * The requirement the searchable panel was given, kept: the sentence on
+   * a row is that assignment's own server written statusLine, read back
+   * rather than a second one built here.
    */
-  it('prints the same status sentence on a filtered row as the page prints underneath', () => {
-    const unfiltered = render('');
+  it('prints the server sentence on a placed row, and nothing on an unsent one', () => {
+    const html = renderBlock();
     for (const [template, row] of [
       [JOY, SENT_UNOPENED],
       [WHOLE_BODY, SEEN_AND_DUE],
       [BASELINE, FINISHED],
     ] as const) {
-      const typed = template.displayName.slice(0, 6);
-      const filteredPicker = picker(render(typed));
-      expect(filteredPicker).toContain(esc(template.displayName));
-      expect(filteredPicker).toContain(row.statusLine);
-      expect(ledger(unfiltered)).toContain(row.statusLine);
+      expect(html).toContain(row.statusLine);
       expect(templateStatusLine(ASSIGNMENTS, template.definitionId)).toBe(row.statusLine);
     }
+    // The Not sent line is not printed nineteen times any more: an
+    // unassigned row is in the group whose name already says it.
+    expect(html).not.toContain(NOT_SENT_STATUS_LINE);
   });
 
-  it('leaves the ledger underneath untouched by the filter', () => {
-    expect(ledger(render('joy'))).toBe(ledger(render('')));
+  /**
+   * The bloat this build removed, asserted rather than assumed. Nine
+   * panels used to repeat one sentence, and every unassigned row used to
+   * be a card. One line for the whole group is the maximum.
+   */
+  it('says the not-yet-assigned context once for the group, never once per row', () => {
+    const html = renderBlock();
+    const matches = html.split('is offered to them until you send it').length - 1;
+    expect(matches).toBe(1);
   });
 
-  it('gives a row it cannot send no control at all, and says where its button is', () => {
-    const shown = picker(render('joy'));
-    expect(shown).toContain(ASSIGNED_FROM_OWN_CARD);
-    expect(shown).not.toContain('<button');
+  it('offers an Assign button on an unassigned row, and none on a waiting one', () => {
+    const html = renderBlock();
+    expect(group(html, 'notYetAssigned')).toContain('>Assign<');
+    expect(group(html, 'waiting')).not.toContain('>Assign<');
+    expect(group(html, 'waiting')).toContain('>Cancel<');
+  });
 
-    // A row it CAN send is still a button, exactly as the dropdown option
-    // it replaced was selectable.
-    const sendable = picker(render('Baseline'));
-    expect(sendable).toContain('<button');
-    expect(sendable).not.toContain(ASSIGNED_FROM_OWN_CARD);
+  /**
+   * Both kinds of row are assignable, and they are assignable through
+   * their own write paths. A deep-dive stores no reason and is always
+   * required, so its row must still offer the button.
+   */
+  it('a deep-dive row is assignable too, with no reason field to fill in', () => {
+    const joyRow = GROUPS.notYetAssigned.find((r) => r.id === 'stress-load-deep-dive');
+    expect(joyRow).toBeDefined();
+    expect(joyRow!.capability).toEqual({
+      canAssign: true,
+      acceptsReason: false,
+      acceptsRequired: false,
+      acceptsDueDate: true,
+    });
+    const registryRow = GROUPS.notYetAssigned.find((r) => r.assignKey !== null);
+    expect(registryRow!.capability).toEqual({
+      canAssign: true,
+      acceptsReason: true,
+      acceptsRequired: true,
+      acceptsDueDate: true,
+    });
+  });
+
+  it('a completed row that has a card on this page offers a way into it', () => {
+    const baselineRow = GROUPS.completed.find((r) => r.id === BASELINE.id);
+    expect(baselineRow!.resultsAnchorId).toBe('detail-card-baseline');
+    expect(group(renderBlock(), 'completed')).toContain('View results');
   });
 
   it('renders no em dash anywhere a coach can read', () => {
-    for (const query of ['', 'joy', 'happiness', 'qzxwv']) {
-      expect(render(query)).not.toContain('—');
-    }
+    expect(renderBlock()).not.toContain('\u2014');
   });
 });

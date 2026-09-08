@@ -59,36 +59,36 @@ export type AssignableTemplate = {
   /** The area a coach can type instead of a name. */
   areaLabel: string;
   /**
-   * What assignAssessmentAction is given when this panel's Assign button
-   * sends it, or null when its Assign button lives on its own card.
-   * Unchanged by this build for every row that has one.
+   * WHICH WRITE PATH SENDS THIS ROW, and nothing more.
+   *
+   * A key means `assignAssessmentAction` takes it. Null means the row has
+   * its own dedicated action with its own default due date, which is
+   * dispatched by app/actions/coachAssessmentRowAssign.ts. Both are
+   * assignable from the coach's status block; they simply accept different
+   * things, and lib/coach-detail/assessmentStatus.ts turns this into the
+   * fields the inline form is allowed to draw.
    */
   assignKey: AssessmentKey | null;
-  /** Where its own Assign button is, for a row this panel cannot send. Null when assignKey is set. */
-  assignedFromLabel: string | null;
 };
 
-/** The line a findable but not sendable row carries. True today, and it names no date. */
-export const ASSIGNED_FROM_OWN_CARD = 'Assigned from its own card on this page.';
-
 /**
- * The three coach-assigned deep-dives, which are FINDABLE here and are
- * deliberately NOT sendable here.
+ * The nine coach-assigned deep-dives, which the registry deliberately does
+ * not carry.
  *
- * WHY THEY APPEAR AT ALL. They land in the same assessment_assignments
- * ledger as everything above them, the list further down this panel has
- * always printed them, and a coach typing "joy" is looking for Where Your
- * Joy Lives whether or not the registry happens to carry it. Leaving them
- * out of a search field on the page that already lists them would make the
- * field lie by omission.
+ * WHY THEY APPEAR HERE. They land in the same assessment_assignments
+ * ledger as everything above them, the coach's assessment list has always
+ * printed them, and a coach typing "joy" is looking for Where Your Joy
+ * Lives whether or not the registry happens to know the name. Leaving them
+ * out of the one list of what can be sent would make it lie by omission.
  *
- * WHY THEY ARE NOT SENDABLE HERE. Each one has its own Assign action with
- * its own default due date and its own duplicate-click behaviour, and its
- * own card on this page shows what came back. A second Assign path would
- * be a second way to send one thing, which is the shape that drifts, and
- * the partial unique index behind these rows means a second path could
- * only ever race the first. So the row says where its button is and
- * nothing more, which is the honest thing a row can say.
+ * THEY CARRY NO assignKey, AND THAT IS NOT "NOT SENDABLE". Each one has
+ * its own Assign action holding its own default due date and its own
+ * idempotent duplicate-click behaviour, and the partial unique index
+ * behind these rows means a second INSERT path could only ever race the
+ * first. So there is still exactly one write per deep-dive: a null key
+ * routes the coach's button to that same action
+ * (app/actions/coachAssessmentRowAssign.ts) rather than to a second
+ * insert of its own.
  */
 const COACH_ASSIGNED_EXPERIENCES: {
   id: string;
@@ -155,14 +155,13 @@ const COACH_ASSIGNED_EXPERIENCES: {
 /**
  * Every questionnaire this client can be searched for, named and filed.
  *
- * WHAT A COACH MAY SEND FROM THIS PANEL IS UNCHANGED.
- * listAssignableAssessments() still decides it, exactly as it did before
- * this build, and those rows are the ones carrying an assignKey. The three
- * below them are findable and carry none.
+ * WHICH REGISTRY QUESTIONNAIRES A COACH MAY SEND IS UNCHANGED.
+ * listAssignableAssessments() still decides it, and those rows are the
+ * ones carrying an assignKey. The nine below them carry none and are sent
+ * by their own actions.
  *
- * Registry order first, then the deep-dives, so a coach who never types
- * anything sees the same list in the same order she saw before, with three
- * rows added at the end.
+ * Registry order first, then the deep-dives, which is one stable order the
+ * coach's status block files into groups without resorting.
  */
 export function listAssignableTemplates(): AssignableTemplate[] {
   const names = assignmentNamesByDefinitionId();
@@ -172,7 +171,6 @@ export function listAssignableTemplates(): AssignableTemplate[] {
     displayName: names.get(entry.databaseId) ?? entry.displayName,
     areaLabel: assessmentAreaLabel(entry.category),
     assignKey: entry.key,
-    assignedFromLabel: null,
   }));
   const experienceRows: AssignableTemplate[] = COACH_ASSIGNED_EXPERIENCES.map((experience) => ({
     id: experience.id,
@@ -180,7 +178,6 @@ export function listAssignableTemplates(): AssignableTemplate[] {
     displayName: names.get(experience.definitionId) ?? experience.displayName,
     areaLabel: experience.areaLabel,
     assignKey: null,
-    assignedFromLabel: ASSIGNED_FROM_OWN_CARD,
   }));
   return [...registryRows, ...experienceRows];
 }

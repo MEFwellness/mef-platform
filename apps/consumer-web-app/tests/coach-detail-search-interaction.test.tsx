@@ -17,13 +17,11 @@
  *     first and opened second would look correct in the source and do
  *     nothing on a phone.
  *   TYPING A QUESTIONNAIRE NAME AND TAPPING THE RESULT opens Assessments
- *     and Findings, scrolls to Assign an Assessment, and puts the query
- *     into the panel's OWN field so the row is already filtered. The panel
- *     is the real one, with the real registry behind it.
- *
- * It also proves the thing that makes the search safe to add at all: the
- * Assign panel's own field still works with nothing else on the page, so
- * the page search is an extra door and not a new owner.
+ *     and Findings and scrolls to that questionnaire's OWN ROW in the
+ *     Assessment Status block, marked so a coach can see which of the
+ *     nineteen she chose. The block is the real one, with the real
+ *     registry behind it. Rewritten on 2026-09-08: it used to pre-fill a
+ *     search field inside an Assign panel that no longer exists.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -36,16 +34,19 @@ vi.mock('next/navigation', () => ({
 
 const { DetailPageSearch } = await import('@/app/coach/clients/[id]/detail/DetailPageSearch');
 const { DetailSection } = await import('@/app/coach/clients/[id]/detail/DetailSection');
-const { AssessmentAssignmentPanel } = await import(
-  '@/app/coach/clients/[id]/AssessmentAssignmentPanel'
-);
+const { AssessmentStatusBlock } =
+  await import('@/app/coach/clients/[id]/detail/AssessmentStatusBlock');
 const { listAssignableTemplates } = await import('@/lib/assignments/assignableCatalog');
 const { assignmentNameRecord } = await import('@/lib/assignments/experienceNames');
+const { groupAssessmentsByStatus, assessmentRowElementId } =
+  await import('@/lib/coach-detail/assessmentStatus');
 const { WYJL_LABEL } = await import('@/lib/where-your-joy-lives/copy');
 const { DetailDeepLink } = await import('@/app/coach/clients/[id]/detail/DetailDeepLink');
 const { resetDetailBusForTests } = await import('@/lib/coach-detail/detailBus');
 
 const TEMPLATES = listAssignableTemplates();
+/** A client who has been sent nothing, so every row is in Not Yet Assigned. */
+const GROUPS = groupAssessmentsByStatus(TEMPLATES, [], assignmentNameRecord());
 
 declare global {
   // eslint-disable-next-line no-var
@@ -119,10 +120,7 @@ async function settle() {
 
 /** Types into a controlled React input the way a keyboard does. */
 function typeInto(input: HTMLInputElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype,
-    'value'
-  )!.set!;
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
   act(() => {
     setter.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -136,9 +134,7 @@ function click(element: Element) {
 }
 
 function pageSearchInput(): HTMLInputElement {
-  const field = container.querySelector<HTMLInputElement>(
-    '[data-detail-page-search="true"] input'
-  );
+  const field = container.querySelector<HTMLInputElement>('[data-detail-page-search="true"] input');
   expect(field, 'the pinned search field is on the page').not.toBeNull();
   return field!;
 }
@@ -163,9 +159,7 @@ function pageResultLabelled(text: string): HTMLButtonElement {
 }
 
 function questionnaireResultLabelled(text: string): HTMLButtonElement {
-  const buttons = [
-    ...container.querySelectorAll<HTMLButtonElement>('[data-questionnaire-result]'),
-  ];
+  const buttons = [...container.querySelectorAll<HTMLButtonElement>('[data-questionnaire-result]')];
   const found = buttons.find((button) => button.textContent?.includes(text));
   expect(found, `a questionnaire result mentioning "${text}"`).toBeDefined();
   return found!;
@@ -264,15 +258,10 @@ describe('typing a questionnaire name and tapping the result', () => {
           <DetailSection
             id="detail-section-assessments"
             title="Assessments and Findings"
-            digest={{ text: 'Nothing sent yet', dot: 'grey' }}
+            digest={{ text: '19 not yet assigned', dot: 'grey' }}
           >
-            <div id="detail-card-assign-assessment">
-              <AssessmentAssignmentPanel
-                clientId="member-1"
-                assignableTemplates={TEMPLATES}
-                assignmentsByDefinitionId={assignmentNameRecord()}
-                initialAssignments={[]}
-              />
+            <div id="detail-card-assessment-status">
+              <AssessmentStatusBlock clientId="member-1" groups={GROUPS} />
             </div>
           </DetailSection>
         </>
@@ -280,12 +269,12 @@ describe('typing a questionnaire name and tapping the result', () => {
     });
   }
 
-  function assignPanelInput(): HTMLInputElement {
-    const field = container.querySelector<HTMLInputElement>(
-      'section[aria-label="Assign an Assessment"] input[type="search"]'
+  function joyRow(): HTMLElement {
+    const row = container.querySelector<HTMLElement>(
+      '[data-assessment-row="where-your-joy-lives"]'
     );
-    expect(field, "the Assign panel's own search field").not.toBeNull();
-    return field!;
+    expect(row, "Where Your Joy Lives' own row").not.toBeNull();
+    return row!;
   }
 
   it('offers the questionnaire under its own plain label', () => {
@@ -295,67 +284,52 @@ describe('typing a questionnaire name and tapping the result', () => {
     expect(container.textContent).toContain(WYJL_LABEL);
   });
 
-  it('the tap opens Assessments and Findings and scrolls to Assign an Assessment', async () => {
+  it('the tap opens Assessments and Findings and scrolls to that row itself', async () => {
     mountPage();
     typeInto(pageSearchInput(), 'joy');
     click(questionnaireResultLabelled(WYJL_LABEL));
     await waitFor(() => scrolledInto.length === 1, 'the scroll');
-    expect(container.querySelector('section[aria-label="Assign an Assessment"]')).not.toBeNull();
-    expect((scrolledInto[0] as HTMLElement).id).toBe('detail-card-assign-assessment');
+    expect(container.querySelector('section[aria-label="Assessment Status"]')).not.toBeNull();
+    expect((scrolledInto[0] as HTMLElement).id).toBe(
+      assessmentRowElementId('where-your-joy-lives')
+    );
   });
 
-  it("the panel's own field arrives pre-filled with what she typed", async () => {
+  /**
+   * The block is inside a folded section, so its subscriber does not exist
+   * at the instant the request is made. The bus holds the request until it
+   * mounts, which is the whole reason it holds anything.
+   */
+  it('and marks that row, so a coach can see which of nineteen she chose', async () => {
     mountPage();
     typeInto(pageSearchInput(), 'joy');
     click(questionnaireResultLabelled(WYJL_LABEL));
-    await waitFor(() => assignPanelInput().value === 'joy', 'the field to be pre-filled');
-    expect(assignPanelInput().value).toBe('joy');
-  });
-
-  it('and the list under it is already filtered to the matching row', async () => {
-    mountPage();
-    typeInto(pageSearchInput(), 'joy');
-    click(questionnaireResultLabelled(WYJL_LABEL));
-    await waitFor(() => assignPanelInput().value === 'joy', 'the field to be pre-filled');
-    const rows = [
-      ...container.querySelectorAll('[aria-label="Questionnaires for this client"] > *'),
-    ];
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) {
-      expect(row.textContent).toContain(WYJL_LABEL);
+    await waitFor(() => joyRow().className.includes('bg-[#F5B700]/15'), 'the row to be marked');
+    const others = [...container.querySelectorAll<HTMLElement>('[data-assessment-row]')].filter(
+      (row) => row.dataset.assessmentRow !== 'where-your-joy-lives'
+    );
+    expect(others.length).toBeGreaterThan(0);
+    for (const row of others) {
+      expect(row.className).not.toContain('bg-[#F5B700]/15');
     }
   });
 
-  it('an area word works here too, exactly as it does in the panel itself', async () => {
+  it('the other eighteen rows are still on screen, because the grouping is the point', async () => {
+    mountPage();
+    typeInto(pageSearchInput(), 'joy');
+    click(questionnaireResultLabelled(WYJL_LABEL));
+    await waitFor(() => scrolledInto.length === 1, 'the scroll');
+    expect(container.querySelectorAll('[data-assessment-row]').length).toBe(TEMPLATES.length);
+  });
+
+  it('an area word works here too, and still lands on the row', async () => {
     mountPage();
     typeInto(pageSearchInput(), 'happiness');
     click(questionnaireResultLabelled(WYJL_LABEL));
-    await waitFor(() => assignPanelInput().value === 'happiness', 'the field to be pre-filled');
-    expect(assignPanelInput().value).toBe('happiness');
-  });
-});
-
-describe("the Assign panel's own field is untouched and still works alone", () => {
-  it('filters on its own, with no page search anywhere near it', () => {
-    act(() => {
-      root.render(
-        <AssessmentAssignmentPanel
-          clientId="member-1"
-          assignableTemplates={TEMPLATES}
-          assignmentsByDefinitionId={assignmentNameRecord()}
-          initialAssignments={[]}
-        />
-      );
-    });
-    const field = container.querySelector<HTMLInputElement>('input[type="search"]')!;
-    typeInto(field, 'joy');
-    const rows = [
-      ...container.querySelectorAll('[aria-label="Questionnaires for this client"] > *'),
-    ];
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) {
-      expect(row.textContent).toContain(WYJL_LABEL);
-    }
+    await waitFor(() => scrolledInto.length === 1, 'the scroll');
+    expect((scrolledInto[0] as HTMLElement).id).toBe(
+      assessmentRowElementId('where-your-joy-lives')
+    );
   });
 });
 

@@ -119,6 +119,11 @@ import {
   appControlsDigest,
 } from '@/lib/coach-detail/digests';
 import { CHECKIN_WINDOW_DAYS, loggedDaysInWindow } from '@/lib/coach-detail/checkinSeries';
+import {
+  assessmentStatusCounts,
+  groupAssessmentsByStatus,
+} from '@/lib/coach-detail/assessmentStatus';
+import { anyDeepDiveResults } from '@/lib/coach-detail/deepDiveResults';
 import { DetailSection } from './DetailSection';
 import { DetailPageSearch } from './DetailPageSearch';
 import { DetailDeepLink } from './DetailDeepLink';
@@ -172,7 +177,8 @@ import { getClientYourOwnCompanyPanelAction } from '@/app/actions/yourOwnCompany
 import { TheLifeYoureBuildingPanel } from '../TheLifeYoureBuildingPanel';
 import { getClientTheLifeYoureBuildingPanelAction } from '@/app/actions/theLifeYoureBuilding';
 import { assignmentNameRecord } from '@/lib/assignments/experienceNames';
-import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
+import { AssessmentStatusBlock } from './AssessmentStatusBlock';
+import { FindingsGroup } from './FindingsGroup';
 import { MovementProfilePanel } from '../MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
 import {
@@ -410,20 +416,41 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     service already computed. lib/coach-detail/digests.ts holds the rules
     and the reasoning; this is only the wiring.
   */
-  const pendingAssignmentCount = assessmentAssignments.filter((a) => a.status === 'pending').length;
-  const completedAssignmentCount = assessmentAssignments.filter(
-    (a) => a.status === 'completed'
-  ).length;
-  // The identical test behind the Overdue chip on the assignment row.
-  const overdueAssignmentCount = assessmentAssignments.filter(
-    (a) => a.status === 'pending' && a.progress.due.isOverdue
-  ).length;
-  const assessmentSittings =
-    bodyAssessments.length +
-    wbsaSessions.length +
-    cvsSessions.length +
-    lscSessions.length +
-    rplSessions.length;
+  /*
+    WHERE THIS CLIENT STANDS ON EVERY ASSESSMENT, DECIDED ONCE.
+
+    The three groups the section opens on and the three numbers in its
+    folded header are the SAME object. The header used to count assignment
+    rows while the list below it counted questionnaires, so a client sent
+    one questionnaire twice could read "1 pending" over two waiting rows.
+    lib/coach-detail/assessmentStatus.ts holds the placement rule; this is
+    only the wiring, and it issues no query.
+  */
+  const assessmentGroups = groupAssessmentsByStatus(
+    assignableTemplates,
+    assessmentAssignments,
+    assessmentDisplayNameById
+  );
+  const assessmentCounts = assessmentStatusCounts(assessmentGroups);
+
+  /*
+    Whether the Deep-Dive Results heading has anything under it. Each of
+    the nine panels renders nothing without a sitting behind it, and a
+    heading over nine nulls is a heading over nothing, so both halves read
+    the same predicate (lib/coach-detail/deepDiveResults.ts).
+  */
+  const deepDivePanelStates = [
+    stressLoadPanel,
+    owningYourValuePanel,
+    whereYourJoyLivesPanel,
+    theGivingLedgerPanel,
+    theWeightOfYesPanel,
+    beingSeenPanel,
+    whatYouPutDownPanel,
+    yourOwnCompanyPanel,
+    theLifeYoureBuildingPanel,
+  ];
+  const hasAnyDeepDiveResults = anyDeepDiveResults(deepDivePanelStates);
 
   const sectionDigests = {
     intelligence: intelligenceDigest({
@@ -433,12 +460,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
       escalations: coachingEscalations.length,
       suggestedReassessments: rootCauseSignals?.suggestedReassessments.length ?? 0,
     }),
-    assessments: assessmentsDigest({
-      pending: pendingAssignmentCount,
-      completed: completedAssignmentCount,
-      overdue: overdueAssignmentCount,
-      sittings: assessmentSittings,
-    }),
+    assessments: assessmentsDigest(assessmentCounts),
     progress: progressDigest({
       loggedDays: loggedDaysInWindow(
         summary.checkins,
@@ -527,7 +549,11 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
               conversations with Root. Nothing scored or inferred.
             </span>
           </span>
-          <ChevronRight className="h-5 w-5 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+          <ChevronRight
+            className="h-5 w-5 shrink-0 text-[#6B7A72]"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
         </Link>
 
         {/* Resolves an arriving #member-visibility or #case-view to the
@@ -666,151 +692,126 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             title="Assessments and Findings"
             digest={sectionDigests.assessments}
           >
-            {/* MEF Wellness Intelligence Core — the durable "who is this
-                member as a coaching subject" model: wellness identity
-                observations, the 15-dimension wellness profile, a learned
-                coaching style, and leverage-capped prioritization
-                (Milestone 9) */}
-            {intelligenceCoreSummary && (
-              <div id="detail-card-intelligence-core" className="scroll-mt-24">
-                <IntelligenceCorePanel clientId={profile.id} summary={intelligenceCoreSummary} />
+            {/*
+              STATUS FIRST (2026-09-08). This section used to open on its
+              findings, with the list of assessments at the very bottom of a
+              long scroll, so the question a coach opens it to answer
+              ("what has she been sent, what is she sitting on, what came
+              back") was the last thing she could reach. The three groups,
+              their counts and the folded header above them all read one
+              object, so no two of them can disagree.
+            */}
+            <div id="detail-card-assessment-status" className="scroll-mt-24">
+              <AssessmentStatusBlock clientId={profile.id} groups={assessmentGroups} />
+            </div>
+
+            {/*
+              WHO SHE IS AS A COACHING SUBJECT. The durable model
+              (wellness identity observations, the 15-dimension profile, a
+              learned coaching style, leverage-capped prioritization,
+              Milestone 9) and the posture and movement findings, which are
+              the two things here that describe the person rather than one
+              sitting.
+            */}
+            <FindingsGroup id="findings-wellness-identity" title="Wellness Identity">
+              {intelligenceCoreSummary && (
+                <div id="detail-card-intelligence-core" className="scroll-mt-24">
+                  <IntelligenceCorePanel clientId={profile.id} summary={intelligenceCoreSummary} />
+                </div>
+              )}
+
+              {/* AI Body Assessment Framework — guided posture/movement
+                  assessment history; full capture review, findings,
+                  confirm/override, and coach review workflow live on their
+                  own dedicated page (captures/video need more room than a
+                  dashboard panel). */}
+              <div id="detail-card-body-assessment" className="scroll-mt-24">
+                <BodyAssessmentPanel clientId={profile.id} assessments={bodyAssessments} />
               </div>
+            </FindingsGroup>
+
+            {/*
+              THE RECURRING SITTINGS. Four questionnaires on the Unified
+              Adaptive Assessment Runtime, all with the same "counts and
+              flags in the list, full detail on its own page" split, and all
+              of them things a client can be asked again.
+            */}
+            <FindingsGroup id="findings-snapshots" title="Snapshots">
+              {/* WBSA — Whole-Body Systems Assessment, the first real content
+                  on the Unified Adaptive Assessment Runtime. */}
+              <div id="detail-card-wbsa" className="scroll-mt-24">
+                <WbsaPanel clientId={profile.id} sessions={wbsaSessions} />
+              </div>
+
+              {/* Core Values Snapshot — free-tier Experience 1. */}
+              <div id="detail-card-core-values" className="scroll-mt-24">
+                <CoreValuesSnapshotPanel clientId={profile.id} sessions={cvsSessions} />
+              </div>
+
+              {/* Life Signal Check — free-tier Experience 2. */}
+              <div id="detail-card-life-signal" className="scroll-mt-24">
+                <LifeSignalCheckPanel clientId={profile.id} sessions={lscSessions} />
+              </div>
+
+              {/* Readiness Pulse — free-tier Experience 3, the final
+                  conversation of the free arc. */}
+              <div id="detail-card-readiness-pulse" className="scroll-mt-24">
+                <ReadinessPulsePanel clientId={profile.id} sessions={rplSessions} />
+              </div>
+            </FindingsGroup>
+
+            {/*
+              WHAT THE NINE COACH-ASSIGNED DEEP-DIVES SENT BACK.
+
+              Each panel renders nothing at all without a sitting behind it
+              (lib/coach-detail/deepDiveResults.ts), because deciding to
+              send one now happens on its row in the status block above.
+              The heading is drawn only when at least one of them will
+              render, from the same predicate, so it is never a heading over
+              nine nulls.
+            */}
+            {hasAnyDeepDiveResults && (
+              <FindingsGroup id="findings-deep-dive-results" title="Deep-Dive Results">
+                <div id="detail-card-stress-load" className="scroll-mt-24">
+                  <StressLoadPanel clientId={profile.id} state={stressLoadPanel} />
+                </div>
+
+                <div id="detail-card-owning-your-value" className="scroll-mt-24">
+                  <OwningYourValuePanel clientId={profile.id} state={owningYourValuePanel} />
+                </div>
+
+                <div id="detail-card-where-your-joy-lives" className="scroll-mt-24">
+                  <WhereYourJoyLivesPanel clientId={profile.id} state={whereYourJoyLivesPanel} />
+                </div>
+
+                <div id="detail-card-the-giving-ledger" className="scroll-mt-24">
+                  <TheGivingLedgerPanel clientId={profile.id} state={theGivingLedgerPanel} />
+                </div>
+
+                <div id="detail-card-the-weight-of-yes" className="scroll-mt-24">
+                  <TheWeightOfYesPanel clientId={profile.id} state={theWeightOfYesPanel} />
+                </div>
+
+                <div id="detail-card-being-seen" className="scroll-mt-24">
+                  <BeingSeenPanel clientId={profile.id} state={beingSeenPanel} />
+                </div>
+
+                <div id="detail-card-what-you-put-down" className="scroll-mt-24">
+                  <WhatYouPutDownPanel clientId={profile.id} state={whatYouPutDownPanel} />
+                </div>
+
+                <div id="detail-card-your-own-company" className="scroll-mt-24">
+                  <YourOwnCompanyPanel clientId={profile.id} state={yourOwnCompanyPanel} />
+                </div>
+
+                <div id="detail-card-the-life-youre-building" className="scroll-mt-24">
+                  <TheLifeYoureBuildingPanel
+                    clientId={profile.id}
+                    state={theLifeYoureBuildingPanel}
+                  />
+                </div>
+              </FindingsGroup>
             )}
-
-            {/* AI Body Assessment Framework — guided posture/movement
-                assessment history; full capture review, findings,
-                confirm/override, and coach review workflow live on their
-                own dedicated page (captures/video need more room than a
-                dashboard panel). */}
-            <div id="detail-card-body-assessment" className="scroll-mt-24">
-              <BodyAssessmentPanel clientId={profile.id} assessments={bodyAssessments} />
-            </div>
-
-            {/* WBSA — Whole-Body Systems Assessment, the first real content
-                on the Unified Adaptive Assessment Runtime. Same "counts and
-                flags only in the list, full detail on its own page" split as
-                Body Assessment above. */}
-            <div id="detail-card-wbsa" className="scroll-mt-24">
-              <WbsaPanel clientId={profile.id} sessions={wbsaSessions} />
-            </div>
-
-            {/* Core Values Snapshot — free-tier Experience 1, also on the
-                Unified Adaptive Assessment Runtime. Same summary-list +
-                full-detail-on-its-own-page split as WBSA above. */}
-            <div id="detail-card-core-values" className="scroll-mt-24">
-              <CoreValuesSnapshotPanel clientId={profile.id} sessions={cvsSessions} />
-            </div>
-
-            {/* Life Signal Check — free-tier Experience 2, also on the
-                Unified Adaptive Assessment Runtime. Same summary-list +
-                full-detail-on-its-own-page split as Core Values Snapshot above. */}
-            <div id="detail-card-life-signal" className="scroll-mt-24">
-              <LifeSignalCheckPanel clientId={profile.id} sessions={lscSessions} />
-            </div>
-
-            {/* Readiness Pulse — free-tier Experience 3, the final
-                conversation of the free arc, also on the Unified Adaptive
-                Assessment Runtime. Same summary-list + full-detail-on-its-
-                own-page split as Core Values Snapshot/Life Signal Check
-                above. */}
-            <div id="detail-card-readiness-pulse" className="scroll-mt-24">
-              <ReadinessPulsePanel clientId={profile.id} sessions={rplSessions} />
-            </div>
-
-            {/*
-              The Stress & Load Deep-Dive, beside its two siblings because
-              all three are coach-assigned deep-dives and a coach preparing
-              for a session decides about them in the same moment. This is
-              also where its Assign button lives, so deciding to send it and
-              reading what came back are one place.
-            */}
-            <div id="detail-card-stress-load" className="scroll-mt-24">
-              <StressLoadPanel clientId={profile.id} state={stressLoadPanel} />
-            </div>
-
-            {/*
-              Owning Your Value, beside the Stress & Load Deep-Dive for the
-              same reason, and keeping its own Assign button on its own card.
-            */}
-            <div id="detail-card-owning-your-value" className="scroll-mt-24">
-              <OwningYourValuePanel clientId={profile.id} state={owningYourValuePanel} />
-            </div>
-
-            {/*
-              Where Your Joy Lives, beside the two deep-dives above it, and
-              keeping its own Assign button on its own card.
-            */}
-            <div id="detail-card-where-your-joy-lives" className="scroll-mt-24">
-              <WhereYourJoyLivesPanel clientId={profile.id} state={whereYourJoyLivesPanel} />
-            </div>
-
-            {/*
-              The Giving Ledger, beside the three deep-dives above it, and
-              keeping its own Assign button on its own card. No prerequisite
-              on either template above it: a coach may start any client here.
-            */}
-            <div id="detail-card-the-giving-ledger" className="scroll-mt-24">
-              <TheGivingLedgerPanel clientId={profile.id} state={theGivingLedgerPanel} />
-            </div>
-
-            {/*
-              The Weight of Yes, beside the four deep-dives above it, and
-              keeping its own Assign button on its own card. No prerequisite
-              on any template above it, including The Giving Ledger, which
-              this one can follow up on: the follow-up changes one
-              question's wording and never who may be sent this.
-            */}
-            <div id="detail-card-the-weight-of-yes" className="scroll-mt-24">
-              <TheWeightOfYesPanel clientId={profile.id} state={theWeightOfYesPanel} />
-            </div>
-
-            {/*
-              Being Seen, beside the five deep-dives above it, and keeping
-              its own Assign button on its own card. No prerequisite on any
-              template above it: a coach may start any client here.
-            */}
-            <div id="detail-card-being-seen" className="scroll-mt-24">
-              <BeingSeenPanel clientId={profile.id} state={beingSeenPanel} />
-            </div>
-
-            <div id="detail-card-what-you-put-down" className="scroll-mt-24">
-              <WhatYouPutDownPanel clientId={profile.id} state={whatYouPutDownPanel} />
-            </div>
-
-            {/*
-              Your Own Company, beside the six deep-dives above it, and
-              keeping its own Assign button on its own card. No prerequisite
-              on any template above it: a coach may start any client here.
-            */}
-            <div id="detail-card-your-own-company" className="scroll-mt-24">
-              <YourOwnCompanyPanel clientId={profile.id} state={yourOwnCompanyPanel} />
-            </div>
-
-            {/*
-              The Life You're Building, beside the seven deep-dives above
-              it, and keeping its own Assign button on its own card. No
-              prerequisite on any template above it, including the one it
-              can follow: a coach may start any client here.
-            */}
-            <div id="detail-card-the-life-youre-building" className="scroll-mt-24">
-              <TheLifeYoureBuildingPanel
-                clientId={profile.id}
-                state={theLifeYoureBuildingPanel}
-              />
-            </div>
-
-            {/* Coach assignment minimum interface — Assessment Registry
-                framework. Its own search field is untouched by this build
-                and still works on its own; the page's pinned search can now
-                also type into it. */}
-            <div id="detail-card-assign-assessment" className="scroll-mt-24">
-              <AssessmentAssignmentPanel
-                clientId={profile.id}
-                assignableTemplates={assignableTemplates}
-                assignmentsByDefinitionId={assessmentDisplayNameById}
-                initialAssignments={assessmentAssignments}
-              />
-            </div>
           </DetailSection>
 
           <DetailSection
@@ -1006,7 +1007,9 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             <section id="detail-card-baseline" className="scroll-mt-24">
               <div className="mb-3 flex items-center gap-2 text-[#854D0E]">
                 <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Baseline Assessment</p>
+                <p className="text-sm font-semibold uppercase tracking-wider">
+                  Baseline Assessment
+                </p>
               </div>
               {baseline ? (
                 <BaselineAssessmentView
@@ -1186,7 +1189,6 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
           </DetailSection>
         </div>
       </main>
-
     </div>
   );
 }

@@ -77,26 +77,40 @@ export function intelligenceDigest(input: IntelligenceDigestInput): SectionDiges
   return { text, dot: flagged ? 'gold' : empty ? 'grey' : 'green' };
 }
 
+/**
+ * The three groups the section now opens on, and nothing else
+ * (2026-09-08).
+ *
+ * IT IS THE SAME OBJECT THE GROUPS THEMSELVES ARE DRAWN FROM,
+ * `assessmentStatusCounts` over `groupAssessmentsByStatus`. That is the
+ * point: the folded header used to count assignment ROWS while the list
+ * below it counted questionnaires, so "1 pending" could sit above two
+ * waiting rows the moment one questionnaire had been sent twice. One
+ * source, one arithmetic, one answer.
+ *
+ * The sittings count that used to be in this line is gone with it. It
+ * counted a different thing again (finished sittings across five cards),
+ * and beside a Completed group it read as a second, disagreeing total.
+ */
 export type AssessmentsDigestInput = {
-  pending: number;
+  notYetAssigned: number;
+  waiting: number;
   completed: number;
   /** Still open, carrying a due day already behind her own today. The identical test behind the Overdue chip. */
   overdue: number;
-  /** Finished questionnaire sittings across the assessment cards in this section. */
-  sittings: number;
 };
 
 export function assessmentsDigest(input: AssessmentsDigestInput): SectionDigest {
-  const { pending, completed, overdue, sittings } = input;
+  const { notYetAssigned, waiting, completed, overdue } = input;
   const text = line(
     [
-      pending > 0 ? `${pending} pending` : null,
+      waiting > 0 ? `${waiting} waiting` : null,
       completed > 0 ? `${completed} completed` : null,
-      sittings > 0 ? `${sittings} sitting${sittings === 1 ? '' : 's'} on file` : null,
+      notYetAssigned > 0 ? `${notYetAssigned} not yet assigned` : null,
     ],
-    'Nothing sent yet'
+    'Nothing to send and nothing sent'
   );
-  const empty = pending === 0 && completed === 0 && sittings === 0;
+  const empty = waiting === 0 && completed === 0;
   return { text, dot: overdue > 0 ? 'gold' : empty ? 'grey' : 'green' };
 }
 

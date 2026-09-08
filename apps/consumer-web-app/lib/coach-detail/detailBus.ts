@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * "Open that section and take me to that card", and "put this in the
- * Assign panel's own field".
+ * "Open that section and take me to that card", and "point me at that
+ * assessment's row".
  *
  * A PLAIN EVENT TARGET, for the same reason lib/root-map/highlightBus.ts
  * is one. The pinned search, the six collapsible sections and the Assign
@@ -16,11 +16,11 @@
  * it exists because a plain dispatch was WRONG here in two ways that both
  * showed up the moment the components were driven rather than described:
  *
- *   THE ASSIGN PANEL IS NOT MOUNTED WHEN THE REQUEST IS MADE. It lives
- *     inside a folded section, and a folded section renders nothing, so at
- *     the instant a coach taps a questionnaire result its subscriber does
- *     not exist yet. A bare dispatch reached nobody, the section then
- *     opened, and the field arrived empty.
+ *   THE ASSESSMENT STATUS BLOCK IS NOT MOUNTED WHEN THE REQUEST IS MADE.
+ *     It lives inside a folded section, and a folded section renders
+ *     nothing, so at the instant a coach taps a questionnaire result its
+ *     subscriber does not exist yet. A bare dispatch reached nobody, the
+ *     section then opened, and the row arrived unmarked.
  *   THE DEEP LINK RUNS BEFORE THE SECTIONS SUBSCRIBE. DetailDeepLink sits
  *     above the sections in the tree, and React runs effects in tree
  *     order, so its "open App Controls" fired before App Controls had
@@ -30,13 +30,13 @@
  * So each channel keeps its last unclaimed request. A subscriber that
  * mounts afterwards takes it on mount, and taking it clears it, so a
  * section that is folded and reopened later does not replay an old jump
- * and the Assign field is not refilled behind a coach's back.
+ * and a row is not re-marked behind a coach's back.
  */
 
 import { useEffect, useRef } from 'react';
 
 const OPEN_SECTION = 'mef:coach-detail-open-section';
-const ASSIGN_QUERY = 'mef:coach-detail-assign-query';
+const ASSESSMENT_ROW = 'mef:coach-detail-assessment-row';
 
 const bus = new EventTarget();
 
@@ -48,7 +48,7 @@ export type OpenSectionRequest = {
 
 /** The last request nobody has taken yet, per channel. */
 let pendingSection: OpenSectionRequest | null = null;
-let pendingAssignQuery: string | null = null;
+let pendingAssessmentRow: string | null = null;
 
 export function requestDetailSection(request: OpenSectionRequest): void {
   pendingSection = request;
@@ -87,34 +87,43 @@ export function useDetailSectionRequests(
   }, [sectionId]);
 }
 
-/** Pre-fills the Assign panel's own search field, which then filters exactly as it does when typed into. */
-export function requestAssignSearchQuery(query: string): void {
-  pendingAssignQuery = query;
-  bus.dispatchEvent(new CustomEvent<string>(ASSIGN_QUERY, { detail: query }));
+/**
+ * Marks one assessment's row in the status block, so a coach who chose a
+ * questionnaire in the pinned search can see which of the rows in front of
+ * her is the one she asked for.
+ *
+ * The SCROLL is not this channel's job: the row's own DOM id is what the
+ * section is asked to scroll to, through the section channel above, which
+ * already knows to wait until the contents exist. This only says which row
+ * to mark.
+ */
+export function requestAssessmentRowFocus(rowId: string): void {
+  pendingAssessmentRow = rowId;
+  bus.dispatchEvent(new CustomEvent<string>(ASSESSMENT_ROW, { detail: rowId }));
 }
 
-export function useAssignSearchQueryRequests(onQuery: (query: string) => void): void {
-  const onQueryRef = useRef(onQuery);
-  onQueryRef.current = onQuery;
+export function useAssessmentRowFocusRequests(onFocus: (rowId: string) => void): void {
+  const onFocusRef = useRef(onFocus);
+  onFocusRef.current = onFocus;
 
   useEffect(() => {
-    const waiting = pendingAssignQuery;
+    const waiting = pendingAssessmentRow;
     if (waiting !== null) {
-      pendingAssignQuery = null;
-      onQueryRef.current(waiting);
+      pendingAssessmentRow = null;
+      onFocusRef.current(waiting);
     }
 
     function onEvent(event: Event) {
-      pendingAssignQuery = null;
-      onQueryRef.current((event as CustomEvent<string>).detail);
+      pendingAssessmentRow = null;
+      onFocusRef.current((event as CustomEvent<string>).detail);
     }
-    bus.addEventListener(ASSIGN_QUERY, onEvent);
-    return () => bus.removeEventListener(ASSIGN_QUERY, onEvent);
+    bus.addEventListener(ASSESSMENT_ROW, onEvent);
+    return () => bus.removeEventListener(ASSESSMENT_ROW, onEvent);
   }, []);
 }
 
 /** For tests: forget anything nobody took, so one case cannot leak into the next. */
 export function resetDetailBusForTests(): void {
   pendingSection = null;
-  pendingAssignQuery = null;
+  pendingAssessmentRow = null;
 }

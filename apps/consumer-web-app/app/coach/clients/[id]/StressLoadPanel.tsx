@@ -19,9 +19,12 @@
  * lean-on answers (Q11) are listed plainly, because a coach who does not
  * know what is already working can accidentally spend it.
  *
- * THREE STATES, SAID AS THREE DIFFERENT THINGS: not assigned (with the
- * button), assigned and waiting, and finished. A coach reading the wrong
- * one would draw the wrong conclusion.
+ * IT IS A RESULT BLOCK NOW (2026-09-08), so it draws nothing at all until
+ * there is a sitting behind it. Deciding to SEND it happens on its row in
+ * the Assessment Status block at the top of Assessments and Findings,
+ * which is where its assigned and waiting states are said. What is left
+ * here are the two states that have something to show: a finished sitting,
+ * and a finished sitting with a fresh copy still open on her screen.
  *
  * Prior sittings are selectable chips, newest first and open on arrival,
  * exactly as the Weekly Reflection panel beside it does it.
@@ -49,6 +52,7 @@ import {
   assignStressLoadDeepDiveAction,
   type CoachStressLoadPanelState,
 } from '@/app/actions/stressLoad';
+import { hasDeepDiveResults } from '@/lib/coach-detail/deepDiveResults';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -74,6 +78,16 @@ export function StressLoadPanel({
   const [selectedId, setSelectedId] = useState<string | null>(state.sessions[0]?.id ?? null);
 
   const selected = state.sessions.find((session) => session.id === selectedId) ?? null;
+
+  /*
+    A RESULT BLOCK, SO NOTHING TO SHOW IS NOTHING TO DRAW (2026-09-08).
+    The decision to send this lives on its row in the Assessment Status
+    block at the top of Assessments and Findings. A panel with no sitting
+    behind it therefore has no finding, no narrative and no button, and it
+    renders nothing rather than a card repeating one sentence. Every hook
+    above has already run, so this return adds no conditional hook.
+  */
+  if (!hasDeepDiveResults(state)) return null;
 
   function assign() {
     setError(null);
@@ -119,9 +133,8 @@ export function StressLoadPanel({
       ) : (
         <div className="mt-3">
           <p className="text-sm text-[#6B7A72]">
-            {state.sessions.length === 0
-              ? 'Not assigned. Nothing about this is offered to them until you send it.'
-              : 'Nothing open right now. Sending it again starts a fresh sitting and keeps everything below.'}
+            Nothing open right now. Sending it again starts a fresh sitting and keeps everything
+            below.
           </p>
           <button
             type="button"
@@ -203,7 +216,9 @@ export function StressLoadPanel({
                 </p>
                 {([1, 2, 3] as const).map((screen) => (
                   <div key={screen} className="mt-4">
-                    <p className="text-sm font-semibold text-[#1B3A2D]">{sectionFor(screen).name}</p>
+                    <p className="text-sm font-semibold text-[#1B3A2D]">
+                      {sectionFor(screen).name}
+                    </p>
                     <dl className="mt-2 space-y-3">
                       {STRESS_LOAD_QUESTIONS.filter((question) => question.screen === screen).map(
                         (question) => (

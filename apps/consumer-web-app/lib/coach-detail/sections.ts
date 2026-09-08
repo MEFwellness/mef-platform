@@ -72,19 +72,37 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
       { id: 'detail-card-root-cause-signals', title: 'Root Cause Signals' },
       { id: 'detail-card-root-map', title: 'Root Map' },
       { id: 'detail-card-recommendations', title: 'Recommendations and Experiments' },
-      { id: 'detail-card-longitudinal', title: 'Longitudinal Intelligence and Reassessment Request' },
+      {
+        id: 'detail-card-longitudinal',
+        title: 'Longitudinal Intelligence and Reassessment Request',
+      },
     ],
   },
   {
     id: 'detail-section-assessments',
     title: 'Assessments and Findings',
+    /*
+      STATUS FIRST, THEN THE FINDINGS UNDER THREE NAMED GROUPS
+      (2026-09-08). The section used to open on its findings with the list
+      of assessments at the very bottom, so the question a coach opens it
+      to answer ("what has she been sent, what is she sitting on, what came
+      back") was the last thing on a long scroll. The order below is the
+      order the page renders, and the three findings sub-headers are
+      indexed here for the same reason every card is: the pinned search
+      matches these titles, and an id nothing renders would be a result
+      that lands nowhere.
+    */
     cards: [
+      { id: 'detail-card-assessment-status', title: 'Assessment Status' },
+      { id: 'findings-wellness-identity', title: 'Wellness Identity' },
       { id: 'detail-card-intelligence-core', title: 'Wellness Identity and Profile' },
       { id: 'detail-card-body-assessment', title: 'Body Assessment Findings' },
+      { id: 'findings-snapshots', title: 'Snapshots' },
       { id: 'detail-card-wbsa', title: 'Whole-Body Systems Assessment' },
       { id: 'detail-card-core-values', title: 'Core Values Snapshot' },
       { id: 'detail-card-life-signal', title: 'Life Signal Check' },
       { id: 'detail-card-readiness-pulse', title: 'Readiness Pulse' },
+      { id: 'findings-deep-dive-results', title: 'Deep-Dive Results' },
       { id: 'detail-card-stress-load', title: 'Stress and Load Deep-Dive' },
       { id: 'detail-card-owning-your-value', title: 'Owning Your Value' },
       { id: 'detail-card-where-your-joy-lives', title: 'Where Your Joy Lives' },
@@ -94,7 +112,6 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
       { id: 'detail-card-what-you-put-down', title: 'What You Put Down' },
       { id: 'detail-card-your-own-company', title: 'Your Own Company' },
       { id: 'detail-card-the-life-youre-building', title: "The Life You're Building" },
-      { id: 'detail-card-assign-assessment', title: 'Assign an Assessment' },
     ],
   },
   {
@@ -214,7 +231,11 @@ export function searchDetailPage(query: string): DetailPageSearchResult[] {
   return results;
 }
 
-/** The section holding Assign an Assessment, named once so the search and the page agree. */
+/** The section holding the assessment rows, named once so the search and the page agree. */
 export const ASSIGN_SECTION_ID = 'detail-section-assessments';
-/** The Assign an Assessment card's own anchor, named once for the same reason. */
-export const ASSIGN_CARD_ID = 'detail-card-assign-assessment';
+/**
+ * The Assessment Status block's own anchor, named once for the same
+ * reason. It is where a questionnaire chosen in the pinned search lands
+ * when that questionnaire has no row of its own to point at.
+ */
+export const ASSIGN_CARD_ID = 'detail-card-assessment-status';
