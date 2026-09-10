@@ -69,6 +69,7 @@ type PriorityCardMessage = Extract<RootPopupMessage, { kind: 'priority_card' }>;
 type WeeklyReviewMessage = Extract<RootPopupMessage, { kind: 'weekly_review' }>;
 type WeeklyReflectionMessage = Extract<RootPopupMessage, { kind: 'weekly_reflection' }>;
 type StressLoadMessage = Extract<RootPopupMessage, { kind: 'stress_load_assigned' }>;
+type BodySystemsMessage = Extract<RootPopupMessage, { kind: 'body_systems_assigned' }>;
 type OwningYourValueMessage = Extract<RootPopupMessage, { kind: 'owning_your_value_assigned' }>;
 type WhereYourJoyLivesMessage = Extract<
   RootPopupMessage,
@@ -164,6 +165,12 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // auto-dismiss-on-mount group below, exactly like the coach-assigned
   // questionnaire it sits beside in the chain.
   const isStressLoad = message.kind === 'stress_load_assigned';
+  // The MEF Body Systems Survey is deliberately NOT in the auto-dismiss-on-
+  // mount group below either, and for the same reason: it is a coach's
+  // direct request, with real "Maybe later" and "Ignore" buttons. Its
+  // branch below tests message.kind directly rather than through a named
+  // boolean, because that is what narrows the union for the day3/day7 code
+  // further down.
   // Owning Your Value, the first of the Happiness deep-dives, is deliberately
   // NOT in the auto-dismiss-on-mount group below, for the same reason the
   // deep-dive above is not: it is a coach's direct request, with real "Maybe
@@ -490,6 +497,33 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
+  // The MEF Body Systems Survey. Same invite chrome as the deep-dive
+  // above: this is Root offering her a thing to open, and the survey
+  // itself lives on its own route where there is room for it.
+  //
+  // Its eyebrow, title, body and button label all arrive on the message,
+  // because they are rows in body_systems_copy rather than constants a
+  // deploy would be needed to change.
+  if (message.kind === 'body_systems_assigned') {
+    const m: BodySystemsMessage = message;
+    return (
+      <>
+        {/* The same receipt as the branches above, on the same table. */}
+        <TrackAssignmentDelivered assignmentId={m.assignmentId} presentation="popup" />
+        <RootInvitePopup
+          eyebrow="From Root"
+          title={m.title}
+          body={m.body}
+          ctaLabel={m.ctaLabel}
+          href={m.primaryHref}
+          isPending={isPending}
+          onMaybeLater={handleMaybeLater}
+          onIgnore={handleIgnore}
+        />
+      </>
+    );
+  }
+
   if (message.kind === 'owning_your_value_assigned') {
     const m: OwningYourValueMessage = message;
     return (
@@ -694,6 +728,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | WeeklyReviewMessage
     | WeeklyReflectionMessage
     | StressLoadMessage
+    | BodySystemsMessage
     | OwningYourValueMessage
     | WhereYourJoyLivesMessage
     | TheGivingLedgerMessage

@@ -160,6 +160,8 @@ import { PersonalResetPlanPanel } from '../PersonalResetPlanPanel';
 import { WeeklyReflectionPanel } from '../WeeklyReflectionPanel';
 import { StressLoadPanel } from '../StressLoadPanel';
 import { getClientStressLoadPanelAction } from '@/app/actions/stressLoad';
+import { BodySystemsPanel } from '../BodySystemsPanel';
+import { getClientBodySystemsPanelAction } from '@/app/actions/bodySystems';
 import { OwningYourValuePanel } from '../OwningYourValuePanel';
 import { getClientOwningYourValuePanelAction } from '@/app/actions/owningYourValue';
 import { WhereYourJoyLivesPanel } from '../WhereYourJoyLivesPanel';
@@ -293,6 +295,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     weeklyReflectionStatus,
     weeklyReflectionAssign,
     stressLoadPanel,
+    bodySystemsPanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
@@ -342,6 +345,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientWeeklyReflectionStatusAction(profile.id),
     getClientWeeklyReflectionAssignStateAction(profile.id),
     getClientStressLoadPanelAction(profile.id),
+    getClientBodySystemsPanelAction(profile.id),
     getClientOwningYourValuePanelAction(profile.id),
     getClientWhereYourJoyLivesPanelAction(profile.id),
     getClientTheGivingLedgerPanelAction(profile.id),
@@ -435,12 +439,13 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
 
   /*
     Whether the Deep-Dive Results heading has anything under it. Each of
-    the nine panels renders nothing without a sitting behind it, and a
-    heading over nine nulls is a heading over nothing, so both halves read
+    the ten panels renders nothing without a sitting behind it, and a
+    heading over ten nulls is a heading over nothing, so both halves read
     the same predicate (lib/coach-detail/deepDiveResults.ts).
   */
   const deepDivePanelStates = [
     stressLoadPanel,
+    bodySystemsPanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
@@ -761,19 +766,23 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             </FindingsGroup>
 
             {/*
-              WHAT THE NINE COACH-ASSIGNED DEEP-DIVES SENT BACK.
+              WHAT THE TEN COACH-ASSIGNED EXPERIENCES SENT BACK.
 
               Each panel renders nothing at all without a sitting behind it
               (lib/coach-detail/deepDiveResults.ts), because deciding to
               send one now happens on its row in the status block above.
               The heading is drawn only when at least one of them will
               render, from the same predicate, so it is never a heading over
-              nine nulls.
+              ten nulls.
             */}
             {hasAnyDeepDiveResults && (
               <FindingsGroup id="findings-deep-dive-results" title="Deep-Dive Results">
                 <div id="detail-card-stress-load" className="scroll-mt-24">
                   <StressLoadPanel clientId={profile.id} state={stressLoadPanel} />
+                </div>
+
+                <div id="detail-card-body-systems" className="scroll-mt-24">
+                  <BodySystemsPanel state={bodySystemsPanel} />
                 </div>
 
                 <div id="detail-card-owning-your-value" className="scroll-mt-24">

@@ -37,6 +37,7 @@ import { revalidatePath } from 'next/cache';
 import { listAssignableTemplates } from '@/lib/assignments/assignableCatalog';
 import { assignAssessmentAction } from './assessmentAssignments';
 import { assignStressLoadDeepDiveAction } from './stressLoad';
+import { assignBodySystemsSurveyAction } from './bodySystems';
 import { assignOwningYourValueAction } from './owningYourValue';
 import { assignWhereYourJoyLivesAction } from './whereYourJoyLives';
 import { assignTheGivingLedgerAction } from './theGivingLedger';
@@ -48,11 +49,12 @@ import { assignTheLifeYoureBuildingAction } from './theLifeYoureBuilding';
 
 export type AssignRowResult = { ok: true } | { ok: false; error: string };
 
-/** Each deep-dive's own action, by the row id lib/assignments/assignableCatalog.ts gives it. */
+/** Each coach-assigned experience's own action, by the row id lib/assignments/assignableCatalog.ts gives it. */
 const OWN_ACTION_BY_ROW_ID: Record<
   string,
   (clientId: string, options?: { dueDate?: string }) => Promise<{ ok: boolean; error?: string }>
 > = {
+  'body-systems-survey': assignBodySystemsSurveyAction,
   'stress-load-deep-dive': assignStressLoadDeepDiveAction,
   'owning-your-value': assignOwningYourValueAction,
   'where-your-joy-lives': assignWhereYourJoyLivesAction,

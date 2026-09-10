@@ -99,6 +99,7 @@ export const ASSESSMENT_RESULT_ANCHORS: Record<string, string> = {
   'onboarding-health-history': 'detail-card-baseline',
   'body-assessment': 'detail-card-body-assessment',
   wbsa: 'detail-card-wbsa',
+  'body-systems-survey': 'detail-card-body-systems',
   'stress-load-deep-dive': 'detail-card-stress-load',
   'owning-your-value': 'detail-card-owning-your-value',
   'where-your-joy-lives': 'detail-card-where-your-joy-lives',

@@ -138,6 +138,31 @@ const OVERRIDE_BY_CODE: Record<string, DomainAssignment> = {
   stress_load_burden: { primary: 'stress_nervous_system', alsoRelevant: [] },
   recovery_capacity: { primary: 'recovery_energy_regulation', alsoRelevant: [] },
 
+  // The MEF Body Systems Survey, eleven sections filed against the mapping
+  // in the approved specification's build notes. Each section is its own
+  // dimension and lands on exactly one card, because this survey never
+  // blends two systems into one number and its Root Map rows must not
+  // either.
+  //
+  // Two of the eleven were given as a choice in the specification ("Heart,
+  // Muscles and Joints to Pain and Structural Integrity or Movement and
+  // Physical Capacity"). Muscles and Joints is filed under pain, because
+  // its questions are about ache, stiffness and what pain stops her doing.
+  // Heart and Circulation is filed under physical capacity, because its
+  // questions are about breathlessness on stairs and during everyday
+  // activity. Both are flagged in the build report for the coach to move.
+  body_systems_digestion: { primary: 'digestion_gut_health', alsoRelevant: [] },
+  body_systems_blood_sugar: { primary: 'nutrition_metabolic_health', alsoRelevant: [] },
+  body_systems_liver: { primary: 'nutrition_metabolic_health', alsoRelevant: [] },
+  body_systems_adrenals: { primary: 'stress_nervous_system', alsoRelevant: [] },
+  body_systems_thyroid: { primary: 'nutrition_metabolic_health', alsoRelevant: [] },
+  body_systems_heart: { primary: 'movement_physical_capacity', alsoRelevant: [] },
+  body_systems_immune: { primary: 'recovery_energy_regulation', alsoRelevant: [] },
+  body_systems_kidney: { primary: 'recovery_energy_regulation', alsoRelevant: [] },
+  body_systems_muscles: { primary: 'pain_structural_integrity', alsoRelevant: [] },
+  body_systems_brain: { primary: 'emotional_resilience_mood', alsoRelevant: [] },
+  body_systems_hormonal: { primary: 'recovery_energy_regulation', alsoRelevant: [] },
+
   // Sleep.
   circadian_disruption: {
     primary: 'sleep_circadian_rhythm',

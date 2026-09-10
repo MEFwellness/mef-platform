@@ -50,6 +50,7 @@ const SOURCE_FEATURE_LABEL: Record<RegistrySourceFeature, string> = {
   primal_pattern_classification: 'Primal Pattern Diet Type',
   unified_assessment_finding: 'Assessment',
   stress_load_deep_dive_finding: 'Stress & Load Deep-Dive',
+  body_systems_survey_finding: 'MEF Body Systems Survey',
 };
 
 export type EnrichedRootCauseSignal = {

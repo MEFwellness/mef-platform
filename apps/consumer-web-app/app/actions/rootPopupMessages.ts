@@ -68,6 +68,7 @@
  *   trial_arc_day           isOfferStillDue          once per trial day (day-scoped key)
  *   questionnaire_assigned  isRecurringMessageDue    snoozed returns next login
  *   stress_load_assigned    isRecurringMessageDue    snoozed returns next login
+ *   body_systems_assigned   isRecurringMessageDue    snoozed returns next login
  *   priority_card (re-entry) isPriorityCardDue       once per local day
  *   hydration_focus         isRecurringMessageDue    snoozed returns next login
  *   cvs_day3 / cvs_day7     isRecurringMessageDue    snoozed returns next login
@@ -135,6 +136,7 @@ import {
   priorityCardPopupMessageKey,
   weeklyReviewPopupMessageKey,
   weeklyReflectionPopupMessageKey,
+  bodySystemsPopupMessageKey,
   stressLoadPopupMessageKey,
   owningYourValuePopupMessageKey,
   whereYourJoyLivesPopupMessageKey,
@@ -161,6 +163,9 @@ import { getMyWeeklyReview } from '@/lib/weekly-review/view';
 import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
 import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
 import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
+import { getBodySystemsMemberCopy, getMyBodySystemsSurvey } from '@/lib/body-systems/view';
+import { BODY_SYSTEMS_LABEL, BODY_SYSTEMS_ROUTE } from '@/lib/body-systems/constants';
+import { memberCopy } from '@/lib/body-systems/copyKeys';
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
 import { STRESS_LOAD_ROUTE } from '@/lib/stress-load/constants';
 import { getMyOwningYourValue } from '@/lib/owning-your-value/view';
@@ -315,6 +320,28 @@ export type RootPopupMessage =
       assignmentId: string;
       title: string;
       body: string;
+      primaryHref: string;
+    }
+  /**
+   * The MEF Body Systems Survey (coach assigned only, migration 220).
+   *
+   * Its own kind for the same reason the deep-dive above has one: the copy.
+   * A coach sending this is Root being asked to walk through her whole body
+   * with her, and the approved line says exactly that. Everything else
+   * about it, including the recurring dismissal lifetime, matches a coach
+   * assignment.
+   *
+   * ITS WORDS ARE ROWS. The title and the body come from body_systems_copy
+   * rather than from a constant here, because every word this survey can
+   * say to a member is editable content.
+   */
+  | {
+      kind: 'body_systems_assigned';
+      messageKey: string;
+      assignmentId: string;
+      title: string;
+      body: string;
+      ctaLabel: string;
       primaryHref: string;
     }
   /**
@@ -888,6 +915,38 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
         title: STRESS_LOAD_COPY.popupTitle,
         body: STRESS_LOAD_COPY.popupBody,
         primaryHref: STRESS_LOAD_ROUTE,
+      };
+    }
+  }
+
+  // The MEF Body Systems Survey, immediately below the Stress & Load
+  // Deep-Dive and for the identical reasons: a coach's direct action for
+  // this member, and finite, because finishing it closes the assignment
+  // out so it can never starve anything below it.
+  //
+  // getMyBodySystemsSurvey returns null for every member who was never
+  // assigned this, so the gate and the offer are one read rather than two
+  // checks here that could drift from the route's. Its own branch checks
+  // its own due-ness and falls through, per this file's one rule.
+  //
+  // A sitting she has STARTED still pops. The invitation is to finish the
+  // thing her coach asked for, and a survey abandoned on section three is
+  // exactly the case a knock is for. The copy is the same either way,
+  // because her card and this message both lead to the route that puts her
+  // back where she was.
+  const bodySystems = await getMyBodySystemsSurvey();
+  if (bodySystems?.status === 'pending' || bodySystems?.status === 'in_progress') {
+    const messageKey = bodySystemsPopupMessageKey(bodySystems.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      const copy = await getBodySystemsMemberCopy();
+      return {
+        kind: 'body_systems_assigned',
+        messageKey,
+        assignmentId: bodySystems.assignmentId,
+        title: memberCopy(copy, 'member.popup_title') || BODY_SYSTEMS_LABEL,
+        body: memberCopy(copy, 'member.popup_body'),
+        ctaLabel: memberCopy(copy, 'member.popup_cta'),
+        primaryHref: BODY_SYSTEMS_ROUTE,
       };
     }
   }

@@ -95,7 +95,9 @@ import { WeeklyReflectionEntry } from '@/components/weekly-reflection/WeeklyRefl
 import { TrackWeeklyReflectionDelivered } from '@/components/weekly-reflection/TrackWeeklyReflectionDelivered';
 import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
 import { StressLoadEntry } from '@/components/stress-load/StressLoadEntry';
+import { BodySystemsEntry } from '@/components/body-systems/BodySystemsEntry';
 import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
+import { getMyBodySystemsSurvey } from '@/lib/body-systems/view';
 import { OwningYourValueEntry } from '@/components/owning-your-value/OwningYourValueEntry';
 import { getMyOwningYourValue } from '@/lib/owning-your-value/view';
 import { WhereYourJoyLivesEntry } from '@/components/where-your-joy-lives/WhereYourJoyLivesEntry';
@@ -439,6 +441,7 @@ async function DayFrameRegion() {
     weeklyReview,
     weeklyReflection,
     stressLoad,
+    bodySystems,
     owningYourValue,
     whereYourJoyLives,
     theGivingLedger,
@@ -462,6 +465,9 @@ async function DayFrameRegion() {
       // pop-up chain in PopupRegion asks for the same thing on the same
       // render, so this costs one composition between them rather than two.
       getMyStressLoadDeepDive(),
+      // Request-memoized, exactly as the deep-dive above is, and the pop-up
+      // chain in PopupRegion asks for the same thing on the same render.
+      getMyBodySystemsSurvey(),
       // Request-memoized, exactly as the two above are, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyOwningYourValue(),
@@ -554,6 +560,28 @@ async function DayFrameRegion() {
           {/* The card carries the assignment's delivery receipt
               (migration 210), which is why it needs the assignment id. */}
           <StressLoadEntry assignmentId={stressLoad.assignmentId} />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* THE MEF BODY SYSTEMS SURVEY, persistent, for as long  */}
+      {/* as her coach's assignment is open.                    */}
+      {/*                                                       */}
+      {/* A STARTED SITTING STILL SHOWS THE CARD. The survey is */}
+      {/* resumable, so 'in_progress' is not "done", it is      */}
+      {/* "waiting for her to come back", and the card is the   */}
+      {/* way back. It disappears on completion, which is when  */}
+      {/* getMyBodySystemsSurvey returns 'completed'.           */}
+      {/*                                                       */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately.    */}
+      {/* The assignment is the whole gate                      */}
+      {/* (lib/body-systems/access.ts).                         */}
+      {/* ==================================================== */}
+      {(bodySystems?.status === 'pending' || bodySystems?.status === 'in_progress') && (
+        <div className="pt-3">
+          {/* The card carries the assignment's delivery receipt
+              (migration 210), which is why it needs the assignment id. */}
+          <BodySystemsEntry assignmentId={bodySystems.assignmentId} />
         </div>
       )}
 

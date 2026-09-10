@@ -11,6 +11,9 @@ import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildProfileEntryContext } from '@/lib/conversation-coach/entryContext';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { ProfileForm } from './ProfileForm';
+import { BodySystemsBranchPreference } from '@/components/body-systems/BodySystemsBranchPreference';
+import { fetchMemberBranch } from '@/lib/body-systems/data';
+import { getBodySystemsMemberCopy } from '@/lib/body-systems/view';
 import { PasskeyEnrollment } from './PasskeyEnrollment';
 import { Card } from '@/components/layout';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
@@ -27,7 +30,7 @@ export default async function ProfilePage() {
   const user = await getCachedUser();
   if (!user) redirect('/login');
 
-  const [profile, isCoach, bodyAssessmentAccess, pushState] = await Promise.all([
+  const [profile, isCoach, bodyAssessmentAccess, pushState, bodySystemsBranch] = await Promise.all([
     memberProfileCore(supabase, user.id),
     hasActiveRole(supabase, user.id, 'coach'),
     // Locks the "Assessments" card below when this member's plan does not
@@ -39,7 +42,15 @@ export default async function ProfilePage() {
     // switch so the screen renders with the real value already in it and
     // never flickers from off to on after mount.
     getMemberPushState(supabase, user.id),
+    // Which Hormonal Health question set the MEF Body Systems Survey asks
+    // her. Null until she has answered its branch question once, and the
+    // control below is not drawn at all in that case: a profile offering to
+    // change a setting nothing has set yet is Root talking about something
+    // that is not true for her.
+    fetchMemberBranch(supabase, user.id),
   ]);
+
+  const bodySystemsCopy = bodySystemsBranch ? await getBodySystemsMemberCopy() : {};
 
   const firstName = firstNameFrom(profile.displayName);
 
@@ -70,6 +81,12 @@ export default async function ProfilePage() {
             timezone={profile.timezone ?? 'America/New_York'}
           />
         </Card>
+
+        {bodySystemsBranch && (
+          <Card className="mt-5">
+            <BodySystemsBranchPreference branch={bodySystemsBranch} copy={bodySystemsCopy} />
+          </Card>
+        )}
 
         <Card
           as={Link}

@@ -139,6 +139,17 @@ export function stressLoadPopupMessageKey(assignmentId: string): string {
 }
 
 /**
+ * The MEF Body Systems Survey's own key, scoped to the assignment exactly
+ * as the Stress & Load Deep-Dive's above is, and with the identical
+ * recurring dismissal lifetime. A coach can send this survey again, and
+ * each sending is a new assignment row, so each is a genuinely new message
+ * rather than one a member already dismissed.
+ */
+export function bodySystemsPopupMessageKey(assignmentId: string): string {
+  return `body_systems:${assignmentId}`;
+}
+
+/**
  * Owning Your Value's own key, scoped to the assignment exactly as the
  * Stress & Load Deep-Dive's above is, and with the identical recurring
  * dismissal lifetime. A coach can send this experience more than once, and

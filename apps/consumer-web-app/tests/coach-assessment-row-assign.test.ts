@@ -1,16 +1,17 @@
 /**
  * THE ONE ENTRY POINT BEHIND AN INLINE ASSIGN BUTTON (2026-09-08).
  *
- * A coach now sends any of nineteen assessments from one button on one
- * row, and two different write paths sit behind that button: the registry
- * questionnaires go through `assignAssessmentAction`, and the nine
- * coach-assigned deep-dives go through their own actions, each holding its
- * own default due date and its own idempotent duplicate-click behaviour.
+ * A coach now sends any of twenty assessments from one button on one row,
+ * and two different write paths sit behind that button: the registry
+ * questionnaires go through `assignAssessmentAction`, and the ten
+ * coach-assigned experiences go through their own actions, each holding
+ * its own default due date and its own idempotent duplicate-click
+ * behaviour.
  *
  * WHAT HAS TO BE TRUE, and none of it is visible from the screen:
  *
  *   IT DISPATCHES, IT DOES NOT INSERT. Every row reaches the action that
- *     already owned that write. A tenth insert path would race the partial
+ *     already owned that write. An eleventh insert path would race the partial
  *     unique index behind these rows rather than be caught by it.
  *   A ROW NOBODY OFFERS IS REFUSED BEFORE ANYTHING IS READ. A stale page
  *     and a hand-made POST both exist, and the screen is not where this is
@@ -34,6 +35,7 @@ vi.mock('@/app/actions/assessmentAssignments', () => ({ assignAssessmentAction }
 
 /** One spy per deep-dive, so a dispatch to the wrong one is a failure and not a coincidence. */
 const deepDive = {
+  'body-systems-survey': vi.fn(async () => ({ ok: true })),
   'stress-load-deep-dive': vi.fn(async () => ({ ok: true })),
   'owning-your-value': vi.fn(async () => ({ ok: true })),
   'where-your-joy-lives': vi.fn(async () => ({ ok: true })),
@@ -45,6 +47,9 @@ const deepDive = {
   'the-life-youre-building': vi.fn(async () => ({ ok: true })),
 };
 
+vi.mock('@/app/actions/bodySystems', () => ({
+  assignBodySystemsSurveyAction: deepDive['body-systems-survey'],
+}));
 vi.mock('@/app/actions/stressLoad', () => ({
   assignStressLoadDeepDiveAction: deepDive['stress-load-deep-dive'],
 }));

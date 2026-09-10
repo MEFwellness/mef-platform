@@ -28,6 +28,12 @@ import { listAssignableAssessments } from '../assessment-registry/registry';
 import { assessmentAreaLabel } from '../assessment-registry/areas';
 import { assignmentNamesByDefinitionId, UNNAMED_ASSIGNMENT_LABEL } from './experienceNames';
 import { STRESS_LOAD_DEFINITION_ID } from '../stress-load/constants';
+import {
+  BODY_SYSTEMS_AREA,
+  BODY_SYSTEMS_DEFINITION_ID,
+  BODY_SYSTEMS_KEY,
+  BODY_SYSTEMS_LABEL,
+} from '../body-systems/constants';
 import { STRESS_LOAD_AREA, STRESS_LOAD_LABEL } from '../stress-load/copy';
 import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_AREA, OYV_LABEL } from '../owning-your-value/copy';
@@ -72,8 +78,8 @@ export type AssignableTemplate = {
 };
 
 /**
- * The nine coach-assigned deep-dives, which the registry deliberately does
- * not carry.
+ * The ten coach-assigned experiences the registry deliberately does not
+ * carry.
  *
  * WHY THEY APPEAR HERE. They land in the same assessment_assignments
  * ledger as everything above them, the coach's assessment list has always
@@ -96,6 +102,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
   displayName: string;
   areaLabel: string;
 }[] = [
+  {
+    id: BODY_SYSTEMS_KEY,
+    definitionId: BODY_SYSTEMS_DEFINITION_ID,
+    displayName: BODY_SYSTEMS_LABEL,
+    areaLabel: BODY_SYSTEMS_AREA,
+  },
   {
     id: 'stress-load-deep-dive',
     definitionId: STRESS_LOAD_DEFINITION_ID,

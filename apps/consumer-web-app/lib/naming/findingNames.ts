@@ -78,6 +78,27 @@ export const FINDING_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   'stress::stress_load_burden': 'What your life has been asking of you',
   'stress::recovery_capacity': 'What has been giving back to you',
 
+  // --- MEF Body Systems Survey (lib/body-systems/rootMap.ts). Eleven
+  //     names, one per section, because the survey never adds its sections
+  //     together and there is nothing to publish as a single finding.
+  //
+  //     THE SECTION TITLES ARE NOT THESE NAMES. A member reads "Thyroid and
+  //     Metabolism" as the name of a set of questions she is answering,
+  //     which is the approved survey content. A finding is a claim about
+  //     HER, so it is named the way the Naming Standard requires: what she
+  //     experiences, never the organ she is meant to infer is at fault.
+  'digestive::body_systems_digestion': 'How your body has been handling food',
+  'metabolic::body_systems_blood_sugar': 'How steady your energy has been through the day',
+  'metabolic::body_systems_liver': 'How your body has been filtering and clearing',
+  'stress::body_systems_adrenals': 'How you have been handling demand and pressure',
+  'metabolic::body_systems_thyroid': 'The pace your body has been running at',
+  'circulatory::body_systems_heart': 'How blood and oxygen have been moving through you',
+  'immune::body_systems_immune': 'How your body has been defending and repairing itself',
+  'renal::body_systems_kidney': 'How your body has been managing fluid',
+  'movement::body_systems_muscles': 'How your frame has been carrying you',
+  'neurological::body_systems_brain': 'Focus, mood and how your nerves have been holding up',
+  'hormone::body_systems_hormonal': 'The rhythm your body has been keeping',
+
   // --- Movement sessions
   'movement::movement_session_completed': 'A movement session you completed',
 };

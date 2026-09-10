@@ -1,3 +1,165 @@
+## The MEF Body Systems Survey (2026-09-10)
+
+Eleven sections, 103 tap-only questions on Branch A and 101 on Branch B,
+plus six red flag questions asked of everybody every time. Coach assigned,
+resumable, and every word of it is a database row.
+
+### EVERY WORD AND EVERY NUMBER IS CONTENT, NOT CODE
+
+Nine tables hold what this survey is: `body_systems_sections`,
+`body_systems_questions`, `body_systems_scale_options`,
+`body_systems_bands`, `body_systems_red_flags`,
+`body_systems_safety_levels`, `body_systems_copy`,
+`body_systems_settings` and `body_systems_associations`. One shared
+revision trail, `body_systems_content_revisions`, records every change
+with its whole before and after, the same shape
+`driver_probe_question_revisions` has held since migration 110 and for the
+same reason: a strange pattern six months from now has to be checkable
+against whether a question was reworded mid-stream.
+
+Nothing in `lib/body-systems/` is a literal question, weight, cut off or
+sentence. The pure modules take content as an argument, which is what lets
+`tests/body-systems-fixture.ts` hand them the content the migrations
+genuinely seed rather than a second copy typed into a test file.
+
+### TWO LAYERS, AND THE SEPARATION IS STRUCTURAL
+
+The member layer speaks only in signal loudness: Quiet, Showing up,
+Speaking loudly. The coach layer holds every pattern reading and every
+possible association. They are not one module with a flag.
+
+`body_systems_associations` has a coach and administrator select policy
+and **no member policy at all**, so a member session asking for those rows
+directly gets none. `lib/body-systems/memberView.ts` imports the scoring,
+red flag and retake modules and nothing else, and
+`tests/body-systems-member-language.test.tsx` walks the transitive import
+graph of all five member surfaces and fails if `associations.ts`,
+`patterns.ts` or `coachView.ts` is reachable from any of them.
+
+**That guard caught a real leak while it was being written.** `parseTrigger`
+lived beside the evaluation engine, `contentData.ts` needed it to load the
+library, and a member's own screens load their content through
+`contentData.ts`, so every member surface had a transitive import of the
+module holding the association text. It is now `lib/body-systems/trigger.ts`,
+which carries a shape and no words. The three citation types moved into
+`types.ts` for the same reason: a type import is erased at compile time,
+but the honest fix is that a member surface has no path to that module at
+all rather than a path the guard has to be taught to forgive.
+
+### RED FLAGS NEVER TOUCH SCORING, PROVED TWO WAYS
+
+By identity: the whole reading is built twice from identical answers, once
+with all six flags Yes and once with all six No, and the section
+percentages, bands, order, member screen, associations, pattern analysis
+and all eleven Root Map rows are compared field by field. By absence:
+`scoring.ts` imports nothing from `redFlags.ts` and takes no argument one
+could arrive through, and the `body_systems_red_flags` table has no points,
+weight or score column for anyone to one day read into a percentage.
+
+A Yes shows the matching response for that item's level in the same frame
+as her tap, from the stored row. There is no approval step anywhere in
+that path.
+
+### THE ASSOCIATION LIBRARY INVENTS NOTHING
+
+Thirty eight entries, each with a precise trigger in a small closed
+vocabulary (cluster, min_elevated, all_elevated, any_elevated, all_of,
+any_of, sections_at_band, sections_count_at_band). "Elevated" is
+`body_systems_scale_options.is_elevated` rather than a number repeated in
+thirty eight triggers.
+
+Every word a coach reads about a pattern is a column on the row that fired.
+Nothing composes a sentence around it, which is what makes the banned
+conclusion vocabulary enforceable: `tests/body-systems-associations.test.tsx`
+renders the real coach panel and fails on has, shows, indicates or confirms
+in any association text it printed. Every fired entry cites the member's
+own answers that fired it, collected during evaluation rather than
+reconstructed afterwards, so a fired `any_of` never cites the half of
+itself that was false. An entry that could cite nothing is dropped rather
+than shown.
+
+A section that is Speaking loudly with nothing matching prints the stored
+coverage note and nothing else. There is no fallback sentence in the code
+to invent one with.
+
+### ONE NUMBER PER SECTION, DECIDED ONCE
+
+Points earned over points possible for the questions she answered, rounded
+to a whole percent. The band is chosen from that same rounded number, so a
+coach reading 15% can never be shown a section labelled Quiet. A Does not
+apply to me answer leaves BOTH sides of the fraction, so nobody is
+penalised or falsely greened by a question that cannot apply.
+
+There is no total, no average and no overall grade. `BodySystemsResults`
+has no field to hold one and `buildResults` returns an object with exactly
+two keys.
+
+### THE TOP ATTENTION CARD CAN BE ABSENT
+
+Only the loudest section gets its personalised line, and when every
+section is at nought there is no loudest one, only eleven ties. Naming one
+anyway would be Root claiming something untrue about her, so the card is
+not drawn. That is the one place a literal reading of the specification
+was narrowed, and it is narrowed towards saying less.
+
+### ELEVEN ROOT MAP ROWS, WRITTEN EVERY TIME
+
+One per section, published on every completion including the quiet ones,
+each superseding its own prior row. Publishing only the loud ones would
+leave last month's alarm standing with nothing able to close it. Quiet maps
+to 'mild' rather than 'none', because 'none' becomes the verdict 'resolved'
+and "this looks like it has settled down since we first noticed it" is not
+what a member with a genuinely quiet system should read on her first
+sitting.
+
+**A finding is never named after the section it came from.** A member reads
+"Thyroid and Metabolism" as the name of a set of questions, which is
+approved survey content. A finding is a claim about HER, so it is named
+through `lib/naming/findingNames.ts` the way the Naming Standard requires:
+what she experiences, never the organ she is meant to infer is at fault.
+All eleven names pass `meetsNamingStandard`.
+
+### RESUMABLE, AND STILL NOTHING WRITES ON A RENDER
+
+Unlike the Stress & Load Deep-Dive a row exists while she is partway
+through. It is created by the server action behind her Continue button and
+by nothing else, and completion is write once in the database: migration
+220's update policy matches only a row whose `completed_at` is still null,
+so a finished sitting cannot be edited, re-answered or re-scored.
+
+### WHAT THE FULL SUITE FOUND
+
+Four existing guards caught this build at four real seams, which is what
+they are for: the assign dispatcher's completeness check, the coach page's
+search index, the member-only route list, and the one-knock classifier.
+All four are the kind of omission that ships silently.
+
+### TESTS
+
+Six new files: `body-systems-content.test.ts` (25),
+`body-systems-red-flags.test.ts` (10),
+`body-systems-member-language.test.tsx` (18),
+`body-systems-associations.test.tsx` (15),
+`body-systems-scoring.test.ts` (18),
+`body-systems-retake-and-rootmap.test.ts` (17),
+`body-systems-gate.test.ts` (22), plus `body-systems-fixture.ts`, which
+reads the migrations rather than retyping them.
+
+Every new guard was proved non-vacuous by breaking it: an association
+pasted onto her results screen, a banned word in a band's status line, a
+red flag Yes nudging a percentage, an association reworded into a
+conclusion, the empty-citation drop deleted, and an em dash typed into the
+seeded copy. All six failed, and all six were reverted and re-verified byte
+identical.
+
+Full suite 555 files, 10,408 tests, all passing. Typecheck clean, lint 0
+errors, production build clean.
+
+### MIGRATIONS 220, 221 AND 222 ARE NOT YET ON PRODUCTION
+
+Applied and verified against the local database only. They are listed in
+the build report for Osei to run, in order, before any live check.
+
 ## The hero headline is set in capitals (2026-09-08)
 
 Osei asked for "More than training. A system for your health." in all
