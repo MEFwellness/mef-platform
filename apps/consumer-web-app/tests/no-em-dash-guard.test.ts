@@ -24,7 +24,8 @@ import * as ts from 'typescript';
 
 const ROOT = path.resolve(__dirname, '..');
 const SCAN_DIRS = ['app', 'components', 'lib'];
-const EM_DASH = '—';
+const EM_DASH = '\u2014';
+const EN_DASH = '\u2013';
 
 // Files whose only em dashes live inside LLM prompt strings or
 // unused-by-any-UI provider-registry metadata — verified by hand during
@@ -131,6 +132,70 @@ function findViolations(): Violation[] {
   return violations;
 }
 
+/**
+ * AND THE QUESTIONNAIRES, WHICH ARE JSON AND SO INVISIBLE TO THE SCAN ABOVE.
+ *
+ * A questionnaire is shipped as data (lib/assessments/<id>/questionnaire.json),
+ * and everything a member reads while answering one lives in there: the
+ * question text, the option labels, the context prompts and their helper
+ * lines. The TypeScript compiler walk above cannot see a single word of it,
+ * which is how four question texts sat on production carrying em dashes
+ * while this guard reported clean. Found 2026-09-11 by driving the real
+ * questionnaire and reading the screen.
+ *
+ * Only the member facing fields are checked. `source`, `notes` and the
+ * verification record are provenance written for whoever maintains the
+ * instrument, they are never rendered to anybody, and rewriting their
+ * punctuation would damage a citation.
+ */
+function questionnaireViolations(): Violation[] {
+  const dir = path.join(ROOT, 'lib/assessments');
+  const out: Violation[] = [];
+  if (!fs.existsSync(dir)) return out;
+
+  const dashes = [EM_DASH, EN_DASH];
+  const add = (file: string, where: string, text: unknown) => {
+    if (typeof text !== 'string') return;
+    if (!dashes.some((dash) => text.includes(dash))) return;
+    out.push({ file, line: 0, text: `${where}: ${text.slice(0, 120)}` });
+  };
+
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const file = path.join(dir, entry.name, 'questionnaire.json');
+    if (!fs.existsSync(file)) continue;
+    const rel = path.relative(ROOT, file);
+    const data = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+      categories?: Array<{
+        id?: string;
+        name?: string;
+        description?: string;
+        questions?: Array<{ number?: number; text?: string; note?: string; options?: Array<{ label?: string }> }>;
+      }>;
+      contextQuestions?: Array<{ prompt?: string; helperText?: string; options?: Array<{ label?: string }> }>;
+    };
+
+    for (const category of data.categories ?? []) {
+      add(rel, `category ${category.id} name`, category.name);
+      add(rel, `category ${category.id} description`, category.description);
+      for (const question of category.questions ?? []) {
+        add(rel, `${category.id} q${question.number}`, question.text);
+        add(rel, `${category.id} q${question.number} note`, question.note);
+        for (const option of question.options ?? []) {
+          add(rel, `${category.id} q${question.number} option`, option.label);
+        }
+      }
+    }
+    for (const context of data.contextQuestions ?? []) {
+      add(rel, 'context prompt', context.prompt);
+      add(rel, 'context helper', context.helperText);
+      for (const option of context.options ?? []) add(rel, 'context option', option.label);
+    }
+  }
+
+  return out;
+}
+
 describe('no em dash in user-facing text', () => {
   it('finds zero em dashes in app/components/lib string literals, template literals, and JSX text (outside the reviewed allowlist)', () => {
     const violations = findViolations();
@@ -141,5 +206,25 @@ describe('no em dash in user-facing text', () => {
       );
     }
     expect(violations).toHaveLength(0);
+  });
+
+  it('finds zero em or en dashes in anything a member reads inside a questionnaire', () => {
+    const violations = questionnaireViolations();
+    if (violations.length > 0) {
+      const report = violations.map((v) => `  ${v.file}: "${v.text}"`).join('\n');
+      throw new Error(
+        `Found ${violations.length} dash(es) in questionnaire content a member reads. Replace each with a period, comma, colon, or parentheses:\n${report}`
+      );
+    }
+    expect(violations).toHaveLength(0);
+  });
+
+  it('is non vacuous: it really reads the shipped questionnaires', () => {
+    const dir = path.join(ROOT, 'lib/assessments');
+    const shipped = fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .filter((entry) => fs.existsSync(path.join(dir, entry.name, 'questionnaire.json')));
+    expect(shipped.length).toBeGreaterThan(0);
   });
 });

@@ -210,13 +210,34 @@ describe('no body system is named anywhere she answers', () => {
 // 2. Every change of screen starts at the top.
 // ---------------------------------------------------------------------
 
-describe('a new section opens at the top of itself', () => {
+describe('a new screen opens at the top of itself', () => {
   let container: HTMLDivElement;
   let root: Root;
   let scrollTo: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    /*
+      THE BEAT BETWEEN TWO SECTIONS IS TURNED OFF HERE, ON PURPOSE.
+
+      Since 2026-09-11 a Continue that leaves a section plays a short
+      "Section complete" beat before the next one opens, and under
+      prefers-reduced-motion it is skipped entirely. These tests are about
+      the SCROLL, so they run as a member who has asked for reduced motion
+      and the screen change happens immediately. The beat itself, and the
+      fact that it names nothing, is proved in
+      tests/questionnaire-grouping.test.tsx.
+    */
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: query.includes('prefers-reduced-motion'),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }),
+    });
     scrollTo = vi.fn();
     Object.defineProperty(window, 'scrollTo', {
       writable: true,
@@ -278,7 +299,7 @@ describe('a new section opens at the top of itself', () => {
     expect(scrollTo).toHaveBeenCalledWith(0, 0);
   });
 
-  it('scrolls to the top again when she finishes a section and the next loads', async () => {
+  it('scrolls to the top again when she finishes a screen and the next loads', async () => {
     mount(0);
     expect(scrollTo).toHaveBeenCalledTimes(1);
 
@@ -291,9 +312,31 @@ describe('a new section opens at the top of itself', () => {
     });
 
     expect(saveProgress).toHaveBeenCalledTimes(1);
-    expect(container.textContent).toContain('Section 2 of 11');
+    // Still section one: a section is several screens now.
+    expect(container.textContent).toContain('Section 1 of 11');
+    expect(container.textContent).toContain('Questions 4 to 6 of 10');
     expect(scrollTo).toHaveBeenCalledTimes(2);
     expect(scrollTo).toHaveBeenLastCalledWith(0, 0);
+  });
+
+  it('scrolls to the top on every screen of a section, and on the next section', async () => {
+    mount(0);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+
+    // Ten questions cut into 3, 3, 2, 2: four screens before section two.
+    for (let screen = 0; screen < 4; screen += 1) {
+      expect(container.textContent).toContain('Section 1 of 11');
+      await answerEveryQuestion();
+      await act(async () => {
+        continueButton().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      expect(scrollTo).toHaveBeenCalledTimes(screen + 2);
+      expect(scrollTo).toHaveBeenLastCalledWith(0, 0);
+    }
+
+    expect(saveProgress).toHaveBeenCalledTimes(4);
+    expect(container.textContent).toContain('Section 2 of 11');
+    expect(container.textContent).toContain('Questions 1 to 3 of');
   });
 
   it('takes the scroll position off the browser while she is in the survey', () => {

@@ -63,8 +63,18 @@ describe('a member with no chosen branch still gets her questions', () => {
     />
   );
 
-  it('renders every one of the first section questions', () => {
-    for (const question of QUESTIONS.filter((entry) => entry.sectionKey === 'digestion')) {
+  /*
+    A SCREEN CARRIES TWO OR THREE QUESTIONS SINCE 2026-09-11, so the claim
+    is about the FIRST SCREEN of the first section rather than about the
+    whole section: the bug was that it rendered nothing at all. Every
+    question in the section really being reachable is driven end to end in
+    tests/questionnaire-grouping.test.tsx, which walks the screens.
+  */
+  const firstSectionQuestions = QUESTIONS.filter((entry) => entry.sectionKey === 'digestion');
+
+  it('renders the first screen of the first section questions', () => {
+    expect(firstSectionQuestions.length).toBeGreaterThan(3);
+    for (const question of firstSectionQuestions.slice(0, 3)) {
       expect(html, `${question.questionRef} did not render`).toContain(question.prompt);
     }
   });

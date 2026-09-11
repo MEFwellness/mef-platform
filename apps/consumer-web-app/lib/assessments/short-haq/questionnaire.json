@@ -84,7 +84,7 @@
         },
         {
           "number": 4,
-          "text": "How often do your bowel movements feel irregular — too frequent, too infrequent, or unpredictable?",
+          "text": "How often do your bowel movements feel irregular, too frequent, too infrequent, or unpredictable?",
           "type": "frequency",
           "options": [
             { "label": "Never or rarely (less than monthly)", "points": 0 },
@@ -183,7 +183,7 @@
         },
         {
           "number": 4,
-          "text": "How often does everyday activity — stairs, errands, a short walk — leave you more winded or fatigued than you'd expect?",
+          "text": "How often does everyday activity, like stairs, errands or a short walk, leave you more winded or fatigued than you'd expect?",
           "type": "frequency",
           "options": [
             { "label": "Never or rarely (less than monthly)", "points": 0 },
@@ -769,7 +769,7 @@
         },
         {
           "number": 2,
-          "text": "How often does your body temperature regulation feel \"off\" — unexpected warmth, chills, or sweating?",
+          "text": "How often does your body temperature regulation feel \"off\", with unexpected warmth, chills, or sweating?",
           "type": "frequency",
           "options": [
             { "label": "Never or rarely (less than monthly)", "points": 0 },
@@ -819,7 +819,7 @@
         },
         {
           "number": 6,
-          "text": "How often do you notice urinary changes — frequency, urgency, or a weaker stream — that aren't tied to how much you've had to drink?",
+          "text": "How often do you notice urinary changes, such as frequency, urgency or a weaker stream, that aren't tied to how much you've had to drink?",
           "type": "frequency",
           "options": [
             { "label": "Never or rarely (less than monthly)", "points": 0 },
@@ -860,7 +860,7 @@
     }
   ],
   "masterScoreSheet": {
-    "title": "Short Health Assessment Questionnaire — Score Summary",
+    "title": "Short Health Assessment Questionnaire, Score Summary",
     "columnOrder": [
       "digestive_wellness",
       "energy_and_fatigue",

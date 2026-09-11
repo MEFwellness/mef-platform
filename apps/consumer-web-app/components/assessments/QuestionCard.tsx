@@ -1,48 +1,61 @@
 'use client';
 
+/**
+ * One scored question, drawn as a block on a screen that holds two or
+ * three of them.
+ *
+ * IT NO LONGER OWNS A CARD. Before the 2026-09-11 questionnaire pass this
+ * was one question in one card and the card was the whole screen. A screen
+ * now carries a group, so the card belongs to the group (AssessmentTaker)
+ * and this draws the question inside it, with the hairline that separates
+ * it from the question above.
+ *
+ * THE SECTION LINE MOVED UP. It used to be repeated over every question;
+ * it is said once, at the top of the screen, by the progress bar, because
+ * saying it three times on one screen is three copies of one fact.
+ */
+
 import type { Question } from '@/lib/assessments/engine/types';
-import { Card } from '@/components/layout';
+import { QuestionBlock } from '@/components/questionnaire/QuestionBlock';
 import { QuestionOptionButton } from './QuestionOptionButton';
 
 type Props = {
-  categoryName: string;
-  sectionPosition: string;
+  /** Which question she is on, counting from one across the whole questionnaire. */
+  position: number;
+  categoryId: string;
   question: Question;
   selectedOptionIndex: number | undefined;
   onSelect: (optionIndex: number) => void;
+  withDivider?: boolean | undefined;
 };
 
 export function QuestionCard({
-  categoryName,
-  sectionPosition,
+  position,
+  categoryId,
   question,
   selectedOptionIndex,
   onSelect,
+  withDivider = false,
 }: Props) {
-  const legendId = `question-${question.number}-legend`;
+  const promptId = `question-${categoryId}-${question.number}-prompt`;
 
   return (
-    <Card key={question.number} className="mef-animate-in">
-      <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-        {sectionPosition} · {categoryName}
-      </p>
-      <h2
-        id={legendId}
-        className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-snug text-[#1B3A2D]"
-      >
-        {question.text}
-      </h2>
-
-      <div role="radiogroup" aria-labelledby={legendId} className="mt-6 space-y-3">
-        {question.options.map((option, index) => (
-          <QuestionOptionButton
-            key={`${question.number}-${index}`}
-            label={option.label}
-            selected={selectedOptionIndex === index}
-            onSelect={() => onSelect(index)}
-          />
-        ))}
-      </div>
-    </Card>
+    <QuestionBlock
+      tone="light"
+      position={position}
+      prompt={question.text}
+      promptId={promptId}
+      withDivider={withDivider}
+    >
+      {question.options.map((option, index) => (
+        <QuestionOptionButton
+          key={`${question.number}-${index}`}
+          tone="gold-on-light"
+          label={option.label}
+          selected={selectedOptionIndex === index}
+          onSelect={() => onSelect(index)}
+        />
+      ))}
+    </QuestionBlock>
   );
 }

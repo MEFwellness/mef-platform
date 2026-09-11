@@ -1,56 +1,58 @@
 'use client';
 
 import type { ContextQuestion } from '@/lib/assessments/engine/types';
-import { Card } from '@/components/layout';
+import { QuestionBlock } from '@/components/questionnaire/QuestionBlock';
 import { QuestionOptionButton } from './QuestionOptionButton';
 
 type Props = {
-  sectionPosition: string;
+  /** Left off deliberately: a context prompt is not one of the scored questions, so it carries no ordinal. */
+  position?: number | undefined;
   contextQuestion: ContextQuestion;
   selectedValue: string | undefined;
   onSelect: (value: string) => void;
+  withDivider?: boolean;
 };
 
 /**
  * A small, product-authored intake prompt shown once during the take flow,
- * ahead of a category's conditional questions — not one of the scored
- * questions from the source instrument, so it's a separate component from
+ * ahead of a category's conditional questions, not one of the scored
+ * questions from the source instrument, so it is a separate component from
  * QuestionCard even though it shares the same visual language.
+ *
+ * IT ALWAYS STANDS ON ITS OWN SCREEN. Answering it changes which questions
+ * exist below it, so grouping it with two of them would rewrite the screen
+ * underneath her thumb. AssessmentTaker's grouping gives it a screen to
+ * itself for exactly that reason.
  */
 export function ContextQuestionCard({
-  sectionPosition,
+  position,
   contextQuestion,
   selectedValue,
   onSelect,
+  withDivider = false,
 }: Props) {
-  const legendId = `context-${contextQuestion.key}-legend`;
+  const promptId = `context-${contextQuestion.key}-prompt`;
 
   return (
-    <Card className="mef-animate-in">
-      <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-        {sectionPosition}
-      </p>
-      <h2
-        id={legendId}
-        className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-snug text-[#1B3A2D]"
-      >
-        {contextQuestion.prompt}
-      </h2>
-
-      <div role="radiogroup" aria-labelledby={legendId} className="mt-6 space-y-3">
-        {contextQuestion.options.map((option) => (
-          <QuestionOptionButton
-            key={option.value}
-            label={option.label}
-            selected={selectedValue === option.value}
-            onSelect={() => onSelect(option.value)}
-          />
-        ))}
-      </div>
-
+    <QuestionBlock
+      tone="light"
+      {...(position != null ? { position } : {})}
+      prompt={contextQuestion.prompt}
+      promptId={promptId}
+      withDivider={withDivider}
+    >
+      {contextQuestion.options.map((option) => (
+        <QuestionOptionButton
+          key={option.value}
+          tone="gold-on-light"
+          label={option.label}
+          selected={selectedValue === option.value}
+          onSelect={() => onSelect(option.value)}
+        />
+      ))}
       {contextQuestion.helperText && (
-        <p className="mt-4 text-xs leading-relaxed text-[#6B7A72]">{contextQuestion.helperText}</p>
+        <p className="pt-1 text-xs leading-relaxed text-[#6B7A72]">{contextQuestion.helperText}</p>
       )}
-    </Card>
+    </QuestionBlock>
   );
 }

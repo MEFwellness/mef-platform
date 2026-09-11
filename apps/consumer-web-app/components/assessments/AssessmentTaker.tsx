@@ -1,17 +1,25 @@
 'use client';
 
 /**
- * One-question-per-screen assessment flow. Every tap on an option
- * optimistically updates local state, fires a best-effort save to the
- * server (submitAssessmentAnswer — see app/actions/assessments.ts), and
- * auto-advances to the next question after a brief pause so the flow
- * feels continuous without ever requiring an extra "confirm" tap. Explicit
- * Previous/Next controls stay available for anyone who wants to move at
- * their own pace or revisit an earlier answer. Nothing here computes a
- * score or exposes one to the member — see the "never expose scoring
- * calculations during the assessment" rule this flow follows: only
- * completeMyAssessment(), called once at the very end, invokes the
- * scoring engine, and it happens entirely server-side.
+ * The generic points-scored questionnaire's answering flow.
+ *
+ * TWO OR THREE QUESTIONS PER SCREEN (2026-09-11). It used to be one
+ * question per screen with an auto-advance after every tap, which made a
+ * fifty-four question instrument fifty-four screens that changed under her
+ * thumb. A screen now carries a small group of related questions from one
+ * section and nothing moves until she presses Continue, so she can read
+ * two things side by side, change her mind about the first one, and decide
+ * herself when she is done with the screen. `lib/questionnaire/groups.ts`
+ * owns the sizes, including the rule that stops a section ending on a
+ * screen with one lonely question.
+ *
+ * NOTHING ABOUT SCORING CHANGED, AND NOTHING HERE COMPUTES ONE. Every tap
+ * still optimistically updates local state and fires the same best-effort
+ * save to the same Server Action (submitAssessmentAnswer), one answer at a
+ * time, with the same keys and the same values. Only completeMyAssessment,
+ * called once at the very end, invokes the scoring engine, and it happens
+ * entirely server-side. This file has never seen a score and still does
+ * not.
  *
  * Steps: a questionnaire's take flow is a sequence of "steps," each either
  * a scored question or, for a questionnaire that declares
@@ -20,18 +28,28 @@
  * (via `isQuestionActive`), so answering a context question immediately
  * reveals only the questions that apply, without the member ever seeing
  * or needing to skip past one that doesn't. This is a complete no-op for
- * a questionnaire that never declares `contextQuestions` — `steps` then
+ * a questionnaire that never declares `contextQuestions`: `steps` then
  * reduces to exactly the flattened question list, and `context` stays
  * `{}` for the life of the component.
+ *
+ * Groups: steps are then cut into screens. A context prompt always gets a
+ * screen to itself, because answering it changes which questions exist and
+ * grouping it with two of them would rewrite the screen underneath her
+ * thumb. Question steps are grouped within one category only, so a screen
+ * never straddles two sections and the section transition always falls
+ * between two screens.
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ArrowRight, ChevronLeft, Loader2 } from 'lucide-react';
 import { flattenQuestions, type FlatQuestionRef } from '@/lib/assessments/engine/navigation';
-import { isQuestionActive, totalAnsweredCount } from '@/lib/assessments/engine/scoring';
+import { isQuestionActive } from '@/lib/assessments/engine/scoring';
 import { toPublicSlug } from '@/lib/assessments/publicSlug';
+import { chunkIntoGroups } from '@/lib/questionnaire/groups';
+import { useScreenTop } from '@/lib/questionnaire/useScreenTop';
+import { prefersReducedMotionNow } from '@/lib/motion/useReducedMotion';
 import {
   completeMyAssessment,
   submitAssessmentAnswer,
@@ -40,6 +58,10 @@ import {
 import { AssessmentProgressBar } from './AssessmentProgressBar';
 import { QuestionCard } from './QuestionCard';
 import { ContextQuestionCard } from './ContextQuestionCard';
+import {
+  SectionTransition,
+  SECTION_TRANSITION_MS,
+} from '@/components/questionnaire/SectionTransition';
 import { CenterStage, Card } from '@/components/layout';
 import { SuccessCheck } from '@/components/motion/SuccessCheck';
 import { ROOT_FINISHING_LABEL } from '@/lib/reveal/copy';
@@ -62,11 +84,25 @@ type Props = {
   resumeQuestionNumber: number | null;
 };
 
-const AUTO_ADVANCE_DELAY_MS = 350;
+/** The line under a Continue she cannot press yet. */
+function blockedHint(questionCount: number): string {
+  return questionCount > 1
+    ? 'Choose an answer for each question to continue.'
+    : 'Choose an answer to continue.';
+}
 
 type Step =
   | { kind: 'question'; ref: FlatQuestionRef }
   | { kind: 'context'; contextQuestion: NonNullable<Questionnaire['contextQuestions']>[number] };
+
+type Group = {
+  steps: Step[];
+  categoryId: string;
+  /** Which question, counting from one across the whole questionnaire, the first question on this screen is. */
+  firstQuestionNumber: number;
+  /** The last one. Equal to the first when the screen holds a single question. */
+  lastQuestionNumber: number;
+};
 
 function buildSteps(
   questionnaire: Questionnaire,
@@ -88,12 +124,60 @@ function buildSteps(
   return steps;
 }
 
-function stepSectionInfo(questionnaire: Questionnaire, step: Step) {
-  const categoryId =
-    step.kind === 'question' ? step.ref.category.id : step.contextQuestion.categoryId;
-  const category = questionnaire.categories.find((c) => c.id === categoryId)!;
-  const sectionIndex = questionnaire.categories.findIndex((c) => c.id === categoryId) + 1;
-  return { category, sectionIndex };
+function categoryIdOf(step: Step): string {
+  return step.kind === 'question' ? step.ref.category.id : step.contextQuestion.categoryId;
+}
+
+/**
+ * The steps, cut into the screens they are shown on.
+ *
+ * A context prompt is always a screen of its own. Question steps are
+ * chunked inside one category at a time, so a screen never straddles two
+ * sections.
+ */
+export function buildGroups(steps: Step[]): Group[] {
+  const groups: Group[] = [];
+  const questionCount = steps.filter((step) => step.kind === 'question').length;
+  let answeredSoFar = 0;
+  let index = 0;
+
+  while (index < steps.length) {
+    const step = steps[index]!;
+    const categoryId = categoryIdOf(step);
+
+    if (step.kind === 'context') {
+      groups.push({
+        steps: [step],
+        categoryId,
+        // A context prompt is not scored, so it borrows the number of the
+        // question it is about to unlock rather than claiming one of its own.
+        firstQuestionNumber: Math.min(answeredSoFar + 1, Math.max(1, questionCount)),
+        lastQuestionNumber: Math.min(answeredSoFar + 1, Math.max(1, questionCount)),
+      });
+      index += 1;
+      continue;
+    }
+
+    const run: Step[] = [];
+    while (index < steps.length) {
+      const candidate = steps[index]!;
+      if (candidate.kind !== 'question' || categoryIdOf(candidate) !== categoryId) break;
+      run.push(candidate);
+      index += 1;
+    }
+
+    for (const chunk of chunkIntoGroups(run)) {
+      groups.push({
+        steps: chunk,
+        categoryId,
+        firstQuestionNumber: answeredSoFar + 1,
+        lastQuestionNumber: answeredSoFar + chunk.length,
+      });
+      answeredSoFar += chunk.length;
+    }
+  }
+
+  return groups;
 }
 
 function isStepAnswered(
@@ -118,6 +202,14 @@ function findStepIndexForQuestion(
   );
 }
 
+/** Which screen a step index falls on. */
+function groupIndexForStep(groups: Group[], steps: Step[], stepIndex: number): number {
+  const target = steps[stepIndex];
+  if (!target) return Math.max(0, groups.length - 1);
+  const found = groups.findIndex((group) => group.steps.includes(target));
+  return found === -1 ? 0 : found;
+}
+
 export function AssessmentTaker({
   questionnaire,
   displayTitle,
@@ -136,32 +228,42 @@ export function AssessmentTaker({
     () => buildSteps(questionnaire, flat, context),
     [questionnaire, flat, context]
   );
+  const groups = useMemo(() => buildGroups(steps), [steps]);
 
   const startIndex = useMemo(() => {
     const initialSteps = buildSteps(questionnaire, flat, initialContext);
-    if (resumeCategoryId && resumeQuestionNumber != null) {
-      const index = findStepIndexForQuestion(initialSteps, resumeCategoryId, resumeQuestionNumber);
-      if (index !== -1) return index;
-    }
-    const firstUnansweredStep = initialSteps.findIndex(
-      (step) => !isStepAnswered(step, initialAnswers, initialContext)
-    );
-    return firstUnansweredStep !== -1 ? firstUnansweredStep : initialSteps.length - 1;
+    const initialGroups = buildGroups(initialSteps);
+    const resolveStep = () => {
+      if (resumeCategoryId && resumeQuestionNumber != null) {
+        const index = findStepIndexForQuestion(initialSteps, resumeCategoryId, resumeQuestionNumber);
+        if (index !== -1) return index;
+      }
+      const firstUnansweredStep = initialSteps.findIndex(
+        (step) => !isStepAnswered(step, initialAnswers, initialContext)
+      );
+      return firstUnansweredStep !== -1 ? firstUnansweredStep : initialSteps.length - 1;
+    };
+    return groupIndexForStep(initialGroups, initialSteps, resolveStep());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [stepIndex, setStepIndex] = useState(startIndex);
+  const [groupIndex, setGroupIndex] = useState(startIndex);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isCompleting, startCompleting] = useTransition();
   const [isExiting, setIsExiting] = useState(false);
+  /**
+   * The section beat, while it is playing. Holds the screen it is on its
+   * way to, so the timer landing is the only thing that moves her.
+   */
+  const [transitionTo, setTransitionTo] = useState<number | null>(null);
   /** Set once completeMyAssessment succeeds — switches the whole component into the completion-choice screen (View My Results / Back to Home) instead of auto-navigating, so a member decides when to see their results. */
   const [completedResult, setCompletedResult] = useState<AssessmentResult | null>(null);
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * The most recent in-flight submitAssessmentAnswer/submitAssessmentContext
    * call. Every save is fire-and-forget from the tapping member's point of
    * view (see handleSelectOption/handleSelectContext below — nothing awaits
-   * it there, so the auto-advance stays instant), but completing the
+   * it there, so her tap is never blocked), but completing the
    * assessment is not allowed to race it: handleComplete awaits this before
    * calling completeMyAssessment, so a member who answers the very last
    * question and immediately taps "See my results" can never have the
@@ -171,52 +273,49 @@ export function AssessmentTaker({
 
   useEffect(() => {
     return () => {
-      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+      if (transitionTimer.current) clearTimeout(transitionTimer.current);
     };
   }, []);
 
-  function clearPendingAdvance() {
-    if (advanceTimer.current) {
-      clearTimeout(advanceTimer.current);
-      advanceTimer.current = null;
-    }
-  }
-
-  const current = steps[Math.min(stepIndex, steps.length - 1)]!;
-  const isLast = stepIndex >= steps.length - 1;
-  const { category: currentCategory, sectionIndex } = stepSectionInfo(questionnaire, current);
-  const isAnswered = isStepAnswered(current, answers, context);
+  const safeIndex = Math.min(groupIndex, Math.max(0, groups.length - 1));
+  const current = groups[safeIndex] ?? groups[0];
+  const isLast = safeIndex >= groups.length - 1;
+  const currentCategory = questionnaire.categories.find((c) => c.id === current?.categoryId);
+  const sectionIndex = questionnaire.categories.findIndex((c) => c.id === current?.categoryId) + 1;
+  const isAnswered = (current?.steps ?? []).every((step) => isStepAnswered(step, answers, context));
   const totalQuestionSteps = steps.filter((s) => s.kind === 'question').length;
-  const answeredCount = totalAnsweredCount(questionnaire, answers, context);
-  /** Question steps up to and including the current one; +1 more when the current step is a context gate, since that always precedes the question it's unlocking. */
-  const currentQuestionNumber = Math.min(
-    steps.slice(0, stepIndex + 1).filter((s) => s.kind === 'question').length +
-      (current.kind === 'context' ? 1 : 0),
-    totalQuestionSteps
-  );
+
+  useScreenTop(transitionTo !== null ? 'section-transition' : `group-${safeIndex}`);
 
   function goNext() {
-    clearPendingAdvance();
-    setStepIndex((i) => Math.min(i + 1, steps.length - 1));
+    if (!isAnswered || transitionTo !== null) return;
+    const next = Math.min(safeIndex + 1, groups.length - 1);
+    if (next === safeIndex) return;
+
+    const crossesSection = groups[next]?.categoryId !== current?.categoryId;
+    // Reduced motion skips the beat entirely rather than playing it
+    // without motion: the honest reading of the setting for a decorative
+    // pause is not to make her wait at all.
+    if (!crossesSection || prefersReducedMotionNow()) {
+      setGroupIndex(next);
+      return;
+    }
+
+    setTransitionTo(next);
+    transitionTimer.current = setTimeout(() => {
+      transitionTimer.current = null;
+      setGroupIndex(next);
+      setTransitionTo(null);
+    }, SECTION_TRANSITION_MS);
   }
 
   function goPrev() {
-    clearPendingAdvance();
-    setStepIndex((i) => Math.max(i - 1, 0));
+    if (transitionTo !== null) return;
+    setGroupIndex((i) => Math.max(i - 1, 0));
   }
 
-  function advanceAfterAnswer() {
-    clearPendingAdvance();
-    if (!isLast) {
-      advanceTimer.current = setTimeout(() => {
-        setStepIndex((i) => Math.min(i + 1, steps.length - 1));
-      }, AUTO_ADVANCE_DELAY_MS);
-    }
-  }
-
-  function handleSelectOption(optionIndex: number) {
-    if (current.kind !== 'question') return;
-    const { category, question } = current.ref;
+  function handleSelectOption(ref: FlatQuestionRef, optionIndex: number) {
+    const { category, question } = ref;
     setSaveError(null);
     setAnswers((prev) => ({
       ...prev,
@@ -239,13 +338,9 @@ export function AssessmentTaker({
         // needs to know it may not have saved, not see it silently vanish into a console error.
         setSaveError("Couldn't save that answer. Check your connection and try again.");
       });
-
-    advanceAfterAnswer();
   }
 
-  function handleSelectContext(value: string) {
-    if (current.kind !== 'context') return;
-    const { key } = current.contextQuestion;
+  function handleSelectContext(key: string, value: string) {
     setSaveError(null);
     setContext((prev) => ({ ...prev, [key]: value }));
 
@@ -256,8 +351,6 @@ export function AssessmentTaker({
       .catch(() => {
         setSaveError("Couldn't save that answer. Check your connection and try again.");
       });
-
-    advanceAfterAnswer();
   }
 
   function handleComplete() {
@@ -354,6 +447,22 @@ export function AssessmentTaker({
     );
   }
 
+  if (transitionTo !== null) {
+    const nextCategory = questionnaire.categories.find(
+      (c) => c.id === groups[transitionTo]?.categoryId
+    );
+    return (
+      <Card className="mef-screen-enter mt-5">
+        <SectionTransition
+          tone="light"
+          nextLine={
+            nextCategory ? `Next, we'll look at ${nextCategory.name}.` : "Next, we'll look at another area."
+          }
+        />
+      </Card>
+    );
+  }
+
   return (
     <div>
       <button
@@ -368,33 +477,40 @@ export function AssessmentTaker({
 
       <div className="mt-5">
         <AssessmentProgressBar
-          currentNumber={currentQuestionNumber}
+          tone="gold"
+          currentNumber={current?.firstQuestionNumber ?? 1}
+          throughNumber={current?.lastQuestionNumber}
           totalQuestions={totalQuestionSteps}
-          sectionLabel={currentCategory.name}
+          sectionLabel={currentCategory?.name}
           sectionIndex={sectionIndex}
           sectionCount={questionnaire.categories.length}
         />
 
-        <div className="mt-6">
-          {current.kind === 'context' ? (
-            <ContextQuestionCard
-              key={`context-${current.contextQuestion.key}`}
-              sectionPosition={`Section ${sectionIndex} of ${questionnaire.categories.length} · ${currentCategory.name}`}
-              contextQuestion={current.contextQuestion}
-              selectedValue={context[current.contextQuestion.key]}
-              onSelect={handleSelectContext}
-            />
-          ) : (
-            <QuestionCard
-              key={`question-${current.ref.category.id}-${current.ref.question.number}`}
-              categoryName={current.ref.category.name}
-              sectionPosition={`Section ${sectionIndex} of ${questionnaire.categories.length}`}
-              question={current.ref.question}
-              selectedOptionIndex={answers[current.ref.category.id]?.[current.ref.question.number]}
-              onSelect={handleSelectOption}
-            />
-          )}
-        </div>
+        <Card key={`group-${safeIndex}`} className="mef-screen-enter mt-6">
+          <ol className="list-none">
+            {(current?.steps ?? []).map((step, index) =>
+              step.kind === 'context' ? (
+                <ContextQuestionCard
+                  key={`context-${step.contextQuestion.key}`}
+                  contextQuestion={step.contextQuestion}
+                  selectedValue={context[step.contextQuestion.key]}
+                  onSelect={(value) => handleSelectContext(step.contextQuestion.key, value)}
+                  withDivider={index > 0}
+                />
+              ) : (
+                <QuestionCard
+                  key={`question-${step.ref.category.id}-${step.ref.question.number}`}
+                  position={(current?.firstQuestionNumber ?? 1) + index}
+                  categoryId={step.ref.category.id}
+                  question={step.ref.question}
+                  selectedOptionIndex={answers[step.ref.category.id]?.[step.ref.question.number]}
+                  onSelect={(optionIndex) => handleSelectOption(step.ref, optionIndex)}
+                  withDivider={index > 0}
+                />
+              )
+            )}
+          </ol>
+        </Card>
 
         {saveError && (
           <p className="mt-3 text-sm text-red-600" role="alert">
@@ -402,42 +518,57 @@ export function AssessmentTaker({
           </p>
         )}
 
-        <div className="mt-6 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={goPrev}
-            disabled={stepIndex === 0}
-            className="mef-press inline-flex items-center gap-1 rounded-2xl px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#F3F6F4] disabled:opacity-30 disabled:hover:bg-transparent mef-focus-ring"
-          >
-            <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            Previous
-          </button>
+        {!isAnswered && (
+          <p className="mt-4 text-center text-sm text-[#6B7A72]">
+            {blockedHint(current?.steps.length ?? 1)}
+          </p>
+        )}
+
+        <div className="mt-5 flex items-center gap-3">
+          {safeIndex > 0 && (
+            <button
+              type="button"
+              onClick={goPrev}
+              className="mef-press mef-focus-ring inline-flex shrink-0 items-center gap-1 rounded-2xl border border-[#1B3A2D]/12 px-4 py-3.5 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
+            >
+              <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              Back
+            </button>
+          )}
 
           {isLast ? (
             <button
               type="button"
               onClick={handleComplete}
               disabled={!isAnswered || isCompleting}
-              className="mef-press inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40 mef-focus-ring"
+              className="mef-press mef-focus-ring inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#C4A050] px-6 py-3.5 text-sm font-semibold text-[#173025] shadow-[0_10px_24px_-14px_rgba(176,143,62,0.9)] transition hover:brightness-[0.97] disabled:cursor-not-allowed disabled:bg-[#1B3A2D]/10 disabled:text-[#1B3A2D]/40 disabled:shadow-none"
             >
               See my results
+              <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
             </button>
           ) : (
             <button
               type="button"
               onClick={goNext}
               disabled={!isAnswered}
-              className="mef-press inline-flex items-center gap-1 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40 mef-focus-ring"
+              className="mef-press mef-focus-ring inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#C4A050] px-6 py-3.5 text-sm font-semibold text-[#173025] shadow-[0_10px_24px_-14px_rgba(176,143,62,0.9)] transition hover:brightness-[0.97] disabled:cursor-not-allowed disabled:bg-[#1B3A2D]/10 disabled:text-[#1B3A2D]/40 disabled:shadow-none"
             >
-              Next
-              <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              Continue
+              <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
             </button>
           )}
         </div>
 
+        {/*
+          THE COUNT MOVED UP INTO THE PROGRESS LINE. Saying "12 of 54
+          answered" here beside "Questions 4 to 6 of 54" up there is two
+          numbers counting two different things on one screen, which is
+          exactly the confusion the house rule about one source per number
+          is for. What is left is the reassurance, which is the only part
+          of this line that was not already said above.
+        */}
         <p className="mt-4 text-center text-xs text-[#6B7A72]">
-          {answeredCount} of {totalQuestionSteps} answered · Your progress is saved automatically,
-          it&apos;s safe to come back later.
+          Your progress is saved automatically, it&apos;s safe to come back later.
         </p>
       </div>
     </div>

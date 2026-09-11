@@ -176,8 +176,15 @@ export default async function AssessmentOverviewPage({
               <>
                 <BeginAssessmentForm action={beginThis} label={ctaLabel} className="mt-6" />
 
+                {/*
+                  IT SAYS WHAT THE FLOW ACTUALLY DOES. It said "one question
+                  at a time" until 2026-09-11, when a screen became a small
+                  group of two or three, and a promise about the shape of the
+                  flow is exactly the kind of line that quietly stops being
+                  true.
+                */}
                 <p className="mt-3 text-center text-xs text-[#6B7A72]">
-                  One question at a time. Your progress saves automatically, so you can always
+                  A few questions at a time. Your progress saves automatically, so you can always
                   finish later.
                 </p>
               </>

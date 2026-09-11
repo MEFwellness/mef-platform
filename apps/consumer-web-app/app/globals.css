@@ -1829,3 +1829,37 @@
     animation: none !important;
   }
 }
+
+/*
+ * ============================================================
+ * QUESTIONNAIRE ANSWERING FLOW (2026-09-11)
+ * ============================================================
+ * The selection tick on an answer row. The press itself is `.mef-press`
+ * (Quick tier, 150ms, already shared by every button in the app); this is
+ * only the tick arriving, at the Instant tier, so the state change reads
+ * as one movement rather than two. No overshoot and no bounce: the brief
+ * for this flow is restrained, not playful.
+ *
+ * The tick is decorative (aria-hidden, the row carries aria-checked), so
+ * under reduced motion it is simply there with no animation at all.
+ */
+@keyframes mef-q-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.mef-q-check-in {
+  animation: mef-q-check-in var(--mef-duration-instant) var(--mef-ease-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-q-check-in {
+    animation: none !important;
+  }
+}

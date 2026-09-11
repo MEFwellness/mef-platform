@@ -1,3 +1,139 @@
+## The questionnaire answering experience (2026-09-11)
+
+Both places a member answers a questionnaire were rebuilt around the same
+idea: she is walked through it a few questions at a time, rather than
+handed a form. Nothing about what a question is worth, how it is stored, or
+what it adds up to changed.
+
+### A SCREEN CARRIES TWO OR THREE QUESTIONS
+
+The generic questionnaire taker (`components/assessments/AssessmentTaker.tsx`,
+used by Nutrition & Lifestyle, Four Doctors and the Health Check-In) showed
+one question at a time and auto advanced after every tap, so a fifty-four
+question instrument was fifty-four screens that moved under her thumb. The
+Body Systems Survey showed a whole section at once, which is a wall of up
+to ten questions.
+
+Both now cut a section into screens of two or three, and nothing moves
+until she presses Continue. `lib/questionnaire/groups.ts` owns the sizes
+and is shared, including the rule that stops a section ending on a screen
+with one lonely question: ten becomes 3, 3, 2, 2 rather than 3, 3, 3, 1,
+and seven becomes 3, 2, 2. A screen never straddles two sections, so the
+beat between two sections always falls between two screens. The one-time
+intake prompt inside the Health Check-In keeps a screen to itself, because
+answering it changes which questions exist underneath it.
+
+Auto advance is gone. Continue is the only thing that moves her, and Back
+moves her one screen at a time, including back across a section boundary
+onto the LAST screen of the section before, which is where she was.
+
+### WHAT A QUESTION LOOKS LIKE NOW
+
+One definition, two tones: `components/questionnaire/QuestionBlock.tsx`
+carries the muted gold ordinal, the larger prompt, the room around it and
+the hairline between one question and the next, and the only thing that
+differs between the cream page and the Body Systems Survey's forest panel
+is the palette.
+
+A chosen answer is a muted warm gold row (`#C4A050`) with deep forest text,
+a tick and a refined border, and it arrives by the app's own selection
+motion: the press compresses at 150ms, the colour bleeds from the real tap
+point, and the tick fades in over 100ms with no bounce. An unchosen one is
+a layered green tint with a hairline border rather than a white box. This
+is `tone` on the shared `QuestionOptionButton`, and the default is exactly
+what every caller got before, so the WBSA taker and the Core Values
+Snapshot are untouched.
+
+### PROGRESS, AND ONE NUMBER PER WINDOW
+
+"Questions 4 to 6 of 54" over a thin muted gold line, and the line is the
+counter drawn rather than a second number. The generic taker counts across
+the questionnaire and names the section beside it; the Body Systems Survey
+counts within the section named directly above it. The "12 of 54 answered"
+line under the old taker is gone, because two numbers counting two
+different things on one screen is the confusion the house rule about one
+source per number exists for.
+
+### THE BEAT BETWEEN TWO SECTIONS
+
+A completion check, "Section complete", one line about what is next, and a
+gold line that sweeps. About a second and a quarter, and it is not a
+loading screen: the save it covers is already sent and the next screen is
+already built. **The Body Systems Survey stays blind through it**: it is
+handed a neutral sentence and no name reaches the component, so the one
+screen that would naturally say what is coming says "another area".
+
+**A member who has asked for reduced motion is not shown it at all.** The
+honest reading of that setting for a decorative pause is not to play it
+without motion, it is not to make her wait.
+
+### A REFRESH IN THE MIDDLE OF A SCREEN COSTS HER NOTHING
+
+The generic taker always saved each answer as she gave it. The Body Systems
+Survey saved on Continue, which was every ten questions and is now every
+two or three, and on top of that every tap queues the whole draft a moment
+later. That autosave goes over a route handler
+(`app/api/body-systems/progress/route.ts`) rather than the Server Action,
+because a Server Action's response is the entire re-rendered page and
+/body-systems reads the survey state and the whole content bundle: a
+hundred and three taps would have been a hundred and three full server
+renders. The route runs the same action with the same guards and returns a
+few bytes. Her Continue still uses the Server Action, because it has to
+know whether the write landed before it moves her.
+
+Resume is unchanged where it is stored: the Body Systems Survey still
+stores a SECTION, so a draft written before this change opens exactly where
+it always did, and which screen inside that section she lands on is derived
+from her own answers (the first one she has not answered decides it).
+
+### THE ONE BUG A TEST COULD NOT HAVE FOUND
+
+The beat was timed perfectly and never drawn. `setTransitionTo` was made
+inside `startTransition`, which is a LOW PRIORITY update, and React's whole
+purpose in keeping it low priority is that the PREVIOUS screen stays up
+until the transition finishes. So the old questions sat there for the full
+beat and then the next section appeared. A jsdom test cannot see this,
+because `act()` flushes every priority together; it was found by driving
+the real app. It is an urgent update now.
+
+### AND FOUR EM DASHES ON PRODUCTION THE GUARD COULD NOT SEE
+
+A questionnaire is shipped as JSON, and `tests/no-em-dash-guard.test.ts`
+walks TypeScript with the compiler API, so it had never read a single
+question a member answers. Four question texts in the Health Check-In
+carried em dashes. They are commas now, and the guard reads the shipped
+questionnaires' member facing fields (question text, option labels, context
+prompts and helper lines) as well, so it cannot happen again. Provenance
+fields are deliberately left alone: rewriting a citation's punctuation
+damages it.
+
+### TESTS
+
+`tests/questionnaire-grouping.test.tsx` (30): the grouping arithmetic
+including every uneven case, and both takers driven through real screens
+for grouping, Back with her answers still chosen, the blocked Continue, the
+resume position, the autosave and the beat.
+
+Full suite 558 files, 10,489 tests, all passing. Typecheck clean, lint 0
+errors, production build clean.
+
+### LIVE VERIFICATION
+
+`scripts/verify-questionnaire-experience-live.mjs` is new and drives an
+ordinary questionnaire end to end, checking the computed styles of a chosen
+and an unchosen row rather than their class names, the 44px tap targets,
+Back, a mid screen refresh, the beat, and the reduced motion member who
+never sees it. `scripts/verify-body-systems-live.mjs` was taught that a
+section is several screens now, and gained the per screen grouping checks
+and the beat.
+
+**Headless Chromium reports `prefers-reduced-motion: reduce` by default**,
+which silently turned the beat off and made a run that never played it look
+like a run that had checked it. Both scripts now ask for a preference
+explicitly, in both directions.
+
+---
+
 ## The Body Systems Survey member experience (2026-09-11)
 
 Three changes to the survey a member already had, and all three are about

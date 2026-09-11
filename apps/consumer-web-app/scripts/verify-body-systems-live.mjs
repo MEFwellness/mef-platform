@@ -188,13 +188,54 @@ const check = (name, ok, note = '') => {
  * is what makes the tap real rather than attempted.
  */
 async function tap(scope, name, exact = true) {
-  const button = scope.getByRole('button', { name, exact });
+  /*
+    AN ANSWER ROW IS A RADIO SINCE 2026-09-11, not a toggle button. Three
+    questions stand on one screen, so each question's options are a labelled
+    radio group and the chosen one reports aria-checked. The branch question
+    and a few older controls are still aria-pressed buttons, so both are
+    accepted here rather than this script having to know which is which.
+  */
+  const radios = scope.getByRole('radio', { name, exact });
+  const target = (await radios.count()) > 0 ? radios : scope.getByRole('button', { name, exact });
   for (let attempt = 0; attempt < 25; attempt += 1) {
-    await button.click();
-    if ((await button.getAttribute('aria-pressed')) === 'true') return;
+    await target.click();
+    const [checked, pressed] = await Promise.all([
+      target.getAttribute('aria-checked'),
+      target.getAttribute('aria-pressed'),
+    ]);
+    if (checked === 'true' || pressed === 'true') return;
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
   throw new Error(`tap never registered: ${name}`);
+}
+
+/**
+ * The counter that names the screen she is on inside a section.
+ *
+ * A section is several screens of two or three questions now, so "section 3
+ * of 11" no longer changes between one Continue and the next. This is what
+ * does, and waiting on it is what stops this script answering the same
+ * screen twice.
+ */
+async function screenKey(page) {
+  return page.evaluate(() => {
+    const match = document.body.innerText.match(/Questions? [0-9]+(?: to [0-9]+)? of [0-9]+/i);
+    if (match) return match[0];
+    const eyebrow = document.body.innerText.match(/section [0-9]+ of 11/i);
+    return eyebrow ? `${eyebrow[0]} (no questions)` : 'elsewhere';
+  });
+}
+
+/** Wait until the screen she is on is genuinely a different one. */
+async function waitForNewScreen(page, previous, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const now = await screenKey(page);
+    const text = await page.evaluate(() => document.body.innerText);
+    if (now !== previous && !/Section complete/i.test(text)) return now;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error(`the screen never changed away from ${previous}`);
 }
 
 /**
@@ -222,9 +263,19 @@ const EM = String.fromCharCode(0x2014);
 const consoleErrors = [];
 
 const browser = await chromium.launch();
+/*
+  REDUCED MOTION IS ASKED FOR EXPLICITLY, IN BOTH DIRECTIONS.
+
+  Headless Chromium reports `prefers-reduced-motion: reduce` by default,
+  which silently turned off the beat between two sections and made a run
+  that never played it look like a run that had checked it. This context is
+  a member who has NOT asked for reduced motion, so the beat really plays;
+  the member who has is checked in her own context further down.
+*/
 const minted = await mintSessionContext(browser, MEMBER_EMAIL, {
   baseUrl: BASE,
   viewport: { width: 390, height: 844 },
+  contextOptions: { reducedMotion: 'no-preference' },
 });
 if (!minted) { console.error('could not mint'); process.exit(1); }
 const page = await minted.context.newPage();
@@ -303,12 +354,17 @@ try {
   // than by a counter this script keeps.
   let leftAndCameBack = false;
   let everScrolledDown = false;
+  let branchAsked = false;
+  let screensInSectionOne = 0;
+  let biggestScreen = 0;
+  let smallestScreen = 99;
   for (;;) {
     const eyebrow = await page.locator('text=/section \\d+ of 11/i').first().innerText();
     const section = Number(eyebrow.match(/(\d+)/)[1]);
     await noSystemName(`section ${section}`);
 
-    if (section === 11) {
+    if (section === 11 && !branchAsked) {
+      branchAsked = true;
       const branchText = await page.evaluate(() => document.body.innerText);
       check(
         'section 11 opens with the branch question',
@@ -328,13 +384,42 @@ try {
       await page.waitForSelector('text=My cycle has become irregular', { timeout: 15000 });
     }
 
+    /*
+      READ AFTER THE BRANCH QUESTION, NEVER BEFORE IT. Section eleven opens
+      on a screen with no questions on it, so a key taken at the top of this
+      loop names a screen that her branch tap has already replaced, and
+      waiting for "a different screen" then returns instantly.
+    */
+    const here = await screenKey(page);
     const items = await page.locator('ol > li').count();
+    /*
+      TWO OR THREE QUESTIONS PER SCREEN (2026-09-11), and never one alone.
+      Checked on every screen of the survey rather than on a sample, because
+      the rule that stops a section of ten ending on a lonely question is
+      exactly the kind of arithmetic that goes wrong at one section and
+      nowhere else.
+    */
+    check(
+      `${here}: two or three questions on the screen`,
+      items >= 2 && items <= 3,
+      `${items} on screen`
+    );
+    if (items > biggestScreen) biggestScreen = items;
+    if (items < smallestScreen) smallestScreen = items;
+    if (section === 1) screensInSectionOne += 1;
     for (let i = 0; i < items; i += 1) {
       const item = page.locator('ol > li').nth(i);
       // Digestion loud, so one section speaks loudly and the library fires.
       const label = section === 1 ? 'Almost always' : i % 3 === 0 ? 'Often' : i % 3 === 1 ? 'Rarely' : 'Never';
-      if (section === 3 && i === 1) {
-        await tap(item, 'I do not drink');
+      /*
+        THE "Does not apply to me" TAP IS FOUND, NOT COUNTED. It used to be
+        the second question of section three; a screen now holds three
+        questions, so which screen that question is on is arithmetic this
+        script should not be repeating. If the option is on this row, tap it.
+      */
+      const dna = item.getByRole('radio', { name: /I do not drink/i });
+      if ((await dna.count()) > 0) {
+        await tap(item, /I do not drink/i, false);
         continue;
       }
       await tap(item, label);
@@ -344,10 +429,10 @@ try {
       const state = await page.evaluate(() =>
         Array.from(document.querySelectorAll('ol > li')).map((li, index) => ({
           index,
-          prompt: (li.querySelector('p')?.textContent ?? '').slice(0, 50),
-          pressed: Array.from(li.querySelectorAll('[aria-pressed="true"]')).map(
-            (b) => b.textContent
-          ),
+          prompt: (li.querySelector('h2')?.textContent ?? '').slice(0, 50),
+          pressed: Array.from(
+            li.querySelectorAll('[aria-checked="true"], [aria-pressed="true"]')
+          ).map((b) => b.textContent),
         }))
       );
       const shape = await page.evaluate(() => ({
@@ -355,7 +440,7 @@ try {
         ols: document.querySelectorAll('ol').length,
         olLi: document.querySelectorAll('ol > li').length,
         anyLi: document.querySelectorAll('li').length,
-        pressed: document.querySelectorAll('[aria-pressed="true"]').length,
+        pressed: document.querySelectorAll('[aria-checked="true"], [aria-pressed="true"]').length,
         buttons: document.querySelectorAll('button').length,
       }));
       console.log('DOM SHAPE', JSON.stringify(shape));
@@ -371,9 +456,38 @@ try {
     // is a claim about a page that was genuinely scrolled.
     const leftAt = await scrollY();
     if (leftAt > 0) everScrolledDown = true;
+    const lastSectionScreen = (await page.evaluate(() => document.body.innerText)).match(
+      /Questions? ([0-9]+)(?: to ([0-9]+))? of ([0-9]+)/i
+    );
+    const leavingSection = lastSectionScreen
+      ? Number(lastSectionScreen[2] ?? lastSectionScreen[1]) === Number(lastSectionScreen[3])
+      : false;
     await page.getByRole('button', { name: 'Continue' }).click();
 
-    if (section === 1 && !leftAndCameBack) {
+    /*
+      A SECTION ENDING PLAYS ONE SHORT BEAT (2026-09-11), and it names
+      nothing. Only checked on the Continue that genuinely leaves a section,
+      because a Continue in the middle of one must NOT play it.
+    */
+    if (leavingSection && section < 11) {
+      let beatSeen = false;
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const text = await page.evaluate(() => document.body.innerText);
+        if (/Section complete/i.test(text)) {
+          beatSeen = true;
+          check(
+            `section ${section}: the beat says another area is next`,
+            /another area/i.test(text)
+          );
+          await noSystemName(`the beat after section ${section}`);
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 120));
+      }
+      check(`section ${section}: a beat plays on the way out`, beatSeen);
+    }
+
+    if (leavingSection && section === 1 && !leftAndCameBack) {
       leftAndCameBack = true;
       await page.waitForSelector('text=/section 2 of 11/i', { timeout: 20000 });
       await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
@@ -422,7 +536,19 @@ try {
       continue;
     }
 
-    if (section === 11) break;
+    if (leavingSection && section === 11) break;
+    if (!leavingSection) {
+      // Still inside this section: wait for the NEXT SCREEN rather than for
+      // a section number that has not changed.
+      const arrived = await waitForNewScreen(page, here);
+      const arrivedAt = await scrollY();
+      check(
+        `${arrived} opens at the top of itself`,
+        arrivedAt === 0,
+        `left ${here} at ${leftAt}px, arrived at ${arrivedAt}px`
+      );
+      continue;
+    }
     await page.waitForSelector(`text=/section ${section + 1} of 11/i`, { timeout: 20000 });
     // THE FIX THIS RUN IS FOR. Nothing unmounts between one section and
     // the next, so without the scroll to top the new section opened
@@ -435,6 +561,13 @@ try {
     );
   }
   check('and she really had scrolled down before leaving a section', everScrolledDown);
+  check(
+    'a section of ten questions became four screens, never three plus a lonely one',
+    screensInSectionOne === 4,
+    `${screensInSectionOne} screens`
+  );
+  check('no screen ever held more than three questions', biggestScreen === 3, `${biggestScreen}`);
+  check('and none ever held fewer than two', smallestScreen === 2, `${smallestScreen}`);
 
   // ---- The six red flag screens.
   await page.waitForSelector('text=1 of 6', { timeout: 20000 });
@@ -448,7 +581,7 @@ try {
     await page.waitForSelector(`text=${flag} of 6`, { timeout: 20000 });
     // Flag 4 is the Level 2 one (blood in stool). Answer that Yes.
     if (flag === 4) {
-      await page.getByRole('button', { name: 'Yes', exact: true }).click();
+      await tap(page, 'Yes');
       await page.waitForSelector('[role="status"]', { timeout: 10000 });
       const response = await page.locator('[role="status"]').innerText();
       check(
@@ -460,7 +593,7 @@ try {
         !response.includes('matters more than anything else in this survey')
       );
     } else {
-      await page.getByRole('button', { name: 'No', exact: true }).click();
+      await tap(page, 'No');
     }
     const last = flag === 6;
     const label = last ? 'See your results' : 'Continue';
@@ -695,16 +828,25 @@ try {
   for (;;) {
     const eyebrow = await page.locator('text=/section \\d+ of 11/i').first().innerText();
     const section = Number(eyebrow.match(/(\d+)/)[1]);
+    const here = await screenKey(page);
     const items = await page.locator('ol > li').count();
     for (let i = 0; i < items; i += 1) {
       await tap(page.locator('ol > li').nth(i), section === 1 ? 'Rarely' : 'Never');
     }
     if (!(await waitForContinue(page, 'Continue'))) {
-      throw new Error(`retake Continue stayed disabled on section ${section}`);
+      throw new Error(`retake Continue stayed disabled on ${here}`);
     }
+    const counts = here.match(/Questions? ([0-9]+)(?: to ([0-9]+))? of ([0-9]+)/i);
+    const leavingSection = counts
+      ? Number(counts[2] ?? counts[1]) === Number(counts[3])
+      : false;
     await page.getByRole('button', { name: 'Continue' }).click();
-    if (section === 11) break;
-    await page.waitForSelector(`text=/section ${section + 1} of 11/i`, { timeout: 25000 });
+    if (leavingSection && section === 11) break;
+    if (leavingSection) {
+      await page.waitForSelector(`text=/section ${section + 1} of 11/i`, { timeout: 25000 });
+      continue;
+    }
+    await waitForNewScreen(page, here);
   }
   for (let flag = 1; flag <= 6; flag += 1) {
     await page.waitForSelector(`text=${flag} of 6`, { timeout: 25000 });

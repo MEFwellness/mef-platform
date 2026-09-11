@@ -1,8 +1,9 @@
 /**
- * The one-question-per-screen take flow — a focused, full-screen task
- * (no BottomNav here on purpose, same "minimal chrome during a focused
- * flow" choice already made for the Body Intelligence capture screen)
- * so nothing competes with the current question for attention.
+ * The take flow: a focused, full-screen task carrying two or three
+ * questions per screen since 2026-09-11, one at a time before that. No
+ * BottomNav here on purpose, the same "minimal chrome during a focused
+ * flow" choice already made for the Body Intelligence capture screen, so
+ * nothing competes with the questions on the screen for attention.
  */
 
 import { notFound, redirect } from 'next/navigation';
