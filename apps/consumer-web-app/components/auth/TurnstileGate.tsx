@@ -42,9 +42,10 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { getTurnstileSiteKey } from '@/lib/turnstile/env';
+import { TURNSTILE_SCRIPT_SRC } from '@/lib/turnstile/script';
 import { TurnstileTokenLifecycle } from '@/lib/turnstile/tokenLifecycle';
 
-const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+const SCRIPT_SRC = TURNSTILE_SCRIPT_SRC;
 
 interface TurnstileRenderOptions {
   sitekey: string;
@@ -79,25 +80,68 @@ declare global {
  */
 let scriptPromise: Promise<void> | null = null;
 
+/** How long the poll below will wait for an already-present tag to finish. */
+const SCRIPT_POLL_LIMIT_MS = 15_000;
+
+/**
+ * THE TAG IS USUALLY ALREADY THERE NOW, AND THAT IS A TRAP WORTH NAMING.
+ *
+ * components/auth/TurnstilePreload.tsx puts this exact script in the
+ * server-rendered HTML, so by the time this component mounts the tag
+ * normally exists and has very often already RUN. A `load` listener
+ * attached to a script that finished loading before the listener existed
+ * never fires, and the old implementation attached one and waited: that
+ * would have been a widget that never rendered, a token that never
+ * arrived, and every login refused. The fix is not to trust an event that
+ * may already be in the past. Three cases, in order:
+ *
+ *   window.turnstile is defined       the script has run, go now
+ *   a tag exists but has not run yet  poll for the API, bounded
+ *   no tag at all                     append one and listen, as before
+ *
+ * Polling rather than listening for the second case is deliberate: it is
+ * correct whether the load already happened or is still to come, which a
+ * listener cannot be.
+ */
 function loadTurnstileScript(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve();
   if (window.turnstile) return Promise.resolve();
   if (scriptPromise) return scriptPromise;
 
+  const existing = document.querySelector<HTMLScriptElement>(`script[src="${SCRIPT_SRC}"]`);
+
+  if (existing) {
+    scriptPromise = new Promise<void>((resolve, reject) => {
+      const deadline = Date.now() + SCRIPT_POLL_LIMIT_MS;
+      const look = () => {
+        if (window.turnstile) return resolve();
+        if (Date.now() > deadline) {
+          scriptPromise = null;
+          reject(new Error('Turnstile script did not load'));
+          return;
+        }
+        window.setTimeout(look, 50);
+      };
+      existing.addEventListener('error', () => {
+        scriptPromise = null;
+        reject(new Error('Turnstile script did not load'));
+      });
+      look();
+    });
+    return scriptPromise;
+  }
+
   scriptPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${SCRIPT_SRC}"]`);
-    const target = existing ?? document.createElement('script');
+    const target = document.createElement('script');
     target.addEventListener('load', () => resolve());
     target.addEventListener('error', () => {
       scriptPromise = null;
       reject(new Error('Turnstile script did not load'));
     });
-    if (!existing) {
-      target.src = SCRIPT_SRC;
-      target.async = true;
-      target.defer = true;
-      document.head.appendChild(target);
-    }
+    target.src = SCRIPT_SRC;
+    target.async = true;
+    target.defer = true;
+    document.head.appendChild(target);
   });
   return scriptPromise;
 }

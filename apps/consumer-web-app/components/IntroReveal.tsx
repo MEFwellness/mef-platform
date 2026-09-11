@@ -36,11 +36,7 @@
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
-import {
-  INTRO_REVEAL_LINE_STEP_MS,
-  INTRO_REVEAL_TYPEWRITER_SETTLE_MS,
-  introRevealTypewriterMs,
-} from '@/lib/introRevealTiming';
+import { introRevealPacing, type IntroRevealPace } from '@/lib/introRevealTiming';
 import { Typewriter } from '@/components/reveal/Typewriter';
 
 function useReducedMotion(): boolean {
@@ -127,6 +123,31 @@ type IntroRevealProps = {
   storageKey: string;
   /** When provided, IntroReveal renders this button itself and times it to arrive only after every line has landed — the "button arrives last" half of the standard. Screens with more elaborate follow-on content (a card, a caption) instead read introRevealFollowUpDelayMs directly; see lib/introRevealTiming.ts. */
   button?: IntroButton;
+  /**
+   * How fast the reveal plays. Defaults to the app-wide welcome pace every
+   * existing call site was built on. `'brisk'` is about a third of it and
+   * puts the whole thing under a second, for a screen that stands between
+   * a member and a task she has already decided to do. See
+   * lib/introRevealTiming.ts.
+   */
+  pace?: IntroRevealPace;
+  /**
+   * Play the reveal on every visit instead of once per device.
+   *
+   * THE DEFAULT IS STILL ONCE, AND IT SHOULD BE: a welcome screen that
+   * re-types itself at somebody who has read it three times is an app
+   * talking over her. But an intro to a task she opens, considers and
+   * comes back to is a different screen, and the once-per-device rule
+   * turned it into flat, unmoving text for everybody who had ever opened
+   * it before, which is what the MEF Body Systems Survey's intro was
+   * reported as on 2026-09-11. With a brisk pace the replay costs under a
+   * second, which is cheap enough to be worth the life it gives the
+   * screen.
+   *
+   * Reduced motion still skips it entirely. This only bypasses the
+   * "have I seen this before" half.
+   */
+  replay?: boolean;
 };
 
 export function IntroReveal({
@@ -139,11 +160,14 @@ export function IntroReveal({
   lineClassName = 'text-[15px] leading-relaxed text-[#1B3A2D]',
   storageKey,
   button,
+  pace = 'standard',
+  replay = false,
 }: IntroRevealProps) {
   const TitleTag = titleTag;
   const reducedMotion = useReducedMotion();
-  const typewriterMs = introRevealTypewriterMs(title);
-  const buttonDelayMs = typewriterMs + INTRO_REVEAL_TYPEWRITER_SETTLE_MS + lines.length * INTRO_REVEAL_LINE_STEP_MS;
+  const { msPerChar, settleMs, lineStepMs } = introRevealPacing(pace);
+  const typewriterMs = title.length * msPerChar;
+  const buttonDelayMs = typewriterMs + settleMs + lines.length * lineStepMs;
   const seenBefore = useSeenBefore(storageKey, buttonDelayMs);
 
   // Skip the animation entirely once we know it's warranted (reduced
@@ -151,7 +175,10 @@ export function IntroReveal({
   // the very first client tick) intentionally also plays it safe by not
   // yet skipping, so there's never a flash of fully-typed text right
   // before the animation would have started.
-  const skip = reducedMotion || seenBefore === true;
+  //
+  // `replay` drops the revisit half only. Reduced motion is never
+  // overridable from a call site and is checked first for that reason.
+  const skip = reducedMotion || (!replay && seenBefore === true);
 
   const [linesStarted, setLinesStarted] = useState(skip);
 
@@ -161,22 +188,28 @@ export function IntroReveal({
       return undefined;
     }
     setLinesStarted(false);
-    const linesTimer = setTimeout(() => setLinesStarted(true), typewriterMs + INTRO_REVEAL_TYPEWRITER_SETTLE_MS);
+    const linesTimer = setTimeout(() => setLinesStarted(true), typewriterMs + settleMs);
     return () => clearTimeout(linesTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skip, title]);
+  }, [skip, title, typewriterMs, settleMs]);
 
   return (
     <>
       {eyebrow && <p className={`mef-fade-in ${eyebrowClassName}`}>{eyebrow}</p>}
-      <Typewriter as={TitleTag} text={title} skip={skip} className={titleClassName} />
+      <Typewriter
+        as={TitleTag}
+        text={title}
+        skip={skip}
+        msPerChar={msPerChar}
+        className={titleClassName}
+      />
       {linesStarted && (
         <div className="mt-4 space-y-3">
           {lines.map((line, i) => (
             <p
               key={i}
               className={skip ? lineClassName : `mef-fade-in ${lineClassName}`}
-              style={skip ? undefined : { animationDelay: `${i * INTRO_REVEAL_LINE_STEP_MS}ms` }}
+              style={skip ? undefined : { animationDelay: `${i * lineStepMs}ms` }}
             >
               {line}
             </p>

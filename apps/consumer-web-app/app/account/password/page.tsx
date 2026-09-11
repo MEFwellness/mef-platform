@@ -4,6 +4,7 @@ import { BackButton } from '@/components/BackButton';
 import { Card } from '@/components/layout';
 import { ChangePasswordForm } from './ChangePasswordForm';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { TurnstilePreload } from '@/components/auth/TurnstilePreload';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,10 @@ export default async function ChangePasswordPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      {/* The only signed-in form carrying a bot check, so it gets the same
+          head start every screen under app/(auth)/layout.tsx gets. */}
+      <TurnstilePreload />
+
       <main className="mx-auto w-full max-w-md px-5 pb-16 pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pl-28">
         <BackButton fallbackHref="/profile" label="Back" />
 

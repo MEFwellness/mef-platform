@@ -36,6 +36,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { ModalOverlay } from '@/components/ui/ModalOverlay';
 
 const DISMISSED_KEY = 'mef_wearable_welcome_dismissed';
 const SCROLL_REVEAL_FRACTION = 0.55;
@@ -84,12 +85,7 @@ export function WearableWelcomeModal() {
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-5">
-      <div
-        className="absolute inset-0 bg-[#1B3A2D]/30 backdrop-blur-[2px]"
-        onClick={dismiss}
-        aria-hidden="true"
-      />
+    <ModalOverlay zIndexClassName="z-50" backdropClassName="bg-[#1B3A2D]/30 backdrop-blur-[2px]" testId="wearable-welcome-modal">
       <div
         role="dialog"
         aria-modal="true"
@@ -126,6 +122,6 @@ export function WearableWelcomeModal() {
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

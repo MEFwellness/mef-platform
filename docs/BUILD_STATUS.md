@@ -1,3 +1,131 @@
+## The bug fix and polish pass on the questionnaire work (2026-09-11)
+
+Four things reported from a real phone after the answering experience went
+out, and the answer to "why did the app get slower".
+
+### FIRST, WHAT THE DEPLOY ACTUALLY CHANGED, MEASURED
+
+The questionnaire deploy was profiled before anything was touched, by
+building the commit before it and the commit after it and comparing:
+
+    shared JavaScript, every page       87.7 kB  ->  87.7 kB
+    /login first load                    103 kB  ->   103 kB
+    /dashboard first load                200 kB  ->   200 kB
+    middleware                          90.6 kB  ->  90.7 kB
+    /body-systems first load            95.7 kB  ->  99.9 kB
+
+So the redesign put no weight on the rest of the app. Nothing new runs on
+every page: the only file outside the questionnaire flow it touched at all
+was app/globals.css, and only to add keyframes nothing else uses. The
+slowdown is not the bundle, and this is written down so nobody spends
+another afternoon looking there.
+
+### THE LOGIN THAT SAID "WE COULD NOT CONFIRM THAT IN TIME"
+
+Measured on production instead, at a throttled phone profile (Fast 3G,
+4x CPU), five cold opens of /login
+(`scripts/measure-login-token-live.mjs`):
+
+    time to first byte                     55 to 114 ms
+    document parsed                     1193 to 1251 ms
+    Cloudflare's api.js first ASKED FOR 1593 to 1640 ms
+    Cloudflare's api.js in hand         2068 to 2124 ms
+
+**Nothing about the bot check could begin for the first two seconds.**
+TurnstileGate appended Cloudflare's script from a mount effect, so the
+request for it queued behind downloading, parsing and hydrating the app's
+own JavaScript, and only then could Cloudflare start the round trips that
+end in a token. A member typing at normal speed on a slower connection
+than that reaches the button before a token exists. The app then waits
+eight seconds, submits with nothing, Supabase refuses the request, and
+she is told to try again.
+
+Three changes, and the first is the one that matters:
+
+**THE CHALLENGE STARTS WHILE THE PAGE IS STILL PARSING.**
+`components/auth/TurnstilePreload.tsx` puts a preconnect, a dns-prefetch
+and the script itself in the server-rendered HTML of every screen that
+carries a widget. The download now runs alongside the app's own instead
+of after it, and the TLS handshake is already paid.
+
+**THE RETRY STOPPED THROWING AWAY A TOKEN THAT HAD JUST ARRIVED.**
+`refresh()` exists because a spent token cannot be sent twice. That
+reasoning only holds when one was sent. The common failure is the other
+case: the first attempt carried NOTHING, so nothing was spent, and the
+challenge very often finished during the round trip to Supabase. The old
+code deleted that brand new token and started again from zero, spending a
+second full wait getting back to where it already was. `submit.ts` now
+asks the question that matches what happened: nothing spent, ask for a
+token; a token spent, refresh.
+
+**A LOAD EVENT THAT HAS ALREADY FIRED IS NOT WAITED ON.** With the tag in
+the HTML it has usually already run by the time the widget mounts, and a
+`load` listener attached then never fires. The loader polls for the API
+instead, which is correct whether the load has happened or is still to
+come. Getting this wrong would have been a widget that never renders and
+a login that can never succeed, so it has its own test.
+
+### THE BEAT BETWEEN TWO SECTIONS ARRIVES WHOLE
+
+"Section complete" staggered its own parts: the heading at 160ms, the line
+under it at 380ms, both from opacity 0. Inside a beat that is 1250ms long
+that is a member watching a screen assemble itself, which is
+indistinguishable from a screen that has not finished loading. The rule
+now is the strict one: **every element is laid out and occupying its final
+box in the first frame, and the only thing that animates is how it is
+painted inside that box.** One fade on the group, no per element delay,
+and the shared check draw is compressed for this screen only (complete at
+340ms rather than 800ms) without touching what the check looks like
+anywhere else. Nothing waits on a font: the face is already painted on
+every screen this beat can follow.
+
+### A POP-UP IS POSITIONED AGAINST THE PHONE, NOT AGAINST WHAT IT INTERRUPTED
+
+The Weekly Reflection pop-up came up half way down the screen, clipped,
+with its buttons out of reach, and the app had to be force closed. Two
+causes, both of them the same two lines of markup copied into six files.
+
+**`fixed inset-0` IS NOT THE VIEWPORT IF AN ANCESTOR IS TRANSFORMED.** A
+transform, a filter, a backdrop-filter, a will-change or a contain on any
+ancestor makes that ancestor the containing block for every fixed
+descendant, and this app's own `.mef-fade-up` and `.mef-animate-in` both
+END on a transform with `animation-fill-mode: both`, so the transform is
+still applied long after the animation is over.
+
+**A CARD TALLER THAN THE PHONE HAD NOWHERE TO GO.** A non-scrolling
+`items-center` frame puts the top of a tall card above the top of the
+screen and its buttons below the bottom, both unreachable.
+
+`components/ui/ModalOverlay.tsx` is now the one frame every pop-up is
+drawn in: portalled to `document.body` so nothing in the page tree can
+capture it, a fixed backdrop so a scrolled card still has the dimmed page
+behind it, `overflow-y-auto` over `min-h-full` so a short card is centred
+exactly as before and a tall one scrolls, and safe-area padding. Applied
+to all five: the Root message chain (three frames), the Reset Plan
+pop-up, the Weekly Review pop-up, the Priority Card pop-up and the
+wearable welcome modal.
+
+### THE SURVEY INTRO MOVES AGAIN
+
+It read as flat static text, and nothing was broken: IntroReveal's
+app-wide standard plays its reveal once per device and hands out the
+finished state forever after, so anybody who had opened the survey before
+had no reveal left to see. Two opt-in properties, used on this one
+screen, with every other caller unchanged: `replay` plays it every visit,
+and `pace="brisk"` is what makes that affordable. The headline types at
+18ms a character instead of 45 and the lines follow 110ms apart instead
+of 400, so Begin is on screen at about 800ms rather than about 2.9
+seconds. The copy is untouched, and reduced motion still skips the whole
+thing.
+
+### WHAT NOW HOLDS IT
+
+    tests/login-timeout-handling.test.tsx        the retry, the preload, the loader
+    tests/popup-positioning.test.tsx             portalled, scrollable, and no seventh copy
+    tests/section-transition-readiness.test.tsx  the whole screen in the first frame
+    tests/survey-intro-reveal.test.tsx           brisk, replayed, and only here
+    scripts/measure-login-token-live.mjs         the stopwatch the diagnosis came from
+
 ## The questionnaire answering experience (2026-09-11)
 
 Both places a member answers a questionnaire were rebuilt around the same

@@ -614,6 +614,27 @@ export function BodySystemsExperience({
             ]}
             lineClassName="text-[16px] leading-relaxed text-[#F5F0E4]/85"
             storageKey="body-systems-intro"
+            /*
+              THE INTRO MOVES, EVERY TIME, AND IT IS OVER IN UNDER A SECOND.
+
+              Reported from a phone on 2026-09-11: this screen read as flat,
+              static text. It was, for everybody who had opened the survey
+              once before, because IntroReveal's default is to play its
+              reveal once per device and then hand out the finished state
+              forever after. That is the right default for a welcome and the
+              wrong one for the screen standing between a member and a task
+              she has come back to do.
+
+              `replay` plays it on every visit and `pace="brisk"` is what
+              makes that affordable: the headline types at 18ms a character
+              instead of 45, the lines follow 110ms apart instead of 400,
+              and Begin is on screen at about 800ms rather than about 2.9
+              seconds. Nothing about the copy changed, and a member who has
+              asked for reduced motion still gets the whole thing instantly
+              and completely, with no animation at all.
+            */
+            pace="brisk"
+            replay
             button={{
               label: memberCopy(content.copy, 'member.intro_button'),
               onClick: () => setShowIntro(false),

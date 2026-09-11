@@ -60,6 +60,7 @@ import {
   TrackTrialArcDelivered,
   reportTrialArcCtaTapped,
 } from '@/components/trial-arc/TrackTrialArcDelivered';
+import { ModalOverlay } from '@/components/ui/ModalOverlay';
 
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
 type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
@@ -783,8 +784,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   const answered = isDay3 && day3Response !== null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-5">
-      <div className="absolute inset-0 bg-[#0E1F17]/55 backdrop-blur-sm" aria-hidden="true" />
+    <ModalOverlay testId="root-popup">
       <div
         role="dialog"
         aria-modal="true"
@@ -895,7 +895,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
           </>
         )}
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
@@ -947,8 +947,7 @@ function RootOfferPopup({ message, onClose }: { message: OfferMessage; onClose: 
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-5">
-      <div className="absolute inset-0 bg-[#0E1F17]/55 backdrop-blur-sm" aria-hidden="true" />
+    <ModalOverlay testId="root-popup">
       <div
         role="dialog"
         aria-modal="true"
@@ -991,7 +990,7 @@ function RootOfferPopup({ message, onClose }: { message: OfferMessage; onClose: 
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
@@ -1056,8 +1055,7 @@ function RootInvitePopup({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-5">
-      <div className="absolute inset-0 bg-[#0E1F17]/55 backdrop-blur-sm" aria-hidden="true" />
+    <ModalOverlay testId="root-popup">
       <div
         role="dialog"
         aria-modal="true"
@@ -1123,6 +1121,6 @@ function RootInvitePopup({
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

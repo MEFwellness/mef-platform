@@ -56,6 +56,7 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { usePriorityCardActions } from './usePriorityCardActions';
 import { usePriorityCardMotion } from './usePriorityCardMotion';
 import { PriorityBridge } from './PriorityBridge';
+import { ModalOverlay } from '@/components/ui/ModalOverlay';
 
 export function PriorityCardPopup({
   view,
@@ -92,8 +93,7 @@ export function PriorityCardPopup({
   const receding = motion.resolvePhase === 'receding';
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-5">
-      <div className="mef-fade-in absolute inset-0 bg-[#0E1F17]/55 backdrop-blur-sm" aria-hidden="true" />
+    <ModalOverlay backdropClassName="mef-fade-in bg-[#0E1F17]/55 backdrop-blur-sm" testId="priority-card-popup">
       {/* `aria-label` rather than the `aria-labelledby` Part 1 used: the
           element it pointed at is part of today's reveal, so during the
           "Building on yesterday..." sequence the dialog would briefly have
@@ -263,6 +263,6 @@ export function PriorityCardPopup({
           </div>
         )}
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

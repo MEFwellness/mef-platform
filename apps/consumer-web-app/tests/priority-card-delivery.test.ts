@@ -62,15 +62,19 @@ describe('it goes through the existing pop-up chain, not a second system', () =>
   it('reuses the chain own modal chrome rather than inventing a second look', () => {
     const popup = read('components/priority/PriorityCardPopup.tsx');
     const invite = read('components/dashboard/RootMessagePopupClient.tsx');
-    // The exact panel, backdrop and z-index the rest of the chain uses.
-    for (const marker of [
-      'fixed inset-0 z-[60]',
-      'bg-[#0E1F17]/55 backdrop-blur-sm',
-      'rounded-[28px] bg-[#1B3A2D]',
-    ]) {
+    // The frame itself is one component now rather than the same two
+    // lines copied into each file, because the copies drifted and one of
+    // them put a pop-up half way down a phone screen (2026-09-11, see
+    // components/ui/ModalOverlay.tsx and tests/popup-positioning.test.tsx).
+    // "The same chrome" is therefore "the same frame, by import", plus the
+    // panel treatment each file still draws for itself.
+    for (const marker of ["from '@/components/ui/ModalOverlay'", '<ModalOverlay', 'rounded-[28px] bg-[#1B3A2D]']) {
       expect(popup).toContain(marker);
       expect(invite).toContain(marker);
     }
+    // And the backdrop is still the chain's own, at the chain's own layer.
+    expect(popup).toContain('bg-[#0E1F17]/55 backdrop-blur-sm');
+    expect(read('components/ui/ModalOverlay.tsx')).toContain("zIndexClassName = 'z-[60]'");
   });
 
   it('has no backdrop-click or Escape dismissal, same as every other message in the chain', () => {

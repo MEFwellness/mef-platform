@@ -55,8 +55,7 @@ export function isCaptchaRefusal(result: CaptchaAttemptResult | null | undefined
 
 /**
  * Runs one submission with a token that is fresh at the moment of
- * submitting, and re-runs it once with a genuinely new token if the check
- * refuses it.
+ * submitting, and re-runs it once if the check refuses it.
  *
  * `attempt` receives the token and is responsible for putting it wherever
  * this particular call site puts it (a FormData field, a Supabase option).
@@ -66,17 +65,50 @@ export function isCaptchaRefusal(result: CaptchaAttemptResult | null | undefined
  * error handling they already had. A successful Server Action that
  * redirects never returns at all, which is why the reset below is only
  * ever reached on a submission the member is still sitting in front of.
+ *
+ * =====================================================================
+ * THE SECOND TRY ONLY STARTS A NEW CHALLENGE IF THE FIRST ONE SPENT A
+ * TOKEN. (2026-09-11)
+ * =====================================================================
+ *
+ * `refresh()` exists because a token is single use: once one has been
+ * sent to Supabase it is spent, so sending it again is guaranteed to be
+ * refused and the retry has to throw the challenge away and run another.
+ *
+ * That reasoning only holds when a token was actually sent. The login
+ * failure reported from a real phone on 2026-09-11 is the other case, and
+ * it is the common one: the challenge had not finished yet, the first
+ * attempt went out carrying NOTHING, Supabase refused it for exactly that
+ * reason, and the challenge then finished while that request was in
+ * flight. At that moment a perfectly good, unspent, seconds-old token was
+ * sitting in the widget, and `refresh()` deleted it and started the whole
+ * challenge again from nothing, so the retry spent a second full wait
+ * getting back to where it already was. When that one also ran out she
+ * was told "We could not confirm that in time" while holding a correct
+ * password.
+ *
+ * So the retry asks the question that matches what actually happened.
+ * Nothing was spent, therefore ask for a token, which returns the one
+ * that has just arrived, immediately, and only starts a challenge if
+ * there genuinely still is not one. A token WAS spent, therefore refresh,
+ * exactly as before.
+ *
+ * EXACTLY ONE RETRY EITHER WAY. If a token that is genuinely fresh, by
+ * whichever of the two routes, is refused too, something real is wrong
+ * and she is told so.
  */
 export async function submitWithFreshCaptcha<T extends CaptchaAttemptResult | null | undefined | void>(
   gate: TurnstileTokenSource | null | undefined,
   attempt: (token: string | null) => Promise<T>
 ): Promise<T> {
-  const first = await attempt((await gate?.getToken()) ?? null);
+  const firstToken = (await gate?.getToken()) ?? null;
+  const first = await attempt(firstToken);
   if (!isCaptchaRefusal(first)) {
     gate?.reset();
     return first;
   }
-  const second = await attempt((await gate?.refresh()) ?? null);
+  const retryToken = firstToken === null ? await gate?.getToken() : await gate?.refresh();
+  const second = await attempt(retryToken ?? null);
   gate?.reset();
   return second;
 }

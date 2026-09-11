@@ -27,6 +27,7 @@
 import { WeeklyReviewBody } from './WeeklyReviewBody';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import type { RenderedReview } from '@/lib/weekly-review/types';
+import { ModalOverlay } from '@/components/ui/ModalOverlay';
 
 export function WeeklyReviewPopup({
   review,
@@ -44,8 +45,7 @@ export function WeeklyReviewPopup({
   if (closed) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-5">
-      <div className="absolute inset-0 bg-[#0E1F17]/55 backdrop-blur-sm" aria-hidden="true" />
+    <ModalOverlay testId="weekly-review-popup">
       <div
         role="dialog"
         aria-modal="true"
@@ -73,6 +73,6 @@ export function WeeklyReviewPopup({
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

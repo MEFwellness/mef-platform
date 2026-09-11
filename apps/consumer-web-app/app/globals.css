@@ -1863,3 +1863,45 @@
     animation: none !important;
   }
 }
+
+/*
+ * ============================================================
+ * THE BEAT BETWEEN TWO SECTIONS (2026-09-11)
+ * ============================================================
+ * `.mef-section-beat` is the "Section complete" screen, and its whole
+ * brief is that it arrives WHOLE. See
+ * components/questionnaire/SectionTransition.tsx for what went wrong
+ * without that rule on a real phone: staggered per element delays inside
+ * a 1250ms beat read as a screen still loading rather than as a reveal.
+ *
+ * So there is exactly one animation on the group, at the Quick tier, and
+ * the two rules under it only COMPRESS the shared check draw
+ * (`.mef-close-check-circle` / `.mef-close-check-draw`) for this one
+ * screen. Those defaults finish the tick at 800ms, which inside a beat
+ * this short is most of it: a member watching a check mark draw is a
+ * member waiting. Scoped here rather than changed at the source, because
+ * every other caller of SuccessCheck is a routine save with no deadline
+ * and should keep the slower, more considered draw.
+ *
+ * Only duration and delay are overridden. The keyframes, the easing and
+ * the finished state are the shared ones, so there is still one
+ * definition of what that check looks like.
+ */
+.mef-section-beat {
+  animation: mef-fade-in var(--mef-duration-quick) var(--mef-ease-standard) both;
+}
+
+.mef-section-beat .mef-close-check-circle {
+  animation-duration: 260ms;
+}
+
+.mef-section-beat .mef-close-check-draw {
+  animation-duration: 220ms;
+  animation-delay: 120ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-section-beat {
+    animation: none !important;
+  }
+}

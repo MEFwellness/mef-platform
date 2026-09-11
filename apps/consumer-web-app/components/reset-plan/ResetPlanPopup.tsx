@@ -14,6 +14,7 @@ import { RESET_PLAN_DAY3_OPTIONS, type ResetPlanDay3Response } from '@/lib/reset
 import { buildResetPlanDay3Prompt, buildResetPlanDay3Reflection, buildResetPlanDay7Reflection } from '@/lib/reset-plan/copy';
 import { acknowledgeResetPlanDay7Action, submitResetPlanDay3ResponseAction } from '@/app/actions/resetPlan';
 import { snoozeRootPopupMessageAction, ignoreRootPopupMessageAction, type RootPopupMessage } from '@/app/actions/rootPopupMessages';
+import { ModalOverlay } from '@/components/ui/ModalOverlay';
 
 type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
 
@@ -71,8 +72,7 @@ export function ResetPlanPopup({ message, onClose, closed }: { message: ResetPla
   const answered = isDay3 && day3Response !== null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-5">
-      <div className="absolute inset-0 bg-[#0E1F17]/55 backdrop-blur-sm" aria-hidden="true" />
+    <ModalOverlay testId="reset-plan-popup">
       <div
         role="dialog"
         aria-modal="true"
@@ -150,6 +150,6 @@ export function ResetPlanPopup({ message, onClose, closed }: { message: ResetPla
           </>
         )}
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
