@@ -236,11 +236,16 @@ export function AssessmentTaker({
    * TWO ANSWERS, AND SHE GETS THE FURTHER ONE. The server stores which
    * question she is on, and her stored answers say the same thing a second
    * way. They agree almost always. When they do not, the stored pointer is
-   * the one that can be stale (see the chain in `pendingSaveRef` for how it
-   * got that way), and a stale pointer sending her back over three
-   * questions she has already answered is the worse of the two failures.
-   * Her answers are still on the screen either way; this only decides which
-   * screen she opens on.
+   * the one that can be stale: three overlapping saves each re-read her
+   * answers to compute it, so the last one to finish can have read a
+   * database that was missing a row another was still writing. Found on
+   * app.mefwellness.com, 2026-09-11, where a refresh in the middle of the
+   * second screen came back to the first.
+   *
+   * Her answers cannot be wrong in that way, so they win, and a stale
+   * pointer sending her back over three questions she has already answered
+   * cannot happen. Her answers are still on the screen either way; this
+   * only decides which screen she opens on.
    */
   const startIndex = useMemo(() => {
     const initialSteps = buildSteps(questionnaire, flat, initialContext);
@@ -273,34 +278,30 @@ export function AssessmentTaker({
   const [completedResult, setCompletedResult] = useState<AssessmentResult | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
-   * The chain of saves, and it is a CHAIN rather than a single most-recent
-   * promise for a reason found on production.
+   * Every save that has been started, so nothing that needs them all can
+   * run before they have landed.
    *
-   * Every save is fire-and-forget from the tapping member's point of view:
-   * nothing awaits it in handleSelectOption, so her tap is never blocked.
-   * But each one, server-side, also re-reads her answers and writes down
-   * which question she is on (lib/assessments/store.ts, saveAnswer). Three
-   * questions on one screen means three of those running at once, and on a
-   * real network they finish in whatever order they like: the save for the
-   * third question can read the database before the first question's row
-   * has landed and then write "she is on question one" as the last word.
+   * EACH TAP FIRES ITS SAVE IMMEDIATELY, AND THAT IS DELIBERATE. Three
+   * questions on one screen means three saves that overlap, and it was
+   * tempting to run them one after another, because each one also re-reads
+   * her answers server-side and writes down which question she is on, and
+   * overlapping saves can leave that pointer behind her (see `startIndex`).
+   * Queuing them was tried on 2026-09-11 and reverted the same day: it
+   * makes the three round trips ADDITIVE, so a member who answers a screen
+   * and immediately closes the tab has had fewer of her answers land. A
+   * lost answer is worse than a stale pointer, and the pointer is repaired
+   * where it is read rather than by slowing her down.
    *
-   * Found by driving app.mefwellness.com, 2026-09-11: a refresh in the
-   * middle of the second screen came back to the FIRST screen. It could not
-   * reproduce locally, where three saves land in milliseconds and in order.
-   *
-   * Running them one after another makes the last save the last answer's,
-   * reading a database that has all of them. handleComplete and
-   * handleSaveAndExit await this same chain, so a member who answers the
-   * last question and immediately taps "See my results" can never have the
-   * server check completeness before that answer has landed.
+   * Nothing awaits these where she taps, so her tap is never blocked.
+   * handleComplete and handleSaveAndExit await all of them, so a member who
+   * answers the very last question and immediately taps "See my results"
+   * can never have the server check completeness before that answer has
+   * actually landed.
    */
   const pendingSaveRef = useRef<Promise<unknown> | null>(null);
 
   function queueSave(run: () => Promise<{ ok: boolean; error?: string }>) {
-    const next = (pendingSaveRef.current ?? Promise.resolve())
-      .catch(() => undefined)
-      .then(run)
+    const started = run()
       .then((result) => {
         if (result && !result.ok && result.error) setSaveError(result.error);
       })
@@ -310,7 +311,10 @@ export function AssessmentTaker({
         // needs to know it may not have saved, not see it silently vanish into a console error.
         setSaveError("Couldn't save that answer. Check your connection and try again.");
       });
-    pendingSaveRef.current = next;
+    const outstanding = pendingSaveRef.current;
+    pendingSaveRef.current = outstanding
+      ? Promise.all([outstanding.catch(() => undefined), started])
+      : started;
   }
 
   useEffect(() => {

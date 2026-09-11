@@ -127,13 +127,18 @@ question one" as the last word. **A refresh in the middle of the second
 screen came back to the first.** It never reproduced locally, where three
 saves land in milliseconds and in order.
 
-Two fixes, because each one is right on its own. The saves run one after
-another now, in both takers, so the last save is the last answer's and it
-reads a database that has all of them. And a resumed sitting takes the
-FURTHER of the stored pointer and the first question her own answers show
-unanswered, because her answers are the thing that cannot be wrong and a
-stale pointer walking her back over three answered questions is the worse
-of the two failures.
+The fix is where the pointer is READ, not where it is written. A resumed
+sitting takes the FURTHER of the stored pointer and the first question her
+own answers show unanswered, because her answers are the thing that cannot
+be wrong that way.
+
+**Queuing the saves was tried first and reverted the same day.** Running
+them one after another does write the pointer correctly, but it makes the
+three round trips additive, so a member who answers a screen and closes the
+tab immediately has had FEWER of her answers land. A lost answer is worse
+than a stale pointer. They overlap on purpose, and the live script now
+waits for the server to really hold an answer before reloading, so that
+check is a claim about resume rather than a measurement of the network.
 
 ### LIVE VERIFICATION
 

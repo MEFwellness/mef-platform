@@ -31,8 +31,15 @@ import {
   SECTIONS,
 } from './body-systems-fixture';
 
+/** Where the taker tried to navigate, so "it did not leave yet" is checkable. */
+const pushed: string[] = [];
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+  useRouter: () => ({
+    refresh: () => {},
+    push: (href: string) => {
+      pushed.push(href);
+    },
+  }),
 }));
 
 const saveProgress = vi.fn(async () => ({ ok: true as const }));
@@ -543,55 +550,52 @@ describe('the generic questionnaire taker moves one screen at a time', () => {
     }
   });
 
-  it('saves one answer at a time, in order, never three at once', async () => {
+  it('fires every answer save at once, and still waits for them all before finishing', async () => {
     /*
-      FOUND ON PRODUCTION, 2026-09-11. Every save also re-reads her answers
-      server-side and writes down which question she is on. Three questions
-      on one screen meant three of those in flight at once, and on a real
-      network the third one could read the database before the first one's
-      row had landed and then write "she is on question one" as the last
-      word. A refresh in the middle of the second screen came back to the
-      first. Locally it never reproduced, because three saves land in
-      milliseconds and in order, so this test holds the ORDERING rather than
-      the symptom.
+      WHY THIS IS THE CLAIM, AND NOT "ONE AT A TIME". Queuing the three
+      saves a screen produces was tried on 2026-09-11 and reverted the same
+      day: it makes the three round trips additive, so a member who answers
+      a screen and closes the tab has had fewer of her answers land. They
+      overlap on purpose. The stale resume pointer that overlapping saves
+      can leave behind is repaired where it is READ, which the next test
+      holds down.
     */
-    const inFlight: number[] = [];
     const releases: Array<() => void> = [];
-    let live = 0;
-    submitAnswer.mockImplementation(() => {
-      live += 1;
-      inFlight.push(live);
-      return new Promise((resolve) => {
-        releases.push(() => {
-          live -= 1;
-          resolve({ ok: true as const });
-        });
-      }) as Promise<{ ok: true }>;
-    });
+    submitAnswer.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releases.push(() => resolve({ ok: true as const }));
+        }) as Promise<{ ok: true }>
+    );
 
     mount();
     await answerScreen();
 
-    // One started, and the other two are waiting their turn.
-    expect(releases.length).toBe(1);
-    expect(Math.max(...inFlight)).toBe(1);
-
-    await act(async () => {
-      releases[0]!();
-    });
-    expect(releases.length).toBe(2);
-    await act(async () => {
-      releases[1]!();
-    });
-    expect(releases.length).toBe(3);
-    await act(async () => {
-      releases[2]!();
-    });
-
+    expect(releases.length, 'a save was held back behind another').toBe(3);
     expect(submitAnswer).toHaveBeenCalledTimes(3);
-    expect(Math.max(...inFlight), 'two saves were in flight at once').toBe(1);
+
+    // And nothing that needs them all runs before they have all landed.
+    let finished = false;
+    const exit = Array.from(harness.container.querySelectorAll('button')).find((element) =>
+      element.textContent?.trim().startsWith('Save and exit')
+    )!;
+    await act(async () => {
+      exit.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(pushed.length, 'it navigated with saves still in flight').toBe(0);
+    await act(async () => {
+      for (const release of releases) release();
+      finished = true;
+    });
+    expect(finished).toBe(true);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(pushed.length).toBe(1);
+
     submitAnswer.mockReset();
     submitAnswer.mockImplementation(async () => ({ ok: true as const }));
+    pushed.length = 0;
   });
 
   it('a stale stored position never sends her back over questions she answered', () => {

@@ -108,6 +108,36 @@ async function clean() {
     await admin.from('wellness_assessments').delete().eq('id', row.id);
   }
 }
+/**
+ * AND THE ROWS OPENING A TAKE PAGE WRITES ON ITS OWN.
+ *
+ * `getMyTakeAssessmentState` logs a Root Router decision, so simply
+ * arriving on a take screen leaves a row. It is not a draft and `clean()`
+ * would not know about it, so the ids that existed BEFORE this walk are
+ * remembered and anything new is removed afterwards. Rows that were already
+ * there are somebody else's and are never touched.
+ */
+const routerRowsBefore = new Set();
+{
+  const { data } = await admin
+    .from('investigation_router_decisions')
+    .select('id')
+    .eq('member_id', MEMBER);
+  for (const row of data ?? []) routerRowsBefore.add(row.id);
+}
+
+async function cleanRouterRows() {
+  const { data } = await admin
+    .from('investigation_router_decisions')
+    .select('id')
+    .eq('member_id', MEMBER);
+  const mine = (data ?? []).filter((row) => !routerRowsBefore.has(row.id));
+  for (const row of mine) {
+    await admin.from('investigation_router_decisions').delete().eq('id', row.id);
+  }
+  return mine.length;
+}
+
 await clean();
 
 const consoleErrors = [];
@@ -152,6 +182,33 @@ const screenKey = (target = page) =>
     () =>
       document.body.innerText.match(/Questions? [0-9]+(?: to [0-9]+)? of [0-9]+/i)?.[0] ?? 'elsewhere'
   );
+
+/** How many of her answers the database actually holds right now. */
+async function storedAnswerCount() {
+  const { data: rows } = await admin
+    .from('wellness_assessments')
+    .select('id')
+    .eq('member_id', MEMBER)
+    .eq('status', 'in_progress');
+  if (!rows?.length) return 0;
+  const { count } = await admin
+    .from('wellness_assessment_answers')
+    .select('assessment_id', { count: 'exact', head: true })
+    .in(
+      'assessment_id',
+      rows.map((row) => row.id)
+    );
+  return count ?? 0;
+}
+
+async function waitForStoredAnswers(target, timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if ((await storedAnswerCount()) >= target) return true;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  return false;
+}
 
 async function waitForContinue(target = page, label = 'Continue', timeoutMs = 30000) {
   const button = target.getByRole('button', { name: label });
@@ -328,8 +385,23 @@ try {
     { timeout: 30000 }
   );
   const midKey = await screenKey();
+  // Every answer she has given so far: the first screen's, plus this one.
+  const expectedStored = blocks + 1;
   await tapRow(page.locator('ol > li').first().locator('[role="radio"]').nth(1));
-  await page.waitForTimeout(1200);
+  /*
+    WAIT FOR THE SERVER TO REALLY HAVE IT, rather than for a number of
+    milliseconds. A fixed wait makes this check a measurement of the network
+    instead of a claim about resume, and on production it was reporting a
+    failure that was really "the round trip had not finished yet". What is
+    being claimed is that once an answer has landed, a reload comes back to
+    the screen she was on with that answer still chosen.
+  */
+  const landed = await waitForStoredAnswers(expectedStored);
+  check(
+    'every answer she has given reaches the server without a Continue',
+    landed,
+    `${await storedAnswerCount()} of ${expectedStored} stored`
+  );
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('text=/Questions? [0-9]+/i', { timeout: 30000 });
   await page.waitForTimeout(1200);
@@ -463,6 +535,8 @@ try {
   // STATE LEFT BEHIND: NONE, and the deletion is confirmed by an
   // independent read rather than by trusting the delete.
   await clean();
+  const routerRemoved = await cleanRouterRows();
+  console.log(`cleanup: ${routerRemoved} router decision row(s) this walk wrote, removed`);
   const { data: left } = await admin
     .from('wellness_assessments')
     .select('id')
