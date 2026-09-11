@@ -43,6 +43,72 @@ export type MemberContent = {
   minDeltaPercent: number;
 };
 
+/**
+ * One section, with every word that names it removed.
+ *
+ * WHILE SHE IS ANSWERING, SHE ANSWERS BLIND. No screen in the survey names
+ * the body system a question belongs to, because a member who can see that
+ * she is on the digestion questions answers them differently. The names
+ * are hers on the results screen, beside the bars.
+ *
+ * THE NAMES ARE NOT MERELY UNRENDERED, THEY ARE NOT SENT. Everything the
+ * answering component is handed is serialised into the page, so a name
+ * left in the bundle would be in the payload whether a component drew it
+ * or not. What the answering screens genuinely need from a section is its
+ * key and its place in the order, and that is all this carries.
+ */
+export type BlindSection = {
+  sectionKey: string;
+  position: number;
+};
+
+/** The member bundle as the answering screens receive it: no section names. */
+export type AnsweringContent = Omit<MemberContent, 'sections'> & {
+  sections: BlindSection[];
+};
+
+/**
+ * Strip the names off the sections.
+ *
+ * Her results view is built on the server from the full rows, so nothing
+ * downstream of this loses a name it needs: the bars carry their own
+ * section names and reach the screen through MemberResultsView.
+ */
+export function blindContent(content: MemberContent): AnsweringContent {
+  /*
+    AND NO COPY ROW THAT NAMES ONE EITHER.
+
+    body_systems_copy is one table serving several surfaces, and one of its
+    rows is the label on her profile's branch control, which names Hormonal
+    Health because that is the set of questions the control changes. That
+    row is nothing to do with the answering screens, but the whole copy
+    record is handed to them, so the name travelled in the payload.
+
+    The rule is expressed rather than listed: any row that carries a
+    section's own words is not sent to a screen she answers on. It fails
+    closed, so a row added later that names a system goes missing from
+    those screens rather than quietly appearing on one.
+  */
+  const naming = content.sections.flatMap((section) => [
+    section.displayName,
+    section.memberIntroLine,
+  ]);
+  const copy = Object.fromEntries(
+    Object.entries(content.copy).filter(
+      ([, value]) => !naming.some((name) => name.length > 0 && value.includes(name))
+    )
+  );
+
+  return {
+    ...content,
+    copy,
+    sections: content.sections.map((section) => ({
+      sectionKey: section.sectionKey,
+      position: section.position,
+    })),
+  };
+}
+
 /** The member bundle, plus the two things only a coach may read. */
 export type CoachContent = MemberContent & {
   library: BodySystemsAssociation[];

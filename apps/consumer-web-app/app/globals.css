@@ -1785,3 +1785,47 @@
     animation: none !important;
   }
 }
+
+/*
+ * THE BODY SYSTEMS RESULTS GRAPH (2026-09-11).
+ *
+ * Her results are the signature moment of that survey, so the screen
+ * arrives in reading order rather than all at once: the headline, then the
+ * one line summary, then the legend, then the eleven bars one after
+ * another, loudest first. Every delay is passed per element as an inline
+ * `animation-delay`, so the order lives with the rows it orders rather
+ * than as eleven classes here.
+ *
+ * THE BAR GROWS ON THE COMPOSITOR. `scaleX` from a left origin rather than
+ * an animated width, so eleven bars arriving together never run layout.
+ * The element's own `width` is its real percentage, which is what it holds
+ * once the animation is over and what it shows with no animation at all.
+ *
+ * Both carry the mandatory reduced motion override, and because the
+ * finished state of each is the element's natural state, turning the
+ * animation off leaves the screen complete rather than empty.
+ */
+@keyframes mef-bs-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.mef-bs-open {
+  animation: mef-fade-up var(--mef-duration-standard) var(--mef-ease-standard) both;
+}
+
+.mef-bs-bar {
+  transform-origin: left center;
+  animation: mef-bs-bar-grow var(--mef-duration-cinematic) var(--mef-ease-decelerate) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-bs-open,
+  .mef-bs-bar {
+    animation: none !important;
+  }
+}

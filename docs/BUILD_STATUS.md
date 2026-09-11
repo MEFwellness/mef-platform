@@ -1,3 +1,96 @@
+## The Body Systems Survey member experience (2026-09-11)
+
+Three changes to the survey a member already had, and all three are about
+the same thing: what she is shown while she is answering, and what she is
+shown when it is over.
+
+### SHE ANSWERS BLIND, AND THAT IS THE WHOLE POINT
+
+No screen she answers on names the body system its questions belong to.
+The eyebrow says "Section 3 of 11" and the heading says what the screen is
+asking her to do ("How often has this been true?"), because a member who
+can see that she is on the digestion questions answers the digestion
+questions differently, and what this survey is for is what she would say
+if nobody had told her what was being measured. The names are revealed on
+her results screen, beside the bars, where they are a reading rather than
+a prompt.
+
+**The names are not merely undrawn, they are not sent.** Everything the
+answering component is handed is serialised into the page, so a name left
+in the bundle would be in the payload whether a component drew it or not.
+`blindContent` (lib/body-systems/contentData.ts) strips both naming
+columns off every section and also drops any copy row that carries a
+section's own words, which is what caught the one real leak: the profile
+screen's branch control is labelled "Hormonal Health question set", and
+that row was travelling to the answering screens inside the shared copy
+record. The filter is a rule rather than a list of keys, so it fails
+closed.
+
+`buildSteps` now takes `{ sectionKey, position }` rather than a whole
+section row, so the names are not something that module needs either.
+
+**Nothing else moved.** The Section 11 branch question and its two option
+labels are untouched, the six red flag screens are untouched, the resume
+note never named a section, and every coach surface still carries the full
+names everywhere it did before. The intro gained one line
+(`member.intro_line_4`) telling her once, before she starts, that the
+sections are unnamed on purpose.
+
+### EVERY CHANGE OF SCREEN STARTS AT THE TOP
+
+Nothing unmounts between one section and the next, so the browser kept the
+scroll position her Continue was at and the new section opened already
+scrolled past its own first questions. `useScrollToTop` keys on the screen
+rather than on the step, so the intro, the eleven sections, the six red
+flags and the results all count, a re-render that changes nothing does not
+scroll her, and it fires on the first render too, which is what handles
+resume and a refresh in the middle of a section.
+
+### HER RESULTS ARE ONE GRAPH, NOT A LIST
+
+All eleven systems sit in one continuous block with hairline rules between
+them, loudest first: name left, bar and its one word status right. The
+three band sentences used to be repeated under every one of the eleven
+bars, which said the same three things up to eleven times. They are a
+legend now, printed once above the graph, and under a bar there is
+nothing. Type size, opacity, bar thickness and row height all step down
+with the band, so the loud systems carry the weight and the quiet ones stay
+calm underneath.
+
+It arrives in reading order: headline, the one line summary card, the
+legend, then the eleven bars one after another. The motion is CSS only,
+from the existing tokens (`.mef-bs-open` and `.mef-bs-bar` in
+app/globals.css), with each element carrying its own delay, and both
+animations are off under prefers-reduced-motion with the finished state as
+the natural one, so the screen is complete rather than empty.
+
+**The retake stays one graph.** Last time is a tick on this time's own
+rail rather than a second bar underneath it, and the direction is one word
+beside the band label, so nothing depends on reading the tick.
+
+The closing card says what it always said, in the survey's own stored
+words, with her way on inside it rather than under it. No advice, no
+association, no total, no grade.
+
+### CONTENT
+
+Migration 224 adds three copy rows and re-seeds them into migration 221 for
+a new environment: `member.section_heading`, `member.intro_line_4` and
+`member.legend_label`. It writes by key and reads back what it wrote, for
+the reason migration 223's header sets out. Applied to production
+2026-09-11.
+
+### TESTS
+
+`tests/body-systems-blind-and-results.test.tsx` (36). The blind half is
+proved against the payload rather than the pixels, and against the route
+as well as the component. The scroll fix is driven rather than described:
+a real section answered, the real Continue pressed, and the window watched.
+The legend is counted.
+
+Full suite 557 files, 10,455 tests, all passing. Typecheck clean, lint 0
+errors, production build clean.
+
 ## The MEF Body Systems Survey (2026-09-10)
 
 Eleven sections, 103 tap-only questions on Branch A and 101 on Branch B,

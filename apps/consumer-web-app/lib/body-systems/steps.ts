@@ -21,7 +21,18 @@
  * from opening on a screen that no longer exists.
  */
 
-import type { BodySystemsRedFlag, BodySystemsSection } from './types';
+import type { BodySystemsRedFlag } from './types';
+
+/**
+ * All this list needs of a section is its key and its place in the order.
+ *
+ * DELIBERATELY NOT BodySystemsSection. The answering screens are handed
+ * sections with their names stripped off (lib/body-systems/contentData.ts,
+ * `blindContent`), and the step list is built on the client from exactly
+ * that. Asking for the whole row here would have made the names something
+ * this module needed, which is the opposite of the point.
+ */
+export type OrderedSection = { sectionKey: string; position: number };
 
 export type BodySystemsStep =
   | { kind: 'section'; sectionKey: string; sectionNumber: number; sectionCount: number }
@@ -29,7 +40,7 @@ export type BodySystemsStep =
   | { kind: 'results' };
 
 export function buildSteps(
-  sections: readonly BodySystemsSection[],
+  sections: readonly OrderedSection[],
   redFlags: readonly BodySystemsRedFlag[]
 ): BodySystemsStep[] {
   const orderedSections = sections.slice().sort((a, b) => a.position - b.position);

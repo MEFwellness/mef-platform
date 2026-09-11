@@ -19,13 +19,21 @@
  * not ask for the association library or for a coach copy row, so there is
  * nothing on this page to leak even by accident, and the database would
  * refuse the request anyway.
+ *
+ * AND IT SENDS HER THE SECTIONS BLIND. She answers without being told
+ * which body system a screen's questions belong to, so the names are
+ * stripped from the bundle the answering component is handed rather than
+ * merely left undrawn: everything that component receives is serialised
+ * into this page, so a name left in would be in the payload either way.
+ * Her results are built HERE, from the full rows, which is why the bars
+ * still carry their names.
  */
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { getMyBodySystemsSurvey } from '@/lib/body-systems/view';
-import { loadMemberContent } from '@/lib/body-systems/contentData';
+import { blindContent, loadMemberContent } from '@/lib/body-systems/contentData';
 import { listBodySystemsSessions } from '@/lib/body-systems/data';
 import { buildMemberResultsView } from '@/lib/body-systems/memberView';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
@@ -67,7 +75,7 @@ export default async function BodySystemsPage() {
         <div className="mt-4">
           <BodySystemsExperience
             status={state.status}
-            content={content}
+            content={blindContent(content)}
             rememberedBranch={state.status === 'completed' ? null : state.rememberedBranch}
             resumeAnswers={state.status === 'in_progress' ? state.session.answers : {}}
             resumeRedFlagAnswers={

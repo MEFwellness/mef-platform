@@ -36,15 +36,38 @@ export type MemberSectionBar = {
   colorKey: BodySystemsBand['colorKey'];
   /** "Quiet", "Showing up", "Speaking loudly". */
   bandLabel: string;
-  /** The band's own full status line, verbatim from its row. */
-  statusLine: string;
   /** Present only on a retake. */
   comparison: SectionComparison | null;
+};
+
+/**
+ * One entry in the legend that explains the three bands, ONCE, above the
+ * graph.
+ *
+ * WHY THE BANDS AND NOT THE BARS CARRY THIS. Her screen used to repeat a
+ * band's status line under every one of the eleven bars, which said the
+ * same three sentences up to eleven times and made the graph read as a
+ * list. The sentence belongs to the band, so it is printed once per band
+ * and the bars carry only their own label.
+ *
+ * ALL THREE, ALWAYS, even a band no section of hers landed in, because a
+ * legend that appeared and disappeared would be a fourth thing to read
+ * rather than a key.
+ */
+export type MemberBandLegendEntry = {
+  bandKey: string;
+  colorKey: BodySystemsBand['colorKey'];
+  /** "Quiet", "Showing up", "Speaking loudly". */
+  label: string;
+  /** The band's own full status line, verbatim from its row. */
+  statusLine: string;
 };
 
 /** The whole member facing results screen, as data. */
 export type MemberResultsView = {
   bars: MemberSectionBar[];
+  /** The three bands, loudest first, explained once above the graph. */
+  legend: MemberBandLegendEntry[];
   /**
    * The one personalised line, from the loudest section's own row, or null
    * when nothing is showing up at all and there is therefore no loudest
@@ -85,7 +108,6 @@ export function buildMemberResultsView(input: {
       bandKey: result.bandKey,
       colorKey: band.colorKey,
       bandLabel: band.memberLabel,
-      statusLine: band.memberStatusLine,
       comparison: comparison && comparison.previousPercent !== null ? comparison : null,
     };
   });
@@ -95,8 +117,21 @@ export function buildMemberResultsView(input: {
     ? (sections.find((entry) => entry.sectionKey === loudest.sectionKey) ?? null)
     : null;
 
+  // Loudest first, the order the specification lists them in and the same
+  // direction the graph under it reads.
+  const legend: MemberBandLegendEntry[] = bands
+    .slice()
+    .sort((a, b) => b.position - a.position)
+    .map((band) => ({
+      bandKey: band.bandKey,
+      colorKey: band.colorKey,
+      label: band.memberLabel,
+      statusLine: band.memberStatusLine,
+    }));
+
   return {
     bars,
+    legend,
     topAttentionLine: loudestSectionRow?.topAttentionLine ?? null,
     topAttentionSectionName: loudestSectionRow?.displayName ?? null,
     isRetake: previousResults !== null,

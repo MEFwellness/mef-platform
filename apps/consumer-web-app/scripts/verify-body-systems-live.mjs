@@ -44,6 +44,13 @@
  *   A COACH SECTION IS NOT A <details>. It is a button with aria-expanded
  *   and its children are not in the DOM until it is pressed, so waiting
  *   for a card inside it waits forever on a page that is working.
+ *
+ * SHE ANSWERS BLIND (2026-09-11). No screen she answers on may name the
+ * body system its questions belong to, and the check is run over
+ * `page.content()` as well as over the visible text, because a name that
+ * is merely undrawn is still in the serialised props inside the page. The
+ * names are read from the database rather than typed here, so a twelfth
+ * section added later is covered the day it lands.
  */
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
@@ -135,6 +142,24 @@ console.log(`target is the test account "${targetProfile.display_name}"`);
 
 await clean();
 
+/*
+  EVERY WORD THAT NAMES A SYSTEM, FROM THE ROWS THEMSELVES.
+
+  Typing the eleven names here would make this check a copy of the content
+  that can drift from it. Both columns are taken: the display name is what
+  the results screen reveals, and the member intro line used to sit under
+  it on the section screen and gives the system away just as completely.
+*/
+const { data: sectionRows, error: sectionError } = await admin
+  .from('body_systems_sections')
+  .select('display_name, member_intro_line');
+if (sectionError || !sectionRows?.length) {
+  console.error('could not read the section names', sectionError);
+  process.exit(1);
+}
+const SYSTEM_NAMES = sectionRows.flatMap((row) => [row.display_name, row.member_intro_line]).filter(Boolean);
+console.log(`blind check armed against ${SYSTEM_NAMES.length} naming strings`);
+
 const { error: assignError } = await admin.from('assessment_assignments').insert({
   member_id: MEMBER,
   assessment_definition_id: DEFINITION,
@@ -211,6 +236,32 @@ async function noEmDash(label) {
   check(`${label}: no em dash`, !text.includes(String.fromCharCode(0x2014)));
 }
 
+/**
+ * No body system is named on this screen, or anywhere inside it.
+ *
+ * `page.content()` rather than innerText, because everything the answering
+ * component is handed is serialised into the page as props. A name that
+ * was merely not drawn would still be in there, and would still be
+ * findable by anyone who looked.
+ */
+async function noSystemName(label) {
+  const [text, html] = await Promise.all([
+    page.evaluate(() => document.body.innerText),
+    page.content(),
+  ]);
+  const onScreen = SYSTEM_NAMES.filter((name) => text.includes(name));
+  const inPayload = SYSTEM_NAMES.filter((name) => html.includes(name));
+  check(`${label}: no body system is named on screen`, onScreen.length === 0, onScreen.join(' | '));
+  check(
+    `${label}: and none in the page payload either`,
+    inPayload.length === 0,
+    inPayload.slice(0, 3).join(' | ')
+  );
+}
+
+/** Where the window is scrolled right now. */
+const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
+
 try {
   // ---- Home: the card and the pop-up.
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
@@ -239,9 +290,10 @@ try {
   const s1 = await page.evaluate(() => document.body.innerText);
   check('progress counts sections', /section 1 of 11/i.test(s1));
   check('the timeframe is repeated on the section screen', s1.includes('last 3 months'));
-  check('Digestion is first, with its own intro line', s1.includes('How your body receives and breaks down food.'));
+  check('the heading names the task, not the system', /how often has this been true/i.test(s1));
   check('the Home button is on the section screen', await page.getByRole('button', { name: 'Home' }).isVisible());
   await noEmDash('section 1');
+  await noSystemName('section 1');
 
   // Continue is genuinely blocked until every question is answered.
   const blocked = await page.getByRole('button', { name: 'Continue' }).isDisabled();
@@ -250,9 +302,11 @@ try {
   // Answer eleven sections, driven by what the screen actually says rather
   // than by a counter this script keeps.
   let leftAndCameBack = false;
+  let everScrolledDown = false;
   for (;;) {
     const eyebrow = await page.locator('text=/section \\d+ of 11/i').first().innerText();
     const section = Number(eyebrow.match(/(\d+)/)[1]);
+    await noSystemName(`section ${section}`);
 
     if (section === 11) {
       const branchText = await page.evaluate(() => document.body.innerText);
@@ -313,6 +367,10 @@ try {
       }
       throw new Error(`Continue stayed disabled on section ${section}`);
     }
+    // How far down the screen her Continue was, so "it opened at the top"
+    // is a claim about a page that was genuinely scrolled.
+    const leftAt = await scrollY();
+    if (leftAt > 0) everScrolledDown = true;
     await page.getByRole('button', { name: 'Continue' }).click();
 
     if (section === 1 && !leftAndCameBack) {
@@ -337,12 +395,41 @@ try {
           ).data?.answers?.D1
         )
       );
+      check('resume opens at the top too', (await scrollY()) === 0);
+      await noSystemName('resume');
+
+      /*
+        AND A REFRESH IN THE MIDDLE OF A SECTION.
+
+        A reload is the one moment a browser can put her back where she was
+        scrolled to, and it is also the moment somebody curious would look
+        at the page source. Both are checked from the bottom of the screen
+        rather than the top.
+      */
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      const beforeReload = await scrollY();
+      check('she really was scrolled down before the refresh', beforeReload > 0, `${beforeReload}px`);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('text=/section 2 of 11/i', { timeout: 20000 });
+      await page.waitForTimeout(1500);
+      check('a refresh mid-section lands at the top', (await scrollY()) === 0);
+      await noSystemName('after a mid-section refresh');
       continue;
     }
 
     if (section === 11) break;
     await page.waitForSelector(`text=/section ${section + 1} of 11/i`, { timeout: 20000 });
+    // THE FIX THIS RUN IS FOR. Nothing unmounts between one section and
+    // the next, so without the scroll to top the new section opened
+    // already scrolled past its own first questions.
+    const arrivedAt = await scrollY();
+    check(
+      `section ${section + 1} opens at the top of itself`,
+      arrivedAt === 0,
+      `left section ${section} at ${leftAt}px, arrived at ${arrivedAt}px`
+    );
   }
+  check('and she really had scrolled down before leaving a section', everScrolledDown);
 
   // ---- The six red flag screens.
   await page.waitForSelector('text=1 of 6', { timeout: 20000 });
@@ -350,6 +437,7 @@ try {
   check('the red flag screens come last', /six last questions/i.test(rf));
   check('they say they are not scored', rf.includes('not scored'));
   await noEmDash('red flags');
+  await noSystemName('red flags');
 
   for (let flag = 1; flag <= 6; flag += 1) {
     await page.waitForSelector(`text=${flag} of 6`, { timeout: 20000 });
@@ -391,6 +479,50 @@ try {
   check('no total, grade or score', !/\b(overall|total|grade|score)\b/i.test(res));
   check('no association text', !res.includes('Possible considerations include'));
   await noEmDash('results');
+
+  /*
+    AND HERE, AND ONLY HERE, THE NAMES ARE HERS.
+
+    Everything above this line proved that no screen she answered on named
+    a system. This proves the other half: all eleven are on her results,
+    beside their own bars, which is what makes the blind answering a
+    deliberate design rather than something missing.
+  */
+  const namesRevealed = sectionRows.filter((row) => res.includes(row.display_name));
+  check(
+    'all eleven systems are named on her results',
+    namesRevealed.length === sectionRows.length,
+    `${namesRevealed.length} of ${sectionRows.length}`
+  );
+
+  // The legend explains the three bands ONCE, and nothing repeats a band
+  // sentence under a bar.
+  const { data: bandRows } = await admin
+    .from('body_systems_bands')
+    .select('member_label, member_status_line');
+  for (const band of bandRows ?? []) {
+    const sentence = band.member_status_line
+      .slice(`${band.member_label}.`.length)
+      .trim();
+    const times = res.split(sentence).length - 1;
+    check(`the band "${band.member_label}" is explained exactly once`, times === 1, `${times} times`);
+  }
+
+  const graph = await page.evaluate(() => ({
+    bars: document.querySelectorAll('.mef-bs-bar').length,
+    delays: Array.from(document.querySelectorAll('.mef-bs-bar')).map((el) =>
+      Number(String(el.style.animationDelay).replace('ms', ''))
+    ),
+    opens: document.querySelectorAll('.mef-bs-open').length,
+  }));
+  check('eleven bars are drawn as one graph', graph.bars === 11, String(graph.bars));
+  check(
+    'and they arrive one after another, loudest first',
+    graph.delays.length === 11 && graph.delays.every((value, i) => i === 0 || value > graph.delays[i - 1]),
+    graph.delays.join(',')
+  );
+  check('the opening beats are staggered too', graph.opens >= 4, String(graph.opens));
+  check('the closing card carries her way on', res.includes('Back to home'));
 
   // ---- What actually landed in the database.
   const { data: sessions } = await admin

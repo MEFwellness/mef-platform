@@ -15,6 +15,20 @@
  * The six red flag screens are outside that count and say so in their own
  * words, because they are not a twelfth body system.
  *
+ * SHE ANSWERS BLIND, AND THAT IS THE POINT. While she is answering, no
+ * screen names the body system its questions belong to. "Section 3 of 11"
+ * is all the progress she is given, because a member who can see that she
+ * is on the digestion questions answers the digestion questions
+ * differently. The names are revealed on her results screen, beside the
+ * bars, where they are a reading rather than a prompt. The names do not
+ * merely go unrendered: `blindContent` strips them from the bundle this
+ * component is handed at all (app/body-systems/page.tsx), so there is
+ * nothing in the page payload to find either.
+ *
+ * EVERY CHANGE OF SCREEN STARTS AT THE TOP. A section can be ten questions
+ * long, so her Continue is at the bottom of the old screen and, without
+ * this, the new one opened halfway down itself. See `useScrollToTop`.
+ *
  * TAP ONLY, EVERYWHERE. There is no text input in this component and no
  * free text anywhere in this feature. Five options on a scale question,
  * plus Does not apply to me where a question can genuinely not apply, plus
@@ -34,7 +48,7 @@
  * fails if that ever changes.
  */
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Home } from 'lucide-react';
 import { IntroReveal } from '@/components/IntroReveal';
@@ -48,7 +62,7 @@ import {
   type BodySystemsBranch,
   type BodySystemsRedFlagAnswers,
 } from '@/lib/body-systems/types';
-import type { MemberContent } from '@/lib/body-systems/contentData';
+import type { AnsweringContent } from '@/lib/body-systems/contentData';
 import type { MemberResultsView } from '@/lib/body-systems/memberView';
 import {
   saveBodySystemsProgressAction,
@@ -66,8 +80,38 @@ const OPTION_ON = 'border-[#C4A050] bg-[#C4A050] font-semibold text-[#1B3A2D]';
 const OPTION_OFF =
   'border-[#F5F0E4]/15 bg-[#F5F0E4]/[0.06] text-[#F5F0E4] hover:bg-[#F5F0E4]/[0.12]';
 
+/**
+ * Every change of screen starts at the top.
+ *
+ * A section is up to ten questions long, so her Continue is at the bottom
+ * of the screen she is leaving. Nothing unmounts between one section and
+ * the next (this is one component swapping its own contents), so the
+ * browser keeps the scroll position it had and the new section opened
+ * already scrolled past its own first questions.
+ *
+ * THE KEY IS THE SCREEN, NOT THE STEP, so the intro, the eleven sections,
+ * the six red flags and the results all count, and a re-render that
+ * changes nothing about which screen she is on does not scroll her.
+ *
+ * IT FIRES ON THE FIRST RENDER TOO, which is what handles resume: a member
+ * reopening the survey lands on the screen she left, and a browser that
+ * restored her old scroll position would otherwise drop her into the
+ * middle of it.
+ */
+function useScrollToTop(screenKey: string): void {
+  const shown = useRef<string | null>(null);
+  useEffect(() => {
+    if (shown.current === screenKey) return;
+    shown.current = screenKey;
+    if (typeof window === 'undefined' || typeof window.scrollTo !== 'function') return;
+    // Instant, never smooth: the new screen is already drawn, so a scroll
+    // she can watch would be the new section sliding away from her.
+    window.scrollTo(0, 0);
+  }, [screenKey]);
+}
+
 /** The section screen this branch answers last. Its own key, so the branch question is drawn once. */
-function isBranchedSection(content: MemberContent, sectionKey: string): boolean {
+function isBranchedSection(content: AnsweringContent, sectionKey: string): boolean {
   return content.questions.some(
     (question) => question.sectionKey === sectionKey && question.branch !== 'all'
   );
@@ -85,7 +129,7 @@ export function BodySystemsExperience({
   completedView,
 }: {
   status: 'pending' | 'in_progress' | 'completed';
-  content: MemberContent;
+  content: AnsweringContent;
   /**
    * Her remembered branch, so the branch question is never re-asked.
    *
@@ -121,6 +165,14 @@ export function BodySystemsExperience({
 
   const step = steps[stepIndex] ?? steps[0]!;
   const lastQuestionStep = lastQuestionStepIndex(steps);
+
+  useScrollToTop(
+    showIntro
+      ? 'intro'
+      : finished || status === 'completed'
+        ? 'results'
+        : `step-${stepIndex}`
+  );
 
   function goHome() {
     router.push('/dashboard');
@@ -220,14 +272,23 @@ export function BodySystemsExperience({
         <p className="relative mt-4 text-[16px] leading-relaxed text-[#F5F0E4]/90">
           {memberCopy(content.copy, 'member.already_done_body')}
         </p>
-        {completedView && (
+        {completedView ? (
           <div className="relative mt-8">
-            <BodySystemsResults view={completedView} copy={content.copy} />
+            <BodySystemsResults
+              view={completedView}
+              copy={content.copy}
+              action={
+                <button type="button" onClick={goHome} className={`${PRIMARY} mt-5`}>
+                  {memberCopy(content.copy, 'member.results_done')}
+                </button>
+              }
+            />
           </div>
+        ) : (
+          <button type="button" onClick={goHome} className={`${PRIMARY} relative mt-7`}>
+            {memberCopy(content.copy, 'member.results_done')}
+          </button>
         )}
-        <button type="button" onClick={goHome} className={`${PRIMARY} relative mt-7`}>
-          {memberCopy(content.copy, 'member.results_done')}
-        </button>
       </div>
     );
   }
@@ -246,6 +307,7 @@ export function BodySystemsExperience({
               memberCopy(content.copy, 'member.intro_line_1'),
               memberCopy(content.copy, 'member.intro_line_2'),
               memberCopy(content.copy, 'member.intro_line_3'),
+              memberCopy(content.copy, 'member.intro_line_4'),
             ]}
             lineClassName="text-[16px] leading-relaxed text-[#F5F0E4]/85"
             storageKey="body-systems-intro"
@@ -266,10 +328,15 @@ export function BodySystemsExperience({
         <Glow />
         <Chrome onHome={goHome} copy={content.copy} />
         <div className="relative mt-4">
-          <BodySystemsResults view={finished.view} copy={content.copy} />
-          <button type="button" onClick={goHome} className={`${PRIMARY} mt-8`}>
-            {memberCopy(content.copy, 'member.results_done')}
-          </button>
+          <BodySystemsResults
+            view={finished.view}
+            copy={content.copy}
+            action={
+              <button type="button" onClick={goHome} className={`${PRIMARY} mt-5`}>
+                {memberCopy(content.copy, 'member.results_done')}
+              </button>
+            }
+          />
         </div>
       </div>
     );
@@ -309,14 +376,18 @@ export function BodySystemsExperience({
 
       {step.kind === 'section' && section && (
         <div className="relative mt-4">
+          {/*
+            THE HEADING NAMES THE TASK, NEVER THE SYSTEM. It is the same
+            sentence on all eleven screens, because the one thing every
+            section screen has in common is what it is asking her to do.
+            The body system these questions belong to is not on this screen
+            and is not in this page's payload either.
+          */}
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-[26px] leading-tight text-[#F5F0E4]">
-            {section.displayName}
+            {memberCopy(content.copy, 'member.section_heading')}
           </h1>
-          <p className="mt-2 text-[15px] leading-relaxed text-[#F5F0E4]/70">
-            {section.memberIntroLine}
-          </p>
           {/* The timeframe, repeated in small text on every section screen. */}
-          <p className="mt-1 text-[12px] text-[#F5F0E4]/45">
+          <p className="mt-2 text-[13px] text-[#F5F0E4]/50">
             {memberCopy(content.copy, 'member.timeframe_reminder')}
           </p>
 
