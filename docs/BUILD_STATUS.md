@@ -250,6 +250,45 @@ app does not have.
 Applied to production 2026-09-10 and verified there. They remain in
 `supabase/migrations/` as the record of what was run.
 
+### THE TWO BRANCH OPTION LABELS, IN THE COACH'S WORDS (2026-09-11)
+
+Section 11 asks "Which set of questions fits your body?" and the two
+answers under it were the last placeholders left in this feature. The
+specification named the branch question and never its two answers, so
+migration 221 seeded words of its own and said so in the `note` column of
+those two rows. They are now the coach's:
+
+  A: Cycles, hot flashes, and monthly changes
+  B: Energy, drive, muscle, and recovery
+
+**Two places in the repo, for two different reasons.** Migration 221 now
+carries the approved wording, which is what a brand new environment gets.
+Its insert is `on conflict do nothing`, so an environment already seeded
+still holds the placeholder no matter how many times 221 re-runs, and
+migration 223 is how those catch up. 223 matches on the placeholder text
+as well as the key, so a hand edit made in the SQL editor is never
+silently overwritten by a re-run, and running it after the same change has
+been made by hand matches zero rows and does nothing.
+
+**Two screens read these rows**, not one: the branch question on section
+eleven of the survey, and the "Hormonal Health question set" setting on
+`/profile`. Both render `member.branch_option_a` and
+`member.branch_option_b` through `memberCopy`, so neither holds a second
+copy of the words that could drift.
+
+**The punctuation scan now finds this feature's migrations by name**
+rather than reading a list of three, so the next content migration is
+covered the day it lands instead of the day somebody remembers to add it.
+`tests/body-systems-content.test.ts` and the `BODY_SYSTEMS_SQL_PATHS`
+export in `tests/body-systems-fixture.ts`.
+
+`scripts/verify-body-systems-branch-labels.mjs` walks a real signed-in
+session as far as the branch screen, reads both labels off it, reads the
+profile setting, and abandons the sitting rather than finishing the
+survey, so the smallest possible amount of state ever exists on
+production. Everything it creates is deleted in a `finally` and confirmed
+absent by an independent read.
+
 ## The hero headline is set in capitals (2026-09-08)
 
 Osei asked for "More than training. A system for your health." in all
