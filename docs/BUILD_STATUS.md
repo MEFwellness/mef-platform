@@ -194,6 +194,40 @@ which silently turned the beat off and made a run that never played it look
 like a run that had checked it. Both scripts now ask for a preference
 explicitly, in both directions.
 
+**A FIXED WAIT IS A MEASUREMENT OF THE NETWORK, NOT A CLAIM.** Two checks
+about a mid screen refresh were written as "tap, wait 1.2 seconds, reload",
+and both reported failures on production that were really "the round trip
+had not finished yet". They wait for the database to actually hold the
+answer now, which is what the claim was always about.
+
+### LIVE RESULTS, PRODUCTION, 2026-09-11
+
+On app.mefwellness.com as 8weeks2fab@gmail.com, against the deployment
+aliased to the domain:
+
+**55 of 55 checks passing on the Body Systems Survey, three runs in a row.**
+Two or three questions on every screen, section one cut 3, 3, 2, 2, a muted
+gold chosen row with deep forest text and a tick on every one, 44px tap
+targets, Back inside a section moving one screen with her answers still
+chosen, a mid screen refresh coming back to that screen with the answer she
+gave on it, the beat saying "Section complete" and "another area" and
+naming no body system, a reduced motion member never shown it, and no body
+system named on any screen, on the beat, after the refresh or on the
+resume, on screen or in the page payload. Zero console or page errors.
+
+**37 of 37 checks passing on the Health Check-In Questionnaire, twice.**
+The same grouping, the same chosen state read out of the computed styles
+rather than the class names, the counter and the line counting the same
+thing, Continue blocked until the screen is answered, Back with her answers
+still chosen, a mid screen refresh, and the beat naming the next section
+(which that questionnaire shows on every screen anyway).
+
+**Nothing left behind, confirmed by an independent read.** No questionnaire
+attempt, no survey draft, no Root Router row, her remembered branch still
+null, and the Body Systems Survey her coach had assigned her still pending
+and untouched: these walks use the assignment she already has and never
+create or delete one.
+
 ---
 
 ## The Body Systems Survey member experience (2026-09-11)
