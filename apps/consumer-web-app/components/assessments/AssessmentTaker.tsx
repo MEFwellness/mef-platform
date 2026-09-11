@@ -230,20 +230,33 @@ export function AssessmentTaker({
   );
   const groups = useMemo(() => buildGroups(steps), [steps]);
 
+  /**
+   * The screen a resumed sitting opens on.
+   *
+   * TWO ANSWERS, AND SHE GETS THE FURTHER ONE. The server stores which
+   * question she is on, and her stored answers say the same thing a second
+   * way. They agree almost always. When they do not, the stored pointer is
+   * the one that can be stale (see the chain in `pendingSaveRef` for how it
+   * got that way), and a stale pointer sending her back over three
+   * questions she has already answered is the worse of the two failures.
+   * Her answers are still on the screen either way; this only decides which
+   * screen she opens on.
+   */
   const startIndex = useMemo(() => {
     const initialSteps = buildSteps(questionnaire, flat, initialContext);
     const initialGroups = buildGroups(initialSteps);
-    const resolveStep = () => {
-      if (resumeCategoryId && resumeQuestionNumber != null) {
-        const index = findStepIndexForQuestion(initialSteps, resumeCategoryId, resumeQuestionNumber);
-        if (index !== -1) return index;
-      }
-      const firstUnansweredStep = initialSteps.findIndex(
-        (step) => !isStepAnswered(step, initialAnswers, initialContext)
-      );
-      return firstUnansweredStep !== -1 ? firstUnansweredStep : initialSteps.length - 1;
-    };
-    return groupIndexForStep(initialGroups, initialSteps, resolveStep());
+
+    const fromPointer =
+      resumeCategoryId && resumeQuestionNumber != null
+        ? findStepIndexForQuestion(initialSteps, resumeCategoryId, resumeQuestionNumber)
+        : -1;
+    const fromAnswers = initialSteps.findIndex(
+      (step) => !isStepAnswered(step, initialAnswers, initialContext)
+    );
+
+    if (fromPointer === -1 && fromAnswers === -1) return Math.max(0, initialGroups.length - 1);
+    const step = Math.max(fromPointer, fromAnswers);
+    return groupIndexForStep(initialGroups, initialSteps, step);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -260,16 +273,45 @@ export function AssessmentTaker({
   const [completedResult, setCompletedResult] = useState<AssessmentResult | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
-   * The most recent in-flight submitAssessmentAnswer/submitAssessmentContext
-   * call. Every save is fire-and-forget from the tapping member's point of
-   * view (see handleSelectOption/handleSelectContext below — nothing awaits
-   * it there, so her tap is never blocked), but completing the
-   * assessment is not allowed to race it: handleComplete awaits this before
-   * calling completeMyAssessment, so a member who answers the very last
-   * question and immediately taps "See my results" can never have the
-   * server check completeness before that last answer has actually landed.
+   * The chain of saves, and it is a CHAIN rather than a single most-recent
+   * promise for a reason found on production.
+   *
+   * Every save is fire-and-forget from the tapping member's point of view:
+   * nothing awaits it in handleSelectOption, so her tap is never blocked.
+   * But each one, server-side, also re-reads her answers and writes down
+   * which question she is on (lib/assessments/store.ts, saveAnswer). Three
+   * questions on one screen means three of those running at once, and on a
+   * real network they finish in whatever order they like: the save for the
+   * third question can read the database before the first question's row
+   * has landed and then write "she is on question one" as the last word.
+   *
+   * Found by driving app.mefwellness.com, 2026-09-11: a refresh in the
+   * middle of the second screen came back to the FIRST screen. It could not
+   * reproduce locally, where three saves land in milliseconds and in order.
+   *
+   * Running them one after another makes the last save the last answer's,
+   * reading a database that has all of them. handleComplete and
+   * handleSaveAndExit await this same chain, so a member who answers the
+   * last question and immediately taps "See my results" can never have the
+   * server check completeness before that answer has landed.
    */
   const pendingSaveRef = useRef<Promise<unknown> | null>(null);
+
+  function queueSave(run: () => Promise<{ ok: boolean; error?: string }>) {
+    const next = (pendingSaveRef.current ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(run)
+      .then((result) => {
+        if (result && !result.ok && result.error) setSaveError(result.error);
+      })
+      .catch(() => {
+        // A genuine network failure (offline, timeout, server unreachable) rather than a
+        // server-returned { ok: false } — the local answer still stands, but the member
+        // needs to know it may not have saved, not see it silently vanish into a console error.
+        setSaveError("Couldn't save that answer. Check your connection and try again.");
+      });
+    pendingSaveRef.current = next;
+  }
 
   useEffect(() => {
     return () => {
@@ -322,35 +364,22 @@ export function AssessmentTaker({
       [category.id]: { ...prev[category.id], [question.number]: optionIndex },
     }));
 
-    pendingSaveRef.current = submitAssessmentAnswer(
-      questionnaire.id,
-      assessmentId,
-      category.id,
-      question.number,
-      optionIndex
-    )
-      .then((result) => {
-        if (!result.ok) setSaveError(result.error);
-      })
-      .catch(() => {
-        // A genuine network failure (offline, timeout, server unreachable) rather than a
-        // server-returned { ok: false } — the local answer still stands, but the member
-        // needs to know it may not have saved, not see it silently vanish into a console error.
-        setSaveError("Couldn't save that answer. Check your connection and try again.");
-      });
+    queueSave(() =>
+      submitAssessmentAnswer(
+        questionnaire.id,
+        assessmentId,
+        category.id,
+        question.number,
+        optionIndex
+      )
+    );
   }
 
   function handleSelectContext(key: string, value: string) {
     setSaveError(null);
     setContext((prev) => ({ ...prev, [key]: value }));
 
-    pendingSaveRef.current = submitAssessmentContext(questionnaire.id, assessmentId, key, value)
-      .then((result) => {
-        if (!result.ok) setSaveError(result.error);
-      })
-      .catch(() => {
-        setSaveError("Couldn't save that answer. Check your connection and try again.");
-      });
+    queueSave(() => submitAssessmentContext(questionnaire.id, assessmentId, key, value));
   }
 
   function handleComplete() {

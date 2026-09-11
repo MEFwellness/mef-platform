@@ -543,6 +543,92 @@ describe('the generic questionnaire taker moves one screen at a time', () => {
     }
   });
 
+  it('saves one answer at a time, in order, never three at once', async () => {
+    /*
+      FOUND ON PRODUCTION, 2026-09-11. Every save also re-reads her answers
+      server-side and writes down which question she is on. Three questions
+      on one screen meant three of those in flight at once, and on a real
+      network the third one could read the database before the first one's
+      row had landed and then write "she is on question one" as the last
+      word. A refresh in the middle of the second screen came back to the
+      first. Locally it never reproduced, because three saves land in
+      milliseconds and in order, so this test holds the ORDERING rather than
+      the symptom.
+    */
+    const inFlight: number[] = [];
+    const releases: Array<() => void> = [];
+    let live = 0;
+    submitAnswer.mockImplementation(() => {
+      live += 1;
+      inFlight.push(live);
+      return new Promise((resolve) => {
+        releases.push(() => {
+          live -= 1;
+          resolve({ ok: true as const });
+        });
+      }) as Promise<{ ok: true }>;
+    });
+
+    mount();
+    await answerScreen();
+
+    // One started, and the other two are waiting their turn.
+    expect(releases.length).toBe(1);
+    expect(Math.max(...inFlight)).toBe(1);
+
+    await act(async () => {
+      releases[0]!();
+    });
+    expect(releases.length).toBe(2);
+    await act(async () => {
+      releases[1]!();
+    });
+    expect(releases.length).toBe(3);
+    await act(async () => {
+      releases[2]!();
+    });
+
+    expect(submitAnswer).toHaveBeenCalledTimes(3);
+    expect(Math.max(...inFlight), 'two saves were in flight at once').toBe(1);
+    submitAnswer.mockReset();
+    submitAnswer.mockImplementation(async () => ({ ok: true as const }));
+  });
+
+  it('a stale stored position never sends her back over questions she answered', () => {
+    /*
+      THE OTHER HALF OF THE SAME BUG. Even with the saves ordered, a pointer
+      written before a network hiccup can be behind her answers. Her answers
+      are the thing that cannot be wrong, so the further of the two wins.
+    */
+    const category = SHORT_HAQ_QUESTIONNAIRE.categories[0]!;
+    const answered: Record<string, Record<number, number>> = { [category.id]: {} };
+    for (const question of category.questions.slice(0, 4)) {
+      answered[category.id]![question.number] = 0;
+    }
+
+    act(() => {
+      harness.root.render(
+        <AssessmentTaker
+          questionnaire={SHORT_HAQ_QUESTIONNAIRE}
+          displayTitle="Short Health Assessment"
+          assessmentId="assessment-under-test"
+          initialAnswers={answered}
+          initialContext={{}}
+          // The stale pointer: it says she is on the very first question.
+          resumeCategoryId={category.id}
+          resumeQuestionNumber={category.questions[0]!.number}
+        />
+      );
+    });
+
+    // Seven questions cut 3, 2, 2: the first she has not answered is the
+    // fifth, which is on the second screen.
+    expect(harness.container.textContent).toContain('Questions 4 to 5 of');
+    expect(questionBlocks().map((block) => block.querySelector('h2')?.textContent)).toEqual(
+      category.questions.slice(3, 5).map((question) => question.text)
+    );
+  });
+
   it('gives the one time intake prompt a screen of its own', async () => {
     mount();
     const gate = SHORT_HAQ_QUESTIONNAIRE.contextQuestions![0]!;

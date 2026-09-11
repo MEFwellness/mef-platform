@@ -319,6 +319,24 @@ export function BodySystemsExperience({
   draftRef.current = { branch, answers, redFlagAnswers, stepIndex };
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Writes go one at a time, in the order they were asked for.
+   *
+   * An autosave and a Continue write the same row, and the only thing that
+   * differs between them is how far along she is. Two of them in flight at
+   * once can land in either order, and the older one landing last would
+   * store a position she has already left. Chaining them costs nothing (her
+   * tap never waits on this) and makes the last write the last thing she
+   * did. Same discipline, and the same reason, as the generic
+   * questionnaire taker's own save chain.
+   */
+  const saveChain = useRef<Promise<unknown>>(Promise.resolve());
+
+  function chainSave<T>(run: () => Promise<T>): Promise<T> {
+    const next = saveChain.current.catch(() => undefined).then(run);
+    saveChain.current = next.catch(() => undefined);
+    return next;
+  }
 
   function cancelAutosave() {
     if (autosaveTimer.current) {
@@ -331,20 +349,22 @@ export function BodySystemsExperience({
     cancelAutosave();
     autosaveTimer.current = setTimeout(() => {
       autosaveTimer.current = null;
-      const draft = draftRef.current;
-      void fetch('/api/body-systems/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        keepalive: true,
-        body: JSON.stringify({
-          branch: draft.branch,
-          answers: draft.answers,
-          redFlagAnswers: draft.redFlagAnswers,
-          stepIndex: draft.stepIndex,
-        }),
-        // A failed autosave is not something to interrupt her with: her
-        // Continue writes the same draft and reports its own failure.
-      }).catch(() => undefined);
+      void chainSave(() => {
+        const draft = draftRef.current;
+        return fetch('/api/body-systems/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: JSON.stringify({
+            branch: draft.branch,
+            answers: draft.answers,
+            redFlagAnswers: draft.redFlagAnswers,
+            stepIndex: draft.stepIndex,
+          }),
+          // A failed autosave is not something to interrupt her with: her
+          // Continue writes the same draft and reports its own failure.
+        }).catch(() => undefined);
+      });
     }, AUTOSAVE_DELAY_MS);
   }
 
@@ -408,11 +428,8 @@ export function BodySystemsExperience({
     if (step.kind === 'section' && !isLastGroupOfSection) {
       const nextGroup = safeGroupIndex + 1;
       startTransition(async () => {
-        const result = await saveBodySystemsProgressAction(
-          branch,
-          answers,
-          redFlagAnswers,
-          stepIndex
+        const result = await chainSave(() =>
+          saveBodySystemsProgressAction(branch, answers, redFlagAnswers, stepIndex)
         );
         if (!result.ok) {
           setError(result.error);
@@ -446,7 +463,9 @@ export function BodySystemsExperience({
       */
       if (withBeat) setTransitionTo(next);
       startTransition(async () => {
-        const save = saveBodySystemsProgressAction(branch, answers, redFlagAnswers, next);
+        const save = chainSave(() =>
+          saveBodySystemsProgressAction(branch, answers, redFlagAnswers, next)
+        );
         const [result] = await Promise.all([
           save,
           withBeat ? new Promise((resolve) => setTimeout(resolve, SECTION_TRANSITION_MS)) : null,
@@ -463,7 +482,9 @@ export function BodySystemsExperience({
     }
 
     startTransition(async () => {
-      const result = await submitBodySystemsSurveyAction(branch, answers, redFlagAnswers);
+      const result = await chainSave(() =>
+        submitBodySystemsSurveyAction(branch, answers, redFlagAnswers)
+      );
       if (!result.ok) {
         setError(result.error);
         return;

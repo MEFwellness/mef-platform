@@ -117,6 +117,24 @@ resume position, the autosave and the beat.
 Full suite 558 files, 10,489 tests, all passing. Typecheck clean, lint 0
 errors, production build clean.
 
+### THE SECOND BUG, AND PRODUCTION IS THE ONLY PLACE IT EXISTED
+
+Every answer save also re-reads her answers server-side and writes down
+which question she is on. Three questions on one screen meant three of
+those in flight at once, and on a real network the third could read the
+database before the first one's row had landed and then write "she is on
+question one" as the last word. **A refresh in the middle of the second
+screen came back to the first.** It never reproduced locally, where three
+saves land in milliseconds and in order.
+
+Two fixes, because each one is right on its own. The saves run one after
+another now, in both takers, so the last save is the last answer's and it
+reads a database that has all of them. And a resumed sitting takes the
+FURTHER of the stored pointer and the first question her own answers show
+unanswered, because her answers are the thing that cannot be wrong and a
+stale pointer walking her back over three answered questions is the worse
+of the two failures.
+
 ### LIVE VERIFICATION
 
 `scripts/verify-questionnaire-experience-live.mjs` is new and drives an
@@ -126,6 +144,12 @@ Back, a mid screen refresh, the beat, and the reduced motion member who
 never sees it. `scripts/verify-body-systems-live.mjs` was taught that a
 section is several screens now, and gained the per screen grouping checks
 and the beat.
+
+`scripts/verify-body-systems-experience-live.mjs` is also new, and it is
+the one to run against a production account: it uses the pending assignment
+she already has, refuses to create or delete one, answers two sections and
+stops rather than consuming her sitting, and removes only the unfinished
+draft its own Continue wrote.
 
 **Headless Chromium reports `prefers-reduced-motion: reduce` by default**,
 which silently turned the beat off and made a run that never played it look
