@@ -151,6 +151,25 @@ async function tapRow(row) {
   throw new Error('a tap never registered');
 }
 
+/** How many of her answers the draft in the database actually holds. */
+async function storedAnswerCount() {
+  const { data } = await admin
+    .from('member_body_systems_sessions')
+    .select('answers, completed_at')
+    .eq('member_id', MEMBER);
+  const draft = (data ?? []).find((row) => !row.completed_at);
+  return Object.keys(draft?.answers ?? {}).length;
+}
+
+async function waitForStoredAnswers(target, timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if ((await storedAnswerCount()) >= target) return true;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  return false;
+}
+
 async function waitForContinue(target = page, timeoutMs = 30000) {
   const button = target.getByRole('button', { name: 'Continue' });
   const deadline = Date.now() + timeoutMs;
@@ -219,6 +238,8 @@ try {
   let beat = '';
   let didBack = false;
   let didRefresh = false;
+  /** Every answer this walk has given, so "the server has them" is countable. */
+  let tapsSoFar = 1; // the one tapped above while checking the chosen state.
 
   for (let guard = 0; guard < 12 && !beat; guard += 1) {
     await noSystemName(`survey screen ${guard + 1}`);
@@ -230,8 +251,23 @@ try {
     // Continue never pressed.
     if (guard === 1 && !didRefresh) {
       didRefresh = true;
+      /*
+        WAIT FOR THE SERVER TO REALLY HAVE IT, rather than for a number of
+        milliseconds. A fixed wait makes this a measurement of the network
+        instead of a claim about resume, and it reported a failure once that
+        was really "the autosave had not been sent yet". What is claimed is
+        that once an answer has landed, a reload comes back to the screen she
+        was on with that answer still chosen.
+      */
+      const expectedStored = tapsSoFar + 1;
       await tapRow(page.locator('ol > li').first().locator('[role="radio"]').first());
-      await page.waitForTimeout(1600);
+      tapsSoFar += 1;
+      const landed = await waitForStoredAnswers(expectedStored);
+      check(
+        'an answer reaches the server without a Continue',
+        landed,
+        `${await storedAnswerCount()} of ${expectedStored} stored`
+      );
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForSelector('text=/section 1 of 11/i', { timeout: 30000 });
@@ -248,9 +284,13 @@ try {
     }
 
     const count = await page.locator('ol > li').count();
+    const alreadyChosen = await page.evaluate(
+      () => document.querySelectorAll('ol > li [role="radio"][aria-checked="true"]').length
+    );
     for (let i = 0; i < count; i += 1) {
       await tapRow(page.locator('ol > li').nth(i).locator('[role="radio"]').first());
     }
+    tapsSoFar += count - alreadyChosen;
 
     // Back, one screen, with her answers still chosen.
     if (guard === 1 && !didBack) {

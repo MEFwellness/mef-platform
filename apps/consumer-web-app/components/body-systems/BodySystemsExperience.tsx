@@ -412,6 +412,43 @@ export function BodySystemsExperience({
     };
   }, []);
 
+  /*
+    AND A WAITING AUTOSAVE IS SENT THE MOMENT THE PAGE GOES AWAY.
+
+    The autosave waits about a second so that three taps in a row are one
+    write, and that second is a window: a member who taps and reloads inside
+    it had nothing sent at all. Found on production, 2026-09-11, where a
+    refresh a second and a half after a tap came back with that answer gone.
+
+    `pagehide` fires for a reload, a back, and a closed tab, and
+    `visibilitychange` covers the phone case of switching apps, which on iOS
+    is the one that never fires pagehide. The request carries `keepalive`,
+    so one already in flight survives the page going away; this is only
+    about the one that had not been sent yet.
+  */
+  useEffect(() => {
+    const flush = () => {
+      if (!autosaveTimer.current) return;
+      clearTimeout(autosaveTimer.current);
+      autosaveTimer.current = null;
+      const draft = draftRef.current;
+      void postDraft(draft, draft.stepIndex);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+    // `postDraft` only reads this component's props, which never change for
+    // the life of a sitting, so this is set up once rather than re-bound on
+    // every answer she gives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function goHome() {
     router.push('/dashboard');
   }

@@ -91,6 +91,14 @@ guards and returns a few bytes, and only SUBMITTING is still a Server
 Action, because a completion really does need the route it was called from
 to re-render.
 
+**A WAITING AUTOSAVE IS SENT THE MOMENT THE PAGE GOES AWAY.** The debounce
+exists so three taps in a row are one write, and that second is a window: a
+refresh inside it had nothing sent at all, which production found. A
+`pagehide` (a reload, a back, a closed tab) and a `visibilitychange` to
+hidden (switching apps on a phone, which never fires pagehide on iOS) flush
+whatever was still waiting. The request carries `keepalive`, so one already
+in flight survives the page going away on its own.
+
 Resume is unchanged where it is stored: the Body Systems Survey still
 stores a SECTION, so a draft written before this change opens exactly where
 it always did, and which screen inside that section she lands on is derived

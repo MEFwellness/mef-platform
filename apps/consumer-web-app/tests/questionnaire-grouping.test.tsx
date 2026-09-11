@@ -181,15 +181,16 @@ function setReducedMotion(reduced: boolean) {
  * how a Continue is able to land at all in jsdom, and the recording is what
  * lets a test say what was written and when.
  */
-const drafts = [];
+type Draft = { url: string; body: { answers: Record<string, string>; stepIndex: number } };
+const drafts: Draft[] = [];
 
 function installDraftRecorder() {
   drafts.length = 0;
   Object.defineProperty(globalThis, 'fetch', {
     writable: true,
     configurable: true,
-    value: async (url, init) => {
-      drafts.push({ url, body: JSON.parse(init.body) });
+    value: async (url: string, init: { body: string }) => {
+      drafts.push({ url, body: JSON.parse(init.body) as Draft['body'] });
       return { ok: true, json: async () => ({ ok: true }) };
     },
   });
@@ -448,6 +449,36 @@ describe('the Body Systems Survey moves one screen at a time', () => {
     const questionRef = Object.keys(saved.answers)[0]!;
     expect(QUESTIONS.find((question) => question.questionRef === questionRef)?.prompt).toBe(prompt);
     expect(saved.answers[questionRef]).toBe(SCALE[0]!.valueKey);
+  }, 10000);
+
+  it('sends a waiting autosave the moment the page goes away', async () => {
+    /*
+      THE OTHER HALF OF THE SAME PROMISE. The autosave waits about a second
+      so that three taps in a row are one write, and that second is a
+      window: found on production, a refresh a second and a half after a tap
+      came back with that answer gone. A page going away flushes whatever
+      was still waiting.
+    */
+    mount({ resumeStepIndex: 0 });
+    const first = questionBlocks()[0]!;
+    await act(async () => {
+      first.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(drafts.length, 'the debounce did not hold it').toBe(0);
+
+    await act(async () => {
+      window.dispatchEvent(new Event('pagehide'));
+      await Promise.resolve();
+    });
+
+    expect(drafts.length, 'the waiting answer was never sent').toBe(1);
+    expect(Object.keys(drafts[0]!.body.answers).length).toBe(1);
+
+    // And it is not sent twice when the timer would have fired anyway.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    });
+    expect(drafts.length).toBe(1);
   }, 10000);
 
   it('plays one short beat between two sections, and it names nothing', async () => {
