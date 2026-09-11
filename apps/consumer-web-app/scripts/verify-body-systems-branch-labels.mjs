@@ -211,7 +211,32 @@ try {
       check('no en dash on the branch screen', !branchText.includes(String.fromCharCode(0x2013)));
 
       await page.screenshot({ path: `${SHOTS}/body-systems-section-11.png` });
-      break;
+
+      /*
+        AND NOW CHOOSE ONE, BECAUSE THE PROFILE CARD DEPENDS ON IT.
+
+        `/profile` renders the "Hormonal Health question set" setting behind
+        `{bodySystemsBranch && ...}`, so a member who has never chosen a
+        branch has no card there to read. That is right: there is nothing
+        for her to change yet. It also means this walk cannot see the second
+        screen without making the choice first, so it makes it, and the
+        teardown puts her stored branch back exactly where it was.
+
+        The branch buttons UNMOUNT once she has chosen, so the tap is
+        confirmed by the hormonal questions arriving rather than by
+        aria-pressed.
+      */
+      for (let attempt = 0; attempt < 25; attempt += 1) {
+        await page.getByRole('button', { name: /cycles, hot flashes/i }).click().catch(() => {});
+        if (await page.locator('text=My cycle has become irregular').count()) break;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      await page.waitForSelector('text=My cycle has become irregular', { timeout: 20000 });
+      check('choosing option A opens the branch it names', true);
+      // No break. Section eleven's own questions still have to be answered
+      // and Continue pressed, because THAT is what saves, and the save is
+      // what puts her branch on her profile. Falling through to the item
+      // loop below is how this walk stays a real member's walk.
     }
 
     const items = await page.locator('ol > li').count();
@@ -227,10 +252,38 @@ try {
       throw new Error(`Continue stayed disabled on section ${section}`);
     }
     await page.getByRole('button', { name: 'Continue' }).click();
-    await page.waitForSelector(`text=/section ${section + 1} of 11/i`, { timeout: 30000 });
+
+    /*
+      SECTION ELEVEN'S CONTINUE DOES NOT LEAD TO A SECTION TWELVE.
+
+      It leads to the six red flag questions, so waiting for the next
+      eyebrow here would wait forever on a screen that is working. This
+      waits for whichever of the two actually arrives.
+    */
+    if (section === 11) {
+      await page.waitForSelector('text=Six last questions', { timeout: 40000 });
+      check('section eleven hands over to the red flag questions', true);
+      break;
+    }
+    await page.waitForSelector(`text=/section ${section + 1} of 11/i`, { timeout: 40000 });
   }
 
-  // The same two words on the OTHER screen that reads this copy row.
+  // The same two words on the OTHER screen that reads this copy row. Her
+  // branch has to have landed on her profile row before that card renders.
+  let storedBranch = null;
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const { data: row } = await admin
+      .from('profiles')
+      .select('body_systems_branch')
+      .eq('id', MEMBER)
+      .maybeSingle();
+    storedBranch = row?.body_systems_branch ?? null;
+    if (storedBranch) break;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  // Said out loud, because a poll that simply ran out of attempts and a
+  // poll that succeeded look identical from the screen that follows.
+  check('her tap is remembered on her profile row', storedBranch === 'a', `stored ${storedBranch}`);
   await page.goto(`${BASE}/profile`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('text=Hormonal Health question set', { timeout: 30000 });
   const profileText = await page.evaluate(() => document.body.innerText);
@@ -241,6 +294,28 @@ try {
   await page.screenshot({ path: `${SHOTS}/body-systems-profile-setting.png` });
 
   check('no console or page errors', consoleErrors.length === 0, consoleErrors.join(' | ').slice(0, 300));
+  check('the walk reached the end', true);
+} catch (walkError) {
+  /*
+    A THROW MUST BECOME A FAILED CHECK, NOT A SILENT PASS.
+
+    The `finally` below ends in process.exit, and process.exit inside a
+    finally DISCARDS the exception on its way out. The first run of this
+    script threw on the profile screen, the finally exited zero because no
+    check had recorded a failure, and it printed "12 of 12 checks passing"
+    for a walk that never finished. A run that did not get to the end has
+    to say so in the same tally as everything else.
+  */
+  check('the walk reached the end', false, String(walkError).slice(0, 300));
+  try {
+    await page.screenshot({ path: `${SHOTS}/body-systems-where-it-stopped.png` });
+    console.log('WHERE IT STOPPED:', page.url());
+    console.log(
+      (await page.evaluate(() => document.body.innerText)).slice(0, 700).replace(/\n+/g, ' | ')
+    );
+  } catch {
+    console.log('could not photograph where it stopped');
+  }
 } finally {
   await clean();
 

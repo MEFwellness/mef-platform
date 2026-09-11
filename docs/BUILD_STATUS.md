@@ -282,12 +282,85 @@ covered the day it lands instead of the day somebody remembers to add it.
 `tests/body-systems-content.test.ts` and the `BODY_SYSTEMS_SQL_PATHS`
 export in `tests/body-systems-fixture.ts`.
 
-`scripts/verify-body-systems-branch-labels.mjs` walks a real signed-in
-session as far as the branch screen, reads both labels off it, reads the
-profile setting, and abandons the sitting rather than finishing the
-survey, so the smallest possible amount of state ever exists on
-production. Everything it creates is deleted in a `finally` and confirmed
-absent by an independent read.
+#### THE FIRST VERSION OF 223 RAN ON PRODUCTION AND DID NOTHING
+
+It matched on the placeholder text as well as the key, on the reasoning
+that a hand edit should never be silently overwritten by a re-run. Against
+production it matched no row, reported success, and changed neither one.
+Osei corrected both rows by hand instead.
+
+**The cause was never established and now cannot be.** The rows have since
+been rewritten, so whatever the value column actually held is gone. The
+`note` column on production is still byte identical to the text migration
+221 seeds, which says the rows did come from this file and makes an
+invisible difference in `value` alone a strange thing to have happened. It
+is equally possible the statements never reached the server at all. Both
+are consistent with what was observed, and nothing left in the database
+can separate them.
+
+**Which is the point.** A content migration must not decide whether to
+write by comparing against a string somebody typed twice, because the two
+copies can differ by a character nobody can see and the failure is
+completely silent. 223 now matches on `copy_key` and nothing else, stays
+idempotent through `is distinct from`, and ends in a `do $$` block that
+reads back what it wrote and raises if the words are not the approved
+ones. An update that matches nothing can no longer pass for success.
+
+Proved four ways against the local database, not reasoned about: it
+corrects the placeholder rows (`UPDATE 1` twice), re-runs without touching
+`updated_at` (`UPDATE 0` twice), corrects a value differing only by a
+trailing space, which is exactly the class of difference the old guard
+would have missed, and exits non-zero with a named error when a row is
+missing.
+
+#### LIVE VERIFICATION, PRODUCTION, 2026-09-11
+
+**20 of 20 checks passing on app.mefwellness.com** as Ebony, the seeded
+test account. Both option labels read off the real section eleven screen
+in the branch question, both read again off the "Hormonal Health question
+set" card on `/profile`, both old placeholders confirmed gone from each,
+no em dash, no en dash, no console or page errors.
+
+`scripts/verify-body-systems-branch-labels.mjs` walks as far as the branch
+screen and then abandons the sitting rather than finishing the survey, so
+the smallest possible amount of state ever exists on production. Teardown
+confirmed by an independent read on a fresh connection and counted
+GLOBALLY rather than for the one member: zero sittings, zero assignments,
+zero attempts, zero registry entries, zero pop-up dismissals and zero
+profiles holding a branch anywhere in the database. The nine content
+tables re-counted afterwards and unchanged at 11, 111, 5, 3, 6, 2, 73, 1
+and 38.
+
+**TWO THINGS THE RUN FOUND, both of them in the rig rather than the app.**
+
+The script reported "12 of 12 checks passing" for a walk that threw on the
+profile screen and never finished. `process.exit` inside a `finally`
+DISCARDS the exception on its way out, so the throw vanished and the tally
+was of the checks that had run before it. A thrown error is now a failed
+check in the same tally as everything else, which is the only reason the
+second problem was ever seen.
+
+And the profile card is behind `{bodySystemsBranch && ...}`, so a member
+who has never chosen a branch has no card there to read. That is correct:
+there is nothing for her to change yet. The walk now makes the choice, and
+because the survey saves on Continue and not on a tap, it also answers
+section eleven and presses Continue, which is what puts her branch on her
+profile row. Her stored branch is restored to exactly what it was.
+
+#### PRODUCTION'S MIGRATION HISTORY DOES NOT KNOW ABOUT THIS FEATURE
+
+`supabase_migrations.schema_migrations` on production ends at 219.
+Migrations 220, 221 and 222 were applied by hand through the SQL editor,
+so nothing recorded that they ran, and 223 was applied by hand for the
+same reason.
+
+**A `db push` against production today would try to run all four.** 220
+begins by creating tables that already exist, so the push fails on the
+first statement. This is not caused by the branch labels and was not
+introduced by them, but it is live now and the next person to push
+migrations will hit it. The repair is to record 220 through 223 as applied
+without running them. It has not been done, because inserting rows into
+another tool's bookkeeping table on production is Osei's call to make.
 
 ## The hero headline is set in capitals (2026-09-08)
 
