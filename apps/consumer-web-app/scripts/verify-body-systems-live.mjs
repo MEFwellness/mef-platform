@@ -98,6 +98,41 @@ async function clean() {
   await admin.from('profiles').update({ body_systems_branch: null }).eq('id', MEMBER);
 }
 
+/*
+  NEVER MINT FOR AN EMAIL THAT IS NOT ALREADY AN ACCOUNT.
+
+  mintSessionContext goes through auth.admin.generateLink, and generateLink
+  CREATES the account when the address does not exist. So a single typo in
+  an email here would silently mint a session for a brand new stranger and
+  then walk the survey as them. This refuses to go near the browser until
+  both addresses have been resolved to the exact user ids this run expects.
+*/
+async function assertExistingUser(email, expectedId) {
+  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  if (error) throw new Error(`could not list users: ${error.message}`);
+  const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+  if (!found) throw new Error(`REFUSING TO RUN: ${email} is not an existing account`);
+  if (found.id !== expectedId) {
+    throw new Error(`REFUSING TO RUN: ${email} is ${found.id}, expected ${expectedId}`);
+  }
+  console.log(`identity confirmed: ${email} is ${found.id}`);
+}
+
+await assertExistingUser(MEMBER_EMAIL, MEMBER);
+await assertExistingUser(COACH_EMAIL, COACH);
+
+// And this walk only ever runs against a seeded test account, because it
+// writes a real sitting and then deletes rows.
+const { data: targetProfile } = await admin
+  .from('profiles')
+  .select('is_test, display_name')
+  .eq('id', MEMBER)
+  .maybeSingle();
+if (targetProfile?.is_test !== true) {
+  throw new Error(`REFUSING TO RUN: ${MEMBER} is not a seeded test account`);
+}
+console.log(`target is the test account "${targetProfile.display_name}"`);
+
 await clean();
 
 const { error: assignError } = await admin.from('assessment_assignments').insert({
@@ -137,6 +172,27 @@ async function tap(scope, name, exact = true) {
   throw new Error(`tap never registered: ${name}`);
 }
 
+/**
+ * Wait for Continue to be genuinely pressable.
+ *
+ * ITS DISABLED STATE MEANS TWO DIFFERENT THINGS and only one of them is a
+ * failure. `disabled={!canContinue || isPending}`: either she has not
+ * answered everything yet, which is the real rule, or a save is still in
+ * flight, which is the app working. On a local dev server the save lands
+ * in milliseconds and the difference never shows. Against production it
+ * does, and asserting the instant state reported a stall on a screen where
+ * all ten answers had already registered.
+ */
+async function waitForContinue(page, label, timeoutMs = 30000) {
+  const button = page.getByRole('button', { name: label });
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!(await button.isDisabled())) return true;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
 const EM = String.fromCharCode(0x2014);
 const consoleErrors = [];
 
@@ -161,10 +217,13 @@ try {
   await page.waitForTimeout(4000);
   const bodyText = await page.evaluate(() => document.body.innerText);
   check('Home offers the survey', /MEF Body Systems Survey/i.test(bodyText));
-  check(
-    'the pop-up carries the approved sentence',
-    bodyText.includes('walk through your whole body with you')
-  );
+  const popupShown = bodyText.includes('walk through your whole body with you');
+  check('the pop-up carries the approved sentence', popupShown);
+  if (!popupShown) {
+    // The chain gives one message the slot. Say which one took it rather
+    // than leaving a bare failure that looks like the copy is wrong.
+    console.log('POPUP SLOT WENT TO:', bodyText.slice(0, 400).replace(/\n+/g, ' | '));
+  }
   await noEmDash('Home');
 
   // ---- The survey route.
@@ -227,10 +286,31 @@ try {
       await tap(item, label);
     }
 
-    if (await page.getByRole('button', { name: 'Continue' }).isDisabled()) {
-      const shot = await page.evaluate(() => document.body.innerText);
+    if (!(await waitForContinue(page, 'Continue'))) {
+      const state = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('ol > li')).map((li, index) => ({
+          index,
+          prompt: (li.querySelector('p')?.textContent ?? '').slice(0, 50),
+          pressed: Array.from(li.querySelectorAll('[aria-pressed="true"]')).map(
+            (b) => b.textContent
+          ),
+        }))
+      );
+      const shape = await page.evaluate(() => ({
+        eyebrow: document.body.innerText.slice(0, 60).replace(/\n+/g, ' | '),
+        ols: document.querySelectorAll('ol').length,
+        olLi: document.querySelectorAll('ol > li').length,
+        anyLi: document.querySelectorAll('li').length,
+        pressed: document.querySelectorAll('[aria-pressed="true"]').length,
+        buttons: document.querySelectorAll('button').length,
+      }));
+      console.log('DOM SHAPE', JSON.stringify(shape));
       console.log(`--- STUCK on section ${section}, ${items} items ---`);
-      console.log(shot.slice(0, 1200));
+      for (const row of state) {
+        console.log(
+          `${row.pressed.length ? 'OK ' : 'MISSING'} [${row.index}] ${row.prompt} => ${row.pressed.join(',') || 'nothing'}`
+        );
+      }
       throw new Error(`Continue stayed disabled on section ${section}`);
     }
     await page.getByRole('button', { name: 'Continue' }).click();
@@ -290,7 +370,11 @@ try {
       await page.getByRole('button', { name: 'No', exact: true }).click();
     }
     const last = flag === 6;
-    await page.getByRole('button', { name: last ? 'See your results' : 'Continue' }).click();
+    const label = last ? 'See your results' : 'Continue';
+    if (!(await waitForContinue(page, label))) {
+      throw new Error(`${label} stayed disabled on red flag ${flag}`);
+    }
+    await page.getByRole('button', { name: label }).click();
   }
 
   // ---- The results.
@@ -478,6 +562,9 @@ try {
     for (let i = 0; i < items; i += 1) {
       await tap(page.locator('ol > li').nth(i), section === 1 ? 'Rarely' : 'Never');
     }
+    if (!(await waitForContinue(page, 'Continue'))) {
+      throw new Error(`retake Continue stayed disabled on section ${section}`);
+    }
     await page.getByRole('button', { name: 'Continue' }).click();
     if (section === 11) break;
     await page.waitForSelector(`text=/section ${section + 1} of 11/i`, { timeout: 25000 });
@@ -485,7 +572,11 @@ try {
   for (let flag = 1; flag <= 6; flag += 1) {
     await page.waitForSelector(`text=${flag} of 6`, { timeout: 25000 });
     await tap(page, 'No');
-    await page.getByRole('button', { name: flag === 6 ? 'See your results' : 'Continue' }).click();
+    const retakeLabel = flag === 6 ? 'See your results' : 'Continue';
+    if (!(await waitForContinue(page, retakeLabel))) {
+      throw new Error(`retake ${retakeLabel} stayed disabled on red flag ${flag}`);
+    }
+    await page.getByRole('button', { name: retakeLabel }).click();
   }
   await page.waitForSelector('text=What your body is saying right now', { timeout: 30000 });
   const retakeText = await page.evaluate(() => document.body.innerText);

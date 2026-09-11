@@ -204,14 +204,51 @@ reads her own calendar day through the shared helper.
 `tests/body-systems-live-regressions.test.tsx` holds bugs one and two
 down, and both were proved by deleting the fix.
 
-### MIGRATIONS 220, 221 AND 222 ARE NOT YET ON PRODUCTION
+### LIVE VERIFICATION, PRODUCTION, 2026-09-10
 
-Applied and verified against the local database only. They are listed in
-the build report for Osei to run, in order, before any live check. The
-code is deployed ahead of them and is inert without them: every read fails
-soft and the survey is simply not offered. The one visible edge is the
-coach's Assign button on its status row, which cannot write an assignment
-for a definition that does not exist yet.
+Migrations 220, 221 and 222 were applied to production by Osei. All nine
+content tables were counted from outside the app before anything ran:
+11 sections, 111 questions, 5 scale options, 3 bands, 6 red flags, 2 safety
+levels, 73 copy rows, 1 setting, 38 associations. Zero sittings and zero
+assignments existed, so the walk had nothing of its own to disturb.
+
+**70 of 70 checks passing on app.mefwellness.com**, driving the real
+journey end to end: the coach's assignment arriving, the pop-up in Root's
+approved words, the intro, all eleven sections, one Does not apply to me
+tap, a genuine mid-survey close and resume, all six red flag screens with
+one real Level 2 Yes, the results screen, the eleven Root Map rows, the
+coach's whole panel, and a second sitting answered quieter with both sides
+of the comparison read back. Zero console or page errors and zero em
+dashes on every screen either account saw.
+
+Deployment confirmed before the run: `app.mefwellness.com` aliased to the
+production deployment carrying this work, status Ready.
+
+**State left on production: none.** Every row was deleted in a `finally`
+and then confirmed absent by an independent query on a fresh connection:
+no sitting, no assignment, no attempt row, no Root Map row, and her stored
+branch back to null. Counted globally as well as for her, so nothing
+landed on anyone else. The nine content tables were re-counted afterwards
+and are unchanged.
+
+### ONE INSTRUMENT BUG, AND IT IS A STANDING TRAP
+
+The first production run reported a stall: Continue disabled on a section
+where the DOM showed all ten questions answered. Nothing was wrong with the
+app. `disabled={!canContinue || isPending}` means two different things, and
+only one of them is a failure: either she has not answered everything, or a
+save is still in flight. On a local dev server that save lands in
+milliseconds and the difference never shows. Against production it does.
+The rig now WAITS for the button rather than asserting its instant state.
+
+This is the same family as "never screenshot a submit in flight": a fixed
+read of a control while the server is still working reports a failure the
+app does not have.
+
+### THE MIGRATIONS
+
+Applied to production 2026-09-10 and verified there. They remain in
+`supabase/migrations/` as the record of what was run.
 
 ## The hero headline is set in capitals (2026-09-08)
 
