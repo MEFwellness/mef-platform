@@ -88,8 +88,47 @@ as well as the component. The scroll fix is driven rather than described:
 a real section answered, the real Continue pressed, and the window watched.
 The legend is counted.
 
-Full suite 557 files, 10,455 tests, all passing. Typecheck clean, lint 0
+Full suite 557 files, 10,456 tests, all passing. Typecheck clean, lint 0
 errors, production build clean.
+
+### LIVE VERIFICATION, PRODUCTION, 2026-09-11
+
+`scripts/verify-body-systems-live.mjs` grew a blind half: the eleven
+section names and the eleven member intro lines are read out of the
+database rather than typed into the script, and every answering screen is
+checked against both `innerText` and `page.content()`, because a name that
+is merely undrawn is still in the serialised props inside the page. Every
+section change records how far down her Continue was and how far down the
+new screen opened.
+
+**121 of 121 checks passing on app.mefwellness.com**, as
+8weeks2fab@gmail.com with the coach half as Osei. No body system named on
+the intro, on any of the eleven section screens, on the resume, after a
+mid-section refresh, or on any of the six red flag screens, on screen or
+in the payload. Every section opened at 0px having been left between
+2,165px and 3,073px down. All eleven names revealed on her results, each
+band explained exactly once, eleven bars with delays 380ms through 1080ms,
+the closing card carrying her way on. The coach's panel still names
+"Digestion, 100%" in its session opener, so the coach side is unchanged.
+Zero console or page errors, zero em dashes on every screen either account
+saw.
+
+**THE ONE THING THE FIRST RUN FOUND.** Every section change landed at the
+top and **a refresh in the middle of a section landed 2,797px down**. A
+browser restores the scroll position it remembers on a reload, and it does
+it after hydration, so scrolling to the top while hydrating loses. Fixed
+two ways because both orders happen: `scrollRestoration` is taken off the
+browser for as long as she is in the survey and put back exactly as it was
+when she leaves, and if the document was still loading at hydration the
+scroll is asserted again on `load`. The second run is the 121 of 121
+above, with that check reading "left at 2797px, came back at 0px".
+
+**State left on production: none.** Confirmed after the run by an
+independent read on a fresh connection: no sitting for her and none for
+anybody, no assignment, no attempt row, no Root Map row, and her stored
+branch back to null. The nine content tables were re-counted and are
+unchanged apart from `body_systems_copy`, 73 rows to 76, which is exactly
+migration 224's three.
 
 ## The MEF Body Systems Survey (2026-09-10)
 
