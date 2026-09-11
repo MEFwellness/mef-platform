@@ -32,6 +32,17 @@ export const LIBRARY_SQL_PATH = path.join(
   '00000000000222_body_systems_association_library.sql'
 );
 
+/**
+ * Every migration that carries this feature's words, found rather than
+ * listed, so a later content migration is covered by the punctuation scan
+ * the day it lands instead of the day somebody remembers to add it here.
+ */
+export const BODY_SYSTEMS_SQL_PATHS: string[] = fs
+  .readdirSync(MIGRATIONS)
+  .filter((file) => file.endsWith('.sql') && file.includes('body_systems'))
+  .sort()
+  .map((file) => path.join(MIGRATIONS, file));
+
 export function readSql(file: string): string {
   return fs.readFileSync(file, 'utf8');
 }

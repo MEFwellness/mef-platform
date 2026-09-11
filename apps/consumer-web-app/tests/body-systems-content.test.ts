@@ -13,10 +13,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   BANDS,
+  BODY_SYSTEMS_SQL_PATHS,
   COPY_ROWS,
-  CONTENT_SQL_PATH,
   LIBRARY,
-  LIBRARY_SQL_PATH,
   QUESTIONS,
   RED_FLAGS,
   SAFETY_LEVELS,
@@ -280,7 +279,7 @@ describe('the association library', () => {
 describe('no em dash and no en dash anywhere in the stored content', () => {
   // The app wide source guard cannot see a database row, and this content
   // is entirely database rows, so the migrations themselves are scanned.
-  it.each([SCHEMA_SQL_PATH, CONTENT_SQL_PATH, LIBRARY_SQL_PATH])('%s is clean', (file) => {
+  it.each(BODY_SYSTEMS_SQL_PATHS)('%s is clean', (file) => {
     const sql = readSql(file);
     expect(sql.includes(EM_DASH), 'em dash found').toBe(false);
     expect(sql.includes(EN_DASH), 'en dash found').toBe(false);
