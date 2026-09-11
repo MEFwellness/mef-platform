@@ -39,6 +39,51 @@ import { addDays, endDateFor } from '../lib/program-lifecycle/transitions';
 import type { MemberProgramLifecycle } from '@mef/shared-types-contracts';
 import { todaysLocalDate } from '@/lib/time/localDate';
 
+/*
+  EVERY DATE IN THIS FILE IS AN OFFSET FROM TODAY, AND THAT IS LOAD BEARING.
+
+  These fixtures used to be written as literal days in August 2026. Each
+  test was self-contained and correct: it seeded a program starting
+  2026-08-03 and ran the job on a day it supplied itself, so the real
+  calendar never came into it.
+
+  The rows outlive the test that seeded them. They belong to the same
+  member for the whole file, and "what the member can read, per status"
+  reads EVERY program she has through the real view, not only the four it
+  seeded. So once the real date passed 2026-08-30, a dozen rows left
+  `active` by earlier tests were active with an end date in the past, which
+  is precisely the stale program the member view is supposed to never show.
+  The test that checks for it began failing on a lifecycle that works.
+
+  Anchoring the whole file to today fixes it at the root rather than
+  narrowing that assertion to the rows one block seeded, because a member
+  really does see all of her programs, and a stale one really would be a
+  bug. Now every seeded program sits in a window around today, the same way
+  a real one does, and no amount of time passing can rot it.
+
+  THE DAY COMES FROM `todaysLocalDate`, NEVER `new Date()`. Three of these
+  fixtures used `new Date().toISOString().slice(0, 10)`, the exact thing
+  the standing rule forbids, and it is the same defect the comment further
+  down this file already describes: after 20:00 in New York that string is
+  tomorrow. `runJobOn` runs against America/New_York, so that is the zone
+  the whole file counts days in.
+*/
+const TODAY = todaysLocalDate('America/New_York');
+
+/** A day, counted from today, in the zone the job runs in. */
+const day = (offset: number) => addDays(TODAY, offset);
+
+/**
+ * The day the standard fixture program starts: eight days ago, so a four
+ * week program is underway and ends nineteen days from now. Everything
+ * else in the file is counted from here, so the RELATIONSHIPS between the
+ * dates, which is all any of these tests were ever about, are unchanged.
+ */
+const START = day(-8);
+
+/** A day counted from that start. `fromStart(27)` is its last day. */
+const fromStart = (offset: number) => addDays(START, offset);
+
 const MEMBER = TEST_USERS.memberOne.id;
 const OTHER_MEMBER = TEST_USERS.memberTwo.id;
 const COACH = TEST_USERS.coachOne.id;
@@ -149,13 +194,13 @@ async function runJobOn(assignmentIds: string[], today: string) {
 
 describe('the daily job moves a program through its life', () => {
   it('upcoming becomes active on its start date, and not the day before', async () => {
-    const id = await seedAssignment({ startDate: '2026-08-03', status: 'upcoming' });
+    const id = await seedAssignment({ startDate: START, status: 'upcoming' });
 
-    const before = await runJobOn([id], '2026-08-02');
+    const before = await runJobOn([id], fromStart(-1));
     expect(before.started).toBe(0);
     expect((await readAssignment(id)).status).toBe('upcoming');
 
-    const onTheDay = await runJobOn([id], '2026-08-03');
+    const onTheDay = await runJobOn([id], START);
     expect(onTheDay.started).toBe(1);
     expect(onTheDay.transitions[0]).toMatchObject({
       kind: 'started',
@@ -171,22 +216,22 @@ describe('the daily job moves a program through its life', () => {
   });
 
   it('the week advances on a week boundary, and the job logs it', async () => {
-    const id = await seedAssignment({ startDate: '2026-08-03', status: 'active', currentWeek: 1 });
+    const id = await seedAssignment({ startDate: START, status: 'active', currentWeek: 1 });
 
-    const result = await runJobOn([id], '2026-08-17');
+    const result = await runJobOn([id], fromStart(14));
     expect(result.weekAdvanced).toBe(1);
     expect(result.transitions[0]).toMatchObject({ kind: 'week_advanced', week: 3 });
     expect((await readAssignment(id)).current_week).toBe(3);
   });
 
   it('active becomes completed the day after the end date, never on it', async () => {
-    const id = await seedAssignment({ startDate: '2026-08-03', status: 'active', currentWeek: 4 });
+    const id = await seedAssignment({ startDate: START, status: 'active', currentWeek: 4 });
 
-    const onLastDay = await runJobOn([id], '2026-08-30');
+    const onLastDay = await runJobOn([id], fromStart(27));
     expect(onLastDay.completed).toBe(0);
     expect((await readAssignment(id)).status).toBe('active');
 
-    const dayAfter = await runJobOn([id], '2026-08-31');
+    const dayAfter = await runJobOn([id], fromStart(28));
     expect(dayAfter.completed).toBe(1);
 
     const row = await readAssignment(id);
@@ -196,13 +241,13 @@ describe('the daily job moves a program through its life', () => {
   });
 
   it('is idempotent: a second run the same day changes nothing', async () => {
-    const id = await seedAssignment({ startDate: '2026-08-03', status: 'upcoming' });
+    const id = await seedAssignment({ startDate: START, status: 'upcoming' });
 
-    const first = await runJobOn([id], '2026-08-17');
+    const first = await runJobOn([id], fromStart(14));
     expect(first.started + first.weekAdvanced + first.completed).toBe(1);
     const afterFirst = await readAssignment(id);
 
-    const second = await runJobOn([id], '2026-08-17');
+    const second = await runJobOn([id], fromStart(14));
     expect(second.transitions).toEqual([]);
     expect(second.started + second.weekAdvanced + second.completed).toBe(0);
     expect(second.unchanged).toBe(1);
@@ -214,10 +259,10 @@ describe('the daily job moves a program through its life', () => {
   });
 
   it('records one lifecycle event per transition on the member’s own stream', async () => {
-    const id = await seedAssignment({ startDate: '2026-08-03', status: 'upcoming' });
-    await runJobOn([id], '2026-08-03');
-    await runJobOn([id], '2026-08-10');
-    await runJobOn([id], '2026-08-31');
+    const id = await seedAssignment({ startDate: START, status: 'upcoming' });
+    await runJobOn([id], START);
+    await runJobOn([id], fromStart(7));
+    await runJobOn([id], fromStart(28));
 
     const supabase = serviceRoleClient();
     const { data: events } = await supabase
@@ -248,15 +293,15 @@ describe('the daily job moves a program through its life', () => {
   });
 
   it('a completed program is out of the job’s working set forever', async () => {
-    const id = await seedAssignment({ startDate: '2026-08-03', status: 'active', currentWeek: 4 });
-    await runJobOn([id], '2026-08-31');
+    const id = await seedAssignment({ startDate: START, status: 'active', currentWeek: 4 });
+    await runJobOn([id], fromStart(28));
 
     const supabase = serviceRoleClient();
     const live = await listLiveAssignments(supabase);
     expect(live.map((row) => row.id)).not.toContain(id);
 
     // And it is still completed a year later, not revived.
-    await runJobOn([id], '2027-08-31');
+    await runJobOn([id], fromStart(393));
     expect((await readAssignment(id)).status).toBe('completed');
   });
 
@@ -270,7 +315,7 @@ describe('the daily job moves a program through its life', () => {
 describe('a coach pausing and resuming a program', () => {
   it('pause holds it, and the weeks stop advancing', async () => {
     const supabase = serviceRoleClient();
-    const id = await seedAssignment({ startDate: '2026-08-03', status: 'active', currentWeek: 1 });
+    const id = await seedAssignment({ startDate: START, status: 'active', currentWeek: 1 });
 
     expect(await pauseAssignment(supabase, id)).toBe(true);
     const paused = await readAssignment(id);
@@ -278,35 +323,35 @@ describe('a coach pausing and resuming a program', () => {
     expect(paused.paused_at).not.toBeNull();
 
     // The job leaves it exactly where it is, even months later.
-    const result = await runJobOn([id], '2026-12-01');
+    const result = await runJobOn([id], fromStart(120));
     expect(result.scanned).toBe(0);
     expect((await readAssignment(id)).current_week).toBe(1);
   });
 
   it('a program that is already finished or cancelled cannot be paused', async () => {
     const supabase = serviceRoleClient();
-    const done = await seedAssignment({ startDate: '2026-06-01', status: 'completed' });
-    const cancelled = await seedAssignment({ startDate: '2026-06-01', status: 'cancelled' });
+    const done = await seedAssignment({ startDate: fromStart(-63), status: 'completed' });
+    const cancelled = await seedAssignment({ startDate: fromStart(-63), status: 'cancelled' });
     expect(await pauseAssignment(supabase, done)).toBe(false);
     expect(await pauseAssignment(supabase, cancelled)).toBe(false);
   });
 
   it('resume gives back every day it was held, so four weeks is still four weeks', async () => {
     const supabase = serviceRoleClient();
-    const id = await seedAssignment({ startDate: '2026-08-03', status: 'active', currentWeek: 2 });
+    const id = await seedAssignment({ startDate: START, status: 'active', currentWeek: 2 });
 
-    // Held on 12 August, resumed on 26 August: fourteen days.
+    // Held on day nine, resumed on day twenty three: fourteen days.
     await supabase
       .from('coach_program_assignments')
-      .update({ status: 'paused', paused_at: '2026-08-12T09:00:00Z' })
+      .update({ status: 'paused', paused_at: `${fromStart(9)}T09:00:00Z` })
       .eq('id', id);
 
-    expect(await resumeAssignment(supabase, id, '2026-08-26')).toBe(true);
+    expect(await resumeAssignment(supabase, id, fromStart(23))).toBe(true);
 
     const row = await readAssignment(id);
     expect(row.status).toBe('active');
     expect(row.paused_days).toBe(14);
-    expect(row.end_date).toBe('2026-09-13'); // 2026-08-30 plus fourteen days
+    expect(row.end_date).toBe(fromStart(41)); // its last day plus fourteen
     expect(row.paused_at).toBeNull();
     expect(row.resumed_at).not.toBeNull();
     // Two weeks of program elapsed, not four: she is in week 2.
@@ -315,19 +360,19 @@ describe('a coach pausing and resuming a program', () => {
 
   it('only a paused program can be resumed', async () => {
     const supabase = serviceRoleClient();
-    const active = await seedAssignment({ startDate: '2026-08-03', status: 'active' });
-    expect(await resumeAssignment(supabase, active, '2026-08-10')).toBe(false);
+    const active = await seedAssignment({ startDate: START, status: 'active' });
+    expect(await resumeAssignment(supabase, active, fromStart(7))).toBe(false);
   });
 
   it('a program paused before it started resumes as upcoming', async () => {
     const supabase = serviceRoleClient();
-    const id = await seedAssignment({ startDate: '2026-09-07', status: 'upcoming' });
+    const id = await seedAssignment({ startDate: fromStart(35), status: 'upcoming' });
     expect(await pauseAssignment(supabase, id)).toBe(true);
     await supabase
       .from('coach_program_assignments')
-      .update({ paused_at: '2026-08-20T09:00:00Z' })
+      .update({ paused_at: `${fromStart(17)}T09:00:00Z` })
       .eq('id', id);
-    expect(await resumeAssignment(supabase, id, '2026-08-21')).toBe(true);
+    expect(await resumeAssignment(supabase, id, fromStart(18))).toBe(true);
     expect((await readAssignment(id)).status).toBe('upcoming');
   });
 });
@@ -335,8 +380,8 @@ describe('a coach pausing and resuming a program', () => {
 describe('replacing a program keeps its lineage and never deletes it', () => {
   it('the old program becomes replaced and points at its successor', async () => {
     const supabase = serviceRoleClient();
-    const older = await seedAssignment({ startDate: '2026-07-06', status: 'active', currentWeek: 3 });
-    const successor = await seedAssignment({ startDate: '2026-08-03', status: 'active' });
+    const older = await seedAssignment({ startDate: fromStart(-28), status: 'active', currentWeek: 3 });
+    const successor = await seedAssignment({ startDate: START, status: 'active' });
 
     const superseded = await replacePreviousAssignments(supabase, {
       memberId: MEMBER,
@@ -351,7 +396,7 @@ describe('replacing a program keeps its lineage and never deletes it', () => {
     expect(oldRow.replaced_at).not.toBeNull();
     // Its own record survives untouched.
     expect(oldRow.current_week).toBe(3);
-    expect(oldRow.start_date).toBe('2026-07-06');
+    expect(oldRow.start_date).toBe(fromStart(-28));
 
     // The successor is untouched.
     expect((await readAssignment(successor)).status).toBe('active');
@@ -360,9 +405,9 @@ describe('replacing a program keeps its lineage and never deletes it', () => {
   it('a program delivered as several weekly sessions never replaces itself', async () => {
     const supabase = serviceRoleClient();
     const group = `corrective-program:${crypto.randomUUID()}`;
-    const sessionA = await seedAssignment({ startDate: '2026-08-03', status: 'active', groupKey: group });
-    const sessionB = await seedAssignment({ startDate: '2026-08-03', status: 'active', groupKey: group });
-    const sessionC = await seedAssignment({ startDate: '2026-08-03', status: 'active', groupKey: group });
+    const sessionA = await seedAssignment({ startDate: START, status: 'active', groupKey: group });
+    const sessionB = await seedAssignment({ startDate: START, status: 'active', groupKey: group });
+    const sessionC = await seedAssignment({ startDate: START, status: 'active', groupKey: group });
 
     const superseded = await replacePreviousAssignments(supabase, {
       memberId: MEMBER,
@@ -380,8 +425,8 @@ describe('replacing a program keeps its lineage and never deletes it', () => {
 
   it('a program that already finished is left in its history, not re-marked replaced', async () => {
     const supabase = serviceRoleClient();
-    const finished = await seedAssignment({ startDate: '2026-06-01', status: 'completed' });
-    const successor = await seedAssignment({ startDate: '2026-08-03', status: 'active' });
+    const finished = await seedAssignment({ startDate: fromStart(-63), status: 'completed' });
+    const successor = await seedAssignment({ startDate: START, status: 'active' });
 
     const superseded = await replacePreviousAssignments(supabase, {
       memberId: MEMBER,
@@ -397,7 +442,7 @@ describe('frozen snapshots stay frozen across every transition', () => {
   it('the workout, its sections and its exercises are identical before and after', async () => {
     const supabase = serviceRoleClient();
     const assignmentId = await seedAssignment({
-      startDate: '2026-08-03',
+      startDate: START,
       status: 'upcoming',
       name: 'Snapshot immutability program',
     });
@@ -408,7 +453,7 @@ describe('frozen snapshots stay frozen across every transition', () => {
         assignment_id: assignmentId,
         member_id: MEMBER,
         coach_id: COACH,
-        scheduled_date: '2026-08-03',
+        scheduled_date: START,
         template_name: 'Snapshot immutability program',
         published_at: new Date().toISOString(),
       })
@@ -451,16 +496,16 @@ describe('frozen snapshots stay frozen across every transition', () => {
     const before = { workout: workout!, section: section!, exercise: exercise! };
 
     // Every lifecycle transition there is, in sequence.
-    await runJobOn([assignmentId], '2026-08-03'); // started
-    await runJobOn([assignmentId], '2026-08-10'); // week advanced
+    await runJobOn([assignmentId], START); // started
+    await runJobOn([assignmentId], fromStart(7)); // week advanced
     await pauseAssignment(supabase, assignmentId);
-    await resumeAssignment(supabase, assignmentId, '2026-08-11');
+    await resumeAssignment(supabase, assignmentId, fromStart(8));
     await supabase
       .from('coach_program_assignments')
-      .update({ end_date: '2026-08-12' })
+      .update({ end_date: fromStart(9) })
       .eq('id', assignmentId);
-    await runJobOn([assignmentId], '2026-08-13'); // completed
-    const successor = await seedAssignment({ startDate: '2026-08-14', status: 'active' });
+    await runJobOn([assignmentId], fromStart(10)); // completed
+    const successor = await seedAssignment({ startDate: fromStart(11), status: 'active' });
     await replacePreviousAssignments(supabase, {
       memberId: MEMBER,
       newAssignmentIds: [successor],
@@ -491,37 +536,37 @@ describe('what the member can read, per status', () => {
 
   beforeAll(async () => {
     seeded.active = await seedAssignment({
-      startDate: addDays(new Date().toISOString().slice(0, 10), -8),
+      startDate: START,
       status: 'active',
       currentWeek: 2,
       name: 'Visible active program',
     });
     seeded.upcoming = await seedAssignment({
-      startDate: addDays(new Date().toISOString().slice(0, 10), 7),
+      startDate: day(7),
       status: 'upcoming',
       name: 'Visible upcoming program',
     });
     seeded.paused = await seedAssignment({
-      startDate: addDays(new Date().toISOString().slice(0, 10), -8),
+      startDate: START,
       status: 'paused',
       currentWeek: 2,
       name: 'Visible paused program',
     });
     seeded.completed = await seedAssignment({
-      startDate: '2026-01-05',
+      startDate: day(-210),
       status: 'completed',
       currentWeek: 4,
       name: 'Visible completed program',
     });
     seeded.draft = await seedAssignment({
-      startDate: '2026-08-03',
+      startDate: START,
       status: 'active',
       visibility: 'draft',
       name: 'Unpublished program',
     });
     seeded.otherMember = await seedAssignment({
       memberId: OTHER_MEMBER,
-      startDate: '2026-08-03',
+      startDate: START,
       status: 'active',
       name: 'Another member’s program',
     });
@@ -613,12 +658,12 @@ describe('what the member can read, per status', () => {
 describe('the coach reads true statuses', () => {
   it('getAssignmentLifecycle returns the lifecycle columns for a coach', async () => {
     const supabase = serviceRoleClient();
-    const id = await seedAssignment({ startDate: '2026-08-03', status: 'active', currentWeek: 2 });
+    const id = await seedAssignment({ startDate: START, status: 'active', currentWeek: 2 });
     const row = await getAssignmentLifecycle(supabase, id);
     expect(row).toMatchObject({
       status: 'active',
-      start_date: '2026-08-03',
-      end_date: '2026-08-30',
+      start_date: START,
+      end_date: fromStart(27),
       duration_weeks: 4,
       current_week: 2,
     });
@@ -627,7 +672,7 @@ describe('the coach reads true statuses', () => {
   it('a coach sees a member’s completed and replaced programs in history, with their dates', async () => {
     const coachClient = await signInAs(TEST_USERS.coachOne);
     const completed = await seedAssignment({
-      startDate: '2026-02-02',
+      startDate: fromStart(-182),
       status: 'completed',
       currentWeek: 4,
       name: 'Coach history program',
@@ -641,8 +686,8 @@ describe('the coach reads true statuses', () => {
 
     expect(data).toMatchObject({
       status: 'completed',
-      start_date: '2026-02-02',
-      end_date: '2026-03-01',
+      start_date: fromStart(-182),
+      end_date: fromStart(-155),
       current_week: 4,
     });
   });

@@ -194,7 +194,9 @@ exactly the same kind** on the experiment follow-up path. All four are
 named now, and the test reads the selector's own source rather than a
 list, so a fifth is caught instead of crashing a coach's page.
 
-**BUG THREE, also pre-existing.** `tests/program-lifecycle-integration.ts`
+**BUG THREE, also pre-existing** (and a second, different rot in the same
+file was fixed on 2026-09-11, see "The program lifecycle fixtures are
+anchored to today"). `tests/program-lifecycle-integration.ts`
 computed "today" with `new Date().toISOString().slice(0, 10)`, the exact
 thing the standing rule forbids. After 20:00 in New York that is already
 tomorrow in UTC, so from 8pm every evening it called a program ending
@@ -361,6 +363,53 @@ introduced by them, but it is live now and the next person to push
 migrations will hit it. The repair is to record 220 through 223 as applied
 without running them. It has not been done, because inserting rows into
 another tool's bookkeeping table on production is Osei's call to make.
+
+## The program lifecycle fixtures are anchored to today (2026-09-11)
+
+`tests/program-lifecycle-integration.test.ts` had been failing since the
+real date passed 2026-08-30. It was not a lifecycle bug and not a flaky
+test. Every fixture in the file was a literal day in August 2026.
+
+**Each test was self-contained and right.** It seeded a program starting
+2026-08-03 and ran the job on a day it supplied itself, so the real
+calendar never entered into it. What was not self-contained was the ROWS.
+They belong to the same member for the whole file, and "what the member can
+read, per status" reads every program she has through the real
+`member_program_lifecycle` view, not only the four that block seeded. Once
+the real date passed the August end dates, a dozen rows left `active` by
+earlier tests were active with an end date in the past, which is exactly
+the stale program that view is supposed to never show. The assertion was
+working perfectly. The fixtures had rotted underneath it.
+
+**Anchored at the root rather than narrowed.** The alternative was to scope
+that one assertion to the rows its own block seeded, which would have been
+a lie: a member really does see all of her programs, and a stale one really
+would be a bug worth failing on. Instead the whole file now counts from
+`TODAY`, with `START` eight days ago and every other date expressed as
+`fromStart(n)` or `day(n)`. The RELATIONSHIPS between the dates, which is
+all any of these tests were ever about, are untouched. Zero date literals
+remain in the file.
+
+**And the day comes from `todaysLocalDate`, not `new Date()`.** Three
+fixtures read `new Date().toISOString().slice(0, 10)`, the same standing
+rule violation the comment inside that very file already describes for the
+assertion below them. The job runs against America/New_York, so that is the
+zone the file counts days in.
+
+**Proved across nine calendar alignments, not just today.** The suite was
+re-run with the anchor moved to +3, +17, +60, +91, +150, +181, +273, +400
+and +1000 days, which rotates the weekday a weekly schedule starts on,
+crosses both US daylight saving boundaries and spans February and the
+31-day months. 25 of 25 every time.
+
+**And the assertion is not vacuous.** Moving the anchor 200 days BACKWARDS
+fails on exactly the stale-active test and nothing else, which is the
+original bug reproduced on demand: fixtures fixed in the past while today
+moves forward. That is the only one of the ten runs that could fail, and it
+is the one that should.
+
+Full suite 556 files, 10,418 tests, all passing. Typecheck clean, lint 0
+errors, production build clean.
 
 ## The hero headline is set in capitals (2026-09-08)
 
