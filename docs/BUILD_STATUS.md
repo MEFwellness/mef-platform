@@ -96,14 +96,23 @@ still applied long after the animation is over.
 `items-center` frame puts the top of a tall card above the top of the
 screen and its buttons below the bottom, both unreachable.
 
+**AND `fixed inset-0` IS NOT THE VISIBLE VIEWPORT ON iOS EITHER.** Safari
+resolves it against the LARGE viewport, the one with the URL bar hidden,
+so a plain `inset-0` box is taller than what she can see and a card
+centred in it sits partly behind Safari's own bottom bar. This app already
+had the answer, `.mef-modal-viewport` (100dvh with a 100vh fallback plus
+safe-area padding, already used by the sign-out confirmation, the push
+permission ask and the Start Over control), and the pop-up chain had never
+been given it.
+
 `components/ui/ModalOverlay.tsx` is now the one frame every pop-up is
 drawn in: portalled to `document.body` so nothing in the page tree can
-capture it, a fixed backdrop so a scrolled card still has the dimmed page
-behind it, `overflow-y-auto` over `min-h-full` so a short card is centred
-exactly as before and a tall one scrolls, and safe-area padding. Applied
-to all five: the Root message chain (three frames), the Reset Plan
-pop-up, the Weekly Review pop-up, the Priority Card pop-up and the
-wearable welcome modal.
+capture it, framed in `.mef-modal-viewport` so "the viewport" means the
+part she can see, a fixed backdrop so a scrolled card still has the dimmed
+page behind it, and `overflow-y-auto` over `min-h-full` so a short card is
+centred exactly as before and a tall one scrolls. Applied to all five: the
+Root message chain (three frames), the Reset Plan pop-up, the Weekly
+Review pop-up, the Priority Card pop-up and the wearable welcome modal.
 
 ### THE SURVEY INTRO MOVES AGAIN
 
@@ -161,6 +170,46 @@ just refused. That takes as long as a round trip, so it now gets
 RETRY_TOPUP_WAIT_MS rather than a second full window. The FIRST ask still
 gets all eight seconds, because a real member on a genuinely slow phone
 needs every one of them.
+
+### WHAT THE LIVE RUN SAID, ON app.mefwellness.com
+
+`scripts/verify-questionnaire-polish-live.mjs`, phone viewport, 27 of 27,
+and it put back every row it made (checked by an independent read after
+the walk):
+
+    the pop-up, on a 390x844 and on a 320x568   portalled to <body>, fully
+                                                 inside the phone, top
+                                                 reachable, every button a
+                                                 real tap target
+    the intro headline                           part typed at 48ms, whole
+                                                 at 448ms, Begin 22ms later
+    eleven section beats                         check, both lines and the
+                                                 gold line all present in
+                                                 the FIRST frame, sampled
+                                                 26 to 31ms after the tap,
+                                                 no delays, nothing moved
+    the results screen                           eleven bars, every one
+                                                 fully grown, headline,
+                                                 legend, the system names
+                                                 revealed, a way out
+    console errors across the whole walk         none
+
+Measured, same rig both sides:
+
+    Cloudflare's script requested   1593-1640ms  ->  269-549ms
+    a bot check refusal admitted       ~17.2s    ->    ~11.6s
+    a Continue on the survey        median 1311  ->  median 1068ms
+                                       min  950  ->     min 731ms
+
+**WHAT COULD NOT BE TESTED, AND WHY THAT IS NOT A FAILURE.** Five real
+sign-ins were attempted against the live form in headed Chrome. Turnstile
+refused all five, which is what it is for: a scripted browser filling in
+the login form is exactly the thing it exists to stop, and CLAUDE.md says
+never to report that as a test failure. So the end-to-end sign-in of a
+real person on a real phone is not something this run can prove. What it
+can and does prove is the part the app controls: the challenge now starts
+roughly 1.2 seconds earlier, and a refusal is admitted in eleven seconds
+rather than seventeen.
 
 ### WHAT NOW HOLDS IT
 

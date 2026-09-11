@@ -95,10 +95,19 @@ describe('a pop-up is positioned against the phone, not against whatever it inte
     expect(overlay.parentElement).toBe(document.body);
   });
 
-  it('covers the viewport', () => {
+  it('covers the viewport she can actually see, not the one Safari pretends to have', () => {
     const overlay = renderInsideATransformedCard();
-    expect(overlay.className).toContain('fixed');
-    expect(overlay.className).toContain('inset-0');
+    // `.mef-modal-viewport` is 100dvh with a 100vh fallback plus safe-area
+    // padding (app/globals.css). A bare `inset-0` resolves against iOS
+    // Safari's LARGE viewport, so a centred card sits partly behind its
+    // own bottom bar. Same class the sign-out confirmation, the push ask
+    // and the Start Over control are already drawn in.
+    expect(overlay.className).toContain('mef-modal-viewport');
+    const css = read('app/globals.css');
+    const rule = css.slice(css.indexOf('.mef-modal-viewport {'));
+    expect(rule).toContain('position: fixed');
+    expect(rule).toContain('100dvh');
+    expect(rule).toContain('safe-area-inset-bottom');
   });
 
   it('backs the whole viewport, not just the first screenful of a tall card', () => {
@@ -126,10 +135,14 @@ describe('a pop-up is positioned against the phone, not against whatever it inte
 
   it('keeps clear of the notch and the home indicator', () => {
     const overlay = renderInsideATransformedCard();
-    const centring = overlay.querySelector('[data-testid="modal-overlay-frame"]')!
-      .firstElementChild as HTMLElement;
-    expect(centring.style.paddingTop).toContain('safe-area-inset-top');
-    expect(centring.style.paddingBottom).toContain('safe-area-inset-bottom');
+    // Carried by `.mef-modal-viewport` itself rather than re-declared
+    // here, so there is one answer to "where are the phone's edges".
+    expect(overlay.className).toContain('mef-modal-viewport');
+    const css = read('app/globals.css');
+    const start = css.indexOf('.mef-modal-viewport {');
+    const rule = css.slice(start, css.indexOf('}', start));
+    expect(rule).toContain('safe-area-inset-top');
+    expect(rule).toContain('safe-area-inset-bottom');
   });
 
   it('renders the message it was given', () => {

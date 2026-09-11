@@ -55,8 +55,17 @@
  * `overscroll-contain` keeps that scroll from chaining to the page under
  * it.
  *
- * IT RESPECTS THE PHONE'S OWN EDGES. `env(safe-area-inset-*)` on the
- * padding, so nothing lands under a notch or a home indicator.
+ * AND THE FRAME IS `.mef-modal-viewport`, NOT A BARE `inset-0`. iOS
+ * Safari resolves `position: fixed` against the LARGE viewport, the one
+ * with the URL bar hidden, so a plain `inset-0` box is TALLER than what
+ * she can actually see and a card centred inside it sits partly behind
+ * Safari's own bottom bar. That is the third way this same pop-up could
+ * end up with its buttons out of reach, and this app already had the fix
+ * for it: `.mef-modal-viewport` in app/globals.css is `100dvh` with a
+ * `100vh` fallback plus safe-area padding, and it is what the sign-out
+ * confirmation, the push permission ask and the Start Over control are
+ * already drawn in. One class, five more callers, no sixth idea about
+ * what "the viewport" means.
  *
  * NOTHING IS RENDERED BEFORE MOUNT. `createPortal` needs a real document,
  * so this returns null on the server and on the first client tick. Every
@@ -92,21 +101,16 @@ export function ModalOverlay({
   if (!mounted || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className={`fixed inset-0 ${zIndexClassName}`} data-testid={testId ?? 'modal-overlay'}>
+    <div
+      className={`mef-modal-viewport ${zIndexClassName}`}
+      data-testid={testId ?? 'modal-overlay'}
+    >
       <div className={`fixed inset-0 ${backdropClassName}`} aria-hidden="true" />
       <div
         className="relative h-full w-full overflow-y-auto overscroll-contain"
         data-testid="modal-overlay-frame"
       >
-        <div
-          className="flex min-h-full items-center justify-center p-5"
-          style={{
-            paddingTop: 'max(1.25rem, env(safe-area-inset-top))',
-            paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))',
-          }}
-        >
-          {children}
-        </div>
+        <div className="flex min-h-full items-center justify-center px-5">{children}</div>
       </div>
     </div>,
     document.body
