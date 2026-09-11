@@ -85,13 +85,15 @@ export function BodySystemsPanel({ state }: { state: CoachBodySystemsPanelState 
     if (!selected) return null;
     const index = state.sessions.findIndex((session) => session.id === selected.id);
     const older = state.sessions[index + 1];
-    return older && older.results ? older : null;
+    // A sitting with no stored branch or no stored results cannot be read,
+    // so it is not compared against either. Nothing is invented for it.
+    return older && older.results && older.branch ? { ...older, branch: older.branch } : null;
   }, [selected, state.sessions]);
 
   const content = state.content;
 
   const view = useMemo(() => {
-    if (!content || !selected?.results) return null;
+    if (!content || !selected?.results || !selected.branch) return null;
     return buildCoachReadingView({
       sections: content.sections,
       questions: content.questions,

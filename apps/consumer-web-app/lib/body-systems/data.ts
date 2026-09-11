@@ -34,7 +34,8 @@ export type BodySystemsSessionRecord = {
   id: string;
   assignmentId: string | null;
   contentVersion: number;
-  branch: BodySystemsBranch;
+  /** Null while she is still in the ten sections everybody answers. */
+  branch: BodySystemsBranch | null;
   answers: BodySystemsAnswers;
   redFlagAnswers: BodySystemsRedFlagAnswers;
   results: BodySystemsResults | null;
@@ -49,7 +50,7 @@ type SessionRow = {
   id: string;
   assignment_id: string | null;
   content_version: number;
-  branch: string;
+  branch: string | null;
   answers: unknown;
   red_flag_answers: unknown;
   results: unknown;
@@ -114,7 +115,7 @@ function fromRow(row: SessionRow): BodySystemsSessionRecord {
     id: row.id,
     assignmentId: row.assignment_id,
     contentVersion: row.content_version,
-    branch: row.branch === 'b' ? 'b' : 'a',
+    branch: row.branch === 'a' || row.branch === 'b' ? row.branch : null,
     answers: readAnswers(row.answers),
     redFlagAnswers: readRedFlagAnswers(row.red_flag_answers),
     results: readResults(row.results),
@@ -210,7 +211,8 @@ export async function fetchBodySystemsSessionForAssignment(
 
 export type ProgressWrite = {
   assignmentId: string;
-  branch: BodySystemsBranch;
+  /** Null until she has answered the branch question on section eleven. */
+  branch: BodySystemsBranch | null;
   answers: BodySystemsAnswers;
   redFlagAnswers: BodySystemsRedFlagAnswers;
   stepIndex: number;
@@ -292,6 +294,8 @@ export async function completeBodySystemsSession(
   memberId: string,
   params: {
     sessionId: string;
+    /** Never null here. A sitting cannot be completed without an answered branch question. */
+    branch: BodySystemsBranch;
     answers: BodySystemsAnswers;
     redFlagAnswers: BodySystemsRedFlagAnswers;
     results: BodySystemsResults;
@@ -301,6 +305,7 @@ export async function completeBodySystemsSession(
   const { data, error } = await supabase
     .from('member_body_systems_sessions')
     .update({
+      branch: params.branch,
       answers: params.answers,
       red_flag_answers: params.redFlagAnswers,
       results: params.results,

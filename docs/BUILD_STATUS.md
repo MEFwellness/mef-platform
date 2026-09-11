@@ -155,10 +155,63 @@ identical.
 Full suite 555 files, 10,408 tests, all passing. Typecheck clean, lint 0
 errors, production build clean.
 
+### A REAL SIGNED-IN WALK, AND THE THREE THINGS IT FOUND
+
+`scripts/verify-body-systems-live.mjs` drives the whole journey against a
+running app: the assignment arriving, the intro, all eleven sections
+including the branch question, a Does not apply to me tap, a real
+mid-survey close and resume, all six red flag screens with one genuine
+Level 2 Yes, the results, what actually landed in the database, the
+coach's panel, and a second sitting answered quieter with both sides of
+the comparison read back. It is parameterised by environment variables so
+the identical walk runs against production the moment migrations 220 to
+222 are applied there.
+
+**70 of 70 checks passing against the local database**, zero console or
+page errors, zero em dashes on every screen either account saw, and the
+teardown confirmed absent by an independent read.
+
+**BUG ONE, in this build, and no test could see it.** The branch question
+is the first thing on section eleven, so a member on section one has
+genuinely not chosen a branch yet. The question filter read that
+not-yet-chosen branch directly and returned nothing, so a first-time
+member got **ten empty sections and a Continue that did nothing**. Ten of
+the eleven sections ask everybody the identical questions, so the filter
+now uses a render-only default; section eleven still refuses to move until
+she has really tapped one of the two, and nothing writes a branch onto her
+profile until she has. The sitting's `branch` column became nullable for
+exactly that window, because defaulting it to 'a' would have written a
+decision she had not made into a row her profile then remembers.
+
+**BUG TWO, and it was not this feature's.** The coach's client detail page
+**crashed outright**, to the error screen, for any client the Root
+coaching engine had put on a focused investigation or a reassessment.
+`lib/root-coaching-engine/selector.ts` has written two source states since
+the coaching engine was built and neither had a name in
+`lib/naming/displayNames.ts`, so `displayName()` threw while the page was
+rendering. The guard test written for those two then found **two more of
+exactly the same kind** on the experiment follow-up path. All four are
+named now, and the test reads the selector's own source rather than a
+list, so a fifth is caught instead of crashing a coach's page.
+
+**BUG THREE, also pre-existing.** `tests/program-lifecycle-integration.ts`
+computed "today" with `new Date().toISOString().slice(0, 10)`, the exact
+thing the standing rule forbids. After 20:00 in New York that is already
+tomorrow in UTC, so from 8pm every evening it called a program ending
+today stale and failed on a lifecycle that was working perfectly. It now
+reads her own calendar day through the shared helper.
+
+`tests/body-systems-live-regressions.test.tsx` holds bugs one and two
+down, and both were proved by deleting the fix.
+
 ### MIGRATIONS 220, 221 AND 222 ARE NOT YET ON PRODUCTION
 
 Applied and verified against the local database only. They are listed in
-the build report for Osei to run, in order, before any live check.
+the build report for Osei to run, in order, before any live check. The
+code is deployed ahead of them and is inert without them: every read fails
+soft and the survey is simply not offered. The one visible edge is the
+coach's Assign button on its status row, which cannot write an assignment
+for a definition that does not exist yet.
 
 ## The hero headline is set in capitals (2026-09-08)
 

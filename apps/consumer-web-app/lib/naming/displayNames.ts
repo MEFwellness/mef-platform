@@ -221,6 +221,31 @@ const COACHING_TOPIC_SOURCE_STATE: Readonly<Record<string, string>> = {
   recurring_pattern: 'Keeps recurring',
   experiment_unsuccessful: 'An experiment that did not land',
   experiment_successful: 'An experiment that worked',
+  /*
+    THE TWO THE ROOT ROUTER WRITES, which were missing and crashed the
+    coach's client detail page outright (found 2026-09-10 by driving the
+    real app, not by any test).
+
+    lib/root-coaching-engine/selector.ts has written these two source
+    states since the coaching engine was built, and neither had a name
+    here, so displayName() threw rather than returning a word. That throw
+    happens while the page is rendering, so a coach whose client had a
+    router-selected topic got the error screen and no client detail at all,
+    with nothing on it saying why. Nothing about it is specific to the
+    member: any client the router put on a focused investigation or a
+    reassessment reached it.
+  */
+  router_focused_investigation: 'Something Root suggested looking at more closely',
+  router_reassessment: 'Something worth asking again',
+  /*
+    AND THE TWO THE EXPERIMENT FOLLOW-UP WRITES, missing for exactly the
+    same reason and with exactly the same consequence. Found by the guard
+    test written for the two above, which reads the selector's own source
+    rather than a list, so a fifth source state added later is caught the
+    same way instead of crashing a coach's page.
+  */
+  experiment_expired_no_reflection: 'An experiment that ran out without being closed',
+  experiment_active_midpoint: 'An experiment halfway through',
 };
 
 const MOVEMENT_PROFILE_REVIEW_STATUS: Readonly<Record<string, string>> = {

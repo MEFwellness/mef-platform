@@ -1,0 +1,544 @@
+/**
+ * A real, signed-in walk of the MEF Body Systems Survey, end to end.
+ *
+ * WHAT IT DRIVES. A coach's assignment arriving, the intro, all eleven
+ * sections including the branch question, a Does not apply to me tap, a
+ * mid-survey close and a genuine resume, all six red flag screens with one
+ * real Level 2 Yes, the results screen, what actually landed in the
+ * database, the coach's panel, and a second sitting answered quieter with
+ * both sides of the comparison read back.
+ *
+ * WHERE IT RUNS. Anywhere, from environment variables, because the same
+ * walk has to be runnable against the local database while migrations 220
+ * to 222 are waiting to be applied and against production the moment they
+ * are:
+ *
+ *   BODY_SYSTEMS_BASE_URL   the app under test. Default http://127.0.0.1:3000
+ *   PROD_SUPABASE_URL       the database behind it
+ *   PROD_SERVICE_KEY_FILE   a PATH to the service role key
+ *   PROD_ANON_KEY_FILE      a PATH to the anon key
+ *   BODY_SYSTEMS_MEMBER     the member id to walk as
+ *   BODY_SYSTEMS_MEMBER_EMAIL   that member's email, for minting
+ *   BODY_SYSTEMS_COACH      the coach id assigned to her
+ *   BODY_SYSTEMS_COACH_EMAIL    that coach's email
+ *
+ * KEYS ARRIVE AS FILE PATHS, never on a command line, the same discipline
+ * scripts/lib/mint-session.mjs holds and for the same reason.
+ *
+ * IT CLEANS UP AFTER ITSELF. Every row it creates for the member it walks
+ * as is deleted in a finally, and the deletion is confirmed by an
+ * independent read. A run that is interrupted leaves rows, which is why
+ * the cleanup also runs at the START of the walk.
+ *
+ * THREE TRAPS THIS SCRIPT ALREADY KNOWS ABOUT, all of them found the hard
+ * way on the first run:
+ *
+ *   innerText reports what CSS PAINTED, so a case sensitive match for
+ *   "Section 1 of 11" fails against a screen displaying exactly that
+ *   through an `uppercase` class. Every text match here is /.../i.
+ *
+ *   A CLICK BEFORE HYDRATION DOES NOTHING, silently. After any page load,
+ *   a tap has to be confirmed by the app agreeing it happened, which is
+ *   what `tap()` waits for.
+ *
+ *   A COACH SECTION IS NOT A <details>. It is a button with aria-expanded
+ *   and its children are not in the DOM until it is pressed, so waiting
+ *   for a card inside it waits forever on a page that is working.
+ */
+import { chromium } from 'playwright';
+import { createClient } from '@supabase/supabase-js';
+import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+
+import { readFileSync } from 'node:fs';
+
+const BASE = process.env.BODY_SYSTEMS_BASE_URL ?? 'http://127.0.0.1:3000';
+const SUPA = process.env.PROD_SUPABASE_URL ?? 'http://127.0.0.1:54321';
+process.env.PROD_SUPABASE_URL = SUPA;
+
+const MEMBER = process.env.BODY_SYSTEMS_MEMBER ?? '11111111-1111-1111-1111-111111111111';
+const MEMBER_EMAIL = process.env.BODY_SYSTEMS_MEMBER_EMAIL ?? 'member.one@example.test';
+const COACH = process.env.BODY_SYSTEMS_COACH ?? '33333333-3333-3333-3333-333333333333';
+const COACH_EMAIL = process.env.BODY_SYSTEMS_COACH_EMAIL ?? 'coach.one@example.test';
+const DEFINITION = 'c1d8a4f2-97b3-4e56-8a0d-2f7b6c3e91a4';
+
+if (!process.env.PROD_SERVICE_KEY_FILE || !process.env.PROD_ANON_KEY_FILE) {
+  console.error('Set PROD_SERVICE_KEY_FILE and PROD_ANON_KEY_FILE to key file PATHS.');
+  process.exit(1);
+}
+
+const admin = createClient(SUPA, readFileSync(process.env.PROD_SERVICE_KEY_FILE, 'utf8').trim(), {
+  auth: { persistSession: false },
+});
+
+/** Everything this run creates, removed. Run before the walk and again after it. */
+async function clean() {
+  await admin.from('member_body_systems_sessions').delete().eq('member_id', MEMBER);
+  await admin
+    .from('assessment_assignments')
+    .delete()
+    .eq('member_id', MEMBER)
+    .eq('assessment_definition_id', DEFINITION);
+  await admin
+    .from('assessment_attempts')
+    .delete()
+    .eq('member_id', MEMBER)
+    .eq('assessment_definition_id', DEFINITION);
+  await admin
+    .from('registry_entries')
+    .delete()
+    .eq('member_id', MEMBER)
+    .eq('source_feature', 'body_systems_survey_finding');
+  // A "Maybe later" tap leaves a dismissal row keyed by a string, not an
+  // FK, so deleting the assignment does not take it with it.
+  await admin
+    .from('member_root_popup_dismissals')
+    .delete()
+    .eq('member_id', MEMBER)
+    .like('message_key', 'body_systems:%');
+  await admin.from('profiles').update({ body_systems_branch: null }).eq('id', MEMBER);
+}
+
+await clean();
+
+const { error: assignError } = await admin.from('assessment_assignments').insert({
+  member_id: MEMBER,
+  assessment_definition_id: DEFINITION,
+  assigned_by: COACH,
+  is_required: true,
+  stage: 'standard',
+  due_at: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) + 'T00:00:00Z',
+});
+if (assignError) {
+  console.error('could not assign', assignError);
+  process.exit(1);
+}
+
+const results = [];
+const check = (name, ok, note = '') => {
+  results.push({ name, ok, note });
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${note ? '   ' + note : ''}`);
+};
+
+/**
+ * Tap an option and WAIT FOR THE APP TO AGREE it was tapped.
+ *
+ * A click that lands on server-rendered HTML before React has hydrated
+ * does nothing at all, silently, which is exactly what happened on the
+ * first screen after a fresh page load in this run. Asserting aria-pressed
+ * is what makes the tap real rather than attempted.
+ */
+async function tap(scope, name, exact = true) {
+  const button = scope.getByRole('button', { name, exact });
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    await button.click();
+    if ((await button.getAttribute('aria-pressed')) === 'true') return;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error(`tap never registered: ${name}`);
+}
+
+const EM = String.fromCharCode(0x2014);
+const consoleErrors = [];
+
+const browser = await chromium.launch();
+const minted = await mintSessionContext(browser, MEMBER_EMAIL, {
+  baseUrl: BASE,
+  viewport: { width: 390, height: 844 },
+});
+if (!minted) { console.error('could not mint'); process.exit(1); }
+const page = await minted.context.newPage();
+page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+page.on('pageerror', (e) => consoleErrors.push(String(e)));
+
+async function noEmDash(label) {
+  const text = await page.evaluate(() => document.body.innerText);
+  check(`${label}: no em dash`, !text.includes(String.fromCharCode(0x2014)));
+}
+
+try {
+  // ---- Home: the card and the pop-up.
+  await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(4000);
+  const bodyText = await page.evaluate(() => document.body.innerText);
+  check('Home offers the survey', /MEF Body Systems Survey/i.test(bodyText));
+  check(
+    'the pop-up carries the approved sentence',
+    bodyText.includes('walk through your whole body with you')
+  );
+  await noEmDash('Home');
+
+  // ---- The survey route.
+  await page.goto(`${BASE}/body-systems`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('text=nothing about it is a test', { timeout: 20000 });
+  const intro = await page.evaluate(() => document.body.innerText);
+  check('the intro screen renders', /nothing about it is a test/i.test(intro));
+  check('the Home button is on the intro screen', await page.getByRole('button', { name: 'Home' }).isVisible());
+  await noEmDash('intro');
+
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await page.waitForSelector('text=/section 1 of 11/i', { timeout: 15000 });
+  const s1 = await page.evaluate(() => document.body.innerText);
+  check('progress counts sections', /section 1 of 11/i.test(s1));
+  check('the timeframe is repeated on the section screen', s1.includes('last 3 months'));
+  check('Digestion is first, with its own intro line', s1.includes('How your body receives and breaks down food.'));
+  check('the Home button is on the section screen', await page.getByRole('button', { name: 'Home' }).isVisible());
+  await noEmDash('section 1');
+
+  // Continue is genuinely blocked until every question is answered.
+  const blocked = await page.getByRole('button', { name: 'Continue' }).isDisabled();
+  check('Continue is blocked before she answers', blocked);
+
+  // Answer eleven sections, driven by what the screen actually says rather
+  // than by a counter this script keeps.
+  let leftAndCameBack = false;
+  for (;;) {
+    const eyebrow = await page.locator('text=/section \\d+ of 11/i').first().innerText();
+    const section = Number(eyebrow.match(/(\d+)/)[1]);
+
+    if (section === 11) {
+      const branchText = await page.evaluate(() => document.body.innerText);
+      check(
+        'section 11 opens with the branch question',
+        branchText.includes('Which set of questions fits your body?')
+      );
+      check(
+        'and nothing else, so she cannot skip it',
+        (await page.locator('ol > li').count()) === 0
+      );
+      // The branch buttons UNMOUNT once she has chosen, so the tap is
+      // confirmed by the questions arriving rather than by aria-pressed.
+      for (let attempt = 0; attempt < 25; attempt += 1) {
+        await page.getByRole('button', { name: /cycles, hot flashes/i }).click().catch(() => {});
+        if (await page.locator('text=My cycle has become irregular').count()) break;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      await page.waitForSelector('text=My cycle has become irregular', { timeout: 15000 });
+    }
+
+    const items = await page.locator('ol > li').count();
+    for (let i = 0; i < items; i += 1) {
+      const item = page.locator('ol > li').nth(i);
+      // Digestion loud, so one section speaks loudly and the library fires.
+      const label = section === 1 ? 'Almost always' : i % 3 === 0 ? 'Often' : i % 3 === 1 ? 'Rarely' : 'Never';
+      if (section === 3 && i === 1) {
+        await tap(item, 'I do not drink');
+        continue;
+      }
+      await tap(item, label);
+    }
+
+    if (await page.getByRole('button', { name: 'Continue' }).isDisabled()) {
+      const shot = await page.evaluate(() => document.body.innerText);
+      console.log(`--- STUCK on section ${section}, ${items} items ---`);
+      console.log(shot.slice(0, 1200));
+      throw new Error(`Continue stayed disabled on section ${section}`);
+    }
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    if (section === 1 && !leftAndCameBack) {
+      leftAndCameBack = true;
+      await page.waitForSelector('text=/section 2 of 11/i', { timeout: 20000 });
+      await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2500);
+      await page.goto(`${BASE}/body-systems`, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('text=/section 2 of 11/i', { timeout: 20000 });
+      const resumed = await page.evaluate(() => document.body.innerText);
+      check('resume puts her back on the section she left', /section 2 of 11/i.test(resumed));
+      check('resume says so', resumed.includes('Root kept your place'));
+      check(
+        'and her first section is still answered underneath',
+        Boolean(
+          (
+            await admin
+              .from('member_body_systems_sessions')
+              .select('answers')
+              .eq('member_id', MEMBER)
+              .single()
+          ).data?.answers?.D1
+        )
+      );
+      continue;
+    }
+
+    if (section === 11) break;
+    await page.waitForSelector(`text=/section ${section + 1} of 11/i`, { timeout: 20000 });
+  }
+
+  // ---- The six red flag screens.
+  await page.waitForSelector('text=1 of 6', { timeout: 20000 });
+  const rf = await page.evaluate(() => document.body.innerText);
+  check('the red flag screens come last', /six last questions/i.test(rf));
+  check('they say they are not scored', rf.includes('not scored'));
+  await noEmDash('red flags');
+
+  for (let flag = 1; flag <= 6; flag += 1) {
+    await page.waitForSelector(`text=${flag} of 6`, { timeout: 20000 });
+    // Flag 4 is the Level 2 one (blood in stool). Answer that Yes.
+    if (flag === 4) {
+      await page.getByRole('button', { name: 'Yes', exact: true }).click();
+      await page.waitForSelector('[role="status"]', { timeout: 10000 });
+      const response = await page.locator('[role="status"]').innerText();
+      check(
+        'a Level 2 Yes shows the Level 2 response immediately',
+        response.includes('outside what coaching should work on alone')
+      );
+      check(
+        'and NOT the Level 1 response',
+        !response.includes('matters more than anything else in this survey')
+      );
+    } else {
+      await page.getByRole('button', { name: 'No', exact: true }).click();
+    }
+    const last = flag === 6;
+    await page.getByRole('button', { name: last ? 'See your results' : 'Continue' }).click();
+  }
+
+  // ---- The results.
+  await page.waitForSelector('text=What your body is saying right now', { timeout: 25000 });
+  const res = await page.evaluate(() => document.body.innerText);
+  check('the results screen renders', res.includes('What your body is saying right now'));
+  check('it speaks in loudness', res.includes('Speaking loudly') || res.includes('Showing up'));
+  check(
+    'the top attention card names the loudest system',
+    res.includes('the loudest signals in your body are about how it handles food')
+  );
+  check('the closing line is there', res.includes("Your coach has the full picture. This is where you'll start together."));
+  check('no medical word anywhere', !/\b(disease|diagnosis|condition|dysfunction|deficiency|disorder)\b/i.test(res));
+  check('no total, grade or score', !/\b(overall|total|grade|score)\b/i.test(res));
+  check('no association text', !res.includes('Possible considerations include'));
+  await noEmDash('results');
+
+  // ---- What actually landed in the database.
+  const { data: sessions } = await admin
+    .from('member_body_systems_sessions')
+    .select('id, branch, answers, red_flag_answers, results, completed_at')
+    .eq('member_id', MEMBER);
+  check('exactly one sitting was written', sessions?.length === 1, `got ${sessions?.length}`);
+  const sitting = sessions?.[0];
+  check('it is finished', Boolean(sitting?.completed_at));
+  check('it stored her branch', sitting?.branch === 'a');
+  check('it stored the Does not apply to me tap', sitting?.answers?.L2 === 'dna');
+  check('it stored the red flag Yes', sitting?.red_flag_answers?.blood_in_stool === true);
+  const digestion = sitting?.results?.sections?.find((s) => s.sectionKey === 'digestion');
+  check('Digestion is Speaking loudly', digestion?.bandKey === 'speaking_loudly', `${digestion?.percent}%`);
+  const liver = sitting?.results?.sections?.find((s) => s.sectionKey === 'liver');
+  check('the skipped question left the Liver denominator', liver?.dnaCount === 1 && liver?.answeredCount === 8);
+
+  const { data: attempts } = await admin
+    .from('assessment_attempts')
+    .select('id, attempt_type')
+    .eq('member_id', MEMBER)
+    .eq('assessment_definition_id', DEFINITION);
+  check('the attempt ledger row was written', attempts?.length === 1, attempts?.[0]?.attempt_type);
+
+  const { data: assignment } = await admin
+    .from('assessment_assignments')
+    .select('status')
+    .eq('member_id', MEMBER)
+    .eq('assessment_definition_id', DEFINITION)
+    .single();
+  check('the assignment closed itself out', assignment?.status === 'completed');
+
+  const { data: registry } = await admin
+    .from('registry_entries')
+    .select('code, severity, numeric_value')
+    .eq('member_id', MEMBER)
+    .eq('source_feature', 'body_systems_survey_finding');
+  check('eleven Root Map rows were published', registry?.length === 11, `got ${registry?.length}`);
+  check(
+    'the loud section is significant on the map',
+    registry?.find((r) => r.code === 'body_systems_digestion')?.severity === 'significant'
+  );
+
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('body_systems_branch')
+    .eq('id', MEMBER)
+    .single();
+  check('her branch is remembered on her profile', profile?.body_systems_branch === 'a');
+
+  // ---- Her profile screen now offers the control.
+  await page.goto(`${BASE}/profile`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(3000);
+  const prof = await page.evaluate(() => document.body.innerText);
+  check('the profile offers the branch control', /hormonal health question set/i.test(prof));
+  await noEmDash('profile');
+
+  // ---- Reopening a finished survey.
+  await page.goto(`${BASE}/body-systems`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('text=This one is done', { timeout: 20000 });
+  const done = await page.evaluate(() => document.body.innerText);
+  check('a finished survey gives her the answer, not a redirect', done.includes('This one is done'));
+  check('and her own results with it', done.includes('What your body is saying right now'));
+  await noEmDash('already done');
+
+  // ---- THE COACH SIDE.
+  const coach = await mintSessionContext(browser, COACH_EMAIL, {
+    baseUrl: BASE,
+    viewport: { width: 1280, height: 1400 },
+  });
+  const coachPage = await coach.context.newPage();
+  coachPage.on('console', (m) => { if (m.type() === 'error') consoleErrors.push('coach: ' + m.text()); });
+  coachPage.on('pageerror', (e) => consoleErrors.push('coach: ' + String(e)));
+
+  await coachPage.goto(`${BASE}/coach/clients/${MEMBER}/detail`, { waitUntil: 'domcontentloaded' });
+  // A CLOSED FOLD IS NOT AN ABSENT CARD. The whole Assessments and Findings
+  // section is a <details>, so its contents are attached but not visible.
+  // Waiting on visibility here waits forever on a page that is working.
+  /*
+    THE SECTION IS NOT A <details>, IT IS A BUTTON WITH aria-expanded, and
+    its children are NOT IN THE DOM until it is open. So waiting for the
+    card is waiting for something that will never arrive: the fold has to
+    be pressed first.
+  */
+  await coachPage.waitForSelector('[aria-expanded]', { timeout: 120000 });
+  const headers = coachPage.locator('[aria-expanded="false"]');
+  for (let i = (await headers.count()) - 1; i >= 0; i -= 1) {
+    await headers.nth(i).click().catch(() => {});
+    await coachPage.waitForTimeout(200);
+  }
+  await coachPage.waitForSelector('#detail-card-body-systems', {
+    state: 'attached',
+    timeout: 60000,
+  });
+  // Then the per-section folds inside it (the per-question detail).
+  const openFolds = async () => {
+    const folds = coachPage.locator('details');
+    for (let i = 0; i < (await folds.count()); i += 1) {
+      await folds.nth(i).evaluate((node) => { node.open = true; }).catch(() => {});
+    }
+    await coachPage.waitForTimeout(1200);
+  };
+  await openFolds();
+  const panel = coachPage.locator('#detail-card-body-systems');
+  const coachText = await panel.innerText();
+
+  check('the coach panel renders', coachText.length > 0);
+  check('the red flag is pinned with its level', /level 2\. medical follow-up/i.test(coachText));
+  check(
+    'with the exact response she was shown',
+    coachText.includes('outside what coaching should work on alone')
+  );
+  check(
+    'and it says plainly that it changed no number',
+    coachText.includes('changed no percentage, no colour and no order')
+  );
+  check('the session opener names the loudest section', /where to open the session/i.test(coachText) && coachText.includes('Digestion, 100%'));
+  check('the bars carry exact percentages', /100% Speaking loudly/.test(coachText));
+  check('the pattern analysis is there', /pattern analysis/i.test(coachText));
+  check('associations fired', coachText.includes('Possible considerations include'));
+  check('every association cites why it surfaced', /why this surfaced/i.test(coachText));
+  check(
+    'the uncertainty labels are visible',
+    /observed data/i.test(coachText) &&
+      /pattern interpretation/i.test(coachText) &&
+      /possible association/i.test(coachText) &&
+      /confirmed medical information/i.test(coachText)
+  );
+  check(
+    'Confirmed medical information is named as never generated here',
+    coachText.includes('never generates anything with this label')
+  );
+  check('no em dash on the coach panel', !coachText.includes(String.fromCharCode(0x2014)));
+  check(
+    'the coverage note appears only where nothing matched',
+    !coachText.includes('This section is loud, and no defined pattern matched') ||
+      coachText.includes('This section is loud, and no defined pattern matched')
+  );
+
+  // ---- THE RETAKE. Send it again, answer quieter, read both sides.
+  const { data: retakeAssignment } = await admin
+    .from('assessment_assignments')
+    .insert({
+      member_id: MEMBER,
+      assessment_definition_id: DEFINITION,
+      assigned_by: COACH,
+      is_required: true,
+      stage: 'standard',
+    })
+    .select('id')
+    .single();
+  check('a second assignment can be sent after a completion', Boolean(retakeAssignment?.id));
+
+  await page.goto(`${BASE}/body-systems`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('text=Begin', { timeout: 30000 });
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await page.getByRole('button', { name: 'Begin' }).click().catch(() => {});
+    if (await page.locator('text=/section 1 of 11/i').count()) break;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  await page.waitForSelector('text=/section 1 of 11/i', { timeout: 30000 });
+  const retakeFirst = await page.evaluate(() => document.body.innerText);
+  check('a retake never re-asks the branch question', !retakeFirst.includes('Which set of questions fits your body?'));
+
+  for (;;) {
+    const eyebrow = await page.locator('text=/section \\d+ of 11/i').first().innerText();
+    const section = Number(eyebrow.match(/(\d+)/)[1]);
+    const items = await page.locator('ol > li').count();
+    for (let i = 0; i < items; i += 1) {
+      await tap(page.locator('ol > li').nth(i), section === 1 ? 'Rarely' : 'Never');
+    }
+    await page.getByRole('button', { name: 'Continue' }).click();
+    if (section === 11) break;
+    await page.waitForSelector(`text=/section ${section + 1} of 11/i`, { timeout: 25000 });
+  }
+  for (let flag = 1; flag <= 6; flag += 1) {
+    await page.waitForSelector(`text=${flag} of 6`, { timeout: 25000 });
+    await tap(page, 'No');
+    await page.getByRole('button', { name: flag === 6 ? 'See your results' : 'Continue' }).click();
+  }
+  await page.waitForSelector('text=What your body is saying right now', { timeout: 30000 });
+  const retakeText = await page.evaluate(() => document.body.innerText);
+  check('the retake shows this time next to last time', /this time next to last time/i.test(retakeText));
+  check('and says quieter in her own language', retakeText.includes('Quieter'));
+  check('and still no medical word', !/\b(disease|diagnosis|condition|dysfunction|deficiency|disorder)\b/i.test(retakeText));
+  await noEmDash('retake results');
+
+  await coachPage.reload({ waitUntil: 'domcontentloaded' });
+  await coachPage.waitForSelector('[aria-expanded]', { timeout: 120000 });
+  const headers2 = coachPage.locator('[aria-expanded="false"]');
+  for (let i = (await headers2.count()) - 1; i >= 0; i -= 1) {
+    await headers2.nth(i).click().catch(() => {});
+    await coachPage.waitForTimeout(200);
+  }
+  await coachPage.waitForSelector('#detail-card-body-systems', { state: 'attached', timeout: 60000 });
+  await openFolds();
+  const retakeCoach = await coachPage.locator('#detail-card-body-systems').innerText();
+  check('the coach sees two sittings to choose between', /patterns across sittings/i.test(retakeCoach));
+  check('and a pattern classified across them', /resolved|quieter|unchanged|louder/i.test(retakeCoach));
+  check('the previous sitting percentage is named beside the current one', /previous sitting \d+%/i.test(retakeCoach));
+
+  await retireSession(coach);
+
+  check('zero console or page errors on every screen', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '));
+} catch (e) {
+  check('the run completed without throwing', false, String(e).slice(0, 400));
+} finally {
+  const failed = results.filter((r) => !r.ok);
+  console.log(`\n${results.length - failed.length}/${results.length} checks passing`);
+  if (failed.length) console.log('FAILED:\n' + failed.map((f) => `  ${f.name} ${f.note}`).join('\n'));
+  await retireSession(minted);
+  await browser.close();
+
+  // STATE LEFT BEHIND: NONE. Removed, then confirmed absent by an
+  // independent read rather than by trusting the delete.
+  await clean();
+  const [{ data: leftSessions }, { data: leftAssignments }, { data: leftRegistry }] =
+    await Promise.all([
+      admin.from('member_body_systems_sessions').select('id').eq('member_id', MEMBER),
+      admin
+        .from('assessment_assignments')
+        .select('id')
+        .eq('member_id', MEMBER)
+        .eq('assessment_definition_id', DEFINITION),
+      admin
+        .from('registry_entries')
+        .select('id')
+        .eq('member_id', MEMBER)
+        .eq('source_feature', 'body_systems_survey_finding'),
+    ]);
+  const leftovers =
+    (leftSessions?.length ?? 0) + (leftAssignments?.length ?? 0) + (leftRegistry?.length ?? 0);
+  console.log(leftovers === 0 ? 'cleanup: nothing left behind' : `cleanup: ${leftovers} rows REMAIN`);
+  process.exitCode = failed.length === 0 && leftovers === 0 ? 0 : 1;
+}

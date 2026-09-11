@@ -126,10 +126,28 @@ export function BodySystemsExperience({
     router.push('/dashboard');
   }
 
+  /*
+    THE TEN SHARED SECTIONS DO NOT NEED A BRANCH, and that is why this is
+    not `branch` on its own.
+
+    The branch question is the first thing on section eleven, so a member
+    on section one has genuinely not answered it. Ten of the eleven
+    sections ask everybody the identical questions, so filtering them by
+    either branch gives the identical list. `renderBranch` is that filter
+    and nothing else: it is never stored, never remembered, and never used
+    to decide anything about section eleven, which draws its own question
+    first and refuses to move until she has tapped one of the two.
+
+    This was a real bug, found by driving the app rather than by any test:
+    with the filter reading `branch` directly, a first-time member saw ten
+    empty sections and a Continue that did nothing.
+  */
+  const renderBranch: BodySystemsBranch = branch ?? 'a';
+
   const sectionQuestions = useMemo(() => {
-    if (step.kind !== 'section' || !branch) return [];
-    return questionsInSection(content.questions, step.sectionKey, branch);
-  }, [step, branch, content.questions]);
+    if (step.kind !== 'section') return [];
+    return questionsInSection(content.questions, step.sectionKey, renderBranch);
+  }, [step, renderBranch, content.questions]);
 
   const section =
     step.kind === 'section'
@@ -158,7 +176,10 @@ export function BodySystemsExperience({
     step.kind === 'section' ? sectionAnswered : step.kind === 'red_flag' ? flagAnswered : true;
 
   function advance() {
-    if (!canContinue || !branch) return;
+    if (!canContinue) return;
+    // The last screen writes a completion, and a completion always carries
+    // an answered branch. Everything before it is storable without one.
+    if (stepIndex >= lastQuestionStep && !branch) return;
     setError(null);
 
     if (stepIndex < lastQuestionStep) {

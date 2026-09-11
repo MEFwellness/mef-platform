@@ -425,7 +425,16 @@ create table member_body_systems_sessions (
 
   -- Which Hormonal Health branch she is answering. Remembered on her
   -- profile as well, so a retake never re-asks it.
-  branch text not null check (branch in ('a', 'b')),
+  --
+  -- NULL UNTIL SHE HAS ACTUALLY CHOSEN, and that is the point rather than
+  -- laxity. The branch question is the first thing on section eleven, so a
+  -- member partway through sections one to ten has not answered it yet.
+  -- Ten of the eleven sections ask everybody the identical questions, so
+  -- her progress through them is perfectly storable with no branch, and
+  -- defaulting the column to 'a' would write a decision she has not made
+  -- into a row her profile then remembers. A completion always carries
+  -- one: she cannot reach the end without answering it.
+  branch text check (branch in ('a', 'b')),
 
   -- Her answers, keyed by question_ref. Values are a scale value_key, or
   -- the literal 'dna' for a Does not apply to me tap.

@@ -86,7 +86,13 @@ import {
  */
 function sanitizeAnswers(
   content: MemberContent,
-  branch: BodySystemsBranch,
+  /**
+   * Null while she is still in the ten sections everybody answers. A null
+   * keeps every 'all' question and drops both branch families, which is
+   * exactly right: she cannot have answered a Hormonal Health question
+   * before choosing which set she is being asked.
+   */
+  branch: BodySystemsBranch | null,
   raw: unknown
 ): BodySystemsAnswers {
   const clean: BodySystemsAnswers = {};
@@ -143,8 +149,20 @@ export async function saveBodySystemsProgressAction(
     return { ok: false, error: 'Your coach has not opened this one for you.' };
   }
 
+  /*
+    A NULL BRANCH IS A LEGITIMATE SAVE, and the submit below is where it
+    stops being one.
+
+    The branch question is the first thing on section eleven, so a member
+    saving her way through sections one to ten has genuinely not answered
+    it. Ten of the eleven sections ask everybody the identical questions,
+    so her progress is perfectly storable without one, and refusing the
+    save until she has chosen would cost her the first ten sections if she
+    closed the tab. The column is nullable for exactly this window
+    (migration 220), and nothing writes a branch onto her PROFILE until she
+    has really tapped one.
+  */
   const branch = readBranch(branchInput);
-  if (!branch) return { ok: false, error: 'Please choose which set of questions fits you.' };
 
   const steps = buildSteps(content.sections, content.redFlags);
   const stepIndex = clampStepIndex(
@@ -166,9 +184,13 @@ export async function saveBodySystemsProgressAction(
   if (!record) return { ok: false, error: memberCopy(content.copy, 'member.save_error') };
 
   // Remembering her branch is her own tap on the branch question, saved the
-  // first time it is seen so a retake never re-asks it.
-  const remembered = await fetchMemberBranch(supabase, user.id);
-  if (remembered !== branch) await saveMemberBranch(supabase, user.id, branch);
+  // first time it is seen so a retake never re-asks it. Never written from
+  // anything but a real answer: a null here means she has not chosen yet,
+  // and her profile is left exactly as it was.
+  if (branch) {
+    const remembered = await fetchMemberBranch(supabase, user.id);
+    if (remembered !== branch) await saveMemberBranch(supabase, user.id, branch);
+  }
 
   return { ok: true, sessionId: record.id, stepIndex: record.stepIndex };
 }
@@ -281,6 +303,7 @@ export async function submitBodySystemsSurveyAction(
 
   const { record } = await completeBodySystemsSession(supabase, user.id, {
     sessionId: session.id,
+    branch,
     answers,
     redFlagAnswers,
     results,
@@ -389,7 +412,14 @@ export async function setBodySystemsBranchAction(
 export type CoachBodySystemsSession = {
   id: string;
   completedAt: string | null;
-  branch: BodySystemsBranch;
+  /**
+   * In practice never null: listBodySystemsSessions returns only FINISHED
+   * sittings, and a sitting cannot be finished without an answered branch
+   * question. It is typed nullable anyway so nothing here has to invent a
+   * branch for a row that somehow has none. The panel treats such a row as
+   * unreadable, which is what it is.
+   */
+  branch: BodySystemsBranch | null;
   answers: BodySystemsAnswers;
   redFlagAnswers: BodySystemsRedFlagAnswers;
   results: BodySystemsResults | null;

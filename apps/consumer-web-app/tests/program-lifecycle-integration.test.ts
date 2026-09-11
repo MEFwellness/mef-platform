@@ -37,6 +37,7 @@ import {
 import { buildMemberProgramViews, isCurrentProgramStatus } from '../lib/program-lifecycle/memberView';
 import { addDays, endDateFor } from '../lib/program-lifecycle/transitions';
 import type { MemberProgramLifecycle } from '@mef/shared-types-contracts';
+import { todaysLocalDate } from '@/lib/time/localDate';
 
 const MEMBER = TEST_USERS.memberOne.id;
 const OTHER_MEMBER = TEST_USERS.memberTwo.id;
@@ -582,7 +583,17 @@ describe('what the member can read, per status', () => {
 
   it('she is never shown a stale active program past its end date', async () => {
     const views = buildMemberProgramViews(await memberLifecycles(), []);
-    const today = new Date().toISOString().slice(0, 10);
+    /*
+      HER OWN CALENDAR DAY, NOT THE UTC ONE.
+
+      This read `new Date().toISOString().slice(0, 10)`, which is the exact
+      thing the standing rule forbids: after 20:00 in New York that is
+      already TOMORROW in UTC, so from 8pm every evening this test called a
+      program ending today stale and failed on a lifecycle that was
+      working perfectly. The fixture above runs the job against
+      America/New_York, so that is the day this has to compare against.
+    */
+    const today = todaysLocalDate('America/New_York');
     for (const view of views) {
       if (view.status !== 'active') continue;
       expect(view.endDate === null || view.endDate >= today).toBe(true);
