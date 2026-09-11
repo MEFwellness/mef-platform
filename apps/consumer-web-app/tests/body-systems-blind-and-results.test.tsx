@@ -45,15 +45,29 @@ vi.mock('next/navigation', () => ({
 }));
 
 /**
- * The two Server Actions her Continue calls.
+ * What her Continue calls, mocked to the shape it really returns, because
+ * what is under test here is what the component does AFTER a save succeeds.
  *
- * Mocked to the shape they really return, because what is under test here
- * is what the component does AFTER a save succeeds.
+ * A DRAFT IS WRITTEN OVER A ROUTE HANDLER since 2026-09-11, not over the
+ * Server Action, so a Continue is a `fetch` and stubbing it is what lets a
+ * Continue land at all in jsdom. Submitting is still a Server Action and is
+ * still mocked below.
  */
-const saveProgress = vi.fn(async () => ({ ok: true as const }));
+const drafts: Array<{ url: unknown; body: { stepIndex: number } }> = [];
+function installDraftRecorder() {
+  drafts.length = 0;
+  Object.defineProperty(globalThis, 'fetch', {
+    writable: true,
+    configurable: true,
+    value: async (url: unknown, init: { body: string }) => {
+      drafts.push({ url, body: JSON.parse(init.body) });
+      return { ok: true, json: async () => ({ ok: true }) };
+    },
+  });
+}
+
 vi.mock('@/app/actions/bodySystems', () => ({
-  saveBodySystemsProgressAction: (...args: unknown[]) =>
-    (saveProgress as unknown as (...a: unknown[]) => Promise<{ ok: true }>)(...args),
+  saveBodySystemsProgressAction: async () => ({ ok: true as const }),
   submitBodySystemsSurveyAction: async () => ({ ok: false as const, error: 'not used here' }),
 }));
 
@@ -247,7 +261,7 @@ describe('a new screen opens at the top of itself', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    saveProgress.mockClear();
+    installDraftRecorder();
   });
 
   afterEach(() => {
@@ -311,7 +325,7 @@ describe('a new screen opens at the top of itself', () => {
       continueButton().dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(saveProgress).toHaveBeenCalledTimes(1);
+    expect(drafts.length).toBe(1);
     // Still section one: a section is several screens now.
     expect(container.textContent).toContain('Section 1 of 11');
     expect(container.textContent).toContain('Questions 4 to 6 of 10');
@@ -334,7 +348,7 @@ describe('a new screen opens at the top of itself', () => {
       expect(scrollTo).toHaveBeenLastCalledWith(0, 0);
     }
 
-    expect(saveProgress).toHaveBeenCalledTimes(4);
+    expect(drafts.length).toBe(4);
     expect(container.textContent).toContain('Section 2 of 11');
     expect(container.textContent).toContain('Questions 1 to 3 of');
   });

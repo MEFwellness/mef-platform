@@ -81,6 +81,16 @@ renders. The route runs the same action with the same guards and returns a
 few bytes. Her Continue still uses the Server Action, because it has to
 know whether the write landed before it moves her.
 
+**AND HER CONTINUE GOES THE SAME WAY, WHICH IS WHY.** Measured on
+production: a Continue took between two and four seconds, because a Server
+Action's response is the whole re-rendered page. That was tolerable at
+eleven Continues, one per section. It is not tolerable at forty-four, which
+is what a section cut into screens of three costs. Every draft write now
+goes over the route, which runs the identical action with the identical
+guards and returns a few bytes, and only SUBMITTING is still a Server
+Action, because a completion really does need the route it was called from
+to re-render.
+
 Resume is unchanged where it is stored: the Body Systems Survey still
 stores a SECTION, so a draft written before this change opens exactly where
 it always did, and which screen inside that section she lands on is derived

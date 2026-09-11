@@ -173,6 +173,28 @@ function setReducedMotion(reduced: boolean) {
   });
 }
 
+/**
+ * Every draft write, recorded.
+ *
+ * THE SURVEY SAVES OVER A ROUTE HANDLER, not over the Server Action, so
+ * what a Continue and an autosave both do is a `fetch`. Stubbing it here is
+ * how a Continue is able to land at all in jsdom, and the recording is what
+ * lets a test say what was written and when.
+ */
+const drafts = [];
+
+function installDraftRecorder() {
+  drafts.length = 0;
+  Object.defineProperty(globalThis, 'fetch', {
+    writable: true,
+    configurable: true,
+    value: async (url, init) => {
+      drafts.push({ url, body: JSON.parse(init.body) });
+      return { ok: true, json: async () => ({ ok: true }) };
+    },
+  });
+}
+
 describe('the Body Systems Survey moves one screen at a time', () => {
   let harness: Harness;
 
@@ -185,6 +207,7 @@ describe('the Body Systems Survey moves one screen at a time', () => {
     });
     setReducedMotion(true);
     saveProgress.mockClear();
+    installDraftRecorder();
     harness = makeHarness();
   });
 
@@ -401,16 +424,7 @@ describe('the Body Systems Survey moves one screen at a time', () => {
       so that a hundred and three taps are not a hundred and three full
       page renders.
     */
-    const calls: Array<{ url: string; body: unknown }> = [];
-    Object.defineProperty(globalThis, 'fetch', {
-      writable: true,
-      configurable: true,
-      value: async (url: string, init: { body: string }) => {
-        calls.push({ url, body: JSON.parse(init.body) });
-        return { ok: true, json: async () => ({ ok: true }) };
-      },
-    });
-
+    const calls = drafts;
     mount({ resumeStepIndex: 0 });
     const first = questionBlocks()[0]!;
     const prompt = first.querySelector('h2')!.textContent;

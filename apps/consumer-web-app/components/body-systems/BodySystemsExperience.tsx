@@ -90,10 +90,7 @@ import {
 } from '@/lib/body-systems/types';
 import type { AnsweringContent } from '@/lib/body-systems/contentData';
 import type { MemberResultsView } from '@/lib/body-systems/memberView';
-import {
-  saveBodySystemsProgressAction,
-  submitBodySystemsSurveyAction,
-} from '@/app/actions/bodySystems';
+import { submitBodySystemsSurveyAction } from '@/app/actions/bodySystems';
 import { BodySystemsResults } from './BodySystemsResults';
 
 const PANEL =
@@ -338,6 +335,51 @@ export function BodySystemsExperience({
     return next;
   }
 
+  /**
+   * Write the whole draft, storing `storeStepIndex` as where she is.
+   *
+   * ONE PATH, AND IT IS THE ROUTE HANDLER, FOR HER CONTINUE AS WELL AS FOR
+   * THE AUTOSAVE. It was the Server Action for Continue until 2026-09-11,
+   * and measuring production is what changed that: a Continue took between
+   * two and four seconds, because a Server Action's response is the whole
+   * re-rendered page and /body-systems reads the survey state and the
+   * entire content bundle to produce it. That was tolerable at eleven
+   * Continues, one per section. It is not tolerable at forty-four, which is
+   * what a section cut into screens of three costs.
+   *
+   * The route runs the identical action with the identical guards
+   * (app/api/body-systems/progress/route.ts) and returns a few bytes, so
+   * nothing about what is written or who may write it changed. Only
+   * submitting still goes through a Server Action, because a completion
+   * really does need the route it was called from to re-render.
+   */
+  async function postDraft(
+    draft: {
+      branch: BodySystemsBranch | null;
+      answers: BodySystemsAnswers;
+      redFlagAnswers: BodySystemsRedFlagAnswers;
+    },
+    storeStepIndex: number
+  ): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const response = await fetch('/api/body-systems/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          branch: draft.branch,
+          answers: draft.answers,
+          redFlagAnswers: draft.redFlagAnswers,
+          stepIndex: storeStepIndex,
+        }),
+      });
+      if (!response.ok) return { ok: false, error: memberCopy(content.copy, 'member.save_error') };
+      return (await response.json()) as { ok: boolean; error?: string };
+    } catch {
+      return { ok: false, error: memberCopy(content.copy, 'member.save_error') };
+    }
+  }
+
   function cancelAutosave() {
     if (autosaveTimer.current) {
       clearTimeout(autosaveTimer.current);
@@ -349,21 +391,11 @@ export function BodySystemsExperience({
     cancelAutosave();
     autosaveTimer.current = setTimeout(() => {
       autosaveTimer.current = null;
+      // A failed autosave is not something to interrupt her with: her
+      // Continue writes the same draft and reports its own failure.
       void chainSave(() => {
         const draft = draftRef.current;
-        return fetch('/api/body-systems/progress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          keepalive: true,
-          body: JSON.stringify({
-            branch: draft.branch,
-            answers: draft.answers,
-            redFlagAnswers: draft.redFlagAnswers,
-            stepIndex: draft.stepIndex,
-          }),
-          // A failed autosave is not something to interrupt her with: her
-          // Continue writes the same draft and reports its own failure.
-        }).catch(() => undefined);
+        return postDraft(draft, draft.stepIndex);
       });
     }, AUTOSAVE_DELAY_MS);
   }
@@ -429,10 +461,10 @@ export function BodySystemsExperience({
       const nextGroup = safeGroupIndex + 1;
       startTransition(async () => {
         const result = await chainSave(() =>
-          saveBodySystemsProgressAction(branch, answers, redFlagAnswers, stepIndex)
+          postDraft({ branch, answers, redFlagAnswers }, stepIndex)
         );
         if (!result.ok) {
-          setError(result.error);
+          setError(result.error ?? memberCopy(content.copy, 'member.save_error'));
           return;
         }
         setGroupIndex(nextGroup);
@@ -463,16 +495,14 @@ export function BodySystemsExperience({
       */
       if (withBeat) setTransitionTo(next);
       startTransition(async () => {
-        const save = chainSave(() =>
-          saveBodySystemsProgressAction(branch, answers, redFlagAnswers, next)
-        );
+        const save = chainSave(() => postDraft({ branch, answers, redFlagAnswers }, next));
         const [result] = await Promise.all([
           save,
           withBeat ? new Promise((resolve) => setTimeout(resolve, SECTION_TRANSITION_MS)) : null,
         ]);
         if (!result.ok) {
           setTransitionTo(null);
-          setError(result.error);
+          setError(result.error ?? memberCopy(content.copy, 'member.save_error'));
           return;
         }
         setTransitionTo(null);
