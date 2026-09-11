@@ -37,6 +37,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { submitWithFreshCaptcha, type TurnstileTokenSource } from '../lib/turnstile/submit';
+import {
+  RETRY_TOPUP_WAIT_MS,
+  TOKEN_WAIT_MS,
+  TurnstileTokenLifecycle,
+  type TurnstileWidgetPort,
+} from '../lib/turnstile/tokenLifecycle';
 import { TURNSTILE_SCRIPT_SRC } from '../lib/turnstile/script';
 import { TurnstilePreload } from '../components/auth/TurnstilePreload';
 
@@ -135,6 +141,82 @@ describe('the retry after a submission that carried no token', () => {
       return { error: REFUSED };
     });
     expect(attempts).toBe(2);
+  });
+});
+
+describe('a failure that is real is admitted in seconds, not in a fifth of a minute', () => {
+  /**
+   * A widget that is armed and answers nothing, which is what a bot check
+   * that has decided not to clear somebody looks like from in here. Timers
+   * are driven by hand so the arithmetic is exact rather than wall clock.
+   */
+  function stuckWidget() {
+    let now = 0;
+    const timers = new Map<number, { at: number; fn: () => void }>();
+    let nextId = 1;
+    const port: TurnstileWidgetPort = {
+      rearm: () => true,
+      now: () => now,
+      setTimer: (fn, ms) => {
+        const id = nextId++;
+        timers.set(id, { at: now + ms, fn });
+        return id;
+      },
+      clearTimer: (id) => {
+        timers.delete(id);
+      },
+    };
+    const advance = (ms: number) => {
+      const target = now + ms;
+      for (;;) {
+        const due = [...timers.entries()]
+          .filter(([, t]) => t.at <= target)
+          .sort((a, b) => a[1].at - b[1].at)[0];
+        if (!due) break;
+        now = due[1].at;
+        timers.delete(due[0]);
+        due[1].fn();
+      }
+      now = target;
+    };
+    return { machine: new TurnstileTokenLifecycle(port), advance, elapsed: () => now };
+  }
+
+  it('gives the first ask its whole window, because a slow phone needs it', async () => {
+    const { machine, advance, elapsed } = stuckWidget();
+    machine.markRunning();
+    const ask = machine.getToken();
+    advance(TOKEN_WAIT_MS - 1);
+    let settled = false;
+    void ask.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    advance(2);
+    expect(await ask).toBeNull();
+    expect(elapsed()).toBeGreaterThanOrEqual(TOKEN_WAIT_MS);
+  });
+
+  it('gives the second ask a top-up, because it is waiting on a round trip', async () => {
+    const { machine, advance, elapsed } = stuckWidget();
+    machine.markRunning();
+    const ask = machine.getToken(RETRY_TOPUP_WAIT_MS);
+    advance(RETRY_TOPUP_WAIT_MS + 1);
+    expect(await ask).toBeNull();
+    expect(elapsed()).toBeLessThan(TOKEN_WAIT_MS);
+  });
+
+  it('adds up to about eleven seconds of waiting, not about sixteen', () => {
+    expect(TOKEN_WAIT_MS + RETRY_TOPUP_WAIT_MS).toBeLessThan(TOKEN_WAIT_MS * 2 - 4_000);
+  });
+
+  it('asks for that top-up from the submit path, on the no-token retry only', () => {
+    const source = read('lib/turnstile/submit.ts');
+    expect(source).toContain('getToken(RETRY_TOPUP_WAIT_MS)');
+    // refresh() has genuinely started a challenge from nothing and keeps
+    // the full window.
+    expect(source).not.toContain('refresh(RETRY_TOPUP_WAIT_MS)');
   });
 });
 

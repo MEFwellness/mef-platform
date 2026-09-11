@@ -118,13 +118,59 @@ of 400, so Begin is on screen at about 800ms rather than about 2.9
 seconds. The copy is untouched, and reduced motion still skips the whole
 thing.
 
+### AND THE SURVEY ITSELF GOT FASTER, BECAUSE THE WALK TIMED IT
+
+Driving the whole survey on production stopwatched every Continue:
+**median 1311ms, up to 5025ms, forty-three times in one sitting.** That is
+the "app got slower" complaint, and it is arithmetic rather than mystery:
+the old flow pressed Continue eleven times at two to four seconds each,
+the new one presses it forty-three times, so a faster press still added up
+to a longer survey.
+
+Two changes, both in the save path every Continue and every autosave runs
+through:
+
+**THE CONTENT BUNDLE IS READ ONCE, NOT ONCE PER TAP.** `loadMemberContent`
+is eight queries, and none of what they return is scoped to a member or
+written by the app: it is the sections, the questions, the scale, the
+bands, the red flags, the safety levels, the copy and the minimum delta,
+and it changes when a migration changes it. One survey was asking for that
+identical bundle more than a hundred and fifty times. It is now held for
+five minutes, which covers a whole sitting and still lets a content fix
+applied straight to the database go live without a deploy. An empty read
+is never held, so a policy refusing a read or a bad minute at the database
+cannot put emptiness in front of everybody for the next five minutes.
+
+**THE SAVE STOPPED WAITING ON ONE READ BEFORE STARTING THE OTHER.**
+Nothing about the content bundle depends on her assignment and nothing
+about her assignment depends on the content, and they were serial. One
+whole round trip, on every press.
+
+### AND A REAL FAILURE IS ADMITTED IN ELEVEN SECONDS, NOT SEVENTEEN
+
+Driving the live login form proved something the code review had not: a
+submission the bot check will never clear took **seventeen seconds** to
+say so, because the first ask waited the full eight second window, the
+refusal made a round trip to Supabase, the retry waited eight seconds
+again, and that made a second round trip. Nobody holds a phone for
+seventeen seconds believing an app is working.
+
+The retry after a submission that carried NOTHING is waiting for one
+specific thing: the challenge finishing during the round trip that was
+just refused. That takes as long as a round trip, so it now gets
+RETRY_TOPUP_WAIT_MS rather than a second full window. The FIRST ask still
+gets all eight seconds, because a real member on a genuinely slow phone
+needs every one of them.
+
 ### WHAT NOW HOLDS IT
 
     tests/login-timeout-handling.test.tsx        the retry, the preload, the loader
     tests/popup-positioning.test.tsx             portalled, scrollable, and no seventh copy
     tests/section-transition-readiness.test.tsx  the whole screen in the first frame
     tests/survey-intro-reveal.test.tsx           brisk, replayed, and only here
+    tests/body-systems-content-cache.test.ts     read once, never held empty, never per member
     scripts/measure-login-token-live.mjs         the stopwatch the diagnosis came from
+    scripts/verify-questionnaire-polish-live.mjs the walk, and it puts back what it made
 
 ## The questionnaire answering experience (2026-09-11)
 

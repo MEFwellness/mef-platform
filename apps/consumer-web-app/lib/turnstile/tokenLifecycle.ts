@@ -60,6 +60,30 @@ export const TOKEN_FRESHNESS_MS = 120_000;
  */
 export const TOKEN_WAIT_MS = 8_000;
 
+/**
+ * THE SECOND ASK IS A TOP-UP, NOT A SECOND FULL WAIT. (2026-09-11)
+ *
+ * Measured against production: a submission the bot check will never
+ * clear took SEVENTEEN SECONDS to say so, because the first ask waited
+ * TOKEN_WAIT_MS, the refusal made a round trip to Supabase, the retry
+ * waited TOKEN_WAIT_MS again, and that made a second round trip. Nobody
+ * holds a phone for seventeen seconds believing an app is working.
+ *
+ * The retry after a submission that carried NOTHING exists for one
+ * specific case: the challenge finishing during the round trip that was
+ * just refused. That takes as long as a round trip, not as long as a
+ * challenge. So the top-up is generous for what it is actually waiting
+ * for and short enough that a genuine failure is admitted in about
+ * eleven seconds rather than seventeen.
+ *
+ * It is deliberately NOT applied to the first ask, which still gets its
+ * full window: a real member on a genuinely slow phone deserves every one
+ * of those eight seconds, and shortening them would fail people the long
+ * wait exists for. And it is not applied to refresh() either, because
+ * that one really has started a challenge from nothing.
+ */
+export const RETRY_TOPUP_WAIT_MS = 2_500;
+
 /** How long after a failure before the widget re-arms itself. */
 export const AUTO_REARM_DELAY_MS = 750;
 
@@ -140,10 +164,10 @@ export class TurnstileTokenLifecycle {
    * minted if not, and null only when Cloudflare would not answer in
    * TOKEN_WAIT_MS.
    */
-  async getToken(): Promise<string | null> {
+  async getToken(maxWaitMs: number = TOKEN_WAIT_MS): Promise<string | null> {
     if (this.isFresh()) return this.token;
     if (!this.running) this.rearm();
-    return await this.wait();
+    return await this.wait(maxWaitMs);
   }
 
   /**
@@ -214,7 +238,7 @@ export class TurnstileTokenLifecycle {
     this.rearmTimer = null;
   }
 
-  private wait(): Promise<string | null> {
+  private wait(maxWaitMs: number = TOKEN_WAIT_MS): Promise<string | null> {
     return new Promise<string | null>((resolve) => {
       let done = false;
       let timer = 0;
@@ -226,7 +250,7 @@ export class TurnstileTokenLifecycle {
         resolve(token);
       };
       this.waiters.push(finish);
-      timer = this.port.setTimer(() => finish(null), TOKEN_WAIT_MS);
+      timer = this.port.setTimer(() => finish(null), maxWaitMs);
       this.waitTimers.add(timer);
     });
   }

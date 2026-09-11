@@ -311,8 +311,44 @@ export async function loadMemberCopy(supabase: SupabaseClient): Promise<Record<s
   return fetchCopy(supabase, 'member');
 }
 
+/**
+ * HOW LONG THE BUNDLE IS HELD, AND WHY HOLDING IT IS SAFE. (2026-09-11)
+ *
+ * THE COST IT REMOVES, MEASURED. A Continue on the survey took a median of
+ * 1311ms on production and as much as 5025ms, forty-three times in one
+ * sitting, and eight of the queries behind every one of them were these.
+ * They were also behind every AUTOSAVE, which is one per tap, so a single
+ * survey asked for this identical bundle more than a hundred and fifty
+ * times and got the identical answer every time.
+ *
+ * WHY IT IS THE SAME ANSWER FOR EVERYBODY. Every table read below is
+ * CONTENT: the sections, the questions, the scale, the bands, the red
+ * flags, the safety levels, the member copy and the minimum delta. None of
+ * it is scoped to a member, none of it is filtered by who is asking, and
+ * none of it is written by the app at runtime. It changes when a migration
+ * changes it, which is a deploy, which starts a new process anyway.
+ *
+ * WHY IT IS STILL ONLY FIVE MINUTES. A cache with no expiry is a cache
+ * nobody can correct without a deploy. Five minutes is short enough that a
+ * content fix applied straight to the database is live almost immediately
+ * and long enough that a whole survey, which takes a member several
+ * minutes, is served from one read.
+ *
+ * AND AN EMPTY BUNDLE IS NEVER CACHED. If a read ever came back with no
+ * sections or no questions, whether from a policy refusing it or a
+ * struggling database, caching that would hand the same emptiness to
+ * everybody for the next five minutes. An answer that thin is treated as a
+ * failed read: it is returned to this one caller and forgotten.
+ */
+const MEMBER_CONTENT_TTL_MS = 300_000;
+
+let memberContentCache: { at: number; value: MemberContent } | null = null;
+
 /** Everything a member's screens need. Never asks for an association row. */
 export async function loadMemberContent(supabase: SupabaseClient): Promise<MemberContent> {
+  const held = memberContentCache;
+  if (held && Date.now() - held.at < MEMBER_CONTENT_TTL_MS) return held.value;
+
   const [sections, questions, scale, bands, redFlags, safetyLevels, copy, minDeltaPercent] =
     await Promise.all([
       fetchSections(supabase),
@@ -324,7 +360,16 @@ export async function loadMemberContent(supabase: SupabaseClient): Promise<Membe
       fetchCopy(supabase, 'member'),
       fetchMinDelta(supabase),
     ]);
-  return { sections, questions, scale, bands, redFlags, safetyLevels, copy, minDeltaPercent };
+  const value = { sections, questions, scale, bands, redFlags, safetyLevels, copy, minDeltaPercent };
+  if (sections.length > 0 && questions.length > 0) {
+    memberContentCache = { at: Date.now(), value };
+  }
+  return value;
+}
+
+/** Drops the held bundle. For a test that changes content between cases. */
+export function forgetMemberContentCache(): void {
+  memberContentCache = null;
 }
 
 /** The member bundle plus the library and the coach's own copy. */

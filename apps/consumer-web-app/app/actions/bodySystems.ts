@@ -139,9 +139,15 @@ export async function saveBodySystemsProgressAction(
   if (!user) return { ok: false, error: 'Please sign in again.' };
 
   const supabase = createClient();
-  const content = await loadMemberContent(supabase);
-
-  const assignmentRead = await fetchPendingBodySystemsAssignment(supabase, user.id);
+  // Read side by side, not one after the other. Nothing about the content
+  // bundle depends on her assignment and nothing about her assignment
+  // depends on the content, so making the second wait for the first was
+  // one whole round trip added to every Continue and every autosave. The
+  // bundle itself is normally already held (lib/body-systems/contentData.ts).
+  const [content, assignmentRead] = await Promise.all([
+    loadMemberContent(supabase),
+    fetchPendingBodySystemsAssignment(supabase, user.id),
+  ]);
   if (!assignmentRead.ok) {
     return { ok: false, error: memberCopy(content.copy, 'member.save_error') };
   }
@@ -227,9 +233,15 @@ export async function submitBodySystemsSurveyAction(
   if (!user) return { ok: false, error: 'Please sign in again.' };
 
   const supabase = createClient();
-  const content = await loadMemberContent(supabase);
-
-  const assignmentRead = await fetchPendingBodySystemsAssignment(supabase, user.id);
+  // Read side by side, not one after the other. Nothing about the content
+  // bundle depends on her assignment and nothing about her assignment
+  // depends on the content, so making the second wait for the first was
+  // one whole round trip added to every Continue and every autosave. The
+  // bundle itself is normally already held (lib/body-systems/contentData.ts).
+  const [content, assignmentRead] = await Promise.all([
+    loadMemberContent(supabase),
+    fetchPendingBodySystemsAssignment(supabase, user.id),
+  ]);
   if (!assignmentRead.ok) {
     return { ok: false, error: memberCopy(content.copy, 'member.save_error') };
   }

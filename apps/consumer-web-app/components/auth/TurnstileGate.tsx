@@ -154,7 +154,7 @@ export interface TurnstileHandle {
    * is stale it starts a new challenge and waits for that instead. Callers
    * submit either way, see this file's header for why.
    */
-  getToken(): Promise<string | null>;
+  getToken(maxWaitMs?: number): Promise<string | null>;
   /**
    * A token that is definitely not the one just spent. For the retry after
    * the check refuses a submission, see lib/turnstile/submit.ts.
@@ -274,9 +274,9 @@ export const TurnstileGate = forwardRef<TurnstileHandle>(function TurnstileGate(
   useImperativeHandle(
     ref,
     (): TurnstileHandle => ({
-      async getToken() {
+      async getToken(maxWaitMs?: number) {
         if (!siteKey) return null;
-        return await lifecycle().getToken();
+        return await lifecycle().getToken(maxWaitMs);
       },
       async refresh() {
         if (!siteKey) return null;

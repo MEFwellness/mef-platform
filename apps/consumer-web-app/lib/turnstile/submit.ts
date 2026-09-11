@@ -31,13 +31,19 @@
  */
 
 import { isCaptchaError } from './captcha';
+import { RETRY_TOPUP_WAIT_MS } from './tokenLifecycle';
 
 /**
  * The part of components/auth/TurnstileGate.tsx's handle this needs.
  * Structural on purpose: nothing in lib/ imports a component.
  */
 export interface TurnstileTokenSource {
-  getToken(): Promise<string | null>;
+  /**
+   * `maxWaitMs` is how long to wait for a challenge that has not finished.
+   * Optional, and the default is the full window, so a caller that does
+   * not care reads exactly as it did before.
+   */
+  getToken(maxWaitMs?: number): Promise<string | null>;
   refresh(): Promise<string | null>;
   reset(): void;
 }
@@ -96,6 +102,16 @@ export function isCaptchaRefusal(result: CaptchaAttemptResult | null | undefined
  * EXACTLY ONE RETRY EITHER WAY. If a token that is genuinely fresh, by
  * whichever of the two routes, is refused too, something real is wrong
  * and she is told so.
+ *
+ * AND THE SECOND ASK IS A TOP-UP RATHER THAN A SECOND FULL WAIT. Measured
+ * against production: a submission the check would never clear took
+ * seventeen seconds to admit it, because both asks waited the full window
+ * with a round trip between them. The retry is waiting for the challenge
+ * to finish during the round trip that was just refused, which takes as
+ * long as a round trip, so RETRY_TOPUP_WAIT_MS is what it gets. The FIRST
+ * ask still gets its whole window, because a real member on a genuinely
+ * slow phone needs every second of it. Eleven seconds to a truthful
+ * failure instead of seventeen.
  */
 export async function submitWithFreshCaptcha<T extends CaptchaAttemptResult | null | undefined | void>(
   gate: TurnstileTokenSource | null | undefined,
@@ -107,7 +123,8 @@ export async function submitWithFreshCaptcha<T extends CaptchaAttemptResult | nu
     gate?.reset();
     return first;
   }
-  const retryToken = firstToken === null ? await gate?.getToken() : await gate?.refresh();
+  const retryToken =
+    firstToken === null ? await gate?.getToken(RETRY_TOPUP_WAIT_MS) : await gate?.refresh();
   const second = await attempt(retryToken ?? null);
   gate?.reset();
   return second;
