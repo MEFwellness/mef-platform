@@ -354,6 +354,10 @@ try {
   let quietBeat = false;
   let quietCrossed = false;
   for (let guard = 0; guard < 8 && !quietCrossed; guard += 1) {
+    const shape = await quietPage.evaluate(() => ({
+      key: document.body.innerText.match(/Questions? [0-9]+(?: to [0-9]+)? of [0-9]+/i)?.[0] ?? '',
+      section: document.body.innerText.match(/section [0-9]+ of 11/i)?.[0] ?? '',
+    }));
     const count = await quietPage.locator('ol > li').count();
     for (let i = 0; i < count; i += 1) {
       const row = quietPage.locator('ol > li').nth(i).locator('[role="radio"]').first();
@@ -365,18 +369,29 @@ try {
     }
     if (!(await waitForContinue(quietPage))) break;
     await quietPage.getByRole('button', { name: 'Continue' }).click();
-    for (let attempt = 0; attempt < 16; attempt += 1) {
+    /*
+      WAIT FOR THE SCREEN TO GENUINELY CHANGE BEFORE ANSWERING AGAIN.
+      Without this the next pass reads the screen she is leaving, re-taps
+      rows that are already chosen, and presses a Continue that belongs to a
+      screen that no longer exists. It is the same trap the main loop above
+      already knows about.
+    */
+    const deadline = Date.now() + 25000;
+    while (Date.now() < deadline) {
       const text = await quietPage.evaluate(() => document.body.innerText);
       if (/Section complete/i.test(text)) {
         quietBeat = true;
         quietCrossed = true;
         break;
       }
-      if (/section 3 of 11/i.test(text)) {
+      const nowSection = text.match(/section [0-9]+ of 11/i)?.[0] ?? '';
+      const nowKey = text.match(/Questions? [0-9]+(?: to [0-9]+)? of [0-9]+/i)?.[0] ?? '';
+      if (nowSection && nowSection !== shape.section) {
         quietCrossed = true;
         break;
       }
-      await new Promise((resolve) => setTimeout(resolve, 120));
+      if (nowKey && nowKey !== shape.key) break;
+      await new Promise((resolve) => setTimeout(resolve, 150));
     }
   }
   check('a member who asked for reduced motion is never shown the beat', !quietBeat);

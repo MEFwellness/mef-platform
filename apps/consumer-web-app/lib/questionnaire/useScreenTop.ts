@@ -59,7 +59,46 @@ export function useScreenTop(screenKey: string): void {
     const again = () => window.scrollTo(0, 0);
     if (!settled) window.addEventListener('load', again, { once: true });
 
+    /*
+      AND IT HOLDS THE TOP FOR A MOMENT, BECAUSE ONE ASSERTION IS NOT ENOUGH.
+
+      Found on app.mefwellness.com, 2026-09-11, on a screen carrying three
+      questions: a refresh from 1,125px down came back 1,125px down, on a run
+      where the same check had passed an hour earlier. Turning
+      `scrollRestoration` off and scrolling to the top once only wins if both
+      happen after the browser has finished restoring, and the browser
+      restores again as the document reaches the height it remembers, which
+      is after hydration and after fonts land.
+
+      So the top is re-asserted for about a second, and only on the first
+      screen of a mount, which is the resume and the refresh. It gives up the
+      moment she scrolls herself, so a member who reloads and immediately
+      reaches for the page is never fought.
+    */
+    let holding = true;
+    const release = () => {
+      holding = false;
+    };
+    const options = { passive: true, once: true } as const;
+    window.addEventListener('wheel', release, options);
+    window.addEventListener('touchstart', release, options);
+    window.addEventListener('keydown', release, { once: true });
+
+    const until = Date.now() + 1200;
+    let frame = 0;
+    const hold = () => {
+      if (!holding) return;
+      if (window.scrollY !== 0) window.scrollTo(0, 0);
+      if (Date.now() < until) frame = window.requestAnimationFrame(hold);
+    };
+    frame = window.requestAnimationFrame(hold);
+
     return () => {
+      holding = false;
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener('wheel', release);
+      window.removeEventListener('touchstart', release);
+      window.removeEventListener('keydown', release);
       if (restoration !== null) history.scrollRestoration = restoration;
       if (!settled) window.removeEventListener('load', again);
     };

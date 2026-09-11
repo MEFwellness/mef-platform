@@ -140,6 +140,21 @@ than a stale pointer. They overlap on purpose, and the live script now
 waits for the server to really hold an answer before reloading, so that
 check is a claim about resume rather than a measurement of the network.
 
+### AND A THIRD, WHICH ONLY A SECOND PRODUCTION RUN FOUND
+
+A refresh in the middle of a screen came back 1,125px down, on a run where
+the same check had passed an hour earlier. Turning `scrollRestoration` off
+and scrolling to the top once only wins if both happen after the browser
+has finished restoring, and a browser restores again as the document
+reaches the height it remembers, which is after hydration and after fonts
+land. On a screen of three questions instead of a whole section that timing
+changed and the old fix started losing the race.
+
+`useScreenTop` now holds the top for about a second, and only on the first
+screen of a mount, which is the resume and the refresh. It gives up the
+instant she scrolls, taps or presses a key, so a member who reloads and
+reaches straight for the page is never fought.
+
 ### LIVE VERIFICATION
 
 `scripts/verify-questionnaire-experience-live.mjs` is new and drives an

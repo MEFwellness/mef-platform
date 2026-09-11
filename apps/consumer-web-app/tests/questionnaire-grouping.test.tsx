@@ -333,6 +333,47 @@ describe('the Body Systems Survey moves one screen at a time', () => {
     expect(harness.container.textContent).toContain('Questions 9 to 10 of 10');
   });
 
+  it('holds the top for a moment after a reload, and lets go the second she scrolls', async () => {
+    /*
+      FOUND ON PRODUCTION, 2026-09-11, on a screen carrying three questions:
+      a refresh from 1,125px down came back 1,125px down, on a run where the
+      same check had passed an hour earlier. A browser restores the position
+      it remembers as the document reaches the height it remembers, which is
+      after hydration, so scrolling to the top once can simply lose the race.
+      Here the restore is simulated as the late thing it really is.
+    */
+    let y = 0;
+    Object.defineProperty(window, 'scrollY', { configurable: true, get: () => y });
+    Object.defineProperty(window, 'scrollTo', {
+      configurable: true,
+      writable: true,
+      value: () => {
+        y = 0;
+      },
+    });
+
+    mount({ resumeStepIndex: 2 });
+    expect(y).toBe(0);
+
+    // The browser puts her back where she was, after we already scrolled.
+    y = 900;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    });
+    expect(y, 'a late restore was not corrected').toBe(0);
+
+    // And the moment she scrolls herself, it stops fighting her.
+    await act(async () => {
+      window.dispatchEvent(new Event('wheel'));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    y = 500;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
+    expect(y, 'it kept yanking her back to the top').toBe(500);
+  }, 10000);
+
   it('resumes on the screen holding the first question she has not answered', () => {
     const section = SECTIONS[2]!;
     const questions = QUESTIONS.filter(
