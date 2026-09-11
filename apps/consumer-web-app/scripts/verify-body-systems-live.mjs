@@ -412,7 +412,12 @@ try {
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForSelector('text=/section 2 of 11/i', { timeout: 20000 });
       await page.waitForTimeout(1500);
-      check('a refresh mid-section lands at the top', (await scrollY()) === 0);
+      const afterReload = await scrollY();
+      check(
+        'a refresh mid-section lands at the top',
+        afterReload === 0,
+        `left at ${beforeReload}px, came back at ${afterReload}px`
+      );
       await noSystemName('after a mid-section refresh');
       continue;
     }

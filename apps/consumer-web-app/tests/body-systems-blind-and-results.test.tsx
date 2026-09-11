@@ -296,6 +296,24 @@ describe('a new section opens at the top of itself', () => {
     expect(scrollTo).toHaveBeenLastCalledWith(0, 0);
   });
 
+  it('takes the scroll position off the browser while she is in the survey', () => {
+    /*
+      THE BUG THIS IS FOR WAS FOUND ON PRODUCTION. Every section change
+      landed at the top and a refresh in the middle of a section landed
+      2,797px down, because a reload restores the position the browser
+      remembers and does it after hydration. Scoped to the survey: her back
+      button position everywhere else is the browser's business again the
+      moment she leaves.
+    */
+    window.history.scrollRestoration = 'auto';
+    mount(3);
+    expect(window.history.scrollRestoration).toBe('manual');
+    act(() => root.unmount());
+    expect(window.history.scrollRestoration).toBe('auto');
+    // The afterEach unmount must still be safe.
+    root = createRoot(container);
+  });
+
   it('scrolls to the top when she steps back as well', async () => {
     mount(2);
     expect(scrollTo).toHaveBeenCalledTimes(1);
