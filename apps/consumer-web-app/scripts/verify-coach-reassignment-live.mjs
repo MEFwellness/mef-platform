@@ -348,12 +348,26 @@ try {
     name: new RegExp(`^(${COPY['assign.confirm_resend']}|${COPY['assign.confirm_resending']})$`),
   });
   check('the confirm button reads Resend rather than Assign', (await resendButton.count()) > 0);
+
+  /*
+    NAME A DAY, SO THE MOVE IS OBSERVABLE.
+
+    Assigning and resending on the same afternoon both default to seven
+    days from her today, which is the correct behaviour and an invisible
+    one: the due date a resend writes would be the identical value, and a
+    run asserting "it changed" would fail against a resend that worked
+    perfectly. Typing a date is also what a coach moving a deadline
+    actually does.
+  */
+  const RESEND_DUE = new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10);
+  await formFor('whole-body-signal').locator('input[type="date"]').fill(RESEND_DUE);
+
   await resendButton.click();
 
   wbsRows = await waitForRows(
     WBS_DEFINITION,
-    (rows) => rows.length === 1 && rows[0].due_at !== firstDueAt,
-    'the due date moving'
+    (rows) => rows.length === 1 && String(rows[0].due_at).startsWith(RESEND_DUE),
+    'the due date moving to the day the coach typed'
   );
   check(
     'RESENDING WROTE NO SECOND ASSIGNMENT: the ledger still holds exactly one',
@@ -361,8 +375,8 @@ try {
     `${wbsRows.length} row(s)`
   );
   check(
-    'and it moved the due window rather than leaving it where it was',
-    wbsRows[0].due_at !== firstDueAt,
+    'and it moved the due window to the day the coach named',
+    String(wbsRows[0].due_at).startsWith(RESEND_DUE) && wbsRows[0].due_at !== firstDueAt,
     `${String(firstDueAt).slice(0, 10)} to ${String(wbsRows[0].due_at).slice(0, 10)}`
   );
   check('the one row is still open', wbsRows[0].status === 'pending');
@@ -624,14 +638,40 @@ try {
     else if (await beginLink.count()) await beginLink.first().click().catch(() => {});
     await page.waitForURL(/\/assessments\/wbsa\/take/, { timeout: 90000 }).catch(() => {});
 
+    /*
+      DONE IS THE LEDGER SAYING SO, NOT A SCREEN.
+
+      The first run of this walk answered every question, the sitting
+      landed and the assignment closed out, and the rig then sat for ninety
+      seconds waiting for an `h2` on a completion screen that has none. The
+      finished state this run actually cares about is the assignment being
+      closed, which is a row, so that is what ends the loop. The screen is
+      still checked first because it is cheaper and answers a frame
+      earlier.
+    */
+    async function alreadyClosed() {
+      const rows = await assignmentRows(WBSA_DEFINITION);
+      return rows.some((row) => row.status === 'completed');
+    }
+
     for (let screen = 0; screen < 200; screen += 1) {
       const finished = await page
         .getByRole('button', { name: /view my results/i })
         .count()
         .catch(() => 0);
       if (finished > 0) return;
+      if (await alreadyClosed()) return;
 
-      await page.waitForSelector('h2', { timeout: 90000 });
+      const asked = await page
+        .waitForSelector('h2', { timeout: 20000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!asked) {
+        if (await alreadyClosed()) return;
+        throw new Error(
+          `the Check-In walk stalled on: ${(await textOf(page)).replace(/\n/g, ' ').slice(0, 200)}`
+        );
+      }
       const prompt = (await page.locator('h2').first().innerText()).trim();
 
       const radios = page.getByRole('radio');
