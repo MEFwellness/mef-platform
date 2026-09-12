@@ -197,9 +197,25 @@ export function HealthIntakeExperience({
     }
   }
 
-  function save() {
+  /**
+   * Writes the draft.
+   *
+   * `stepOverride` IS THE SCREEN SHE IS MOVING TO, NOT THE ONE SHE IS ON.
+   * `draftRef` is refreshed while rendering, so a save fired from the same
+   * tick as a `setStepIndex` still holds the OLD index, and the server
+   * stored a position one screen behind her for the whole sitting. Found
+   * on production, 2026-09-12: she left on a question and came back to the
+   * chapter header above it. Her answers were never at risk, because
+   * resume never trusts the stored index on its own, but the screen she
+   * came back to was not the screen she left.
+   */
+  function save(stepOverride?: number) {
     dirty.current = false;
-    void chainSave(() => postDraft(draftRef.current));
+    const draft =
+      stepOverride === undefined
+        ? draftRef.current
+        : { ...draftRef.current, stepIndex: stepOverride };
+    void chainSave(() => postDraft(draft));
   }
 
   useEffect(() => {
@@ -284,8 +300,9 @@ export function HealthIntakeExperience({
     gateTimer.current = setTimeout(() => {
       gateTimer.current = null;
       const rebuilt = buildSteps(next);
-      setStepIndex((current) => Math.min(current + 1, completionStepIndex(rebuilt)));
-      save();
+      const moving = Math.min(stepIndex + 1, completionStepIndex(rebuilt));
+      setStepIndex(moving);
+      save(moving);
     }, wait);
   }
 
@@ -325,8 +342,8 @@ export function HealthIntakeExperience({
   function goForward() {
     if (submitting) return;
     setPending(null);
-    const next = stepIndex + 1;
-    save();
+    const next = Math.min(stepIndex + 1, lastIndex);
+    save(next);
     if (next >= lastIndex) {
       setStepIndex(lastIndex);
       submit(answers);

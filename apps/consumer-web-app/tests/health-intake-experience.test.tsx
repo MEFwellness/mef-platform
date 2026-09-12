@@ -47,7 +47,7 @@ vi.mock('@/app/actions/healthIntake', () => ({
 const { HealthIntakeExperience } = await import(
   '../components/health-intake/HealthIntakeExperience'
 );
-const { fieldIsRequired } = await import('../lib/health-intake/steps');
+const { buildSteps, fieldIsRequired } = await import('../lib/health-intake/steps');
 const { allScreens } = await import('../lib/health-intake/questions');
 const { itemsForFollowUp, screenIsShown } = await import('../lib/health-intake/branching');
 const { formatHeight } = await import('../lib/health-intake/sanitize');
@@ -82,6 +82,10 @@ function setReducedMotion(reduced: boolean) {
   });
 }
 
+/** Every draft the taker posted, in order, so the stored position is checkable. */
+type PostedDraft = { answers: IntakeAnswers; stepIndex: number };
+const drafts: PostedDraft[] = [];
+
 let container: HTMLDivElement;
 let root: Root;
 
@@ -92,10 +96,14 @@ describe('the Health & Lifestyle Intake, on a real screen', () => {
     submit.mockClear();
     setReducedMotion(true);
     Object.defineProperty(window, 'scrollTo', { writable: true, configurable: true, value: vi.fn() });
+    drafts.length = 0;
     Object.defineProperty(globalThis, 'fetch', {
       writable: true,
       configurable: true,
-      value: vi.fn(async () => new Response(JSON.stringify({ ok: true }))),
+      value: vi.fn(async (_url: unknown, init?: { body?: string }) => {
+        if (init?.body) drafts.push(JSON.parse(init.body) as PostedDraft);
+        return new Response(JSON.stringify({ ok: true }));
+      }),
     });
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -491,6 +499,44 @@ describe('the Health & Lifestyle Intake, on a real screen', () => {
       await press(HLI_COPY.completionSubmitCta);
       await press(HLI_COPY.completionCta);
       expect(pushed).toEqual(['/dashboard']);
+    });
+  });
+
+  describe('what is written down as her position', () => {
+    /*
+      THE SCREEN SHE IS MOVING TO, NOT THE ONE SHE IS ON. The draft the
+      taker keeps is refreshed while rendering, so a save fired in the same
+      tick as the move still held the old index and the server stored a
+      position one screen behind her for the whole sitting. Found on
+      production, 2026-09-12: she left on a question and came back to the
+      chapter header above it.
+    */
+    it('a Continue stores the index of the screen she just arrived on', async () => {
+      const answers = walkedTo('brings_you_concerns');
+      mount({ resumeAnswers: answers, resumeStepIndex: 9999 });
+      await press(HLI_COPY.resumeCta);
+
+      const before = buildSteps(answers).findIndex(
+        (step) => step.kind === 'screen' && step.screenId === 'brings_you_concerns'
+      );
+      await press('Energy');
+      await press(HLI_COPY.continueLabel);
+
+      const last = drafts[drafts.length - 1];
+      expect(last, 'nothing was posted at all').toBeTruthy();
+      expect(last!.stepIndex).toBe(before + 1);
+    });
+
+    it('a gate stores the index its own advance lands on', async () => {
+      await openAt('background_medications_gate');
+      const before = buildSteps(walkedTo('background_medications_gate')).findIndex(
+        (step) => step.kind === 'screen' && step.screenId === 'background_medications_gate'
+      );
+      drafts.length = 0;
+      await press('No');
+      const last = drafts[drafts.length - 1];
+      expect(last, 'a gate posted nothing').toBeTruthy();
+      expect(last!.stepIndex).toBe(before + 1);
     });
   });
 

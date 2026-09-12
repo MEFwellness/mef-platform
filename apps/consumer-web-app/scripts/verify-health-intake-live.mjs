@@ -197,6 +197,19 @@ async function screenKey(page) {
   return page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').trim());
 }
 
+/** The current screen's text, once two samples a third of a second apart agree. */
+async function settled(page, timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    const now = await screenKey(page);
+    if (now === last && now.length > 0) return now;
+    last = now;
+    await new Promise((resolve) => setTimeout(resolve, 320));
+  }
+  return last ?? '';
+}
+
 /**
  * Waits for a DIFFERENT screen that has also STOPPED MOVING.
  *
@@ -237,7 +250,11 @@ async function waitForText(page, snippet, timeoutMs = 40000) {
  * only presses again while it is still the one it started on.
  */
 async function advance(page, label = 'Continue') {
-  const before = await screenKey(page);
+  // THE BEFORE IS TAKEN ONCE THIS SCREEN HAS STOPPED MOVING. The opening
+  // screen types its headline out, so a "before" caught mid-reveal differs
+  // from the same screen a moment later, and the wait below then reports a
+  // change that never happened.
+  const before = await settled(page);
   const button = page.getByRole('button', { name: label, exact: true });
   for (let attempt = 0; attempt < 8; attempt += 1) {
     if ((await screenKey(page)) === before) {
@@ -610,7 +627,13 @@ try {
     }
 
     // A gate with no Continue, answered No.
-    const before = await screenKey(page);
+    const before = await settled(page);
+    const gate = page.getByRole('radio', { name: 'No', exact: true });
+    if ((await gate.count()) === 0) {
+      // Said out loud rather than thrown as "tap never registered: No",
+      // which named the control and not the screen that stalled.
+      throw new Error(`no way forward from this screen: ${before.slice(0, 160)}`);
+    }
     await tap(page, 'No');
     await waitForScreenChange(page, before);
     return true;
@@ -677,18 +700,33 @@ try {
   // -----------------------------------------------------------------
   // Flipping a gate, and the confirmation it draws.
   // -----------------------------------------------------------------
-  for (let back = 0; back < 14; back += 1) {
+  /*
+    FAR ENOUGH TO ACTUALLY GET THERE. The close and reopen above happens in
+    chapter ten, and the medications gate is in chapter three, which is
+    about thirty screens of Back. A limit of fourteen reported "Back did
+    not reach it" about a Back control that was working perfectly.
+  */
+  for (let back = 0; back < 45; back += 1) {
     const text = await textOf(page);
     if (text.includes('Are you currently taking any prescription medications?')) break;
-    await page.getByRole('button', { name: /back/i }).first().click({ timeout: 10000 }).catch(() => {});
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    const control = page.locator('button[aria-label="Back"]').first();
+    if ((await control.count()) === 0) break;
+    await control.click({ timeout: 10000 }).catch(() => {});
+    await new Promise((resolve) => setTimeout(resolve, 300));
   }
   check(
     'member: Back walked her to the medications gate',
     (await textOf(page)).includes('Are you currently taking any prescription medications?')
   );
 
-  await tap(page, 'No');
+  /*
+    A PLAIN CLICK, NOT `tap`. `tap` waits for the app to agree the answer
+    landed, and on this one screen the answer deliberately does NOT land:
+    a gate that would close a branch she has filled in draws the
+    confirmation first and commits nothing until she answers it. So the
+    thing to wait for here is the confirmation, which is the claim anyway.
+  */
+  await page.getByRole('radio', { name: 'No', exact: true }).first().click({ timeout: 10000 });
   const sawConfirm = await waitForText(page, 'This will remove the 2 medications you added.', 10000);
   check('member: the confirmation names exactly what goes', sawConfirm);
   check(
@@ -703,8 +741,11 @@ try {
     !(await textOf(page)).toLowerCase().includes('this will remove')
   );
 
-  await tap(page, 'No');
-  await waitForText(page, 'This will remove the 2 medications you added.', 10000);
+  await page.getByRole('radio', { name: 'No', exact: true }).first().click({ timeout: 10000 });
+  check(
+    'member: it asks again when she tries again',
+    await waitForText(page, 'This will remove the 2 medications you added.', 10000)
+  );
   await page.getByRole('button', { name: /yes, remove it/i }).first().click();
   await new Promise((resolve) => setTimeout(resolve, 900));
 
@@ -781,7 +822,7 @@ try {
   check('server: the assignment closed itself', closed?.status === 'completed', closed?.status ?? '');
 
   const { data: receipt } = await admin
-    .from('assignment_deliveries')
+    .from('member_assignment_deliveries')
     .select('assignment_id, presentation, delivered_at')
     .eq('assignment_id', assignment.id);
   check('server: a delivery receipt was written on a real display', (receipt ?? []).length > 0,

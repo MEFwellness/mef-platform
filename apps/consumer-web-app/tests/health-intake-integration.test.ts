@@ -167,7 +167,46 @@ describe('a draft is written, read back, and survives', () => {
     const record = await saveHliProgress(member, memberOneId, {
       assignmentId,
       answers: { ...FIRST, medications_gate: 'no' },
-      archived: { medications: LATER.medications },
+      archived: { medications: LATER.medications ?? [] },
+      stepIndex: 16,
+      contentVersion: HLI_CONTENT_VERSION,
+    });
+    expect(record!.answers.medications).toBeUndefined();
+    expect(record!.archived.medications).toHaveLength(2);
+  });
+
+  it('archives what the client did NOT send, which is what a real removal looks like', async () => {
+    /*
+      THE SHAPE OF THE BUG THIS CLOSES. When a member confirms a removal her
+      screen simply stops holding those answers, so the save that follows
+      carries no medications at all and there is nothing for a sanitiser to
+      drop. The archive therefore has to be derived from what the server
+      already holds, which is what mergeArchive in app/actions/healthIntake.ts
+      now does. Found on production, 2026-09-12, with an empty archive column
+      after a real removal.
+    */
+    const assignmentId = await assign();
+    const member = await signInAs(TEST_USERS.memberOne);
+    await saveHliProgress(member, memberOneId, {
+      assignmentId,
+      answers: LATER,
+      archived: {},
+      stepIndex: 14,
+      contentVersion: HLI_CONTENT_VERSION,
+    });
+
+    const stored = await fetchHliSessionForAssignment(member, memberOneId, assignmentId);
+    const afterFlip: IntakeAnswers = { ...FIRST, medications_gate: 'no' };
+    const removed: IntakeAnswers = {};
+    for (const [fieldId, value] of Object.entries(stored!.answers)) {
+      if (afterFlip[fieldId] === undefined) removed[fieldId] = value;
+    }
+    expect(removed.medications, 'the diff did not see the removal').toHaveLength(2);
+
+    const record = await saveHliProgress(member, memberOneId, {
+      assignmentId,
+      answers: afterFlip,
+      archived: { ...stored!.archived, ...removed },
       stepIndex: 16,
       contentVersion: HLI_CONTENT_VERSION,
     });

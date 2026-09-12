@@ -64,9 +64,36 @@ import { evaluateIntakeSafety, freeTextForClassifier } from '@/lib/health-intake
 import { buildMemberSummary, type MemberSummaryView } from '@/lib/health-intake/memberSummary';
 import type { IntakeAnswers } from '@/lib/health-intake/types';
 
-/** Her archive plus whatever this write took out. Nothing is ever removed from it. */
-function mergeArchive(existing: IntakeAnswers, dropped: IntakeAnswers): IntakeAnswers {
-  return { ...existing, ...dropped };
+/**
+ * Her archive, plus everything THIS write took out.
+ *
+ * IT IS DERIVED FROM WHAT THE SERVER ALREADY HOLDS, NOT FROM WHAT THE
+ * CLIENT SENT. When a member confirms a removal, her screen simply stops
+ * holding those answers, so the POST that follows does not carry them at
+ * all and the sanitiser has nothing to drop. Diffing the STORED answers
+ * against the kept set is what actually sees the removal, and it sees it
+ * whatever the client did: a stale tab, a hand made POST and a browser
+ * that crashed mid-confirmation all produce the same archive.
+ *
+ * Found on production, 2026-09-12: the archive was empty after a real
+ * removal, so "soft archived for audit" was a sentence about a column that
+ * never filled.
+ *
+ * NOTHING IS EVER REMOVED FROM IT, and nothing ever reads it back into a
+ * coach facing surface. It answers one question only: did she once tell us
+ * this and then take it back.
+ */
+function mergeArchive(
+  existingArchive: IntakeAnswers,
+  existingAnswers: IntakeAnswers,
+  kept: IntakeAnswers,
+  dropped: IntakeAnswers
+): IntakeAnswers {
+  const removed: IntakeAnswers = {};
+  for (const [fieldId, value] of Object.entries(existingAnswers)) {
+    if (kept[fieldId] === undefined) removed[fieldId] = value;
+  }
+  return { ...existingArchive, ...removed, ...dropped };
 }
 
 export type SaveHliProgressResult =
@@ -112,7 +139,7 @@ export async function saveHealthIntakeProgressAction(
   const record = await saveHliProgress(supabase, user.id, {
     assignmentId: assignmentRead.assignment.id,
     answers: kept,
-    archived: mergeArchive(existing?.archived ?? {}, dropped),
+    archived: mergeArchive(existing?.archived ?? {}, existing?.answers ?? {}, kept, dropped),
     stepIndex,
     contentVersion: HLI_CONTENT_VERSION,
   });
@@ -197,7 +224,7 @@ export async function submitHealthIntakeAction(answersInput: unknown): Promise<S
   const record = await completeHliSession(supabase, user.id, {
     sessionId: session.id,
     answers: kept,
-    archived: mergeArchive(session.archived, dropped),
+    archived: mergeArchive(session.archived, session.answers, kept, dropped),
     stepIndex: completionStepIndex(steps),
   });
 
