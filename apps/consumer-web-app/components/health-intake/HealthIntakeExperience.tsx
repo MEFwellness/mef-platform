@@ -539,7 +539,16 @@ export function HealthIntakeExperience({
           <p className="mx-auto mt-3 max-w-[22rem] text-[16px] leading-relaxed text-[#3E5C46]">
             {section.framingLine}
           </p>
-          <button type="button" onClick={() => goTo(stepIndex + 1)} className={`${PRIMARY} mt-9`}>
+          {/*
+            goForward, NOT goTo. A chapter's Continue is a real step through
+            the walk, and goTo writes nothing, so the last position the
+            server knew about was the screen BEFORE the chapter header. A
+            member who left on the first question of a chapter came back to
+            that chapter's header instead. Found on production, 2026-09-12.
+            A chapter is never the last step, so the submit branch inside
+            goForward cannot be reached from here.
+          */}
+          <button type="button" onClick={goForward} className={`${PRIMARY} mt-9`}>
             {HLI_COPY.continueLabel}
             <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
           </button>

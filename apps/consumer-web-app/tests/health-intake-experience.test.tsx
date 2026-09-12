@@ -527,6 +527,32 @@ describe('the Health & Lifestyle Intake, on a real screen', () => {
       expect(last!.stepIndex).toBe(before + 1);
     });
 
+    it('a chapter Continue is a step too, and is written down as one', async () => {
+      /*
+        A chapter header is a screen she pressed Continue on, so leaving
+        from the question below it must not bring her back to the header.
+        The mover behind it used to write nothing at all.
+      */
+      const answers = walkedTo('brings_you_concerns');
+      mount({ resumeAnswers: answers, resumeStepIndex: 0 });
+      await press(HLI_COPY.resumeCta);
+      // Resume clamps to the first screen that still needs her, which is
+      // the chapter header above it when the stored index is behind.
+      drafts.length = 0;
+      const here = buildSteps(answers).findIndex(
+        (step) => step.kind === 'screen' && step.screenId === 'brings_you_concerns'
+      );
+      // Walk forward from wherever she landed until the question shows.
+      for (let step = 0; step < 6; step += 1) {
+        if ((container.textContent ?? '').includes('What would you most like help with')) break;
+        await press(HLI_COPY.continueLabel);
+      }
+      expect(container.textContent).toContain('What would you most like help with');
+      const last = drafts[drafts.length - 1];
+      expect(last, 'moving through a chapter header saved nothing').toBeTruthy();
+      expect(last!.stepIndex).toBe(here);
+    });
+
     it('a gate stores the index its own advance lands on', async () => {
       await openAt('background_medications_gate');
       const before = buildSteps(walkedTo('background_medications_gate')).findIndex(
