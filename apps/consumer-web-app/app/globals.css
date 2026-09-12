@@ -1905,3 +1905,240 @@
     animation: none !important;
   }
 }
+
+/* =====================================================================
+ * THE MEF WHOLE-BODY SIGNAL ASSESSMENT
+ *
+ * One question per screen, nine section transitions each with its own
+ * abstract motion cue, and a completion reveal. Every animation here obeys
+ * the instrument's own timing brief: 150 to 250ms for a question change,
+ * 250 to 400ms for a card, 500 to 800ms for a section intro, and at most
+ * two seconds for the final reveal. Fade, soft slide, a scale from 0.98,
+ * a line drawing itself, a slow gradient. Nothing bounces, nothing spins,
+ * nothing flashes.
+ *
+ * THE CUES ARE ABSTRACT, AND THAT IS A CONTENT RULE RATHER THAN A TASTE.
+ * A section's cue is a key stored on its row (`motion_cue`), never a
+ * colour and never a chakra, so the screen a member sees can never become
+ * a diagram of the practitioner layer she is not shown.
+ *
+ * EVERY RULE BELOW IS OFF UNDER prefers-reduced-motion, with the finished
+ * state as the natural one, so the screen is complete rather than empty.
+ * ===================================================================== */
+
+/* The question change. Deliberately at the fast end of the brief: this
+ * fires up to ninety six times in one sitting, and a transition a member
+ * notices twice is a transition she resents by the tenth. */
+@keyframes mef-wbs-question-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.mef-wbs-question-in {
+  animation: mef-wbs-question-in 200ms var(--mef-ease-standard) both;
+}
+
+/* A card arriving on the results screen. */
+@keyframes mef-wbs-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.mef-wbs-card-in {
+  animation: mef-wbs-card-in 320ms var(--mef-ease-standard) both;
+}
+
+/* The section intro. One fade on the whole group, laid out in its final
+ * box from the first frame, for the reason the section beat's own note
+ * gives: a member watching a screen assemble itself cannot tell it apart
+ * from a screen that has not finished loading. */
+@keyframes mef-wbs-intro-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mef-wbs-intro-in {
+  animation: mef-wbs-intro-in 600ms var(--mef-ease-standard) both;
+}
+
+/* The nine section cues. */
+@keyframes mef-wbs-drift {
+  0% {
+    transform: translate3d(-4%, 2%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4%, -3%, 0) scale(1.04);
+  }
+  100% {
+    transform: translate3d(-4%, 2%, 0) scale(1);
+  }
+}
+
+@keyframes mef-wbs-ring {
+  0% {
+    transform: scale(0.82);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+}
+
+@keyframes mef-wbs-draw {
+  from {
+    stroke-dashoffset: var(--mef-wbs-dash, 240);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes mef-wbs-dot-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mef-wbs-fall {
+  0% {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+}
+
+@keyframes mef-wbs-open {
+  0% {
+    transform: scaleX(0.25);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes mef-wbs-settle {
+  0% {
+    transform: scaleY(1.35);
+    opacity: 0.75;
+  }
+  60% {
+    transform: scaleY(0.85);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.mef-wbs-cue-drift {
+  animation: mef-wbs-drift 7s var(--mef-ease-standard) infinite;
+}
+
+.mef-wbs-cue-ring {
+  animation: mef-wbs-ring 3.2s var(--mef-ease-standard) infinite;
+}
+
+.mef-wbs-cue-draw {
+  stroke-dasharray: var(--mef-wbs-dash, 240);
+  animation: mef-wbs-draw 1400ms var(--mef-ease-standard) both;
+}
+
+.mef-wbs-cue-dot {
+  animation: mef-wbs-dot-in 420ms var(--mef-ease-standard) both;
+}
+
+.mef-wbs-cue-fall {
+  animation: mef-wbs-fall 2.6s var(--mef-ease-standard) infinite;
+}
+
+.mef-wbs-cue-open {
+  transform-origin: left center;
+  animation: mef-wbs-open 1600ms var(--mef-ease-standard) both;
+}
+
+.mef-wbs-cue-settle {
+  transform-origin: center bottom;
+  animation: mef-wbs-settle 2.4s var(--mef-ease-standard) infinite;
+}
+
+/* The completion reveal: a body outline drawing itself while its signal
+ * points come up, inside two seconds. */
+.mef-wbs-reveal-outline {
+  stroke-dasharray: var(--mef-wbs-dash, 900);
+  animation: mef-wbs-draw 1200ms var(--mef-ease-standard) both;
+}
+
+.mef-wbs-reveal-point {
+  animation: mef-wbs-dot-in 420ms var(--mef-ease-standard) both;
+}
+
+/* One bar of the signal landscape, growing from nothing to its own share. */
+@keyframes mef-wbs-bar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.mef-wbs-bar {
+  transform-origin: left center;
+  animation: mef-wbs-bar 620ms var(--mef-ease-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-wbs-question-in,
+  .mef-wbs-card-in,
+  .mef-wbs-intro-in,
+  .mef-wbs-cue-drift,
+  .mef-wbs-cue-ring,
+  .mef-wbs-cue-draw,
+  .mef-wbs-cue-dot,
+  .mef-wbs-cue-fall,
+  .mef-wbs-cue-open,
+  .mef-wbs-cue-settle,
+  .mef-wbs-reveal-outline,
+  .mef-wbs-reveal-point,
+  .mef-wbs-bar {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}

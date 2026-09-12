@@ -197,6 +197,7 @@ describe('member analytics', () => {
       weekly_reflection: '/weekly-reflection',
       stress_load_deep_dive: '/stress-load',
       body_systems_survey: '/body-systems',
+      whole_body_signal: '/whole-body-signal',
       owning_your_value: '/owning-your-value',
       where_your_joy_lives: '/where-your-joy-lives',
       the_giving_ledger: '/the-giving-ledger',

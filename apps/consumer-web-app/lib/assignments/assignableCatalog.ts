@@ -34,6 +34,12 @@ import {
   BODY_SYSTEMS_KEY,
   BODY_SYSTEMS_LABEL,
 } from '../body-systems/constants';
+import {
+  WBS_AREA,
+  WBS_DEFINITION_ID,
+  WBS_KEY,
+  WBS_LABEL,
+} from '../whole-body-signal/constants';
 import { STRESS_LOAD_AREA, STRESS_LOAD_LABEL } from '../stress-load/copy';
 import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_AREA, OYV_LABEL } from '../owning-your-value/copy';
@@ -107,6 +113,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
     definitionId: BODY_SYSTEMS_DEFINITION_ID,
     displayName: BODY_SYSTEMS_LABEL,
     areaLabel: BODY_SYSTEMS_AREA,
+  },
+  {
+    id: WBS_KEY,
+    definitionId: WBS_DEFINITION_ID,
+    displayName: WBS_LABEL,
+    areaLabel: WBS_AREA,
   },
   {
     id: 'stress-load-deep-dive',

@@ -96,8 +96,10 @@ import { TrackWeeklyReflectionDelivered } from '@/components/weekly-reflection/T
 import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
 import { StressLoadEntry } from '@/components/stress-load/StressLoadEntry';
 import { BodySystemsEntry } from '@/components/body-systems/BodySystemsEntry';
+import { WholeBodySignalEntry } from '@/components/whole-body-signal/WholeBodySignalEntry';
 import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
 import { getMyBodySystemsSurvey } from '@/lib/body-systems/view';
+import { getMyWholeBodySignal } from '@/lib/whole-body-signal/view';
 import { OwningYourValueEntry } from '@/components/owning-your-value/OwningYourValueEntry';
 import { getMyOwningYourValue } from '@/lib/owning-your-value/view';
 import { WhereYourJoyLivesEntry } from '@/components/where-your-joy-lives/WhereYourJoyLivesEntry';
@@ -442,6 +444,7 @@ async function DayFrameRegion() {
     weeklyReflection,
     stressLoad,
     bodySystems,
+    wholeBodySignal,
     owningYourValue,
     whereYourJoyLives,
     theGivingLedger,
@@ -468,6 +471,7 @@ async function DayFrameRegion() {
       // Request-memoized, exactly as the deep-dive above is, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyBodySystemsSurvey(),
+      getMyWholeBodySignal(),
       // Request-memoized, exactly as the two above are, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyOwningYourValue(),
@@ -582,6 +586,28 @@ async function DayFrameRegion() {
           {/* The card carries the assignment's delivery receipt
               (migration 210), which is why it needs the assignment id. */}
           <BodySystemsEntry assignmentId={bodySystems.assignmentId} />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* THE MEF WHOLE-BODY SIGNAL ASSESSMENT, persistent, for  */}
+      {/* as long as her coach's assignment is open.            */}
+      {/*                                                       */}
+      {/* A SEPARATE INSTRUMENT from the survey above it, so     */}
+      {/* both cards stand when a coach has sent both. It is     */}
+      {/* resumable, so 'in_progress' is not "done", it is       */}
+      {/* "waiting for her to come back", and the card is the    */}
+      {/* way back.                                              */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately.     */}
+      {/* The assignment is the whole gate                       */}
+      {/* (lib/whole-body-signal/access.ts).                     */}
+      {/* ==================================================== */}
+      {(wholeBodySignal?.status === 'pending' || wholeBodySignal?.status === 'in_progress') && (
+        <div className="pt-3">
+          {/* The card carries the assignment's delivery receipt
+              (migration 210), which is why it needs the assignment id. */}
+          <WholeBodySignalEntry assignmentId={wholeBodySignal.assignmentId} />
         </div>
       )}
 

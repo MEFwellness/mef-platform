@@ -150,6 +150,20 @@ export function bodySystemsPopupMessageKey(assignmentId: string): string {
 }
 
 /**
+ * The MEF Whole-Body Signal Assessment's own key, scoped to the assignment
+ * exactly as the two above are, and with the identical recurring dismissal
+ * lifetime.
+ *
+ * A DISTINCT PREFIX from body_systems, and it has to be. They are two
+ * different instruments, a member can legitimately have both assigned at
+ * once, and a shared prefix would let one dismissal silence the other's
+ * invitation.
+ */
+export function wholeBodySignalPopupMessageKey(assignmentId: string): string {
+  return `whole_body_signal:${assignmentId}`;
+}
+
+/**
  * Owning Your Value's own key, scoped to the assignment exactly as the
  * Stress & Load Deep-Dive's above is, and with the identical recurring
  * dismissal lifetime. A coach can send this experience more than once, and

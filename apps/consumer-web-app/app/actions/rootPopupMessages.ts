@@ -137,6 +137,7 @@ import {
   weeklyReviewPopupMessageKey,
   weeklyReflectionPopupMessageKey,
   bodySystemsPopupMessageKey,
+  wholeBodySignalPopupMessageKey,
   stressLoadPopupMessageKey,
   owningYourValuePopupMessageKey,
   whereYourJoyLivesPopupMessageKey,
@@ -164,6 +165,12 @@ import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
 import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
 import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
 import { getBodySystemsMemberCopy, getMyBodySystemsSurvey } from '@/lib/body-systems/view';
+import {
+  getWholeBodySignalMemberCopy,
+  getMyWholeBodySignal,
+} from '@/lib/whole-body-signal/view';
+import { WBS_LABEL, WBS_ROUTE } from '@/lib/whole-body-signal/constants';
+import { memberCopy as wbsMemberCopy } from '@/lib/whole-body-signal/copyKeys';
 import { BODY_SYSTEMS_LABEL, BODY_SYSTEMS_ROUTE } from '@/lib/body-systems/constants';
 import { memberCopy } from '@/lib/body-systems/copyKeys';
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
@@ -337,6 +344,28 @@ export type RootPopupMessage =
    */
   | {
       kind: 'body_systems_assigned';
+      messageKey: string;
+      assignmentId: string;
+      title: string;
+      body: string;
+      ctaLabel: string;
+      primaryHref: string;
+    }
+  /**
+   * The MEF Whole-Body Signal Assessment (coach assigned only, migration
+   * 225).
+   *
+   * ITS OWN KIND, AND ITS OWN KEY PREFIX, and both are load bearing. It is
+   * a different instrument from the survey above it, a member can have
+   * both assigned at once, and a shared kind or a shared prefix would let
+   * one dismissal silence the other's invitation.
+   *
+   * ITS WORDS ARE ROWS. The title, the body and the button label come from
+   * whole_body_signal_copy rather than from a constant here, because every
+   * word this assessment can say to a member is editable content.
+   */
+  | {
+      kind: 'whole_body_signal_assigned';
       messageKey: string;
       assignmentId: string;
       title: string;
@@ -947,6 +976,44 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
         body: memberCopy(copy, 'member.popup_body'),
         ctaLabel: memberCopy(copy, 'member.popup_cta'),
         primaryHref: BODY_SYSTEMS_ROUTE,
+      };
+    }
+  }
+
+  // The MEF Whole-Body Signal Assessment, immediately below the survey and
+  // for the identical reasons: a coach's direct action for this member, and
+  // finite, because finishing it closes the assignment out so it can never
+  // starve anything below it.
+  //
+  // BELOW rather than above the survey, and that order is the only opinion
+  // held here. When a coach has sent both, the one listed first is the one
+  // Root asks about first, and this one is still due on her next open
+  // because its key has no dismissal row yet. Neither is ever swallowed by
+  // the other.
+  //
+  // getMyWholeBodySignal returns null for every member who was never
+  // assigned this, so the gate and the offer are one read rather than two
+  // checks here that could drift from the route's. Its own branch checks
+  // its own due-ness and falls through, per this file's one rule: a branch
+  // that returned a candidate the outer due-check then threw away would
+  // silence everything below it.
+  //
+  // A sitting she has STARTED still pops. The invitation is to finish the
+  // thing her coach asked for, and an assessment abandoned on section three
+  // is exactly the case a knock is for.
+  const wholeBodySignal = await getMyWholeBodySignal();
+  if (wholeBodySignal?.status === 'pending' || wholeBodySignal?.status === 'in_progress') {
+    const messageKey = wholeBodySignalPopupMessageKey(wholeBodySignal.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      const copy = await getWholeBodySignalMemberCopy();
+      return {
+        kind: 'whole_body_signal_assigned',
+        messageKey,
+        assignmentId: wholeBodySignal.assignmentId,
+        title: wbsMemberCopy(copy, 'member.popup_title') || WBS_LABEL,
+        body: wbsMemberCopy(copy, 'member.popup_body'),
+        ctaLabel: wbsMemberCopy(copy, 'member.popup_cta'),
+        primaryHref: WBS_ROUTE,
       };
     }
   }

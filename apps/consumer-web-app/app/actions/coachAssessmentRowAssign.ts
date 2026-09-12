@@ -38,6 +38,7 @@ import { listAssignableTemplates } from '@/lib/assignments/assignableCatalog';
 import { assignAssessmentAction } from './assessmentAssignments';
 import { assignStressLoadDeepDiveAction } from './stressLoad';
 import { assignBodySystemsSurveyAction } from './bodySystems';
+import { assignWholeBodySignalAction } from './wholeBodySignal';
 import { assignOwningYourValueAction } from './owningYourValue';
 import { assignWhereYourJoyLivesAction } from './whereYourJoyLives';
 import { assignTheGivingLedgerAction } from './theGivingLedger';
@@ -55,6 +56,7 @@ const OWN_ACTION_BY_ROW_ID: Record<
   (clientId: string, options?: { dueDate?: string }) => Promise<{ ok: boolean; error?: string }>
 > = {
   'body-systems-survey': assignBodySystemsSurveyAction,
+  'whole-body-signal': assignWholeBodySignalAction,
   'stress-load-deep-dive': assignStressLoadDeepDiveAction,
   'owning-your-value': assignOwningYourValueAction,
   'where-your-joy-lives': assignWhereYourJoyLivesAction,

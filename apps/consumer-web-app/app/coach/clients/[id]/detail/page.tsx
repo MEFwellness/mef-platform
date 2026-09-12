@@ -161,7 +161,9 @@ import { WeeklyReflectionPanel } from '../WeeklyReflectionPanel';
 import { StressLoadPanel } from '../StressLoadPanel';
 import { getClientStressLoadPanelAction } from '@/app/actions/stressLoad';
 import { BodySystemsPanel } from '../BodySystemsPanel';
+import { WholeBodySignalPanel } from '../WholeBodySignalPanel';
 import { getClientBodySystemsPanelAction } from '@/app/actions/bodySystems';
+import { getClientWholeBodySignalPanelAction } from '@/app/actions/wholeBodySignal';
 import { OwningYourValuePanel } from '../OwningYourValuePanel';
 import { getClientOwningYourValuePanelAction } from '@/app/actions/owningYourValue';
 import { WhereYourJoyLivesPanel } from '../WhereYourJoyLivesPanel';
@@ -296,6 +298,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     weeklyReflectionAssign,
     stressLoadPanel,
     bodySystemsPanel,
+    wholeBodySignalPanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
@@ -346,6 +349,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientWeeklyReflectionAssignStateAction(profile.id),
     getClientStressLoadPanelAction(profile.id),
     getClientBodySystemsPanelAction(profile.id),
+    getClientWholeBodySignalPanelAction(profile.id),
     getClientOwningYourValuePanelAction(profile.id),
     getClientWhereYourJoyLivesPanelAction(profile.id),
     getClientTheGivingLedgerPanelAction(profile.id),
@@ -446,6 +450,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
   const deepDivePanelStates = [
     stressLoadPanel,
     bodySystemsPanel,
+    wholeBodySignalPanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
@@ -783,6 +788,10 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
 
                 <div id="detail-card-body-systems" className="scroll-mt-24">
                   <BodySystemsPanel state={bodySystemsPanel} />
+                </div>
+
+                <div id="detail-card-whole-body-signal" className="scroll-mt-24">
+                  <WholeBodySignalPanel state={wholeBodySignalPanel} />
                 </div>
 
                 <div id="detail-card-owning-your-value" className="scroll-mt-24">

@@ -36,6 +36,7 @@ vi.mock('@/app/actions/assessmentAssignments', () => ({ assignAssessmentAction }
 /** One spy per deep-dive, so a dispatch to the wrong one is a failure and not a coincidence. */
 const deepDive = {
   'body-systems-survey': vi.fn(async () => ({ ok: true })),
+  'whole-body-signal': vi.fn(async () => ({ ok: true })),
   'stress-load-deep-dive': vi.fn(async () => ({ ok: true })),
   'owning-your-value': vi.fn(async () => ({ ok: true })),
   'where-your-joy-lives': vi.fn(async () => ({ ok: true })),
@@ -49,6 +50,9 @@ const deepDive = {
 
 vi.mock('@/app/actions/bodySystems', () => ({
   assignBodySystemsSurveyAction: deepDive['body-systems-survey'],
+}));
+vi.mock('@/app/actions/wholeBodySignal', () => ({
+  assignWholeBodySignalAction: deepDive['whole-body-signal'],
 }));
 vi.mock('@/app/actions/stressLoad', () => ({
   assignStressLoadDeepDiveAction: deepDive['stress-load-deep-dive'],

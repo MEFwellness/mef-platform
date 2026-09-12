@@ -103,7 +103,17 @@ describe('the survey intro asks for it, and nothing else does', () => {
       .filter((f) => read(f).includes('<IntroReveal'));
     expect(callers.length).toBeGreaterThan(5);
     for (const caller of callers) {
+      /*
+        THE TWO COACH ASSIGNED INSTRUMENTS, AND ONLY THOSE TWO.
+
+        IntroReveal's default plays its reveal once per device and hands
+        out the finished state forever after. That is right for a welcome
+        and wrong for the screen standing between a member and a task her
+        coach asked her to do, which she will open more than once. Every
+        other caller is a welcome.
+      */
       if (caller.endsWith('BodySystemsExperience.tsx')) continue;
+      if (caller.endsWith('WholeBodySignalExperience.tsx')) continue;
       const source = read(caller);
       expect(source).not.toContain('pace="brisk"');
       expect(source).not.toMatch(/<IntroReveal[\s\S]{0,2000}?\breplay\b[\s\S]{0,50}?\/?>/);

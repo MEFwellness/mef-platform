@@ -71,6 +71,7 @@ type WeeklyReviewMessage = Extract<RootPopupMessage, { kind: 'weekly_review' }>;
 type WeeklyReflectionMessage = Extract<RootPopupMessage, { kind: 'weekly_reflection' }>;
 type StressLoadMessage = Extract<RootPopupMessage, { kind: 'stress_load_assigned' }>;
 type BodySystemsMessage = Extract<RootPopupMessage, { kind: 'body_systems_assigned' }>;
+type WholeBodySignalMessage = Extract<RootPopupMessage, { kind: 'whole_body_signal_assigned' }>;
 type OwningYourValueMessage = Extract<RootPopupMessage, { kind: 'owning_your_value_assigned' }>;
 type WhereYourJoyLivesMessage = Extract<
   RootPopupMessage,
@@ -525,6 +526,29 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
+  // The MEF Whole-Body Signal Assessment. Same invite chrome as the survey
+  // above it, and a separate branch because it is a separate instrument
+  // with its own assignment, its own dismissal key and its own words.
+  if (message.kind === 'whole_body_signal_assigned') {
+    const m: WholeBodySignalMessage = message;
+    return (
+      <>
+        {/* The same receipt as the branches above, on the same table. */}
+        <TrackAssignmentDelivered assignmentId={m.assignmentId} presentation="popup" />
+        <RootInvitePopup
+          eyebrow="From Root"
+          title={m.title}
+          body={m.body}
+          ctaLabel={m.ctaLabel}
+          href={m.primaryHref}
+          isPending={isPending}
+          onMaybeLater={handleMaybeLater}
+          onIgnore={handleIgnore}
+        />
+      </>
+    );
+  }
+
   if (message.kind === 'owning_your_value_assigned') {
     const m: OwningYourValueMessage = message;
     return (
@@ -730,6 +754,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | WeeklyReflectionMessage
     | StressLoadMessage
     | BodySystemsMessage
+    | WholeBodySignalMessage
     | OwningYourValueMessage
     | WhereYourJoyLivesMessage
     | TheGivingLedgerMessage

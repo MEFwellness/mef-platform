@@ -24,6 +24,7 @@ import { listAssessmentRegistryEntries } from '../assessment-registry/registry';
 import { STRESS_LOAD_DEFINITION_ID } from '../stress-load/constants';
 import { STRESS_LOAD_LABEL } from '../stress-load/copy';
 import { BODY_SYSTEMS_DEFINITION_ID, BODY_SYSTEMS_LABEL } from '../body-systems/constants';
+import { WBS_DEFINITION_ID, WBS_LABEL } from '../whole-body-signal/constants';
 import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_LABEL } from '../owning-your-value/copy';
 import { WYJL_DEFINITION_ID } from '../where-your-joy-lives/constants';
@@ -52,6 +53,7 @@ export function assignmentNamesByDefinitionId(): Map<string, string> {
     ),
     [STRESS_LOAD_DEFINITION_ID, STRESS_LOAD_LABEL],
     [BODY_SYSTEMS_DEFINITION_ID, BODY_SYSTEMS_LABEL],
+    [WBS_DEFINITION_ID, WBS_LABEL],
     [OYV_DEFINITION_ID, OYV_LABEL],
     [WYJL_DEFINITION_ID, WYJL_LABEL],
     [TGL_DEFINITION_ID, TGL_LABEL],

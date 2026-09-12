@@ -37,6 +37,10 @@ export const PRODUCT_SURFACES = [
   'weekly_reflection',
   'stress_load_deep_dive',
   'body_systems_survey',
+  // The MEF Whole-Body Signal Assessment, a separate coach assigned
+  // instrument from the survey above it. A surface she opened, and nothing
+  // else: no answer and no reading reaches an analytics payload.
+  'whole_body_signal',
   // Owning Your Value, the first of the Happiness deep-dives. A surface she
   // opened, and nothing else: not a word she wrote and not the sentence she
   // asked Root to hold reaches an analytics payload.
