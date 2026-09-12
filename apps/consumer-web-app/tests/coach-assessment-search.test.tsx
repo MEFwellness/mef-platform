@@ -84,6 +84,7 @@ function assignment(input: {
   deliveredAt?: string | null;
   completedAt?: string | null;
   cancelledAt?: string | null;
+  assignedBy?: string;
 }): AssessmentAssignment {
   const progress = resolveAssignmentProgress({
     status: input.status,
@@ -97,6 +98,7 @@ function assignment(input: {
   return {
     id: input.id,
     assessmentDefinitionId: input.definitionId,
+    assignedBy: input.assignedBy ?? 'coach-1',
     isRequired: true,
     reason: null,
     dueAt: input.dueAt ?? null,

@@ -19,6 +19,26 @@
  * sentence under a row is the assignment's own `statusLine`, written on
  * the server in the MEMBER's timezone. This component formats no date.
  *
+ * A FINISHED ASSESSMENT CAN BE SENT AGAIN. Two instruments draw a real
+ * reassessment comparison from a second sitting, and until this change the
+ * only control left on a row once it had been finished was View results,
+ * so the screen that draws that comparison had no way to ask for the
+ * sitting it compares. A row that allows it now carries Assign Again in
+ * Completed and Resend in Assigned, Waiting, in the same place the
+ * original Assign sits. Which rows those are is read off the template
+ * (lib/assignments/assignableCatalog.ts), never off the group.
+ *
+ * THE FORM SAYS WHAT ALREADY HAPPENED, AND THE SERVER WROTE THE
+ * SENTENCES. Last assigned, who sent it, last completed, whether one is
+ * open right now, and a quiet line when the last finish was recent. Every
+ * day in them belongs to the MEMBER's timezone, so not one of them is
+ * formatted here: they arrive as text, exactly as each row's status line
+ * already does (lib/coach-assign/history.ts).
+ *
+ * RESEND IS A DIFFERENT WRITE FROM ASSIGN, and the button says so. A
+ * client may never hold two open copies of one instrument, so confirming
+ * against an open one moves its due date rather than writing a second row.
+ *
  * THE ASSIGN FORM IS INLINE, AND IT BELONGS TO ITS ROW. Only one is open
  * at a time, because two open forms on one list is two ways to be halfway
  * through sending something. Its FIELDS come from the row's capability,
@@ -32,7 +52,10 @@
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ClipboardCheck } from 'lucide-react';
-import { assignAssessmentRowAction } from '@/app/actions/coachAssessmentRowAssign';
+import {
+  assignAssessmentRowAction,
+  resendAssessmentRowAction,
+} from '@/app/actions/coachAssessmentRowAssign';
 import { cancelAssessmentAssignmentAction } from '@/app/actions/assessmentAssignments';
 import {
   assessmentRowElementId,
@@ -41,6 +64,7 @@ import {
 } from '@/lib/coach-detail/assessmentStatus';
 import { requestDetailSection, useAssessmentRowFocusRequests } from '@/lib/coach-detail/detailBus';
 import { sectionIdForAnchor } from '@/lib/coach-detail/sections';
+import { coachAssignCopy } from '@/lib/coach-assign/copy';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 /*
@@ -81,9 +105,16 @@ type GroupKey = keyof typeof GROUP_TITLE;
 export function AssessmentStatusBlock({
   clientId,
   groups,
+  /**
+   * Every sentence the assign form says, read from coach_assign_copy on
+   * the server (migration 229). Defaulted so the block can still be
+   * rendered on its own in a test without stubbing a database.
+   */
+  copy = {},
 }: {
   clientId: string;
   groups: AssessmentStatusGroups;
+  copy?: Record<string, string>;
 }) {
   const router = useRouter();
   const [openFormRowId, setOpenFormRowId] = useState<string | null>(null);
@@ -176,6 +207,7 @@ export function AssessmentStatusBlock({
                     }}
                     onCancel={cancelAssignment}
                     onOpenResults={goToResults}
+                    copy={copy}
                   />
                 ))}
               </ul>
@@ -198,6 +230,7 @@ function AssessmentRow({
   onAssigned,
   onCancel,
   onOpenResults,
+  copy,
 }: {
   row: AssessmentStatusRow;
   group: GroupKey;
@@ -209,7 +242,26 @@ function AssessmentRow({
   onAssigned: () => void;
   onCancel: (assignmentId: string) => void;
   onOpenResults: (anchorId: string) => void;
+  copy: Record<string, string>;
 }) {
+  /*
+    WHETHER THIS ROW OFFERS TO BE SENT, AND WHAT THE CONTROL IS CALLED.
+
+    Never assigned is Assign, as it always was. A row that allows being
+    sent again is Resend while the client is sitting on it and Assign Again
+    once she has finished, which is the same control in the same place
+    saying the true thing about what pressing it will do.
+  */
+  const sendAgain = row.capability.canAssign && row.allowsReassign;
+  const offersSend =
+    row.capability.canAssign && (group === 'notYetAssigned' || sendAgain);
+  const sendLabel =
+    group === 'notYetAssigned'
+      ? coachAssignCopy(copy, 'assign.row_assign')
+      : group === 'waiting'
+        ? coachAssignCopy(copy, 'assign.row_resend')
+        : coachAssignCopy(copy, 'assign.row_assign_again');
+
   return (
     <li
       id={assessmentRowElementId(row.id)}
@@ -241,41 +293,44 @@ function AssessmentRow({
           )}
         </div>
 
-        {group === 'notYetAssigned' && row.capability.canAssign && (
-          <button
-            type="button"
-            onClick={onToggleForm}
-            aria-expanded={formOpen}
-            className="mef-focus-ring mef-press shrink-0 rounded-full bg-[#1B3A2D] px-3.5 py-1 text-xs font-semibold text-white transition hover:bg-[#163025]"
-          >
-            {formOpen ? 'Close' : 'Assign'}
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-3">
+          {group === 'completed' && row.resultsAnchorId && (
+            <button
+              type="button"
+              onClick={() => onOpenResults(row.resultsAnchorId!)}
+              className="mef-focus-ring shrink-0 text-xs font-semibold text-[#1B3A2D] underline underline-offset-2 transition hover:text-[#163025]"
+            >
+              View results
+            </button>
+          )}
 
-        {group === 'waiting' && row.assignment && (
-          <button
-            type="button"
-            onClick={() => onCancel(row.assignment!.id)}
-            disabled={busy}
-            className="mef-focus-ring shrink-0 text-xs font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] disabled:opacity-40"
-          >
-            Cancel
-          </button>
-        )}
+          {group === 'waiting' && row.assignment && (
+            <button
+              type="button"
+              onClick={() => onCancel(row.assignment!.id)}
+              disabled={busy}
+              className="mef-focus-ring shrink-0 text-xs font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] disabled:opacity-40"
+            >
+              Cancel
+            </button>
+          )}
 
-        {group === 'completed' && row.resultsAnchorId && (
-          <button
-            type="button"
-            onClick={() => onOpenResults(row.resultsAnchorId!)}
-            className="mef-focus-ring shrink-0 text-xs font-semibold text-[#1B3A2D] underline underline-offset-2 transition hover:text-[#163025]"
-          >
-            View results
-          </button>
-        )}
+          {offersSend && (
+            <button
+              type="button"
+              onClick={onToggleForm}
+              aria-expanded={formOpen}
+              data-assign-toggle={row.id}
+              className="mef-focus-ring mef-press shrink-0 rounded-full bg-[#1B3A2D] px-3.5 py-1 text-xs font-semibold text-white transition hover:bg-[#163025]"
+            >
+              {formOpen ? coachAssignCopy(copy, 'assign.row_close') : sendLabel}
+            </button>
+          )}
+        </div>
       </div>
 
       {formOpen && row.capability.canAssign && (
-        <InlineAssignForm row={row} clientId={clientId} onAssigned={onAssigned} />
+        <InlineAssignForm row={row} clientId={clientId} onAssigned={onAssigned} copy={copy} />
       )}
     </li>
   );
@@ -293,10 +348,12 @@ function InlineAssignForm({
   row,
   clientId,
   onAssigned,
+  copy,
 }: {
   row: AssessmentStatusRow;
   clientId: string;
   onAssigned: () => void;
+  copy: Record<string, string>;
 }) {
   const reasonId = useId();
   const dueId = useId();
@@ -311,15 +368,29 @@ function InlineAssignForm({
     reasonRef.current?.focus();
   }, []);
 
+  /*
+    ONE OPEN COPY, EVER.
+
+    When this client is already sitting on one, confirming moves that
+    assignment's due date rather than writing a second row, and the button
+    says Resend so the coach is told which of the two is about to happen.
+    The server decides the same thing again from the row rather than
+    trusting this flag: a page held open while she finished resends into
+    nothing, and the resend path then writes the new cycle instead.
+  */
+  const isResend = row.history?.isOpen === true;
+
   function submit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await assignAssessmentRowAction(clientId, row.id, {
-        isRequired,
-        reason,
-        dueDate,
-      });
+      const result = isResend
+        ? await resendAssessmentRowAction(clientId, row.id, { dueDate })
+        : await assignAssessmentRowAction(clientId, row.id, {
+            isRequired,
+            reason,
+            dueDate,
+          });
       if (!result.ok) {
         setError(result.error);
         return;
@@ -335,7 +406,35 @@ function InlineAssignForm({
       aria-label={`Assign ${row.displayName}`}
       className="mt-3 space-y-3 rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-4"
     >
-      {row.capability.acceptsReason && (
+      {/*
+        WHAT HAS ALREADY HAPPENED WITH THIS ONE.
+
+        Absent entirely for a client this has never been sent to, which is
+        what keeps the form she sees identical to the form that was here
+        before. Every line is text the server wrote in the MEMBER's
+        timezone; nothing here formats a date.
+      */}
+      {row.history && (
+        <div data-assign-history={row.id} className="space-y-1 text-xs text-[#6B7A72]">
+          <p className="font-semibold uppercase tracking-wide text-[#8A9A92]">
+            {row.history.heading}
+          </p>
+          {row.history.openNoticeLine && (
+            <p className="font-medium text-[#1B3A2D]">{row.history.openNoticeLine}</p>
+          )}
+          {row.history.lastAssignedLine && <p>{row.history.lastAssignedLine}</p>}
+          <p>{row.history.lastCompletedLine}</p>
+          {/*
+            ONE QUIET LINE, AND DELIBERATELY NOT A WARNING. No colour, no
+            block, no second confirm. A coach who wants a second sitting
+            three days after the first has a reason, and the screen's job
+            is to make sure they know, not to argue.
+          */}
+          {row.history.recentCompletionLine && <p>{row.history.recentCompletionLine}</p>}
+        </div>
+      )}
+
+      {row.capability.acceptsReason && !isResend && (
         <div>
           <label htmlFor={reasonId} className="sr-only">
             Optional reason for this client
@@ -353,7 +452,7 @@ function InlineAssignForm({
       )}
 
       <div className="flex flex-wrap items-center gap-4">
-        {row.capability.acceptsRequired && (
+        {row.capability.acceptsRequired && !isResend && (
           <label className="flex items-center gap-2 text-sm text-[#1B3A2D]">
             <input
               type="checkbox"
@@ -378,10 +477,14 @@ function InlineAssignForm({
         )}
       </div>
 
-      {!row.capability.acceptsRequired && (
-        <p className="text-xs text-[#6B7A72]">
-          This one is always sent as required. Leave the date blank to use its own default.
-        </p>
+      {isResend ? (
+        <p className="text-xs text-[#6B7A72]">{coachAssignCopy(copy, 'assign.resend_note')}</p>
+      ) : (
+        !row.capability.acceptsRequired && (
+          <p className="text-xs text-[#6B7A72]">
+            This one is always sent as required. Leave the date blank to use its own default.
+          </p>
+        )
       )}
 
       {error && <p className="text-sm text-red-700">{error}</p>}
@@ -392,7 +495,9 @@ function InlineAssignForm({
           disabled={isPending}
           className="mef-focus-ring mef-press rounded-full bg-[#1B3A2D] px-5 py-2 text-sm font-medium text-white transition hover:bg-[#163025] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {isPending ? 'Sending' : 'Assign'}
+          {isPending
+            ? coachAssignCopy(copy, isResend ? 'assign.confirm_resending' : 'assign.confirm_sending')
+            : coachAssignCopy(copy, isResend ? 'assign.confirm_resend' : 'assign.confirm_assign')}
         </button>
       </div>
     </form>

@@ -55,6 +55,12 @@ import {
 export type AssessmentAssignment = {
   id: string;
   assessmentDefinitionId: string;
+  /**
+   * The coach who sent it. An auth user id and never a name: naming them
+   * is a profiles read under RLS, which a coach may only do for themselves
+   * and their own clients (lib/coach-assign/data.ts).
+   */
+  assignedBy: string;
   isRequired: boolean;
   reason: string | null;
   dueAt: string | null;
@@ -100,7 +106,7 @@ export async function getClientAssessmentAssignments(
   const { data, error } = await supabase
     .from('assessment_assignments')
     .select(
-      'id, assessment_definition_id, is_required, reason, due_at, status, created_at, updated_at, cancelled_at'
+      'id, assessment_definition_id, assigned_by, is_required, reason, due_at, status, created_at, updated_at, cancelled_at'
     )
     .eq('member_id', clientId)
     .order('created_at', { ascending: false });
@@ -120,6 +126,7 @@ export async function getClientAssessmentAssignments(
   return data.map((row) => ({
     id: row.id,
     assessmentDefinitionId: row.assessment_definition_id,
+    assignedBy: row.assigned_by,
     isRequired: row.is_required,
     reason: row.reason,
     dueAt: row.due_at,

@@ -81,7 +81,38 @@ export type AssignableTemplate = {
    * fields the inline form is allowed to draw.
    */
   assignKey: AssessmentKey | null;
+  /**
+   * WHETHER A COACH MAY SEND THIS ONE AGAIN once it has been finished, and
+   * resend it while it is still open.
+   *
+   * DELIBERATELY NARROW. Every instrument in this list can technically be
+   * assigned a second time, because the ledger allows a new cycle the
+   * moment the previous row leaves 'pending' (migration 144). What this
+   * flag decides is whether the COACH'S SCREEN offers it, and it is on for
+   * exactly the two instruments the reassessment work asked for: the MEF
+   * Whole-Body Signal Assessment and the Whole-Body Check-In. Both draw a
+   * real reassessment comparison from a second sitting, which is the whole
+   * reason to send one.
+   *
+   * Turning it on for another instrument is one entry in the set below.
+   * It is off for everything else so that this change moves nothing a
+   * coach was not asking to move, the MEF Body Systems Survey included.
+   */
+  allowsReassign: boolean;
 };
+
+/**
+ * The row ids a coach may send again from the status block.
+ *
+ * A SET RATHER THAN A PROPERTY ON EACH ENTRY, so the whole answer to "what
+ * is reassignable today" is one readable line instead of a boolean
+ * repeated twenty times, nineteen of them false.
+ */
+export const REASSIGNABLE_ROW_IDS: ReadonlySet<string> = new Set([
+  WBS_KEY,
+  // The Whole-Body Check-In, which the registry calls 'wbsa'.
+  'wbsa',
+]);
 
 /**
  * The ten coach-assigned experiences the registry deliberately does not
@@ -195,6 +226,7 @@ export function listAssignableTemplates(): AssignableTemplate[] {
     displayName: names.get(entry.databaseId) ?? entry.displayName,
     areaLabel: assessmentAreaLabel(entry.category),
     assignKey: entry.key,
+    allowsReassign: REASSIGNABLE_ROW_IDS.has(entry.key),
   }));
   const experienceRows: AssignableTemplate[] = COACH_ASSIGNED_EXPERIENCES.map((experience) => ({
     id: experience.id,
@@ -202,6 +234,7 @@ export function listAssignableTemplates(): AssignableTemplate[] {
     displayName: names.get(experience.definitionId) ?? experience.displayName,
     areaLabel: experience.areaLabel,
     assignKey: null,
+    allowsReassign: REASSIGNABLE_ROW_IDS.has(experience.id),
   }));
   return [...registryRows, ...experienceRows];
 }

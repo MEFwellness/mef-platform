@@ -38,6 +38,7 @@ import {
   type AssignableTemplate,
   type AssignmentStatusSource,
 } from '../assignments/assignableCatalog';
+import type { AssignmentHistoryView } from '../coach-assign/history';
 import type { AssessmentKey } from '../assessment-registry/types';
 
 /** The three groups, in the order a coach reads them. */
@@ -127,6 +128,23 @@ export type AssessmentStatusRow = {
   /** What `assignAssessmentAction` is given, or null when its own action sends it. */
   assignKey: AssessmentKey | null;
   capability: AssignCapability;
+  /**
+   * WHETHER THE ROW OFFERS A CONTROL ONCE IT HAS BEEN SENT. Read off the
+   * template (lib/assignments/assignableCatalog.ts), never off the group:
+   * a completed row is finished whatever it is, and only the instruments
+   * that draw a real reassessment comparison offer to be sent again.
+   */
+  allowsReassign: boolean;
+  /**
+   * What has already happened between this client and this instrument, as
+   * sentences the server has already written in HER timezone.
+   *
+   * NULL MEANS NEVER SENT, and the form then draws nothing extra and
+   * behaves exactly as it did before this existed. It is also null on
+   * every row that cannot be sent again, because the form under those is
+   * unchanged.
+   */
+  history: AssignmentHistoryView | null;
   /** The assignment that placed this row in Waiting or Completed. Null in Not Yet Assigned. */
   assignment: {
     id: string;
@@ -168,7 +186,14 @@ export type AssessmentStatusAssignment = AssignmentStatusSource & {
 export function groupAssessmentsByStatus(
   templates: AssignableTemplate[],
   assignments: AssessmentStatusAssignment[],
-  namesByDefinitionId: Record<string, string>
+  namesByDefinitionId: Record<string, string>,
+  /**
+   * The finished history sentences, by definition id, for the instruments
+   * that offer to be sent again. Absent for everything else, and for a
+   * client this has never been sent to, which is the same thing to the
+   * form: draw nothing extra.
+   */
+  historiesByDefinitionId: Record<string, AssignmentHistoryView> = {}
 ): AssessmentStatusGroups {
   const groups: AssessmentStatusGroups = { notYetAssigned: [], waiting: [], completed: [] };
   const placedDefinitionIds = new Set<string>();
@@ -183,6 +208,10 @@ export function groupAssessmentsByStatus(
       areaLabel: template.areaLabel,
       assignKey: template.assignKey,
       capability: template.assignKey === null ? OWN_ACTION_CAPABILITY : CATALOG_CAPABILITY,
+      allowsReassign: template.allowsReassign,
+      history: template.allowsReassign
+        ? (historiesByDefinitionId[template.definitionId] ?? null)
+        : null,
       assignment:
         current && current.status !== 'cancelled'
           ? {
@@ -213,6 +242,10 @@ export function groupAssessmentsByStatus(
       areaLabel: 'No longer offered',
       assignKey: null,
       capability: NOT_SENDABLE,
+      // A definition no template names cannot be sent from here at all, so
+      // it can certainly not be sent again.
+      allowsReassign: false,
+      history: null,
       assignment: {
         id: assignment.id,
         statusLine: assignment.statusLine,

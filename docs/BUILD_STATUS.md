@@ -1,3 +1,122 @@
+## Sending an assessment again, and saying what happened last time (2026-09-12)
+
+A coach walking the client screen could send an assessment once. The
+moment a client finished it the row moved to Completed and the only
+control left on it was View results, so the page that draws a
+reassessment comparison had no way to ask for the second sitting it
+compares. And when a coach did send something, the form said nothing
+about what had already happened: whether she was sitting on an open copy
+right now, when it was last sent, by whom, whether she had ever finished
+it.
+
+Both are fixed, for the two instruments this was asked for: the MEF
+Whole-Body Signal Assessment and the Whole-Body Check-In.
+
+### THE SAME CONTROL, IN THE SAME PLACE, SAYING THE TRUE THING
+
+A row that allows being sent again now carries one control where Assign
+has always sat, and its word changes with the state rather than
+disappearing:
+
+- **Assign** on a row nothing has been sent for. Unchanged.
+- **Resend** while the client is sitting on one.
+- **Assign Again** once she has finished, beside the View results link
+  rather than instead of it.
+
+No cooldown and no limit. A finished instrument can be sent again the
+same minute, as many times as a coach wants, and the finished rows stay
+in the ledger behind it, which is what the reassessment comparison reads.
+
+**WHICH INSTRUMENTS OFFER IT IS ONE LINE.** `REASSIGNABLE_ROW_IDS` in
+`lib/assignments/assignableCatalog.ts` holds exactly two ids today.
+Everything else on that screen is byte for byte what it was, the MEF Body
+Systems Survey included, and a test walks every template and fails if any
+third one turns on without somebody deciding to.
+
+### THE FORM SAYS WHAT ALREADY HAPPENED, IN FOUR STATES
+
+- **Never sent to this client.** Nothing extra at all. The form is
+  identical to the one that was there before this build.
+- **Open right now.** "This is already waiting for Ebony, sent Sep 12."
+  The confirm button reads Resend, and the reason and Required fields are
+  dropped, because a resend rewrites neither.
+- **Finished recently.** The history lines plus one quiet line,
+  "Completed 3 days ago.", inside a fourteen day window. No colour, no
+  block, no second confirm. The coach decides.
+- **Finished a while ago.** The history lines alone.
+
+Two of those lines are always drawn once there is any history: "Last
+assigned Sep 12, by you." and "Last completed Sep 10." or "Not
+completed."
+
+**LAST COMPLETED IS THE MOST RECENT COMPLETION SHE HAS**, whichever
+assignment it came from, rather than "the newest assignment, if it
+happened to be finished". A client sitting on a fresh copy today who
+finished the last one in March has finished it, and printing "Not
+completed" beside that open copy would be a true sentence about one row
+and a false one about her. "Not completed." is for a client who has never
+finished it.
+
+**WHO SENT IT IS SUBJECT TO RLS, AND THAT IS CORRECT.** profiles lets a
+coach read their own row and their own clients' (migration 16), so
+another coach's name comes back only for an administrator. The line says
+"by you" when it is the reader's own, names the coach when the name can
+be read, and otherwise says "by another coach". It never invents a name.
+
+**A WITHDRAWN ASSIGNMENT READS AS NEVER SENT**, here and everywhere else
+on the page, which is what the status block has always done with a
+cancelled row.
+
+### RESEND IS A DIFFERENT WRITE, AND THE BUTTON SAYS SO
+
+A client may never hold two open copies of one instrument.
+assessment_assignments' partial unique index (migration 144) makes a
+second pending row impossible, which is why every assign action in this
+app treats "one is already open" as success and writes nothing. That is
+the right answer to an accidental double click and the wrong answer to a
+coach who deliberately pressed Resend, who would be told it worked while
+nothing moved.
+
+`resendAssessmentRowAction` moves the open row's due date instead, which
+is the only thing a resend can honestly change: seven days from HER
+today, the same default every coach assigned experience already uses, or
+the day the coach typed. It writes no row, so her Home still shows one
+card and Root still knocks once.
+
+**AND IT CREATES NOTHING WHEN NOTHING IS OPEN.** A page held open while
+she finished would otherwise resend into a row that is no longer pending.
+Finding none, it hands straight to the ordinary assign path, so a stale
+screen produces what the coach intended rather than a silent no-op.
+
+### EVERY NEW WORD IS A ROW
+
+`coach_assign_copy` (migration 229), nineteen rows, with the revision
+trail every content bank here has. Coach only: it has no member select
+policy and never may, because these sentences talk about a member to
+somebody else. Tokens ({date}, {by}, {name}, {days}) are filled by the
+app, and a token the key does not carry is left standing so a coach
+editing a line sees the mistake rather than a sentence that quietly lost
+its subject. No em dashes.
+
+**NOT ONE DAY IS FORMATTED IN THE BROWSER.** The assign form is a client
+component, and a client component formatting these days would format them
+in the coach's timezone, differently in its two render passes, about days
+that belong to the member. Every sentence arrives already written, in her
+stored zone, exactly as each row's status line already does.
+
+### WHAT IS GUARDED
+
+`tests/coach-assign-history.test.ts` covers all four states, the
+timezone, who sent it, the recency window at its exact edges, and asserts
+the seeded rows and the code fallbacks are the same sentences.
+`tests/coach-reassignment.test.tsx` mounts the real block and presses the
+real buttons: Assign Again on a finished row, Resend on an open one,
+which write path each calls, and that a never-sent row draws no history
+at all. `tests/coach-reassignment-integration.test.ts` proves the three
+database facts everything rests on against real RLS: a second open
+assignment is refused, a resend moves the due date and leaves one row,
+and a new cycle opens once the previous one is finished, three times over.
+
 ## A second answer scale, and Section 8 on every branch (2026-09-12)
 
 Two things a coach walkthrough of the live MEF Whole-Body Signal

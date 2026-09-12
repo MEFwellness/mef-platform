@@ -37,7 +37,13 @@ vi.mock('next/navigation', () => ({
 }));
 
 const assignAssessmentRowAction = vi.fn(async () => ({ ok: true }) as { ok: true });
-vi.mock('@/app/actions/coachAssessmentRowAssign', () => ({ assignAssessmentRowAction }));
+// The block imports both write paths, so the mock carries both. Sending
+// again is driven in tests/coach-reassignment.test.tsx.
+const resendAssessmentRowAction = vi.fn(async () => ({ ok: true }) as { ok: true });
+vi.mock('@/app/actions/coachAssessmentRowAssign', () => ({
+  assignAssessmentRowAction,
+  resendAssessmentRowAction,
+}));
 
 const cancelAssessmentAssignmentAction = vi.fn(async () => ({}));
 vi.mock('@/app/actions/assessmentAssignments', () => ({ cancelAssessmentAssignmentAction }));

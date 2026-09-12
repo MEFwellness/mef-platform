@@ -123,6 +123,8 @@ import {
   assessmentStatusCounts,
   groupAssessmentsByStatus,
 } from '@/lib/coach-detail/assessmentStatus';
+import { loadAssignerNames, loadCoachAssignCopy } from '@/lib/coach-assign/data';
+import { buildAssignmentHistories, firstNameOf } from '@/lib/coach-assign/history';
 import { anyDeepDiveResults } from '@/lib/coach-detail/deepDiveResults';
 import { DetailSection } from './DetailSection';
 import { DetailPageSearch } from './DetailPageSearch';
@@ -434,10 +436,63 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     lib/coach-detail/assessmentStatus.ts holds the placement rule; this is
     only the wiring, and it issues no query.
   */
+  /*
+    WHAT HAS ALREADY HAPPENED WITH THE INSTRUMENTS A COACH MAY SEND AGAIN.
+
+    Two small reads, side by side, and only for the instruments whose rows
+    actually offer it. The copy read is the words the form is made of. The
+    name read is skipped entirely in the ordinary case, because a coach
+    looking at their own client is almost always the person who sent it,
+    and "by you" needs no query: only ids that are NOT this reader's are
+    looked up, and profiles RLS decides whether they come back at all.
+
+    Both are reads. Nothing on this page writes.
+  */
+  const reassignableDefinitionIds = assignableTemplates
+    .filter((template) => template.allowsReassign)
+    .map((template) => template.definitionId);
+  const otherAssignerIds = assessmentAssignments
+    .filter((row) => reassignableDefinitionIds.includes(row.assessmentDefinitionId))
+    .map((row) => row.assignedBy)
+    .filter((id) => id !== user?.id);
+  const [coachAssignCopyRows, assignerNames] = await Promise.all([
+    loadCoachAssignCopy(supabase),
+    loadAssignerNames(supabase, otherAssignerIds),
+  ]);
+
+  /*
+    THE SENTENCES ARE WRITTEN HERE, ON THE SERVER, IN HER TIMEZONE.
+
+    The assign form is a client component, and a client component that
+    formatted these days would format them in the coach's zone and
+    differently in its two render passes. Same rule, and the same reason,
+    as every assignment status line beside them.
+  */
+  const assignmentHistories = buildAssignmentHistories({
+    assignments: assessmentAssignments.map((row) => ({
+      id: row.id,
+      assessmentDefinitionId: row.assessmentDefinitionId,
+      status: row.status,
+      createdAt: row.createdAt,
+      assignedBy: row.assignedBy,
+      // The one moment migration 144's trigger stamped, already resolved
+      // once by the assignment reader rather than re-derived here.
+      completedAt: row.progress.delivery.kind === 'completed' ? row.progress.delivery.at : null,
+    })),
+    definitionIds: reassignableDefinitionIds,
+    copy: coachAssignCopyRows,
+    timeZone: summary.profile.timezone,
+    memberToday: summary.todaysLocalDate,
+    clientFirstName: firstNameOf(profile.display_name),
+    viewerId: user?.id ?? '',
+    assignerNames,
+  });
+
   const assessmentGroups = groupAssessmentsByStatus(
     assignableTemplates,
     assessmentAssignments,
-    assessmentDisplayNameById
+    assessmentDisplayNameById,
+    assignmentHistories
   );
   const assessmentCounts = assessmentStatusCounts(assessmentGroups);
 
@@ -712,7 +767,11 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
               object, so no two of them can disagree.
             */}
             <div id="detail-card-assessment-status" className="scroll-mt-24">
-              <AssessmentStatusBlock clientId={profile.id} groups={assessmentGroups} />
+              <AssessmentStatusBlock
+                clientId={profile.id}
+                groups={assessmentGroups}
+                copy={coachAssignCopyRows}
+              />
             </div>
 
             {/*
