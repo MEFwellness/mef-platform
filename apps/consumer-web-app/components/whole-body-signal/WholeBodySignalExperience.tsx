@@ -364,18 +364,38 @@ export function WholeBodySignalExperience({
     }, ADVANCE_MS);
   }
 
+  /**
+   * Finishes the sitting.
+   *
+   * IT CAN NEVER LEAVE HER ON A DEAD BUTTON. Found on production,
+   * 2026-09-11: this awaited the Server Action with nothing around it, so
+   * a call that REJECTED rather than returning an error left `submitting`
+   * true forever and View My Results permanently disabled, with no message
+   * and no way forward. A rejection is exactly what a dropped connection
+   * on a phone looks like. The finally is the fix: whatever happens, the
+   * button comes back, and she is told what to do with it.
+   *
+   * It is also safe to press twice. Completion is write once in the
+   * database, so a second submit resolves to the sitting that is already
+   * stored and hands back the same reading.
+   */
   function submit(routing: string | null, finalAnswers: WbsAnswers) {
     cancelAutosave();
     setSubmitting(true);
     setError(null);
     startTransition(async () => {
-      const result = await chainSave(() => submitWholeBodySignalAction(routing, finalAnswers));
-      setSubmitting(false);
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      try {
+        const result = await chainSave(() => submitWholeBodySignalAction(routing, finalAnswers));
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        setFinished({ sessionId: result.sessionId, view: result.view });
+      } catch {
+        setError(memberCopy(content.copy, 'member.save_error'));
+      } finally {
+        setSubmitting(false);
       }
-      setFinished({ sessionId: result.sessionId, view: result.view });
     });
   }
 
