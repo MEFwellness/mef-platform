@@ -661,8 +661,15 @@ try {
   check('member: started_at is real, and earlier than now', Boolean(partway?.started_at));
 
   await page.goto(`${BASE}/health-intake`, { waitUntil: 'domcontentloaded' });
-  await waitForText(page, 'Welcome back', 40000);
-  check('member: reopening offers the resume screen', true);
+  /*
+    THE RESULT OF THE WAIT IS THE CHECK, NOT A LITERAL true. The first
+    version of this line waited and then reported a pass regardless, so a
+    run where nothing had been saved and she was handed the OPENING screen
+    printed "reopening offers the resume screen: PASS" and only fell over
+    two lines later. A check that cannot fail is worse than no check.
+  */
+  const sawResume = await waitForText(page, 'Welcome back', 40000);
+  check('member: reopening offers the resume screen', sawResume);
   await advance(page, 'Continue my intake');
   const resumedAt = await screenKey(page);
   check('member: she resumed where she left off', resumedAt === beforeLeaving, `${resumedAt}`);

@@ -47,7 +47,7 @@ vi.mock('@/app/actions/healthIntake', () => ({
 const { HealthIntakeExperience } = await import(
   '../components/health-intake/HealthIntakeExperience'
 );
-const { buildSteps, fieldIsRequired } = await import('../lib/health-intake/steps');
+const { fieldIsRequired } = await import('../lib/health-intake/steps');
 const { allScreens } = await import('../lib/health-intake/questions');
 const { itemsForFollowUp, screenIsShown } = await import('../lib/health-intake/branching');
 const { formatHeight } = await import('../lib/health-intake/sanitize');

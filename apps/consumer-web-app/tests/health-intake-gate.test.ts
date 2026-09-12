@@ -225,9 +225,20 @@ describe('nothing writes on a render', () => {
 
   it('the draft row is created by a save and by nothing else', () => {
     const data = read('lib/health-intake/data.ts');
-    const upserts = data.split('\n').filter((line) => line.includes('.upsert('));
-    expect(upserts).toHaveLength(1);
+    // Exactly one insert in the whole feature, and it is the save.
+    const inserts = data.split('\n').filter((line) => line.includes('.insert('));
+    expect(inserts).toHaveLength(1);
     expect(data).toContain('export async function saveHliProgress');
+    /*
+      AND IT IS NOT AN UPSERT, which is the bug this line now guards.
+      Found on production, 2026-09-12: the one-row-per-assignment index is
+      partial, Postgres will not take a partial index as an ON CONFLICT
+      arbiter, and PostgREST's onConflict cannot repeat its predicate, so
+      every save was refused and a member answered ten chapters into
+      nothing. tests/health-intake-integration.test.ts proves the behaviour
+      against the real index; this keeps the shape from coming back.
+    */
+    expect(data).not.toContain('.upsert(');
   });
 });
 

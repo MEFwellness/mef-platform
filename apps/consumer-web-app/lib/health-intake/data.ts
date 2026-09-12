@@ -218,34 +218,71 @@ export type SaveHliDraft = {
 /**
  * Writes the draft, creating the row the first time.
  *
- * An upsert on assignment_id, which migration 230 makes unique, so two
- * saves racing each other produce one row rather than two sittings for one
- * assignment.
+ * IT IS A READ, THEN AN INSERT OR AN UPDATE, AND IT IS NOT AN UPSERT.
+ * Found on production, 2026-09-12, by a real walk: ten chapters answered
+ * and nothing saved at all. The one-row-per-assignment index is PARTIAL
+ * (`where assignment_id is not null`), and Postgres will not accept a
+ * partial index as an ON CONFLICT arbiter unless the statement repeats its
+ * predicate, which PostgREST's `onConflict` cannot express. So every
+ * upsert was refused, and because a failed autosave is deliberately not
+ * something to interrupt a member with, the refusal was invisible on her
+ * screen. This is the same shape lib/whole-body-signal/data.ts already
+ * used, and for the same reason.
+ *
+ * THE RACE THE INDEX EXISTS FOR IS STILL CLOSED. Two tabs inserting at
+ * once means one of them is refused by that index rather than producing a
+ * second sitting, and the loser reads back the row that won instead of
+ * reporting a success nobody can see.
+ *
+ * A FINISHED SITTING IS IMMUTABLE. Nothing is attempted against one, so a
+ * stale tab reopening on an old step cannot rewrite a completion.
  */
 export async function saveHliProgress(
   supabase: SupabaseClient,
   memberId: string,
   draft: SaveHliDraft
 ): Promise<HliSessionRecord | null> {
-  const { data, error } = await supabase
-    .from(HLI_TABLE)
-    .upsert(
-      {
+  const existing = await fetchHliSessionForAssignment(supabase, memberId, draft.assignmentId);
+
+  if (!existing) {
+    const { data, error } = await supabase
+      .from(HLI_TABLE)
+      .insert({
         member_id: memberId,
         assignment_id: draft.assignmentId,
         content_version: draft.contentVersion,
         answers: draft.answers,
         archived: draft.archived,
         progress: { stepIndex: draft.stepIndex },
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'assignment_id' }
-    )
+      })
+      .select(SESSION_COLUMNS)
+      .maybeSingle();
+
+    if (!error && data) return fromRow(data as SessionRow);
+    if (error) console.error('saveHliProgress insert failed', error);
+    // Either another tab won the race or the write matched no policy. Read
+    // back what is actually there rather than reporting a success nobody
+    // can see.
+    return fetchHliSessionForAssignment(supabase, memberId, draft.assignmentId);
+  }
+
+  if (existing.completedAt) return existing;
+
+  const { data, error } = await supabase
+    .from(HLI_TABLE)
+    .update({
+      content_version: draft.contentVersion,
+      answers: draft.answers,
+      archived: draft.archived,
+      progress: { stepIndex: draft.stepIndex },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', existing.id)
     .select(SESSION_COLUMNS)
     .maybeSingle();
 
   if (error) {
-    console.error('saveHliProgress failed', error);
+    console.error('saveHliProgress update failed', error);
     return null;
   }
   // "No error" is not "it worked": a write matching no policy returns zero
