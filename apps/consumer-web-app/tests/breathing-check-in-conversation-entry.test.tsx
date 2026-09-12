@@ -21,6 +21,12 @@
  *      handed to the client component. If that component does not pass it
  *      to the action, Root is told nothing and no test of the builder
  *      alone would notice.
+ *   4. THE OPENER BEING INVISIBLE TO THE MEMBER IT IS FOR. It was first
+ *      drawn inside the EMPTY STATE, which is not rendered at all for a
+ *      member who has talked to Root before. Every real member this entry
+ *      point exists for has a thread already, so the opener reached almost
+ *      nobody. A production walk found it, and the case is now tested
+ *      both ways: with a thread and without one.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -191,6 +197,51 @@ describe('3. the context actually reaches the action', () => {
     const text = host.textContent ?? '';
     expect(text).toContain(BPC_CONVERSATION_OPENER);
     expect(text).not.toContain('What would you like to talk through today?');
+  });
+
+  /**
+   * THE ONE A PRODUCTION WALK FOUND. The opener lived inside the empty
+   * state, and a member who has talked to Root before never sees the empty
+   * state, so she arrived from her results into a thread that said nothing
+   * about where she had come from.
+   */
+  it('still shows the opener when she already has a thread going', () => {
+    const existing = {
+      id: 'message-1',
+      session_id: session.id,
+      member_id: session.member_id,
+      role: 'member' as const,
+      content: 'What does my root score mean?',
+      source_page: null,
+      prompt_version: null,
+      safety_classification_id: null,
+      related_brain_focus: null,
+      related_insight_id: null,
+      member_visible: true,
+      is_archived: false,
+      created_at: '2026-09-12T00:00:00.000Z',
+    };
+    act(() => {
+      root.render(
+        <ConversationView
+          session={session}
+          initialMessages={[existing]}
+          entryPoint="breathing_check_in"
+          suggestedPrompts={SUGGESTED_PROMPTS.breathing_check_in}
+          opener={BPC_CONVERSATION_OPENER}
+          entryContext="context"
+        />
+      );
+    });
+    const text = host.textContent ?? '';
+    expect(text).toContain(existing.content);
+    expect(text).toContain(BPC_CONVERSATION_OPENER);
+  });
+
+  it('says it once, not twice, on an empty thread', () => {
+    mount({ opener: BPC_CONVERSATION_OPENER });
+    const text = host.textContent ?? '';
+    expect(text.split(BPC_CONVERSATION_OPENER)).toHaveLength(2);
   });
 
   it('keeps the generic question on every other entry point', () => {

@@ -91,11 +91,9 @@ export function ConversationView({
 
       <section className={`${CARD} flex flex-col p-5`}>
         <div className="flex min-h-[220px] flex-col">
-          {!hasMessages && !pendingEcho && (
+          {!hasMessages && !opener && !pendingEcho && (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 py-8 text-center">
-              <p className="text-sm text-[#6B7A72]">
-                {opener ?? 'What would you like to talk through today?'}
-              </p>
+              <p className="text-sm text-[#6B7A72]">What would you like to talk through today?</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {suggestedPrompts.map((prompt) => (
                   <button
@@ -149,6 +147,39 @@ export function ConversationView({
                 Retry
               </button>
             )}
+          </div>
+        )}
+
+        {/*
+          WHERE SHE CAME FROM, SAID ONCE, ABOVE THE BOX SHE TYPES IN.
+
+          IT IS NOT THE EMPTY STATE. A member who has talked to Root before
+          arrives with a thread full of messages, and the empty state is
+          not drawn for her at all, so an opener rendered up there would be
+          invisible to exactly the member this entry point exists for. It
+          sits under the transcript instead, which is where her eye is on
+          arrival and where the reply to it would appear.
+
+          IT IS DRAWN, NEVER STORED. No message row is written for it, so
+          this route re-rendering (which sending a message does) cannot
+          repeat it into her history.
+        */}
+        {opener && !isRestricted && !pendingEcho && (
+          <div className="mt-4 rounded-2xl bg-[#1B3A2D]/[0.045] px-4 py-4">
+            <p className="text-sm leading-relaxed text-[#1B3A2D]">{opener}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {suggestedPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => send(prompt)}
+                  disabled={isPending}
+                  className="mef-press rounded-full border border-[#1B3A2D]/10 bg-white px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06] disabled:opacity-50"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
