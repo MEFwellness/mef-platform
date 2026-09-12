@@ -7,7 +7,8 @@
  * leak what it was never handed.
  *
  *   loadMemberContent      what CROSSES TO THE BROWSER while she answers.
- *                          The question rows carry a prompt, a position
+ *                          The question rows carry a prompt, a position,
+ *                          which answer scale the question is asked on,
  *                          and whether Prefer not to answer is offered.
  *                          No direction, no Zone, no organ or gland, no
  *                          coach topic. Everything a client component is
@@ -82,7 +83,7 @@ export type CoachContent = Omit<ReadingContent, 'questions'> & {
 };
 
 const MEMBER_QUESTION_COLUMNS =
-  'question_ref, section_key, position, prompt, allows_pnta, branch_group, is_universal';
+  'question_ref, section_key, position, prompt, scale_key, allows_pnta, branch_group, is_universal';
 const READING_QUESTION_COLUMNS = `${MEMBER_QUESTION_COLUMNS}, direction, primary_zone_key, secondary_zone_key, member_theme`;
 const COACH_QUESTION_COLUMNS = `${READING_QUESTION_COLUMNS}, organ_gland, coach_topic, feeds_section_key`;
 
@@ -94,6 +95,9 @@ function memberQuestionFrom(row: RawQuestion): MemberQuestion {
     sectionKey: row.section_key as string,
     position: row.position as number,
     prompt: row.prompt as string,
+    // Defaulted rather than assumed present, so a row written before the
+    // second scale existed reads as the frequency scale it was answered on.
+    scaleKey: (row.scale_key as string | null) ?? 'frequency',
     allowsPnta: row.allows_pnta === true,
     branchGroup: (row.branch_group as string | null) ?? null,
     isUniversal: row.is_universal === true,
@@ -155,14 +159,16 @@ async function fetchQuestions(supabase: SupabaseClient, columns: string): Promis
 async function fetchScale(supabase: SupabaseClient): Promise<ScaleOption[]> {
   const { data, error } = await supabase
     .from('whole_body_signal_scale_options')
-    .select('value_key, position, label, direct_points, reverse_points')
+    .select('scale_key, value_key, position, label, direct_points, reverse_points')
     .eq('is_active', true)
+    .order('scale_key', { ascending: true })
     .order('position', { ascending: true });
   if (error) {
     console.error('wbs fetchScale failed', error);
     return [];
   }
   return (data ?? []).map((row) => ({
+    scaleKey: (row.scale_key as string | null) ?? 'frequency',
     valueKey: row.value_key as string,
     position: row.position as number,
     label: row.label as string,

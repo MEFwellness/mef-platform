@@ -37,8 +37,15 @@ export const WBS_DEFAULT_DUE_IN_DAYS = 7;
  * old answers unreadable as answers to the questions actually asked. A
  * reworded prompt does NOT bump it: whole_body_signal_content_revisions is
  * what answers "was this reworded partway through".
+ *
+ * 2 (migration 228): four questions moved from the five option frequency
+ * scale to Yes / No / Not sure, so an "Often" stored against one of them
+ * is no longer an answer to the question that was asked. Nothing rewrites
+ * a stored answer: a value that is not on its question's own scale is
+ * simply read as unanswered, which is why a sitting that straddled the
+ * change cannot score nonsense.
  */
-export const WBS_CONTENT_VERSION = 1;
+export const WBS_CONTENT_VERSION = 2;
 
 /**
  * The name and the area, in code rather than in the copy table.

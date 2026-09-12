@@ -6,7 +6,19 @@
  * reads `directPoints` and a reverse question reads `reversePoints`.
  * Nothing here knows what the top of the scale is, which is what lets a
  * coach retune the scale without a deploy. THE MEMBER NEVER SEES ANY
- * DIFFERENCE: the five options read identically on every screen.
+ * DIFFERENCE: the options of one scale read identically on every screen.
+ *
+ * THERE IS MORE THAN ONE SCALE, AND EACH QUESTION NAMES ITS OWN. Most
+ * questions are answered Never to Almost Always, nought to four. The
+ * questions that ask about a fact rather than a frequency are answered
+ * Yes / No / Not sure, three, nought and one. So the top of the scale is
+ * a PER QUESTION number read from that question's own options, never one
+ * global maximum: a section holding six frequency questions and four
+ * binary ones is out of thirty six, and a section percentage stays
+ * comparable with every other section's. An option belonging to another
+ * scale is not an answer to this question: it is treated exactly as an
+ * unanswered question is, which is what keeps a sitting that was part
+ * answered before a question changed scale from scoring nonsense.
  *
  * THE MAXIMUM COUNTS ONLY THE QUESTIONS THIS MEMBER WAS SHOWN. Section 8's
  * branch decides which of its questions she is asked, and a Prefer not to
@@ -20,8 +32,9 @@
  * answered would quietly drag the whole number down.
  *
  * THE ZONE ROLLUP IS QUESTION LEVEL, NEVER SECTION LEVEL. Each answered
- * question contributes its own nought to four signal score to its primary
- * Zone at full weight and to its secondary Zone at half. A Zone percentage
+ * question contributes its own signal score to its primary Zone at full
+ * weight and to its secondary Zone at half, and its own top of scale to
+ * that Zone's maximum at the same weight. A Zone percentage
  * is contributed points over contributable points for the questions this
  * member actually answered, which is why two members who answered
  * different branches can still be read on the same scale.
@@ -96,6 +109,31 @@ export function shownQuestionsInSection<T extends MemberQuestion>(
   );
 }
 
+/**
+ * The options of one scale, in the order they are offered.
+ *
+ * THIS IS WHAT A SCREEN DRAWS AND WHAT AN ANSWER IS CHECKED AGAINST. The
+ * bundle carries every scale's options in one list, because they are one
+ * table, and every caller narrows it to the question in front of it.
+ */
+export function optionsForScale(
+  scale: readonly ScaleOption[],
+  scaleKey: string
+): ScaleOption[] {
+  return scale
+    .filter((option) => option.scaleKey === scaleKey)
+    .slice()
+    .sort((a, b) => a.position - b.position);
+}
+
+/** The options this question is answered with. */
+export function optionsForQuestion(
+  scale: readonly ScaleOption[],
+  question: Pick<MemberQuestion, 'scaleKey'>
+): ScaleOption[] {
+  return optionsForScale(scale, question.scaleKey);
+}
+
 /** The option she picked, or null for a Prefer not to answer tap or an unreadable value. */
 export function optionFor(
   scale: readonly ScaleOption[],
@@ -105,7 +143,28 @@ export function optionFor(
   return scale.find((option) => option.valueKey === value) ?? null;
 }
 
-/** One answer converted to its nought to four signal score. */
+/**
+ * The option she picked ON THIS QUESTION'S OWN SCALE.
+ *
+ * A value that belongs to another scale returns null, which is the same
+ * answer as "she has not answered this one". That is the honest reading
+ * for a member who was partway through when a question moved from the
+ * frequency scale to the binary one: her old tap was an answer to a
+ * question that is no longer the one on the screen.
+ */
+export function optionForQuestion(
+  scale: readonly ScaleOption[],
+  question: Pick<MemberQuestion, 'scaleKey'>,
+  value: string | undefined
+): ScaleOption | null {
+  if (!value || value === PNTA_VALUE) return null;
+  return (
+    scale.find((option) => option.scaleKey === question.scaleKey && option.valueKey === value) ??
+    null
+  );
+}
+
+/** One answer converted to its signal score. */
 export function signalPoints(option: ScaleOption, direction: 'direct' | 'reverse'): number {
   return direction === 'reverse' ? option.reversePoints : option.directPoints;
 }
@@ -119,17 +178,59 @@ export function maxSignalPoints(scale: readonly ScaleOption[]): number {
 }
 
 /**
- * Her signal score for one question, or null when she did not answer it or
- * chose Prefer not to answer.
+ * The most THIS question can contribute.
+ *
+ * Four on the frequency scale, three on the binary one, and whatever a
+ * coach makes it if he retunes either. Every maximum in this file is
+ * summed from this, one question at a time, rather than multiplied by a
+ * count, which is the whole of what makes mixed scales add up.
+ */
+export function questionMaxPoints(
+  scale: readonly ScaleOption[],
+  question: Pick<MemberQuestion, 'scaleKey'>
+): number {
+  return maxSignalPoints(optionsForQuestion(scale, question));
+}
+
+/**
+ * Her signal score for one question, or null when she did not answer it,
+ * chose Prefer not to answer, or holds a value from another scale.
  */
 export function answerSignal(
   question: ReadingQuestion,
   scale: readonly ScaleOption[],
   answers: WbsAnswers
 ): number | null {
-  const option = optionFor(scale, answers[question.questionRef]);
+  const option = optionForQuestion(scale, question, answers[question.questionRef]);
   if (!option) return null;
   return signalPoints(option, question.direction);
+}
+
+/**
+ * Her stored answers, with anything that is no longer an answer dropped.
+ *
+ * THE SAME RULE THE SERVER APPLIES, so a resumed sitting puts her back on
+ * a question whose scale changed under her rather than skipping past it
+ * holding a value that will be thrown away at submit. A Prefer not to
+ * answer is kept only where the question still offers one.
+ */
+export function sanitizeStoredAnswers<T extends MemberQuestion>(
+  questions: readonly T[],
+  scale: readonly ScaleOption[],
+  answers: WbsAnswers
+): WbsAnswers {
+  const byRef = new Map(questions.map((question) => [question.questionRef, question]));
+  const clean: WbsAnswers = {};
+  for (const [ref, value] of Object.entries(answers)) {
+    const question = byRef.get(ref);
+    if (!question) continue;
+    if (value === PNTA_VALUE) {
+      if (question.allowsPnta) clean[ref] = PNTA_VALUE;
+      continue;
+    }
+    if (optionForQuestion(scale, question, value)) clean[ref] = value;
+  }
+  return clean;
 }
 
 /**
@@ -169,8 +270,6 @@ export function scoreSection(input: {
     input.routingOptionKey,
     input.branchRules
   );
-  const perQuestionMax = maxSignalPoints(input.scale);
-
   let points = 0;
   let possible = 0;
   let answeredCount = 0;
@@ -182,10 +281,13 @@ export function scoreSection(input: {
       pntaCount += 1;
       continue;
     }
-    const option = optionFor(input.scale, raw);
+    const option = optionForQuestion(input.scale, question, raw);
     if (!option) continue;
     points += signalPoints(option, question.direction);
-    possible += perQuestionMax;
+    // THIS QUESTION'S OWN TOP OF SCALE, summed rather than multiplied, so
+    // a binary question adds three to the denominator and a frequency one
+    // adds four.
+    possible += questionMaxPoints(input.scale, question);
     answeredCount += 1;
   }
 
@@ -256,15 +358,14 @@ export function buildZoneResults(input: {
   /** Fixed display order, so two Zones on the same percentage never swap places. */
   zoneOrder: readonly { zoneKey: string; position: number }[];
 }): ZoneResult[] {
-  const perQuestionMax = maxSignalPoints(input.scale);
   const asked = shownQuestions(input.questions, input.routingOptionKey, input.branchRules);
 
   const points = new Map<string, number>();
   const possible = new Map<string, number>();
 
-  function add(zoneKey: string, score: number, weight: number) {
+  function add(zoneKey: string, score: number, max: number, weight: number) {
     points.set(zoneKey, (points.get(zoneKey) ?? 0) + score * weight);
-    possible.set(zoneKey, (possible.get(zoneKey) ?? 0) + perQuestionMax * weight);
+    possible.set(zoneKey, (possible.get(zoneKey) ?? 0) + max * weight);
   }
 
   for (const question of asked) {
@@ -272,9 +373,13 @@ export function buildZoneResults(input: {
     // A Prefer not to answer, and an unanswered question, contribute
     // nothing to any Zone AND nothing to any Zone's maximum.
     if (score === null) continue;
-    add(question.primaryZoneKey, score, PRIMARY_ZONE_WEIGHT);
+    // Both sides of the fraction carry this question's own maximum, which
+    // is what keeps a Zone fed by binary questions on the same scale as a
+    // Zone fed by frequency ones.
+    const max = questionMaxPoints(input.scale, question);
+    add(question.primaryZoneKey, score, max, PRIMARY_ZONE_WEIGHT);
     if (question.secondaryZoneKey) {
-      add(question.secondaryZoneKey, score, SECONDARY_ZONE_WEIGHT);
+      add(question.secondaryZoneKey, score, max, SECONDARY_ZONE_WEIGHT);
     }
   }
 

@@ -21,6 +21,8 @@ import type { WbsAnswers, WbsResults } from '../lib/whole-body-signal/types';
 import {
   BANDS,
   BRANCH_RULES,
+  loudestValueFor,
+  quietestValueFor,
   COACH_COPY,
   COACHING_LIBRARY,
   MEMBER_COPY,
@@ -64,11 +66,12 @@ function answersLoudIn(sectionKeys: string[], routingOptionKey = ROUTING): WbsAn
   const answers: WbsAnswers = {};
   for (const question of shownQuestions(QUESTIONS, routingOptionKey, BRANCH_RULES)) {
     const loud = sectionKeys.includes(question.sectionKey);
-    if (loud) {
-      answers[question.questionRef] = question.direction === 'reverse' ? 'never' : 'almost_always';
-    } else {
-      answers[question.questionRef] = question.direction === 'reverse' ? 'almost_always' : 'never';
-    }
+    // ON ITS OWN SCALE. A question answered Yes / No / Not sure has no
+    // Almost Always, and asking for one would leave it unanswered, which
+    // would quietly shrink the section these tests are about.
+    answers[question.questionRef] = loud
+      ? loudestValueFor(question)
+      : quietestValueFor(question);
   }
   return answers;
 }
@@ -283,8 +286,10 @@ describe('the coaching question selection', () => {
   });
 
   it('fires an any-of answer trigger from either of its questions', () => {
+    // GE1 and GE2 are answered Yes / No / Not sure, and Yes is the top of
+    // that scale, so Yes is what the library means by GE1 >= 3.
     for (const ref of ['GE1', 'GE2']) {
-      const answers: WbsAnswers = { [ref]: 'almost_always' };
+      const answers: WbsAnswers = { [ref]: 'yes' };
       const picked = select(answers, resultsFor(answers));
       expect(picked.map((entry) => entry.questionKey)).toContain('ans_ge_antibiotics');
     }

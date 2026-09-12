@@ -1,3 +1,106 @@
+## A second answer scale, and Section 8 on every branch (2026-09-12)
+
+Two things a coach walkthrough of the live MEF Whole-Body Signal
+Assessment found, both fixed in migration 228. Neither touches the MEF
+Body Systems Survey or the legacy Whole-Body Check-In.
+
+### FOUR QUESTIONS WERE ASKING A FACT AND OFFERING A FREQUENCY
+
+"I have previously been treated for a gastrointestinal infection" was
+answered Never, Rarely, Sometimes, Often or Almost Always. A member offered
+Sometimes against it picks one, because the screen asked her to, and that
+answer then scores two points out of four and carries a section
+percentage, a Zone rollup and a Signal Load a coach reads as if it meant
+something. A meaningless middle is worse than a missing answer, because
+nothing downstream can tell it from a real one.
+
+**There is now a second scale, and it is a row like everything else.**
+`whole_body_signal_scales` holds both, `whole_body_signal_scale_options`
+rows name which one they belong to, and every question carries a
+`scale_key`. Yes is three, No is nought and Not sure is one, stored in the
+same two point columns the frequency scale has always used, so a reverse
+scored binary question reads Yes at nought and No at three with nothing in
+code knowing what the top of either scale is. Retuning any of it is one
+update, written into `whole_body_signal_content_revisions` like every other
+content edit, with no deploy.
+
+**The four that moved, and they are all in Gut Environment:** GE1
+(repeated courses of antibiotics), GE2 (digestion changed after
+antibiotics), GE8 (travel followed by a change in digestion) and GE9
+(treated for a gastrointestinal infection). The test applied to all ninety
+six was whether the sentence describes something that either happened or
+did not. Two near misses are deliberately left on the frequency scale and
+named in the tests so the decision is visible: RC10 ("needs longer to
+recover than it once did") and HPU3 ("recovery from exercise has changed
+over the last several years") both describe an ongoing state a member can
+hold more or less often.
+
+**A SECTION MAXIMUM IS NOW SUMMED PER QUESTION, NEVER MULTIPLIED.** Gut
+Environment is out of thirty six, six questions at four plus four at
+three, rather than out of forty. The Zone rollup already worked question by
+question and now carries each question's own top of scale into both sides
+of its fraction, so a Zone fed by binary questions reads on the same
+nought to a hundred scale as one fed by frequency questions. Bands, the
+Signal Load and its three components are unchanged and did not need to
+change: they read section percentages.
+
+**A stored answer is never rewritten.** A value that is not on its own
+question's scale is read as unanswered, on the server and on her screen:
+it sits in neither side of the fraction, contributes to no Zone, and is
+dropped from her draft so she is asked that one question again rather than
+skipped past it holding something that would be thrown away at submit.
+Production had no sitting in progress when this landed, and no completed
+sitting was touched.
+
+### SECTION 8 ASKED ABOUT HORMONES ON THE BRANCH THAT SAID NO
+
+Four of Section 8's questions are universal: they are asked of everybody
+who reaches it, whatever they answered to the routing question, including
+"None of these apply to me". One of them then asked whether hormonal
+changes were affecting her everyday wellbeing, which is the screen
+contradicting the answer she has just given.
+
+It now reads **"I notice shifts in my energy, mood, or body that seem to
+follow a pattern over time."** Its theme on her results card moved with it,
+to "patterns you notice over time", because that phrase is printed beside
+her section and would otherwise have said the thing the question no longer
+says. The other three universals name no hormone and no life stage and are
+untouched, word for word:
+
+- I experience changes in bladder control or urinary frequency.
+- I regularly experience unexplained pelvic or low-back discomfort.
+- My recovery from exercise has changed over the last several years.
+
+Copy only. Same section, same Zone, same direction, same branch group,
+same Prefer not to answer on every Section 8 question, and no weight or
+tag moved. A test reads all four out of the migrations and fails on the
+words hormone, hormonal, menopause, cycle, menstrual or period appearing
+in any of their prompts or themes.
+
+**STILL OPEN, AND DELIBERATELY NOT CHANGED HERE.** The section is named
+"Hormone & Pelvic Rhythm", and that name is drawn above every one of its
+questions and on her own results card, on every branch, including hers.
+Its member area phrase is "hormonal and pelvic rhythm". Both are member
+facing and both predate this pass. Renaming them changes the instrument's
+own vocabulary on the coach's side too, so it is a decision to take rather
+than a fix to slip in.
+
+### WHAT IS GUARDED
+
+`tests/whole-body-signal-content.test.ts` reads both scales, the exact
+conversion list, the point maps and all four universal questions out of the
+migrations. `tests/whole-body-signal-scoring.test.ts` covers the mixed
+section maximum, the Zone rollup across scales, a Not sure reading as
+quiet rather than middling, and a sitting carrying an answer from the other
+scale. `tests/whole-body-signal-member-payload.test.tsx` now also fails if
+the answering screen ever maps the whole option table instead of the
+options of the question in front of her.
+
+The fixture that feeds all of it was changed to read every migration this
+feature has, by column NAME rather than by position, and to merge them the
+way an upsert does. A later content migration is now covered by these
+tests the day it lands rather than the day somebody remembers to add it.
+
 ## The MEF Whole-Body Signal Assessment (2026-09-11)
 
 A new, original, coach-assigned practitioner assessment. Nine sections,

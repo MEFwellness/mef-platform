@@ -11,10 +11,17 @@
  *
  * ONE QUESTION PER SCREEN, AND THAT IS DELIBERATE. This app's other
  * questionnaires put two or three on a screen. This instrument does not:
- * the question sits in the upper middle of a phone, the five answers sit
+ * the question sits in the upper middle of a phone, its answers sit
  * in thumb reach, a normal question screen never scrolls, and the
  * transition to the next one is two tenths of a second. Do not "correct"
  * this to the app-wide pattern.
+ *
+ * THE ANSWERS ON A SCREEN ARE THE ONES THAT QUESTION IS ASKED WITH. Most
+ * are answered Never to Almost Always. The few that ask about a fact
+ * rather than a frequency are answered Yes, No or Not sure, because a
+ * "Sometimes" against "I have previously been treated for an infection"
+ * is an answer nobody can read. Which scale a question uses is a stored
+ * row on the question, so moving one needs no deploy.
  *
  * A TAP IS THE ANSWER AND THE ADVANCE. With ninety six questions, asking
  * for a Continue under each one would be a hundred and ninety two taps for
@@ -60,7 +67,11 @@ import {
   resumeStepIndex,
   type WbsStep,
 } from '@/lib/whole-body-signal/steps';
-import { shownQuestions } from '@/lib/whole-body-signal/scoring';
+import {
+  optionsForQuestion,
+  sanitizeStoredAnswers,
+  shownQuestions,
+} from '@/lib/whole-body-signal/scoring';
 import { submitWholeBodySignalAction } from '@/app/actions/wholeBodySignal';
 import type { MemberContent } from '@/lib/whole-body-signal/contentData';
 import type { MemberResultsView } from '@/lib/whole-body-signal/memberView';
@@ -109,7 +120,19 @@ export function WholeBodySignalExperience({
   const router = useRouter();
 
   const [routingOptionKey, setRoutingOptionKey] = useState<string | null>(resumeRoutingOptionKey);
-  const [answers, setAnswers] = useState<WbsAnswers>(resumeAnswers);
+  /*
+    A STORED ANSWER THAT IS NO LONGER AN ANSWER IS DROPPED ON THE WAY IN.
+
+    A question can change which scale it is answered on, and a member can
+    be partway through when it does. Her old tap is not an answer to the
+    question now on the screen, so carrying it would put her past a
+    question she has never answered while the server threw the value away
+    at submit. Dropped here, she is simply asked that one question again.
+    The same rule runs on the server (app/actions/wholeBodySignal.ts).
+  */
+  const [answers, setAnswers] = useState<WbsAnswers>(() =>
+    sanitizeStoredAnswers(content.questions, content.scale, resumeAnswers)
+  );
 
   const steps = useMemo(
     () =>
@@ -717,7 +740,13 @@ export function WholeBodySignalExperience({
           </h1>
 
           <div role="radiogroup" aria-label={question.prompt} className="mt-7 space-y-2.5">
-            {content.scale.map((option) => (
+            {/*
+              HER OWN QUESTION'S ANSWERS, never the whole option table. A
+              frequency question offers Never to Almost Always and a binary
+              one offers Yes, No and Not sure, and a screen that drew both
+              would be asking her to pick from eight.
+            */}
+            {optionsForQuestion(content.scale, question).map((option) => (
               <QuestionOptionButton
                 key={option.valueKey}
                 tone="gold-on-forest"

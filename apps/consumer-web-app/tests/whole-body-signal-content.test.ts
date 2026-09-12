@@ -33,7 +33,10 @@ import {
   QUESTIONS,
   readSql,
   ROUTING_OPTIONS,
+  BINARY_SCALE,
+  FREQUENCY_SCALE,
   SCALE,
+  SCALES,
   SECTIONS,
   SETTING_ROWS,
   WBS_SCHEMA_SQL_PATH,
@@ -159,11 +162,179 @@ describe('the shape of the instrument', () => {
     ]);
   });
 
-  it('has the five point scale with both of its point maps stored', () => {
-    expect(SCALE.length).toBe(5);
-    for (const option of SCALE) {
+  it('has the five point frequency scale with both of its point maps stored', () => {
+    expect(FREQUENCY_SCALE.length).toBe(5);
+    for (const option of FREQUENCY_SCALE) {
       expect(option.directPoints + option.reversePoints).toBe(4);
     }
+  });
+});
+
+/**
+ * THE SECOND SCALE.
+ *
+ * A question that asks about a fact is answered Yes, No or Not sure, and a
+ * question that asks about a frequency is answered Never to Almost Always.
+ * Everything below is read out of the migrations, so moving a question
+ * between the two, or retuning what Not sure is worth, fails here first.
+ */
+describe('the two answer scales', () => {
+  it('stores both scales as rows, so a third one is a migration and not a type change', () => {
+    expect(SCALES.map((scale) => scale.scaleKey).sort()).toEqual(['binary', 'frequency']);
+  });
+
+  it('offers exactly Yes, No and Not sure on the binary scale, in that order', () => {
+    expect(BINARY_SCALE.map((option) => option.label)).toEqual(['Yes', 'No', 'Not sure']);
+    expect(BINARY_SCALE.map((option) => option.valueKey)).toEqual(['yes', 'no', 'not_sure']);
+  });
+
+  it('scores Yes 3, No 0 and Not sure 1, and flips the first two on a reverse question', () => {
+    const points = Object.fromEntries(
+      BINARY_SCALE.map((option) => [option.valueKey, [option.directPoints, option.reversePoints]])
+    );
+    expect(points.yes).toEqual([3, 0]);
+    expect(points.no).toEqual([0, 3]);
+    expect(points.not_sure).toEqual([1, 1]);
+  });
+
+  it('puts a binary question at a maximum of three and a frequency one at four', () => {
+    const top = (options: typeof SCALE) =>
+      Math.max(...options.map((option) => Math.max(option.directPoints, option.reversePoints)));
+    expect(top(BINARY_SCALE)).toBe(3);
+    expect(top(FREQUENCY_SCALE)).toBe(4);
+  });
+
+  it('never gives two options of one scale the same value key or the same position', () => {
+    for (const scale of SCALES) {
+      const options = SCALE.filter((option) => option.scaleKey === scale.scaleKey);
+      expect(new Set(options.map((option) => option.valueKey)).size).toBe(options.length);
+      expect(new Set(options.map((option) => option.position)).size).toBe(options.length);
+    }
+  });
+
+  it('points every question at a scale that really has options', () => {
+    const withOptions = new Set(SCALE.map((option) => option.scaleKey));
+    for (const question of QUESTIONS) {
+      expect(withOptions.has(question.scaleKey), `${question.questionRef} has no answers`).toBe(
+        true
+      );
+    }
+  });
+
+  /**
+   * THE CONVERSION LIST, VERBATIM.
+   *
+   * These are the questions that ask about a fact or a one time event
+   * rather than about something that happens more or less often. A
+   * "Sometimes" against any of them is an answer nobody can read, and it
+   * would carry a section percentage, a Zone rollup and a Signal Load.
+   */
+  it('asks exactly the four historical questions on the binary scale', () => {
+    const binary = QUESTIONS.filter((question) => question.scaleKey === 'binary');
+    expect(binary.map((question) => question.questionRef).sort()).toEqual([
+      'GE1',
+      'GE2',
+      'GE8',
+      'GE9',
+    ]);
+    expect(binary.map((question) => question.prompt).sort()).toEqual(
+      [
+        'I have needed repeated courses of antibiotics within the past few years.',
+        'My digestion noticeably changed after taking antibiotics.',
+        'Travel has previously been followed by a significant change in my digestion.',
+        'I have previously been treated for a gastrointestinal infection.',
+      ].sort()
+    );
+  });
+
+  it('leaves every question that is genuinely a frequency on the frequency scale', () => {
+    const frequency = QUESTIONS.filter((question) => question.scaleKey === 'frequency');
+    expect(frequency.length).toBe(QUESTIONS.length - 4);
+    // The two nearest misses, kept deliberately: both describe an ongoing
+    // state a member can hold more or less often, not an event.
+    for (const ref of ['RC10', 'HPU3']) {
+      expect(QUESTIONS.find((question) => question.questionRef === ref)!.scaleKey).toBe(
+        'frequency'
+      );
+    }
+  });
+
+  it('leaves a binary question scoring in the same direction it always did', () => {
+    for (const ref of ['GE1', 'GE2', 'GE8', 'GE9']) {
+      const question = QUESTIONS.find((entry) => entry.questionRef === ref)!;
+      expect(question.direction).toBe('direct');
+      expect(question.sectionKey).toBe('gut_environment');
+      expect(question.primaryZoneKey).toBe('zone_1');
+    }
+  });
+});
+
+/**
+ * SECTION 8's UNIVERSAL FOUR.
+ *
+ * They are asked of every member who reaches the section, including the
+ * one who has just answered "None of these apply to me", so not one of
+ * them may name a hormone or a life stage.
+ */
+describe('the Section 8 universal questions', () => {
+  const UNIVERSAL = ['HPU1', 'HPU2', 'HPU3', 'HPU4'];
+
+  function universal() {
+    return UNIVERSAL.map((ref) => QUESTIONS.find((question) => question.questionRef === ref)!);
+  }
+
+  it('is exactly those four, and they are the ones marked universal', () => {
+    expect(
+      QUESTIONS.filter((question) => question.isUniversal)
+        .map((question) => question.questionRef)
+        .sort()
+    ).toEqual(UNIVERSAL.slice().sort());
+  });
+
+  it('READS NEUTRAL ON EVERY BRANCH: no hormone, hormonal, menopause or cycle', () => {
+    const banned = [/hormone/i, /hormonal/i, /menopause/i, /cycle/i, /menstrual/i, /period/i];
+    for (const question of universal()) {
+      for (const pattern of banned) {
+        expect(pattern.test(question.prompt), `${question.questionRef}: "${question.prompt}"`).toBe(
+          false
+        );
+      }
+      // Her own results card prints the theme, so it has to be neutral too.
+      for (const pattern of banned) {
+        expect(
+          pattern.test(question.memberTheme),
+          `${question.questionRef} theme: "${question.memberTheme}"`
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('carries the approved wording of all four, verbatim', () => {
+    expect(universal().map((question) => question.prompt)).toEqual([
+      'I experience changes in bladder control or urinary frequency.',
+      'I regularly experience unexplained pelvic or low-back discomfort.',
+      'My recovery from exercise has changed over the last several years.',
+      'I notice shifts in my energy, mood, or body that seem to follow a pattern over time.',
+    ]);
+  });
+
+  it('keeps Prefer not to answer on every Section 8 question, universal or not', () => {
+    for (const question of QUESTIONS.filter((q) => q.sectionKey === 'hormone_pelvic_rhythm')) {
+      expect(question.allowsPnta, `${question.questionRef}`).toBe(true);
+    }
+  });
+
+  it('CHANGES NOTHING THAT DECIDES A NUMBER: the tags, weights and Zones stand', () => {
+    for (const question of universal()) {
+      expect(question.sectionKey).toBe('hormone_pelvic_rhythm');
+      expect(question.primaryZoneKey).toBe('zone_2');
+      expect(question.direction).toBe('direct');
+      expect(question.branchGroup).toBe('U');
+      expect(question.scaleKey).toBe('frequency');
+    }
+    const hpu4 = QUESTIONS.find((question) => question.questionRef === 'HPU4')!;
+    expect(hpu4.organGland).toBe('Gonads');
+    expect(hpu4.secondaryZoneKey).toBeNull();
   });
 });
 

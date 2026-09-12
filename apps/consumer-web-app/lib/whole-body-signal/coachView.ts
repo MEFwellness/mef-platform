@@ -17,12 +17,13 @@
  * hint exists anywhere in this feature to put beside it.
  */
 
-import { answerSignal, shownQuestionsInSection, shownQuestions, PRIMARY_ZONE_WEIGHT, SECONDARY_ZONE_WEIGHT } from './scoring';
+import { answerSignal, optionForQuestion, shownQuestionsInSection, shownQuestions, PRIMARY_ZONE_WEIGHT, SECONDARY_ZONE_WEIGHT } from './scoring';
 import { recommendedPriorities, zonePatterns } from './results';
 import { evaluatePatterns, type FiredPattern } from './patterns';
 import { selectCoachingQuestions, type SelectedCoachingQuestion } from './coachingQuestions';
 import { compareLoad, compareSections, compareZones, type LoadTrend, type SectionComparison, type ZoneShift } from './retake';
 import { coachCopy, fillToken } from './copyKeys';
+import { PNTA_VALUE } from './constants';
 import type { CoachContent } from './contentData';
 import type { PractitionerQuestion, SectionResult, WbsResults, WbsAnswers } from './types';
 
@@ -126,8 +127,19 @@ function answerRow(
   pntaLabel: string
 ): CoachAnswerRow {
   const raw = answers[question.questionRef];
-  const option = content.scale.find((entry) => entry.valueKey === raw);
-  const isPnta = raw !== undefined && !option;
+  /*
+    HER OWN SCALE, NOT ANY SCALE.
+
+    Two scales share one option table, so looking a value up across the
+    whole table would print "Often" beside a question that is answered
+    Yes / No / Not sure, on the strength of a tap she made before that
+    question changed scale. And a Prefer not to answer is recognised by
+    being one, rather than by a lookup having failed, so a value that is
+    no longer readable reads as Not answered instead of as a decline she
+    never made.
+  */
+  const option = optionForQuestion(content.scale, question, raw);
+  const isPnta = raw === PNTA_VALUE;
   const signal = answerSignal(question, content.scale, answers);
   return {
     questionRef: question.questionRef,
@@ -135,7 +147,7 @@ function answerRow(
     coachTopic: question.coachTopic,
     answerLabel: option ? option.label : isPnta ? pntaLabel : 'Not answered',
     signal,
-    isPnta: isPnta && raw !== undefined,
+    isPnta,
   };
 }
 

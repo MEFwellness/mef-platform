@@ -19,6 +19,16 @@
 /** 'direct' scores Never as nought, 'reverse' scores Never as four. She never sees any difference. */
 export type QuestionDirection = 'direct' | 'reverse';
 
+/**
+ * Which set of answers a question is asked with.
+ *
+ * A KEY, NEVER A UNION OF TWO LITERALS. The scales are rows
+ * (whole_body_signal_scales), so a third one is a migration rather than a
+ * type change, and every module below reads the options belonging to a
+ * question's own key instead of assuming there is one list.
+ */
+export type ScaleKey = string;
+
 // ---------------------------------------------------------------------
 // The member layer.
 // ---------------------------------------------------------------------
@@ -45,6 +55,14 @@ export type MemberQuestion = {
   sectionKey: string;
   position: number;
   prompt: string;
+  /**
+   * Which answer scale this question is answered on.
+   *
+   * It is on the member object because her screen has to draw the right
+   * answers, and it is not a practitioner field: it says what she is
+   * offered, not what it means.
+   */
+  scaleKey: ScaleKey;
   allowsPnta: boolean;
   /** Null for every question outside Section 8's conditional set. */
   branchGroup: string | null;
@@ -52,6 +70,8 @@ export type MemberQuestion = {
 };
 
 export type ScaleOption = {
+  /** The scale this option belongs to. Options of two scales never mix. */
+  scaleKey: ScaleKey;
   valueKey: string;
   position: number;
   label: string;

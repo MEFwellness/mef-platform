@@ -67,22 +67,23 @@ import {
   type WbsQuestionAction,
 } from '@/lib/whole-body-signal/data';
 import { buildResults } from '@/lib/whole-body-signal/results';
-import { shownQuestions } from '@/lib/whole-body-signal/scoring';
+import { optionForQuestion, shownQuestions } from '@/lib/whole-body-signal/scoring';
 import { buildSteps, clampStepIndex, completionStepIndex } from '@/lib/whole-body-signal/steps';
 import { buildMemberResultsView, type MemberResultsView } from '@/lib/whole-body-signal/memberView';
 import { memberCopy } from '@/lib/whole-body-signal/copyKeys';
 import type { WbsAnswers, WbsResults } from '@/lib/whole-body-signal/types';
 
 /**
- * Only real question refs she was actually shown, with a value the scale
- * actually holds or the Prefer not to answer literal on a question that
- * offers it.
+ * Only real question refs she was actually shown, with a value THIS
+ * QUESTION'S OWN SCALE actually holds, or the Prefer not to answer literal
+ * on a question that offers it.
  *
  * Everything else is dropped rather than stored: an unknown key, a value
- * that is not on the scale, a Prefer not to answer on a question that does
- * not offer one, and any Section 8 question her own routing answer did not
- * open. A hand made POST therefore cannot inflate a section's maximum with
- * questions she was never asked.
+ * that is not on the scale, a value belonging to the OTHER scale, a Prefer
+ * not to answer on a question that does not offer one, and any Section 8
+ * question her own routing answer did not open. A hand made POST therefore
+ * cannot inflate a section's maximum with questions she was never asked,
+ * and cannot answer a Yes / No question with Often.
  */
 function sanitizeAnswers(
   content: ReadingContent,
@@ -92,7 +93,6 @@ function sanitizeAnswers(
   const clean: WbsAnswers = {};
   if (!raw || typeof raw !== 'object') return clean;
   const source = raw as Record<string, unknown>;
-  const values = new Set(content.scale.map((option) => option.valueKey));
 
   for (const question of shownQuestions(content.questions, routingOptionKey, content.branchRules)) {
     const value = source[question.questionRef];
@@ -101,7 +101,7 @@ function sanitizeAnswers(
       if (question.allowsPnta) clean[question.questionRef] = PNTA_VALUE;
       continue;
     }
-    if (values.has(value)) clean[question.questionRef] = value;
+    if (optionForQuestion(content.scale, question, value)) clean[question.questionRef] = value;
   }
   return clean;
 }

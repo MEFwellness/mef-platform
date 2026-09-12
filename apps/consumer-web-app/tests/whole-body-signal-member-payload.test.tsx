@@ -173,9 +173,20 @@ describe('1. the select: a practitioner column is never even asked for', () => {
         'position',
         'prompt',
         'question_ref',
+        // Which answers her screen draws. Not a practitioner column: it
+        // says what she is offered, never what it means.
+        'scale_key',
         'section_key',
       ].sort()
     );
+  });
+
+  it('the answering screen draws the options of THE QUESTION IN FRONT OF HER', () => {
+    // Two scales share one option list, so a screen mapping the whole
+    // bundle would offer eight answers on every question.
+    const screen = read('components/whole-body-signal/WholeBodySignalExperience.tsx');
+    expect(screen).toContain('optionsForQuestion(content.scale, question)');
+    expect(screen).not.toContain('content.scale.map');
   });
 
   it('the member bundle asks for no Zone, pattern or coaching library row', () => {

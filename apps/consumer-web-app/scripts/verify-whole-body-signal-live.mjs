@@ -153,6 +153,38 @@ if (!zoneRows?.length || !sectionRows?.length || !copyRows?.length) {
   throw new Error('could not read the seeded content');
 }
 const MEMBER_COPY = Object.fromEntries(copyRows.map((row) => [row.copy_key, row.value]));
+
+/*
+  THE TWO ANSWER SCALES, READ OUT OF THE DATABASE RATHER THAN TYPED HERE.
+
+  Which questions are answered Yes / No / Not sure is a stored column, so a
+  coach who moves one more question onto the binary scale tomorrow is
+  covered by this run the day he does it, and a coach who moves one back is
+  too.
+*/
+const [{ data: scaleOptionRows }, { data: questionRows }] = await Promise.all([
+  admin.from('whole_body_signal_scale_options').select('scale_key, value_key, position, label').eq('is_active', true),
+  admin
+    .from('whole_body_signal_questions')
+    .select('question_ref, section_key, prompt, scale_key, allows_pnta, is_universal, branch_group')
+    .eq('is_active', true),
+]);
+if (!scaleOptionRows?.length || !questionRows?.length) {
+  throw new Error('could not read the questions and their answer scales');
+}
+const LABELS_FOR_SCALE = {};
+for (const row of scaleOptionRows.slice().sort((a, b) => a.position - b.position)) {
+  (LABELS_FOR_SCALE[row.scale_key] ??= []).push(row.label);
+}
+const SCALE_OF_PROMPT = new Map(questionRows.map((row) => [row.prompt, row.scale_key]));
+const BINARY_PROMPTS = questionRows.filter((row) => row.scale_key === 'binary').map((row) => row.prompt);
+const UNIVERSAL_PROMPTS = questionRows.filter((row) => row.is_universal).map((row) => row.prompt);
+console.log(
+  `answer scales: ${Object.entries(LABELS_FOR_SCALE)
+    .map(([key, labels]) => `${key} [${labels.join(', ')}]`)
+    .join('  ')}`
+);
+console.log(`${BINARY_PROMPTS.length} question(s) on the binary scale`);
 const SECTIONS = sectionRows.slice().sort((a, b) => a.position - b.position);
 /*
   THE LIST IS THE DISTINCTIVE HALF, and both filters are load bearing.
@@ -525,14 +557,24 @@ try {
    * else. The section beats and the routing screen carry their own
    * controls and are handled by name.
    */
-  async function walk({ label, answerFor, stopAfterSections = null }) {
+  async function walk({
+    label,
+    answerFor,
+    stopAfterSections = null,
+    routingLabel = 'I am in perimenopause or menopause',
+  }) {
     const seenSections = new Set();
     const sectionOrder = [];
     const branchPrompts = [];
+    /** Every Section 8 screen she was shown, with the answers it offered. */
+    const branchScreens = [];
+    /** Every binary question she was shown, with the answers it offered. */
+    const binaryScreens = [];
     let questionsAnswered = 0;
     let dualProgressSeen = false;
     let transitionsSeen = 0;
     let completeBeatsSeen = 0;
+    let backCheckDone = false;
 
     for (let screen = 0; screen < 400; screen += 1) {
       await page.waitForSelector('h1', { timeout: 60000 });
@@ -549,7 +591,7 @@ try {
           `${label}: and says the picture is being pulled together`,
           text.includes(MEMBER_COPY['member.completion_body'])
         );
-        return { seenSections, sectionOrder, branchPrompts, questionsAnswered, dualProgressSeen, transitionsSeen, completeBeatsSeen };
+        return { seenSections, sectionOrder, branchPrompts, branchScreens, binaryScreens, questionsAnswered, dualProgressSeen, transitionsSeen, completeBeatsSeen };
       }
 
       // A section intro.
@@ -561,7 +603,7 @@ try {
           transitionsSeen += 1;
         }
         if (stopAfterSections && seenSections.size > stopAfterSections) {
-          return { seenSections, sectionOrder, branchPrompts, questionsAnswered, dualProgressSeen, transitionsSeen, completeBeatsSeen, stopped: true };
+          return { seenSections, sectionOrder, branchPrompts, branchScreens, binaryScreens, questionsAnswered, dualProgressSeen, transitionsSeen, completeBeatsSeen, stopped: true };
         }
         check(
           `${label}: ${asSection.display_name} opens with its own one-line purpose`,
@@ -596,7 +638,7 @@ try {
         );
         const options = await page.getByRole('radio').allInnerTexts();
         check(`${label}: it offers all six routing options`, options.length === 6, String(options.length));
-        await tap(page, 'I am in perimenopause or menopause');
+        await tap(page, routingLabel);
         await waitForScreenChange(page, key);
         continue;
       }
@@ -614,12 +656,88 @@ try {
       const inHormone = await page.evaluate(() =>
         /hormone/i.test(document.body.innerText.split('\n').slice(0, 6).join(' '))
       );
-      if (inHormone) branchPrompts.push(heading);
 
-      const value = answerFor(heading, questionsAnswered);
+      /*
+        WHAT THIS QUESTION ACTUALLY OFFERS HER.
+
+        An answer row is a radio, not a button, and the labels on it are
+        what the screen is really asking with. Reading them here is what
+        lets a binary question be checked as a binary question rather than
+        by trusting that the database and the screen agree.
+      */
+      const options = (await page.getByRole('radio').allInnerTexts()).map((text) => text.trim());
+      const scaleKey = SCALE_OF_PROMPT.get(heading) ?? null;
+
+      if (inHormone) {
+        branchPrompts.push(heading);
+        branchScreens.push({ heading, options });
+      }
+
+      if (scaleKey === 'binary') {
+        const offered = options.filter((option) => option !== MEMBER_COPY['member.pnta_label']);
+        binaryScreens.push({ heading, options: offered });
+        check(
+          `${label}: "${heading.slice(0, 45)}" offers exactly Yes / No / Not sure`,
+          offered.length === LABELS_FOR_SCALE.binary.length &&
+            LABELS_FOR_SCALE.binary.every((expected, index) => offered[index] === expected),
+          offered.join(' / ')
+        );
+      } else if (scaleKey === 'frequency') {
+        const offered = options.filter((option) => option !== MEMBER_COPY['member.pnta_label']);
+        if (offered.length !== LABELS_FOR_SCALE.frequency.length) {
+          check(
+            `${label}: a frequency question still offers its own five`,
+            false,
+            `${heading.slice(0, 45)} offered ${offered.join(' / ')}`
+          );
+        }
+      }
+
+      const value = answerFor({ heading, options, index: questionsAnswered, scaleKey });
       await tap(page, value);
       questionsAnswered += 1;
-      await waitForScreenChange(page, key);
+      const afterAnswer = await waitForScreenChange(page, key);
+
+      /*
+        BACK KEEPS THE ANSWER ON SCREEN.
+
+        Done once per walk, on the first binary question, because that is
+        the screen this change rebuilt. Back is the correction path for an
+        instrument whose tap is also its advance, so an answer that does
+        not come back with her is a member who cannot change her mind.
+      */
+      if (!backCheckDone && scaleKey === 'binary') {
+        backCheckDone = true;
+        await page.getByRole('button', { name: MEMBER_COPY['member.back'] }).first().click();
+        const returned = await page
+          .waitForFunction(
+            (prompt) => {
+              const h1 = document.querySelector('h1');
+              return Boolean(h1 && h1.textContent.trim() === prompt);
+            },
+            heading,
+            { timeout: 30000 }
+          )
+          .then(() => true)
+          .catch(() => false);
+        check(`${label}: Back returns to the question just answered`, returned, heading.slice(0, 45));
+        if (returned) {
+          const chosen = page.getByRole('radio', { name: value, exact: true }).first();
+          let held = null;
+          for (let attempt = 0; attempt < 20 && held !== 'true'; attempt += 1) {
+            held = await chosen.getAttribute('aria-checked');
+            if (held !== 'true') await page.waitForTimeout(150);
+          }
+          check(`${label}: and her answer is still selected`, held === 'true', `${value}: ${held}`);
+          // Forward again by tapping the same answer, which is the real
+          // correction path: one tap, not a restart.
+          const backKey = await screenKey(page);
+          await tap(page, value);
+          await waitForScreenChange(page, backKey);
+        }
+      } else {
+        void afterAnswer;
+      }
     }
     throw new Error(`${label}: the walk never reached the completion screen`);
   }
@@ -675,9 +793,14 @@ try {
   }
 
   // --- the first two sections, then a real close and resume ---
+  /** The loud answer on whichever scale the question in front of her uses. */
+  const loudAnswer = ({ options }) => (options.includes('Often') ? 'Often' : 'Yes');
+  /** The quiet one, for the retake. */
+  const quietAnswer = ({ options }) => (options.includes('Never') ? 'Never' : 'No');
+
   const partial = await walk({
     label: 'first sitting',
-    answerFor: () => 'Often',
+    answerFor: loudAnswer,
     stopAfterSections: 2,
   });
   check('the first section opened, and so did the second', partial.seenSections.size >= 2);
@@ -704,10 +827,26 @@ try {
   await page.getByRole('button', { name: MEMBER_COPY['member.resume_cta'] }).click();
 
   // --- the rest of the sitting ---
-  const first = await walk({ label: 'first sitting', answerFor: () => 'Often' });
+  const first = await walk({ label: 'first sitting', answerFor: loudAnswer });
   check('all nine sections were walked', first.seenSections.size + 2 >= 9 || first.seenSections.size >= 9,
     `${first.seenSections.size} after resume`);
   check('eight beats between nine sections', first.completeBeatsSeen >= 1);
+
+  // THE BINARY QUESTIONS. Every one of them, and no other, asked Yes / No
+  // / Not sure, one per screen, with the tap still doing the advancing.
+  check(
+    'every question on the binary scale was asked with Yes / No / Not sure',
+    first.binaryScreens.length + partial.binaryScreens.length >= 1,
+    `${first.binaryScreens.length + partial.binaryScreens.length} seen`
+  );
+  const binarySeen = new Set(
+    [...partial.binaryScreens, ...first.binaryScreens].map((screen) => screen.heading)
+  );
+  check(
+    'and all of them were reached in the walk',
+    BINARY_PROMPTS.every((prompt) => binarySeen.has(prompt)),
+    `${binarySeen.size} of ${BINARY_PROMPTS.length}`
+  );
 
   // THE BRANCH. Only T1, T2, B1 and the universal four may have appeared.
   const { data: branchRows } = await admin
@@ -832,6 +971,51 @@ try {
     const opened = await panel.innerText();
     check('and it lists her own answers', /never|rarely|sometimes|often|almost always/i.test(opened));
   }
+
+  /*
+    THE BINARY ANSWERS, ON THE COACH'S SIDE.
+
+    Gut Environment is the section that holds them, so its own why-block is
+    the one that has to print Yes, No or Not sure rather than a frequency
+    word borrowed from the other scale.
+  */
+  const gutToggle = panel
+    .locator('button[aria-expanded]')
+    .filter({ hasText: new RegExp('gut environment', 'i') })
+    .first();
+  if ((await gutToggle.count()) > 0) {
+    check('the section holding the binary questions opens', await press(gutToggle));
+    const gutViewAll = panel.getByRole('button', { name: /view all answers/i }).first();
+    if (await gutViewAll.count()) {
+      await gutViewAll.click();
+      await coachPage.waitForTimeout(600);
+      const gutText = await panel.innerText();
+      const binaryLines = BINARY_PROMPTS.filter((prompt) => gutText.includes(prompt));
+      check(
+        'her binary answers are listed against those questions',
+        binaryLines.length >= 1,
+        `${binaryLines.length} of ${BINARY_PROMPTS.length} prompts on screen`
+      );
+      check(
+        'and they read Yes, No or Not sure rather than a frequency word',
+        LABELS_FOR_SCALE.binary.some((word) => new RegExp(`\\b${word}\\b`, 'i').test(gutText)),
+        gutText.replace(/\n/g, ' ').slice(0, 160)
+      );
+    }
+  }
+
+  // The section that mixes the two scales still reads as one percentage.
+  const gutResult = (stored.results.sections ?? []).find((s) => s.sectionKey === 'gut_environment');
+  check(
+    'the mixed scale section scores out of its own maximum, not out of four a question',
+    gutResult ? gutResult.possible === 6 * 4 + 4 * 3 : false,
+    gutResult ? `${gutResult.points} of ${gutResult.possible}, ${gutResult.percent}%` : 'missing'
+  );
+  check(
+    'and its percentage is a real nought to a hundred number',
+    gutResult ? gutResult.percent >= 0 && gutResult.percent <= 100 : false,
+    gutResult ? `${gutResult.percent}%` : 'missing'
+  );
 
   // The coaching question controls.
   if (askButtons > 0) {
@@ -995,8 +1179,48 @@ try {
   await page.goto(`${BASE}/whole-body-signal`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector(`text=/${MEMBER_COPY['member.intro_button']}/i`, { timeout: 90000 });
   await page.getByRole('button', { name: MEMBER_COPY['member.intro_button'] }).click();
-  // Answered at the QUIET end this time, so every section moves.
-  await walk({ label: 'retake', answerFor: () => 'Never' });
+  /*
+    ANSWERED AT THE QUIET END, AND DOWN THE OTHER BRANCH.
+
+    "None of these apply to me" is the branch the universal four had to be
+    reworded for: she has just said none of these life stages apply, and
+    the four questions that follow may not then ask her about hormones, a
+    cycle or menopause.
+  */
+  const retake = await walk({
+    label: 'retake',
+    answerFor: quietAnswer,
+    routingLabel: 'None of these apply to me',
+  });
+
+  const askedOnNone = retake.branchScreens;
+  check(
+    'answering "None of these apply to me" asks exactly the universal four',
+    askedOnNone.length === UNIVERSAL_PROMPTS.length &&
+      UNIVERSAL_PROMPTS.every((prompt) => askedOnNone.some((screen) => screen.heading === prompt)),
+    `${askedOnNone.length} asked: ${askedOnNone.map((s) => s.heading.slice(0, 30)).join(' | ')}`
+  );
+  const LIFE_STAGE = /hormone|hormonal|menopause|menstrual|\bcycle\b|perimenopause/i;
+  for (const screen of askedOnNone) {
+    check(
+      `on this branch it reads neutral: "${screen.heading.slice(0, 50)}"`,
+      !LIFE_STAGE.test(screen.heading)
+    );
+    check(
+      `and still offers Prefer not to answer: "${screen.heading.slice(0, 40)}"`,
+      screen.options.includes(MEMBER_COPY['member.pnta_label']),
+      screen.options.join(' / ')
+    );
+  }
+  check(
+    'and the reworded universal is the approved sentence',
+    askedOnNone.some(
+      (screen) =>
+        screen.heading ===
+        'I notice shifts in my energy, mood, or body that seem to follow a pattern over time.'
+    ),
+    askedOnNone.map((s) => s.heading).join(' | ').slice(0, 200)
+  );
   await awaitResults('the retake finishes and shows her a fresh picture');
   await noPractitionerWord(page, 'the retake results');
 

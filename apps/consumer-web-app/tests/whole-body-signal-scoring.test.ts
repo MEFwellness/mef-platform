@@ -16,6 +16,10 @@ import {
   buildSignalLoad,
   buildZoneResults,
   maxSignalPoints,
+  optionForQuestion,
+  optionsForQuestion,
+  questionMaxPoints,
+  sanitizeStoredAnswers,
   scoreSection,
   shownQuestions,
   shownQuestionsInSection,
@@ -27,7 +31,12 @@ import { buildResults, recommendedPriorities, zonePatterns } from '../lib/whole-
 import { PNTA_VALUE } from '../lib/whole-body-signal/constants';
 import {
   answerAll,
+  answerAllLoud,
   BANDS,
+  BINARY_SCALE,
+  FREQUENCY_SCALE,
+  loudestValueFor,
+  quietestValueFor,
   BRANCH_RULES,
   QUESTIONS,
   SCALE,
@@ -48,13 +57,17 @@ function optionFor(valueKey: string) {
   return SCALE.find((option) => option.valueKey === valueKey)!;
 }
 
+function questionFor(ref: string) {
+  return QUESTIONS.find((question) => question.questionRef === ref)!;
+}
+
 describe('response conversion', () => {
   it('converts Never through Almost Always to 0, 1, 2, 3, 4 on a direct question', () => {
-    expect(SCALE.map((option) => option.directPoints)).toEqual([0, 1, 2, 3, 4]);
+    expect(FREQUENCY_SCALE.map((option) => option.directPoints)).toEqual([0, 1, 2, 3, 4]);
   });
 
   it('converts the same five to 4, 3, 2, 1, 0 on a reverse question', () => {
-    expect(SCALE.map((option) => option.reversePoints)).toEqual([4, 3, 2, 1, 0]);
+    expect(FREQUENCY_SCALE.map((option) => option.reversePoints)).toEqual([4, 3, 2, 1, 0]);
   });
 
   it('reads the direction off the question, so one tap scores two ways', () => {
@@ -64,7 +77,7 @@ describe('response conversion', () => {
   });
 
   it('THE MEMBER SEES NO DIFFERENCE: the five labels are one list, with no direction on them', () => {
-    expect(SCALE.map((option) => option.label)).toEqual([
+    expect(FREQUENCY_SCALE.map((option) => option.label)).toEqual([
       'Never',
       'Rarely',
       'Sometimes',
@@ -74,7 +87,8 @@ describe('response conversion', () => {
   });
 
   it('takes the top of the scale from the scale rather than assuming four', () => {
-    expect(maxSignalPoints(SCALE)).toBe(4);
+    expect(maxSignalPoints(FREQUENCY_SCALE)).toBe(4);
+    expect(maxSignalPoints(BINARY_SCALE)).toBe(3);
   });
 
   it('scores a real reverse question the way the specification says', () => {
@@ -134,6 +148,187 @@ describe('section percentages', () => {
     expect(bandForPercent(BANDS, 74).bandKey).toBe('speaking_loudly');
     expect(bandForPercent(BANDS, 75).bandKey).toBe('asking_for_priority');
     expect(bandForPercent(BANDS, 100).bandKey).toBe('asking_for_priority');
+  });
+});
+
+/**
+ * THE SECOND SCALE, AND WHAT MIXING THEM DOES TO A SECTION.
+ *
+ * Gut Environment holds six frequency questions and four binary ones, so
+ * it is out of thirty six rather than out of forty. Everything here is
+ * arithmetic over the content the migrations genuinely seed.
+ */
+describe('mixed scales', () => {
+  function questionFor(ref: string) {
+    return QUESTIONS.find((question) => question.questionRef === ref)!;
+  }
+
+  it('offers a binary question exactly Yes, No and Not sure, and nothing from the other scale', () => {
+    const options = optionsForQuestion(SCALE, questionFor('GE1'));
+    expect(options.map((option) => option.label)).toEqual(['Yes', 'No', 'Not sure']);
+    expect(options.some((option) => option.valueKey === 'often')).toBe(false);
+  });
+
+  it('offers a frequency question its own five, and nothing from the binary one', () => {
+    const options = optionsForQuestion(SCALE, questionFor('GE3'));
+    expect(options.length).toBe(5);
+    expect(options.some((option) => option.valueKey === 'yes')).toBe(false);
+  });
+
+  it('scores Yes as three on a direct binary question and Not sure as one', () => {
+    const ge1 = questionFor('GE1');
+    expect(answerSignal(ge1, SCALE, { GE1: 'yes' })).toBe(3);
+    expect(answerSignal(ge1, SCALE, { GE1: 'no' })).toBe(0);
+    expect(answerSignal(ge1, SCALE, { GE1: 'not_sure' })).toBe(1);
+  });
+
+  it('READS THE REVERSE FLAG ON A BINARY QUESTION TOO, from the stored column', () => {
+    // No binary question in the bank is reverse scored today. The rule is
+    // the scale's, not the question's, so this asserts it on the option
+    // rows themselves: a coach who marks one reverse gets Yes at nought
+    // and No at three without a deploy.
+    const yes = BINARY_SCALE.find((option) => option.valueKey === 'yes')!;
+    const no = BINARY_SCALE.find((option) => option.valueKey === 'no')!;
+    const notSure = BINARY_SCALE.find((option) => option.valueKey === 'not_sure')!;
+    expect(signalPoints(yes, 'reverse')).toBe(0);
+    expect(signalPoints(no, 'reverse')).toBe(3);
+    expect(signalPoints(notSure, 'reverse')).toBe(1);
+  });
+
+  it('caps a binary question at three and a frequency one at four', () => {
+    expect(questionMaxPoints(SCALE, questionFor('GE1'))).toBe(3);
+    expect(questionMaxPoints(SCALE, questionFor('GE3'))).toBe(4);
+  });
+
+  it('SUMS A SECTION MAXIMUM PER QUESTION: six at four plus four at three is thirty six', () => {
+    const answers = answerAllLoud(null);
+    const result = scoreSection({
+      ...BASE,
+      answers,
+      sectionKey: 'gut_environment',
+      routingOptionKey: null,
+    });
+    expect(result.answeredCount).toBe(10);
+    expect(result.possible).toBe(6 * 4 + 4 * 3);
+    expect(result.points).toBe(6 * 4 + 4 * 3);
+    expect(result.percent).toBe(100);
+  });
+
+  it('keeps a mixed section on the same nought to a hundred scale as an unmixed one', () => {
+    // Every question at the quiet end of its own scale is nought in both.
+    const quiet: Record<string, string> = {};
+    for (const question of shownQuestions(QUESTIONS, null, BRANCH_RULES)) {
+      quiet[question.questionRef] = question.direction === 'reverse'
+        ? loudestValueFor({ ...question, direction: 'direct' })
+        : quietestValueFor(question);
+    }
+    const gut = scoreSection({ ...BASE, answers: quiet, sectionKey: 'gut_environment', routingOptionKey: null });
+    const fuel = scoreSection({ ...BASE, answers: quiet, sectionKey: 'fuel_quality', routingOptionKey: null });
+    expect(gut.percent).toBe(0);
+    expect(fuel.percent).toBe(0);
+  });
+
+  it('places a mixed section between two unmixed ones rather than above or below both', () => {
+    // Yes on the four binary questions and Often on the six frequency
+    // ones: 4 x 3 + 6 x 3 = 30 out of 36, which is 83 percent. The same
+    // Often everywhere else is 75 percent. The binary questions really are
+    // louder, because Yes IS the top of its scale, and the section is
+    // still read on one comparable number.
+    const answers = answerAll(null, 'often');
+    const gut = scoreSection({ ...BASE, answers, sectionKey: 'gut_environment', routingOptionKey: null });
+    expect(gut.possible).toBe(36);
+    expect(gut.points).toBe(30);
+    expect(gut.percent).toBe(83);
+
+    // And the same section on the frequency scale alone would have been
+    // out of forty, which is the number this change corrects.
+    expect(
+      shownQuestionsInSection(QUESTIONS, 'gut_environment', null, BRANCH_RULES).length * 4
+    ).toBe(40);
+  });
+
+  it('a Not sure on every binary question is a quiet section rather than a middling one', () => {
+    const answers: Record<string, string> = {};
+    for (const question of shownQuestions(QUESTIONS, null, BRANCH_RULES)) {
+      if (question.sectionKey !== 'gut_environment') continue;
+      answers[question.questionRef] = question.scaleKey === 'binary' ? 'not_sure' : 'never';
+    }
+    const gut = scoreSection({ ...BASE, answers, sectionKey: 'gut_environment', routingOptionKey: null });
+    // Four Not sures at one point each, out of thirty six.
+    expect(gut.points).toBe(4);
+    expect(gut.possible).toBe(36);
+    expect(gut.percent).toBe(11);
+  });
+
+  /**
+   * A SITTING THAT WAS PART ANSWERED BEFORE A QUESTION CHANGED SCALE.
+   *
+   * Her stored "Often" on GE1 is not an answer to a Yes / No question, and
+   * this is what happens to it: it is in neither side of the fraction, it
+   * contributes to no Zone, and nothing throws.
+   */
+  describe('an answer from the other scale', () => {
+    it('is treated as unanswered rather than scored', () => {
+      const ge1 = questionFor('GE1');
+      expect(answerSignal(ge1, SCALE, { GE1: 'often' })).toBeNull();
+      expect(optionForQuestion(SCALE, ge1, 'often')).toBeNull();
+    });
+
+    it('leaves both sides of the section fraction', () => {
+      const result = scoreSection({
+        ...BASE,
+        answers: { GE1: 'often', GE3: 'almost_always' },
+        sectionKey: 'gut_environment',
+        routingOptionKey: null,
+      });
+      expect(result.answeredCount).toBe(1);
+      expect(result.possible).toBe(4);
+      expect(result.points).toBe(4);
+      expect(result.percent).toBe(100);
+    });
+
+    it('contributes to no Zone, on either side', () => {
+      const zones = buildZoneResults({
+        questions: QUESTIONS,
+        scale: SCALE,
+        branchRules: BRANCH_RULES,
+        answers: { GE1: 'often' },
+        routingOptionKey: null,
+        zoneOrder: ZONE_ORDER,
+      });
+      expect(zones).toEqual([]);
+    });
+
+    it('is dropped on the way back into the screen, so she is asked that question again', () => {
+      const cleaned = sanitizeStoredAnswers(QUESTIONS, SCALE, {
+        GE1: 'often',
+        GE3: 'often',
+        HPU1: 'pnta',
+        FQ1: 'pnta',
+        NOT_A_QUESTION: 'often',
+      });
+      expect(cleaned).toEqual({
+        GE3: 'often',
+        // Section 8 offers Prefer not to answer, Section 1 does not.
+        HPU1: 'pnta',
+      });
+    });
+
+    it('builds a whole reading from a part answered sitting without throwing', () => {
+      const answers = { ...answerAll(null, 'often'), GE1: 'often', GE2: 'sometimes' };
+      const results = buildResults({
+        ...BASE,
+        zoneOrder: ZONE_ORDER,
+        answers,
+        routingOptionKey: null,
+        settings: SETTINGS,
+      });
+      const gut = results.sections.find((section) => section.sectionKey === 'gut_environment')!;
+      // Eight of the ten counted: six frequency at four, two binary at three.
+      expect(gut.answeredCount).toBe(8);
+      expect(gut.possible).toBe(6 * 4 + 2 * 3);
+      expect(Number.isFinite(results.load.value)).toBe(true);
+    });
   });
 });
 
@@ -414,7 +609,11 @@ describe('the Zone rollup', () => {
   });
 
   it('IS NORMALISED, so a Zone fed by four questions and one fed by forty read on one scale', () => {
-    const answers = answerAll('changing', 'sometimes');
+    // Every question answered at the top of ITS OWN scale, which is Almost
+    // Always on a direct frequency question, Never on a reverse one and
+    // Yes on a binary one. Every Zone then reads a hundred whatever it is
+    // fed by and whatever scales its questions are answered on.
+    const answers = answerAllLoud('changing');
     const zones = buildZoneResults({
       questions: QUESTIONS,
       scale: SCALE,
@@ -423,10 +622,31 @@ describe('the Zone rollup', () => {
       routingOptionKey: 'changing',
       zoneOrder: ZONE_ORDER,
     });
-    // Every answer is Sometimes, which is two out of four either way, so
-    // every Zone reads fifty whatever it is fed by.
     expect(zones.length).toBe(6);
-    for (const zone of zones) expect(zone.percent).toBe(50);
+    for (const zone of zones) expect(zone.percent).toBe(100);
+  });
+
+  it('MIXES SCALES WITHOUT DISTORTING A ZONE: three of three reads the same as four of four', () => {
+    // GE1 is binary and DF2 is frequency, and both are Zone 1 primary. At
+    // the top of their own scales each reads a hundred, and the two
+    // together still read a hundred rather than 3 and 4 over 8.
+    const binary = questionFor('GE1');
+    const frequency = questionFor('DF2');
+    expect(binary.scaleKey).toBe('binary');
+    expect(frequency.scaleKey).toBe('frequency');
+
+    const zones = buildZoneResults({
+      questions: QUESTIONS,
+      scale: SCALE,
+      branchRules: BRANCH_RULES,
+      answers: { GE1: 'yes', DF2: 'almost_always' },
+      routingOptionKey: null,
+      zoneOrder: ZONE_ORDER,
+    });
+    const zoneOne = zones.find((zone) => zone.zoneKey === 'zone_1')!;
+    expect(zoneOne.points).toBe(7);
+    expect(zoneOne.possible).toBe(7);
+    expect(zoneOne.percent).toBe(100);
   });
 
   it('a Zone no answered question touches is left out rather than reported at nought', () => {
@@ -511,7 +731,9 @@ describe('the whole reading', () => {
     const results = buildResults({
       ...BASE,
       zoneOrder: ZONE_ORDER,
-      answers: answerAll('cycles', 'sometimes'),
+      // At the top of every question's own scale, which is the one answer
+      // set that ties all nine sections whatever scales they hold.
+      answers: answerAllLoud('cycles'),
       routingOptionKey: 'cycles',
       settings: SETTINGS,
     });
@@ -519,7 +741,8 @@ describe('the whole reading', () => {
     for (let i = 1; i < results.sections.length; i += 1) {
       expect(results.sections[i - 1]!.percent).toBeGreaterThanOrEqual(results.sections[i]!.percent);
     }
-    // All nine tie at fifty, so the order is the sections' own.
+    // All nine tie at a hundred, so the order is the sections' own.
+    expect(results.sections.every((section) => section.percent === 100)).toBe(true);
     expect(results.sections.map((s) => s.sectionKey)).toEqual(
       SECTIONS.slice()
         .sort((a, b) => a.position - b.position)
