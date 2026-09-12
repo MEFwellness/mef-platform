@@ -119,6 +119,34 @@ line under it says out loud that the order claims nothing about cause.
 kept, and the card prints each one's date and number side by side with **no
 comparison in words**: no percentage, no "improved", no arrow.
 
+### A REAL SIGNED-IN WALK, COMMITTED BESIDE THE BUILD
+
+`apps/consumer-web-app/scripts/verify-breathing-check-in-live.mjs`, 143 of
+143 against a real database with real RLS. It assigns as the real coach
+through the real control on the client screen, walks all sixteen questions
+as the member, lets the pauses advance by themselves, presses Back onto a
+previous answer and confirms it is still selected, closes the tab partway
+through and comes back, reaches the completion moment and her reading, and
+then reads the coach's card.
+
+**IT READS THE STORED ROW BACK rather than trusting the screen**, which is
+the check the intake's own unit tests could not make: its autosave matched
+no policy every time, and because a failed autosave is deliberately not
+something to interrupt a member with, the refusal never reached her screen.
+This run asserts the row exists, is marked finished, holds all sixteen
+answers, and carries a total that is the real sum of what was tapped
+(a mixed sitting worth 36, not sixteen of the same answer, so a wrong point
+map would be caught).
+
+It also asks for `reducedMotion: 'no-preference'` explicitly, because
+headless Chromium defaults to `reduce` and under reduced motion this
+taker's pauses deliberately wait for Continue, so the default would have
+walked a path a member with motion on never sees.
+
+The run has NOT been repeated against production. The migration is applied
+there and the deploy is live; the signed-in walk needs the production
+service-role key.
+
 ### WHAT IS NOT BUILT
 
 The results screen's primary button is **Review With My Coach**, not "See
