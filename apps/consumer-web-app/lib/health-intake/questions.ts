@@ -508,7 +508,10 @@ export const INTAKE_SECTIONS: IntakeSection[] = [
             addLabel: 'Add a medication',
             addAnotherLabel: 'Add another medication',
             noun: { one: 'medication', many: 'medications' },
-            summaryFieldIds: ['medication_name', 'medication_reason'],
+            // THE DOSE IS ON THE CARD. She typed it, and a card that drops
+            // one of the three things she entered reads as though it was
+            // not saved. Found on production, 2026-09-12.
+            summaryFieldIds: ['medication_name', 'medication_dose', 'medication_reason'],
             entryFields: [
               { kind: 'text', id: 'medication_name', label: 'Name' },
               { kind: 'text', id: 'medication_reason', label: 'What it is for', optional: true },
