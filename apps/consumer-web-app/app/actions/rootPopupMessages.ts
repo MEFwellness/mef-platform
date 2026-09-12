@@ -139,6 +139,7 @@ import {
   bodySystemsPopupMessageKey,
   wholeBodySignalPopupMessageKey,
   healthIntakePopupMessageKey,
+  breathingCheckInPopupMessageKey,
   stressLoadPopupMessageKey,
   owningYourValuePopupMessageKey,
   whereYourJoyLivesPopupMessageKey,
@@ -174,6 +175,9 @@ import { WBS_LABEL, WBS_ROUTE } from '@/lib/whole-body-signal/constants';
 import { getMyHealthIntake } from '@/lib/health-intake/view';
 import { HLI_ROUTE } from '@/lib/health-intake/constants';
 import { HLI_COPY } from '@/lib/health-intake/copy';
+import { getMyBreathingCheckIn } from '@/lib/breathing-check-in/view';
+import { BPC_ROUTE } from '@/lib/breathing-check-in/constants';
+import { BPC_COPY } from '@/lib/breathing-check-in/copy';
 import { memberCopy as wbsMemberCopy } from '@/lib/whole-body-signal/copyKeys';
 import { BODY_SYSTEMS_LABEL, BODY_SYSTEMS_ROUTE } from '@/lib/body-systems/constants';
 import { memberCopy } from '@/lib/body-systems/copyKeys';
@@ -391,6 +395,29 @@ export type RootPopupMessage =
    */
   | {
       kind: 'health_intake_assigned';
+      messageKey: string;
+      assignmentId: string;
+      title: string;
+      body: string;
+      ctaLabel: string;
+      primaryHref: string;
+    }
+  /**
+   * The Breathing Pattern Check-In (coach assigned only, migration 231).
+   *
+   * ITS OWN KIND, AND ITS OWN KEY PREFIX, and both are load bearing for the
+   * same reason the three above it have them: a member can be sitting on
+   * the survey, the signal assessment, the intake and this at once, and a
+   * shared kind or a shared prefix would let one dismissal silence
+   * another's invitation.
+   *
+   * IT NAMES THE EXPERIENCE, NEVER THE INSTRUMENT UNDERNEATH IT. The words
+   * come from lib/breathing-check-in/copy.ts, which is the member facing
+   * layer; the module holding what the underlying instrument is called is
+   * coach only and is not imported here.
+   */
+  | {
+      kind: 'breathing_check_in_assigned';
       messageKey: string;
       assignmentId: string;
       title: string;
@@ -1076,6 +1103,43 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
         body: HLI_COPY.popupBody,
         ctaLabel: HLI_COPY.popupCta,
         primaryHref: HLI_ROUTE,
+      };
+    }
+  }
+
+  // The Breathing Pattern Check-In, immediately below the intake and for
+  // the identical reasons: a coach's direct action for this member, and
+  // finite, because finishing it closes the assignment out so it can never
+  // starve anything below it.
+  //
+  // BELOW rather than above, and that order is the only opinion held here.
+  // When a coach has sent more than one, the one listed first is the one
+  // Root asks about first, and this one is still due on her next open
+  // because its key has no dismissal row yet. None of them is ever
+  // swallowed by another.
+  //
+  // getMyBreathingCheckIn returns null for every member who was never
+  // assigned this, so the gate and the offer are one read rather than two
+  // checks here that could drift from the route's. ITS OWN BRANCH CHECKS
+  // ITS OWN DUE-NESS AND FALLS THROUGH, per this file's one rule: a branch
+  // that returned a candidate the outer due-check then threw away would
+  // silence everything below it.
+  //
+  // A sitting she has STARTED still pops. The invitation is to finish the
+  // thing her coach asked for, and a check-in abandoned on question five is
+  // exactly the case a knock is for.
+  const breathingCheckIn = await getMyBreathingCheckIn();
+  if (breathingCheckIn?.status === 'pending' || breathingCheckIn?.status === 'in_progress') {
+    const messageKey = breathingCheckInPopupMessageKey(breathingCheckIn.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'breathing_check_in_assigned',
+        messageKey,
+        assignmentId: breathingCheckIn.assignmentId,
+        title: BPC_COPY.popupTitle,
+        body: BPC_COPY.popupBody,
+        ctaLabel: BPC_COPY.popupCta,
+        primaryHref: BPC_ROUTE,
       };
     }
   }

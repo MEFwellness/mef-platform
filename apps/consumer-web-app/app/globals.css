@@ -2142,3 +2142,139 @@
     opacity: 1 !important;
   }
 }
+
+/* =====================================================================
+ * THE BREATHING PATTERN CHECK-IN.
+ *
+ * THE WHOLE VOCABULARY IS TWO IDEAS: a card leaving upward and a card
+ * arriving from below, and a slow ring that breathes. Nothing bounces,
+ * nothing flashes, and nothing here runs longer than the beat it belongs
+ * to. The brief for this experience was "quiet and expensive", which in
+ * motion terms means the member notices how smooth it is without noticing
+ * the animation.
+ *
+ * THE EXIT IS REAL, NOT IMPLIED. Most takers in this app animate only the
+ * arriving screen, which reads as the old one being cut. Here the answered
+ * card fades and lifts for 200ms while the selected state is still on her
+ * screen, and the next one comes up from below. Those are two separate
+ * classes because they run on two different elements at two different
+ * times, not one class reused.
+ *
+ * REDUCED MOTION IS A FADE, NOT A FREEZE. The brief asks for slide
+ * animations to be REPLACED by simple fades rather than removed, so the
+ * overrides at the bottom of this block swap the keyframes rather than
+ * setting animation: none. A member who asked for less motion still gets
+ * the continuity the transition exists to communicate. The one thing that
+ * genuinely stops is the infinite breathing ring, because a loop that
+ * never ends is exactly what the setting is for.
+ * ===================================================================== */
+
+@keyframes mef-bpc-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mef-bpc-card-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* Opacity only. What reduced motion gets instead of the two above. */
+@keyframes mef-bpc-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mef-bpc-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.mef-bpc-card-in {
+  animation: mef-bpc-card-in 240ms var(--mef-ease-standard) both;
+}
+
+.mef-bpc-card-out {
+  animation: mef-bpc-card-out 200ms var(--mef-ease-standard) both;
+}
+
+/* The completion moment: a ring opening outward, twice, slowly, over a
+ * still centre. It is not a spinner and it is not a progress indicator:
+ * the submit it covers is genuinely in flight and the screen says what is
+ * happening in words above it. */
+@keyframes mef-bpc-ripple {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.mef-bpc-ripple {
+  animation: mef-bpc-ripple 2.4s var(--mef-ease-standard) infinite;
+}
+
+/* The still centre of that ring, breathing in and out at a pace a person
+ * can follow. Four seconds, which is a slow, comfortable breath. */
+@keyframes mef-bpc-breathe {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+.mef-bpc-breathe {
+  animation: mef-bpc-breathe 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The slide is replaced by a fade, per the brief, rather than removed. */
+  .mef-bpc-card-in {
+    animation: mef-bpc-fade-in 200ms linear both;
+  }
+
+  .mef-bpc-card-out {
+    animation: mef-bpc-fade-out 160ms linear both;
+  }
+
+  /* The loops stop outright. Their finished state is a still ring, which
+     is a complete screen rather than an empty one. */
+  .mef-bpc-ripple,
+  .mef-bpc-breathe {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}

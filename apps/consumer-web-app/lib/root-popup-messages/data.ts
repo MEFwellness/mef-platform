@@ -176,6 +176,18 @@ export function healthIntakePopupMessageKey(assignmentId: string): string {
 }
 
 /**
+ * The Breathing Pattern Check-In's own key (migration 231).
+ *
+ * A DISTINCT PREFIX again, and for the same reason as the three above it.
+ * A member can legitimately be sitting on the intake, the survey, the
+ * signal assessment and this at once, and a shared prefix would let one
+ * dismissal silence the others.
+ */
+export function breathingCheckInPopupMessageKey(assignmentId: string): string {
+  return `breathing_check_in:${assignmentId}`;
+}
+
+/**
  * Owning Your Value's own key, scoped to the assignment exactly as the
  * Stress & Load Deep-Dive's above is, and with the identical recurring
  * dismissal lifetime. A coach can send this experience more than once, and

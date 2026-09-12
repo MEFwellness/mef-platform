@@ -89,6 +89,11 @@ export const MEMBER_ONLY_PREFIXES = [
   // on their own dashboard, not inside a member's sitting. Whether she was
   // assigned it is a separate question, enforced inside the route.
   '/health-intake',
+  // The Breathing Pattern Check-In (coach assigned only). Listed for the
+  // same reason: a coach or an administrator who taps an old link belongs
+  // on their own dashboard, not inside a member's sitting. Whether she was
+  // assigned it is a separate question, enforced inside the route.
+  '/breathing-check-in',
   // Owning Your Value (coach assigned only), the first of the Happiness
   // deep-dives. Listed for the same reason: a coach or an administrator who
   // taps an old link belongs on their own dashboard, not inside a member's

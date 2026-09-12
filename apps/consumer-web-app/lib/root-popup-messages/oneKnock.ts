@@ -73,6 +73,7 @@ export const PROTECTED_POPUP_KINDS: readonly string[] = [
   'body_systems_assigned',
   'whole_body_signal_assigned',
   'health_intake_assigned',
+  'breathing_check_in_assigned',
   'owning_your_value_assigned',
   'where_your_joy_lives_assigned',
   'the_giving_ledger_assigned',

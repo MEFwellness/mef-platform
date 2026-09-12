@@ -26,6 +26,7 @@ import { STRESS_LOAD_LABEL } from '../stress-load/copy';
 import { BODY_SYSTEMS_DEFINITION_ID, BODY_SYSTEMS_LABEL } from '../body-systems/constants';
 import { WBS_DEFINITION_ID, WBS_LABEL } from '../whole-body-signal/constants';
 import { HLI_DEFINITION_ID, HLI_LABEL } from '../health-intake/constants';
+import { BPC_DEFINITION_ID, BPC_LABEL } from '../breathing-check-in/constants';
 import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_LABEL } from '../owning-your-value/copy';
 import { WYJL_DEFINITION_ID } from '../where-your-joy-lives/constants';
@@ -56,6 +57,15 @@ export function assignmentNamesByDefinitionId(): Map<string, string> {
     [BODY_SYSTEMS_DEFINITION_ID, BODY_SYSTEMS_LABEL],
     [WBS_DEFINITION_ID, WBS_LABEL],
     [HLI_DEFINITION_ID, HLI_LABEL],
+    /*
+      THE MEMBER FACING NAME, and deliberately not the instrument's. What
+      the underlying instrument is called is coach facing and lives in
+      lib/breathing-check-in/coachCopy.ts, which this map does not import:
+      this name reaches the coach's This Week band, his assignable list and
+      his client detail page, and one of those is one refactor away from a
+      member surface. One name per thing, everywhere.
+    */
+    [BPC_DEFINITION_ID, BPC_LABEL],
     [OYV_DEFINITION_ID, OYV_LABEL],
     [WYJL_DEFINITION_ID, WYJL_LABEL],
     [TGL_DEFINITION_ID, TGL_LABEL],

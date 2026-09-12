@@ -165,8 +165,10 @@ import { StressLoadPanel } from '../StressLoadPanel';
 import { getClientStressLoadPanelAction } from '@/app/actions/stressLoad';
 import { BodySystemsPanel } from '../BodySystemsPanel';
 import { WholeBodySignalPanel } from '../WholeBodySignalPanel';
+import { BreathingCheckInPanel } from '../BreathingCheckInPanel';
 import { getClientBodySystemsPanelAction } from '@/app/actions/bodySystems';
 import { getClientWholeBodySignalPanelAction } from '@/app/actions/wholeBodySignal';
+import { getClientBreathingCheckInPanelAction } from '@/app/actions/breathingCheckInCoach';
 import { getClientHealthIntakePanelAction } from '@/app/actions/healthIntake';
 import { buildHealthContextView } from '@/lib/health-intake/coachView';
 import { HealthContextPanel } from '../HealthContextPanel';
@@ -305,6 +307,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     stressLoadPanel,
     bodySystemsPanel,
     wholeBodySignalPanel,
+    breathingCheckInPanel,
     healthIntakePanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
@@ -357,6 +360,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientStressLoadPanelAction(profile.id),
     getClientBodySystemsPanelAction(profile.id),
     getClientWholeBodySignalPanelAction(profile.id),
+    getClientBreathingCheckInPanelAction(profile.id),
     getClientHealthIntakePanelAction(profile.id),
     getClientOwningYourValuePanelAction(profile.id),
     getClientWhereYourJoyLivesPanelAction(profile.id),
@@ -504,14 +508,15 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
 
   /*
     Whether the Deep-Dive Results heading has anything under it. Each of
-    the ten panels renders nothing without a sitting behind it, and a
-    heading over ten nulls is a heading over nothing, so both halves read
+    the eleven panels renders nothing without a sitting behind it, and a
+    heading over eleven nulls is a heading over nothing, so both halves read
     the same predicate (lib/coach-detail/deepDiveResults.ts).
   */
   const deepDivePanelStates = [
     stressLoadPanel,
     bodySystemsPanel,
     wholeBodySignalPanel,
+    breathingCheckInPanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
@@ -877,6 +882,10 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
 
                 <div id="detail-card-whole-body-signal" className="scroll-mt-24">
                   <WholeBodySignalPanel state={wholeBodySignalPanel} />
+                </div>
+
+                <div id="detail-card-breathing-check-in" className="scroll-mt-24">
+                  <BreathingCheckInPanel state={breathingCheckInPanel} />
                 </div>
 
                 <div id="detail-card-owning-your-value" className="scroll-mt-24">

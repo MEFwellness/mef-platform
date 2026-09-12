@@ -46,6 +46,11 @@ export const PRODUCT_SURFACES = [
   // she opened, and nothing else: no answer, no medication, no history and
   // no safety signal reaches an analytics payload.
   'health_intake',
+  // The Breathing Pattern Check-In, a separate coach assigned instrument
+  // again. A surface she opened, and nothing else: no answer, no score and
+  // no reading reaches an analytics payload, and the name of the underlying
+  // instrument is not in this file either.
+  'breathing_check_in',
   // Owning Your Value, the first of the Happiness deep-dives. A surface she
   // opened, and nothing else: not a word she wrote and not the sentence she
   // asked Root to hold reaches an analytics payload.

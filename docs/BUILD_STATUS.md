@@ -1,3 +1,132 @@
+## The Breathing Pattern Check-In (2026-09-12)
+
+A coach can now send a member a short read on her breathing and the
+sensations that travel with it. Sixteen questions, one per screen, about
+two minutes, and she never sees a number.
+
+Migration 231. Its own table, its own route, its own pop-up key, its own
+Home card, and a new card on the coach's client page.
+
+### IT IS TWO LAYERS, AND THE SEPARATION IS A MODULE BOUNDARY PLUS A GUARD
+
+The brief asked for the validated instrument and the Rooted Reset
+experience to be separate technically as well as visually, so the
+experience can be upgraded without the instrument moving. That is what was
+built.
+
+**Layer 1 is `lib/breathing-check-in/instrument.ts`, and it is frozen.**
+The sixteen questions, the five responses, the nought to four point map,
+the sixty four point maximum and the twenty three point reference figure.
+Every other scored instrument in this app keeps its content in database
+rows, so a coach can retune a weight or a cut off with no deploy. This one
+deliberately does the opposite, and the migration says why in full: an
+instrument whose wording or arithmetic can be edited from an admin screen
+is no longer the instrument it claims to be, because a score from before
+the edit and a score from after it would sit in one history under one name
+meaning two different things. The file imports nothing at all.
+`tests/breathing-check-in-instrument.test.ts` writes down what it is
+supposed to be and fails when the code stops matching, which is the
+intended alarm rather than an inconvenience.
+
+**Layer 2 is `./copy.ts`, `./signals.ts`, `./coachCopy.ts` and
+`./coachView.ts`.** The invitation, the pauses, the completion moment, her
+reading, his reading and the coaching prompts. Rewriting any of it moves no
+number.
+
+### SHE CANNOT BE SHOWN HER SCORE, BECAUSE THE PROP DOES NOT CARRY ONE
+
+`buildBpcMemberView` returns a statement, a supporting line and three named
+areas with a phrase each. There is no field a total, a maximum, a
+percentage, a per item point or the reference threshold could sit in.
+Everything a client component receives is serialised into the page, so a
+number there would be in her payload whether a component drew it or not.
+The guard builds the view from a sixty four out of sixty four sitting and
+asserts the serialised payload contains **no digit at all**, then renders
+the real results component and scans what she actually reads, then walks
+all twenty screens of the live taker and scans each one.
+
+### THE COACH LAYER MOVED TO ITS OWN ACTIONS FILE, AND THE GUARD IS WHY
+
+The name of the underlying instrument, the threshold and the per item
+points live in two coach only modules. Her taker imports the submit action,
+so anything in THAT module is on her import graph, and with one combined
+actions file the instrument's name was two hops from her screen.
+`tests/breathing-check-in-layers.test.tsx` failed on exactly that path, so
+`app/actions/breathingCheckInCoach.ts` is now a separate file. The guard
+also asserts the coach panel CAN reach both modules, so it is not vacuous.
+
+### THE CARD IS THE SCREEN, CENTRED IN WHAT IS LEFT OF THE VIEWPORT
+
+Progress at the top, breathing room, the card, breathing room. A `100dvh`
+flex column with a `shrink-0` header and a `flex-1` centred stage, rather
+than the shared `CenterStage`, which centres a whole column and would float
+the progress header into the middle of the screen with the card.
+
+**One floor height on all twenty screens** (430px, 460px from `sm`), so
+"Chest pain" does not collapse the card and the composition never jumps.
+Capped at 680px so a desktop never stretches it. The walk test asserts both
+on every screen rather than on a sample.
+
+### THE TRANSITION IS TWO ANIMATIONS, NOT ONE
+
+Her selected answer stays on the card while that card fades and lifts, then
+the next rises from below. Most takers in this app animate only the
+arriving screen, which reads as the old one being cut. **Under reduced
+motion both become plain fades rather than nothing**, because the brief
+asked for the slide to be REPLACED: the continuity is the point of the
+transition. The infinite breathing ring on the completion screen is the one
+thing that stops outright.
+
+### THREE PAUSES, AND THEY SAY NOTHING ABOUT HER ANSWERS
+
+After questions four, eight and twelve, three different screens rather than
+one shown three times. No score, no category, no observation, because
+anything about what she has said so far would change what she says next,
+which a validated instrument cannot tolerate. A test scans them for second
+person judgements, for digits and for the three area names.
+
+**Reduced motion drops the timer and keeps the Continue.** A screen that
+advances by itself is motion she did not ask for, and the button is the way
+through either way.
+
+### RESUME NEVER LANDS ON A PAUSE
+
+Question four is followed by one, so a member who answered exactly four and
+left would otherwise come back to an encouragement screen with no question
+on it, which reads as having lost her place. Resume derives the first
+unanswered question from her answers and never trusts a stored index on its
+own. Tested at all three pause positions.
+
+### THE SAVE IS READ, THEN INSERT OR UPDATE, NOT AN UPSERT
+
+The one row per assignment index is partial, Postgres will not take a
+partial index as an ON CONFLICT arbiter, and PostgREST cannot express the
+predicate. That is the defect the Health & Lifestyle Intake shipped with
+and it is not repeated here. Autosave flushes on `pagehide` and
+`visibilitychange`.
+
+### THE COACH SEES EVERYTHING SHE DOES NOT
+
+Total out of sixty four, the reference threshold said as a reference
+figure, all sixteen responses with their points, the highest-response
+symptoms, and four fixed coaching questions. The threshold sentence
+reports a higher burden of the symptoms the instrument asks about and is
+tested against saying it diagnoses anything. The highest-response list is
+ordered by points with ties broken by the instrument's own order, and the
+line under it says out loud that the order claims nothing about cause.
+
+**History is a picker, never an overwrite.** Every completed sitting is
+kept, and the card prints each one's date and number side by side with **no
+comparison in words**: no percentage, no "improved", no arrow.
+
+### WHAT IS NOT BUILT
+
+The results screen's primary button is **Review With My Coach**, not "See
+My Breathing Reset". The Breathing Reset experience does not exist, and a
+primary action offering to open something with no destination is the exact
+thing the standing rule forbids. One constant and one href change when it
+ships.
+
 ## What the production walk of the intake found (2026-09-12)
 
 The Health & Lifestyle Intake shipped, and then a real signed-in walk of it

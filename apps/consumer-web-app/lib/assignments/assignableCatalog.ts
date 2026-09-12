@@ -46,6 +46,12 @@ import {
   HLI_KEY,
   HLI_LABEL,
 } from '../health-intake/constants';
+import {
+  BPC_AREA,
+  BPC_DEFINITION_ID,
+  BPC_KEY,
+  BPC_LABEL,
+} from '../breathing-check-in/constants';
 import { STRESS_LOAD_AREA, STRESS_LOAD_LABEL } from '../stress-load/copy';
 import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_AREA, OYV_LABEL } from '../owning-your-value/copy';
@@ -161,6 +167,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
     definitionId: HLI_DEFINITION_ID,
     displayName: HLI_LABEL,
     areaLabel: HLI_AREA,
+  },
+  {
+    id: BPC_KEY,
+    definitionId: BPC_DEFINITION_ID,
+    displayName: BPC_LABEL,
+    areaLabel: BPC_AREA,
   },
   {
     id: 'stress-load-deep-dive',

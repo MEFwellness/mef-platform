@@ -97,11 +97,13 @@ import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
 import { StressLoadEntry } from '@/components/stress-load/StressLoadEntry';
 import { BodySystemsEntry } from '@/components/body-systems/BodySystemsEntry';
 import { WholeBodySignalEntry } from '@/components/whole-body-signal/WholeBodySignalEntry';
+import { BreathingCheckInEntry } from '@/components/breathing-check-in/BreathingCheckInEntry';
 import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
 import { getMyBodySystemsSurvey } from '@/lib/body-systems/view';
 import { getMyWholeBodySignal } from '@/lib/whole-body-signal/view';
 import { HealthIntakeEntry } from '@/components/health-intake/HealthIntakeEntry';
 import { getMyHealthIntake } from '@/lib/health-intake/view';
+import { getMyBreathingCheckIn } from '@/lib/breathing-check-in/view';
 import { OwningYourValueEntry } from '@/components/owning-your-value/OwningYourValueEntry';
 import { getMyOwningYourValue } from '@/lib/owning-your-value/view';
 import { WhereYourJoyLivesEntry } from '@/components/where-your-joy-lives/WhereYourJoyLivesEntry';
@@ -448,6 +450,7 @@ async function DayFrameRegion() {
     bodySystems,
     wholeBodySignal,
     healthIntake,
+    breathingCheckIn,
     owningYourValue,
     whereYourJoyLives,
     theGivingLedger,
@@ -479,6 +482,9 @@ async function DayFrameRegion() {
       // chain in PopupRegion asks for the same thing on the same render.
       getMyHealthIntake(),
       // Request-memoized, exactly as the four above are, and the pop-up
+      // chain in PopupRegion asks for the same thing on the same render.
+      getMyBreathingCheckIn(),
+      // Request-memoized, exactly as the five above are, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyOwningYourValue(),
       // Request-memoized, exactly as the three above are, and the pop-up
@@ -640,6 +646,32 @@ async function DayFrameRegion() {
           <HealthIntakeEntry
             assignmentId={healthIntake.assignmentId}
             inProgress={healthIntake.status === 'in_progress'}
+          />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* THE BREATHING PATTERN CHECK-IN, persistent, for as    */}
+      {/* long as her coach's assignment is open.               */}
+      {/*                                                       */}
+      {/* A SEPARATE INSTRUMENT again, so all five cards stand   */}
+      {/* when a coach has sent all five. It is short but        */}
+      {/* resumable, so 'in_progress' is not "done", it is       */}
+      {/* "waiting for her to come back", and the card is the    */}
+      {/* way back and says so in its own button.                */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately.     */}
+      {/* The assignment is the whole gate                       */}
+      {/* (lib/breathing-check-in/access.ts).                    */}
+      {/* ==================================================== */}
+      {(breathingCheckIn?.status === 'pending' ||
+        breathingCheckIn?.status === 'in_progress') && (
+        <div className="pt-3">
+          {/* The card carries the assignment's delivery receipt
+              (migration 210), which is why it needs the assignment id. */}
+          <BreathingCheckInEntry
+            assignmentId={breathingCheckIn.assignmentId}
+            inProgress={breathingCheckIn.status === 'in_progress'}
           />
         </div>
       )}
