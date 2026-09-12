@@ -126,6 +126,49 @@ It also taps both buttons. "Review With My Coach" must land on
 `/conversation?entry=breathing_check_in` with Root's opening line on it and
 a real place to type; "Return Home" must land on Home.
 
+### WHAT THE PRODUCTION WALK FOUND
+
+`scripts/verify-breathing-results-prod.mjs`, 91 of 91 on
+app.mefwellness.com, committed beside the build. It found one real defect
+that every unit test in the feature passed over.
+
+**ROOT'S OPENING LINE REACHED ALMOST NOBODY.** It was drawn inside the
+conversation's EMPTY STATE, and the empty state is not rendered at all for
+a member who has talked to Root before. Every member this entry point
+exists for has a thread already, so she tapped "Review With My Coach",
+landed in Root, and read nothing about where she had come from. The unit
+test mounted an empty thread, which is the one case that worked. It is now
+drawn under the transcript and above the composer, so it stands whether the
+thread is empty or ten messages long, and the test covers both and asserts
+it appears once rather than twice.
+
+**THE RUN DELETES NOTHING, WHICH IS WHY IT IS A SECOND SCRIPT.** The local
+walk opens and closes with a `clean()` that removes every sitting the member
+has. That is right against a database seeded from scratch and wrong against
+production, where the rows belong to somebody. Phase A reads Ebony's
+existing stored sitting (17 out of 64, below the reference figure, one
+qualifying answer) back onto her real screen and compares every number to
+the row read independently with the service key, with the expectations
+DERIVED FROM THE STORED ANSWERS rather than typed. Phase B walks a fresh
+sitting worth 36 as the Routing Test account, which had no breathing
+history at all, and reads the other side of the threshold.
+
+**PHASE B SEEDS ONE ASSIGNMENT ROW AND DRIVES EVERYTHING ELSE FOR REAL.**
+This instrument is deliberately not in `REASSIGNABLE_ROW_IDS`, so once a
+member has finished it no control on any screen sends her another, and a
+second sitting for the first member would have meant deleting her first.
+The Routing Test account is on no coach's caseload, so the coach's own
+Assign control cannot be driven for her without creating a real coaching
+relationship in production, which was not done. The seeded row carries
+exactly the columns `assignBreathingCheckInAction` writes; the coach's
+control itself is driven for real in the local walk, 163 of 163.
+
+**A `settled()` THAT STABILISES ON NOTHING IS NOT SETTLED.** The first
+production run reported the conversation screen as having no composer,
+because on a slow render the only painted text was the bottom navigation,
+and two samples of the same nothing read as settled. The run now waits for
+the composer itself. See [[feedback_wait_on_the_server_not_the_clock]].
+
 ## The Breathing Pattern Check-In (2026-09-12)
 
 A coach can now send a member a short read on her breathing and the
