@@ -708,18 +708,28 @@ try {
       */
       if (!backCheckDone && scaleKey === 'binary') {
         backCheckDone = true;
-        await page.getByRole('button', { name: MEMBER_COPY['member.back'] }).first().click();
-        const returned = await page
-          .waitForFunction(
-            (prompt) => {
-              const h1 = document.querySelector('h1');
-              return Boolean(h1 && h1.textContent.trim() === prompt);
-            },
-            heading,
-            { timeout: 30000 }
-          )
-          .then(() => true)
-          .catch(() => false);
+        // PRESSED UNTIL THE APP AGREES. A click that lands mid transition
+        // does nothing, silently, and a single click would then report a
+        // Back control that works perfectly as broken.
+        let returned = false;
+        for (let attempt = 0; attempt < 10 && !returned; attempt += 1) {
+          await page
+            .getByRole('button', { name: MEMBER_COPY['member.back'] })
+            .first()
+            .click({ timeout: 10000 })
+            .catch(() => {});
+          returned = await page
+            .waitForFunction(
+              (prompt) => {
+                const h1 = document.querySelector('h1');
+                return Boolean(h1 && h1.textContent.trim() === prompt);
+              },
+              heading,
+              { timeout: 4000 }
+            )
+            .then(() => true)
+            .catch(() => false);
+        }
         check(`${label}: Back returns to the question just answered`, returned, heading.slice(0, 45));
         if (returned) {
           const chosen = page.getByRole('radio', { name: value, exact: true }).first();
@@ -812,11 +822,39 @@ try {
   await page.close();
   await new Promise((resolve) => setTimeout(resolve, 1500));
 
+  /*
+    THE DRAFT SHE LEFT REALLY WAS SAVED.
+
+    Read from the row, before anything is asserted about the screen,
+    because "Welcome back did not appear" has two completely different
+    causes: a screen that did not draw it, and a draft that was never
+    written. Waiting on the row rather than on the clock is also what makes
+    this honest on a slow write.
+  */
+  let draft = null;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const { data } = await admin
+      .from('member_whole_body_signal_sessions')
+      .select('id, answers, completed_at, content_version')
+      .eq('member_id', MEMBER)
+      .maybeSingle();
+    draft = data ?? null;
+    if (draft && Object.keys(draft.answers ?? {}).length > 0) break;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  const draftCount = Object.keys(draft?.answers ?? {}).length;
+  check(
+    'closing the app kept every answer she had given',
+    draftCount >= 20,
+    `${draftCount} answers stored, completed_at ${draft?.completed_at ?? 'null'}`
+  );
+
   page = await minted.context.newPage();
   watch(page, 'member');
   await page.goto(`${BASE}/whole-body-signal`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('h1', { timeout: 60000 });
   const resumeText = await textOf(page);
+  console.log(`   reopened on: "${(await page.locator('h1').first().innerText()).trim()}"`);
   check('coming back says Welcome back', resumeText.includes(MEMBER_COPY['member.resume_title']));
   check(
     'and tells her how many sections she is in',
@@ -901,7 +939,7 @@ try {
 
   const { data: stored } = await admin
     .from('member_whole_body_signal_sessions')
-    .select('id, routing_option_key, results, completed_at')
+    .select('id, routing_option_key, answers, results, completed_at')
     .eq('member_id', MEMBER)
     .not('completed_at', 'is', null)
     .maybeSingle();
@@ -910,6 +948,25 @@ try {
   check('and a Signal Load computed from it', typeof stored?.results?.load?.value === 'number',
     String(stored?.results?.load?.value));
   check('and a Zone rollup built from her answers', (stored?.results?.zones?.length ?? 0) > 0);
+
+  /*
+    HER BINARY ANSWERS WERE STORED AS BINARY ANSWERS.
+
+    The strongest form of this check: not what a screen printed, but what
+    landed in the row. A binary question holding "often" would mean the
+    screen and the database disagree about what she was asked.
+  */
+  const binaryValues = new Set(
+    scaleOptionRows.filter((row) => row.scale_key === 'binary').map((row) => row.value_key)
+  );
+  const storedBinary = BINARY_PROMPTS.map((prompt) => questionRows.find((row) => row.prompt === prompt))
+    .filter(Boolean)
+    .map((row) => [row.question_ref, stored?.answers?.[row.question_ref]]);
+  check(
+    'every binary question stored a Yes / No / Not sure value',
+    storedBinary.length > 0 && storedBinary.every(([, value]) => binaryValues.has(value)),
+    storedBinary.map(([ref, value]) => `${ref}=${value}`).join(' ')
+  );
 
   // ------------------------------------------------------------------
   // 3. AS THE COACH: the whole reading.
