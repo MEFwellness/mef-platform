@@ -107,6 +107,32 @@ the search. **28 of 28.**
 
 `verify-breathing-check-in-live.mjs` was re-run unchanged: **163 of 163.**
 
+### AND THE WHOLE THING WAS WALKED ON PRODUCTION
+
+`scripts/verify-assign-again-prod.mjs`, **50 of 50** on
+app.mefwellness.com, committed beside the build. A coach opens a real
+client Detail page, presses the real Assign Again on a finished Breathing
+Pattern Check-In, and the run then reads the page back: the new sitting
+under Assigned, Waiting with its sent date, the finished one still in
+Completed with View results and "Already assigned, waiting", and exactly
+one send control for that assessment on the whole page. The member then
+finishes the new sitting for real, sixteen taps, and the coach's card
+prints **both** sittings as date and score chips (Sep 12: 16, Sep 12: 17)
+with no comparison in words.
+
+**IT RESTORES HER EXACTLY, AND PROVES IT.** Everything the run creates is
+removed and the removal is confirmed by an independent read of both tables:
+her assignment ledger and her sittings are compared, serialised, against
+what they were before it started. The sitting she already had is separately
+compared field by field DURING the run as well, because "the old row still
+exists" and "the sitting she finished is intact" are two different claims
+and only the second is what a coach is promised.
+
+**IT REFUSES TO RUN** against an account that is not `is_test`, against one
+already sitting on an open copy, or against one that has finished none,
+because a run that quietly assigned a FIRST sitting would be testing a
+different button.
+
 ## She reads her own breathing score now (2026-09-12)
 
 The Breathing Pattern Check-In shipped this morning with a member results
