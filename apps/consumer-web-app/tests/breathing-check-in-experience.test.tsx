@@ -16,7 +16,8 @@
  *     advances by itself is motion she did not ask for.
  *   SHE IS SHOWN NO NUMBER FROM THE SCORING MODEL on any screen in the
  *     walk, which is checked on every one of the twenty rather than on a
- *     sample.
+ *     sample. HER SCORE APPEARS ONLY AFTER THE SITTING IS OVER, on the
+ *     results screen, which is the deliberate reversal of 2026-09-12.
  *   THE COMPLETION MOMENT HOLDS, and the results do not appear until both
  *     the beat and the submit are done.
  *   THE CARD IS ONE HEIGHT AND ONE WIDTH on every screen, which is what
@@ -382,8 +383,14 @@ describe('the Breathing Pattern Check-In, on a real screen', () => {
 
     expect(text()).toContain(BPC_COPY.resultsTitle);
     expect(text()).toContain(BPC_COPY.resultsDisclaimer);
-    // And her reading still carries no number.
-    expect(/\d/.test(text())).toBe(false);
+    // AND NOW HER READING CARRIES HER NUMBER. Sixteen answered "Often" is
+    // forty eight out of sixty four, which is above the reference figure.
+    // It is asserted here, at the end of a real walk, so the number on the
+    // screen is the one the walk actually produced rather than one a
+    // fixture handed the component.
+    expect(text()).toContain('48');
+    expect(text()).toContain('64');
+    expect(text()).toContain(BPC_COPY.resultsAboveThresholdLine);
   });
 
   it('submits every one of her sixteen answers, and only once', async () => {

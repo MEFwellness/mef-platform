@@ -32,7 +32,11 @@ export type ConversationEntryPoint =
   | 'food_lens'
   // Movement Intelligence — a member launching a conversation from the
   // Movement Dashboard or an active session.
-  | 'movement';
+  | 'movement'
+  // Breathing Pattern Check-In — a member tapping "Review With My Coach"
+  // on her own results screen. The conversation page reads her stored
+  // sitting itself; the entry point carries no score.
+  | 'breathing_check_in';
 
 export type ConversationSessionStatus = 'active' | 'restricted' | 'archived';
 

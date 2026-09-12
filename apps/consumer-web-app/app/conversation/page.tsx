@@ -9,6 +9,10 @@ import { AvatarLink } from '@/components/AvatarLink';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { BackButton } from '@/components/BackButton';
 import { SUGGESTED_PROMPTS } from '@/lib/conversation-coach/suggestedPrompts';
+import { getMyBreathingCheckIn } from '@/lib/breathing-check-in/view';
+import { buildBpcMemberView } from '@/lib/breathing-check-in/signals';
+import { buildBpcConversationSeed } from '@/lib/breathing-check-in/conversationEntry';
+import { BPC_CONVERSATION_ENTRY } from '@/lib/breathing-check-in/copy';
 import { ConversationView } from './ConversationView';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 import { getCachedUser } from '@/lib/supabase/currentUser';
@@ -30,6 +34,10 @@ const VALID_ENTRY_POINTS = new Set<ConversationEntryPoint>([
   'profile',
   'assessment',
   'body_assessment',
+  // Her Breathing Pattern Check-In results screen. Migration 232 adds the
+  // same value to conversation_sessions.entry_point, so a thread started
+  // here is recorded as having started here.
+  'breathing_check_in',
 ]);
 
 export default async function CoachingConversationPage({
@@ -47,12 +55,27 @@ export default async function CoachingConversationPage({
       ? (requestedEntry as ConversationEntryPoint)
       : 'nav';
 
-  const [isCoach, { data: profile }, thread] = await Promise.all([
+  const [isCoach, { data: profile }, thread, breathing] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
     getOrStartConversationAction(entryPoint),
+    /*
+      SHE ARRIVED FROM HER OWN BREATHING RESULTS, so Root is opened with
+      that sitting rather than with the generic empty state. It is read
+      here, server side, from HER row under her own policies: the link she
+      tapped carries no score, so a pasted or hand edited one cannot
+      describe a sitting that is not hers. Read only, like every other
+      branch on this page.
+    */
+    entryPoint === BPC_CONVERSATION_ENTRY ? getMyBreathingCheckIn() : Promise.resolve(null),
   ]);
   const firstName = firstNameFrom(profile?.display_name);
+
+  const breathingSeed = buildBpcConversationSeed(
+    breathing?.status === 'completed' && breathing.session.results
+      ? buildBpcMemberView(breathing.session.results)
+      : null
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -90,6 +113,8 @@ export default async function CoachingConversationPage({
               initialMessages={thread.messages}
               entryPoint={entryPoint}
               suggestedPrompts={SUGGESTED_PROMPTS[entryPoint]}
+              opener={breathingSeed?.opener ?? null}
+              entryContext={breathingSeed?.entryContext ?? null}
             />
           </div>
         )}

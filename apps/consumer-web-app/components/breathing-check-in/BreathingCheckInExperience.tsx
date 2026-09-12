@@ -54,13 +54,22 @@
  * `pagehide` and on `visibilitychange`, so a member who taps and switches
  * to her mail app has already been saved.
  *
- * SHE IS SHOWN NO NUMBER FROM THE SCORING MODEL, ANYWHERE. Not a running
- * total, not a per answer point, not the maximum and not the reference
- * threshold. This file imports the instrument for its prompts and its five
- * labels and never for a point value, and it cannot reach the coach layer
- * at all: tests/breathing-check-in-layers.test.ts walks this file's import
- * graph and fails if any path reaches lib/breathing-check-in/coachCopy.ts
- * or ./coachView.ts.
+ * SHE IS SHOWN NO NUMBER WHILE SHE IS ANSWERING. Not a running total, not
+ * a per answer point, not the maximum and not the reference threshold: an
+ * instrument that told her where she stood partway through would change
+ * what she answered next. This file imports the instrument for its prompts
+ * and its five labels and never for a point value, and the walk test
+ * checks all twenty screens rather than a sample.
+ *
+ * HER SCORE APPEARS ONCE THE SITTING IS OVER, on the results screen, which
+ * is a separate component handed a finished view. That is a deliberate
+ * reversal of how this shipped, and BreathingCheckInResults.tsx's own
+ * header says so.
+ *
+ * IT CANNOT REACH THE COACH LAYER AT ALL:
+ * tests/breathing-check-in-layers.test.tsx walks this file's import graph
+ * and fails if any path reaches lib/breathing-check-in/coachCopy.ts or
+ * ./coachView.ts.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';

@@ -16,17 +16,20 @@
  * tests/breathing-check-in-layers.test.ts asserts it, so an edit here can
  * never reach the validated layer by accident.
  *
- * SHE IS NEVER SHOWN A NUMBER FROM THE SCORING MODEL. Not while she is
- * answering and not afterwards. There is no sentence in this file carrying
- * her total, the maximum, a percentage or the reference threshold, and a
- * test scans it for digits to keep it that way. "16 questions" and the two
- * minute estimate are facts about the task in front of her, not about her
- * result, and they are named separately below so the scan can allow
- * exactly those.
+ * SHE IS SHOWN NO NUMBER WHILE SHE IS ANSWERING, AND HER SCORE
+ * AFTERWARDS. No sentence in THIS file carries a total, a maximum, a
+ * percentage or the reference threshold: every number on her results
+ * screen is formatted from the stored result at render time, so the words
+ * here and the arithmetic there can never drift into disagreeing. A test
+ * still scans this file for digits and allows only "16 questions" and the
+ * two minute estimate, which are facts about the task in front of her.
  *
  * IT NAMES NO CONDITION. No sentence in this file diagnoses, and none
  * mentions dysfunctional breathing, hyperventilation, anxiety disorder or
- * any respiratory disease. A test asserts that too.
+ * any respiratory disease. A test asserts that too. There is exactly ONE
+ * allowed exception and it is named in the guard by constant:
+ * resultsScoreDisclaimer, the sentence whose whole job is to say what her
+ * score is NOT.
  *
  * NO EM DASHES. Commas, periods, colons or parentheses.
  */
@@ -87,9 +90,65 @@ export const BPC_COPY = {
   // Something went wrong.
   saveError: 'That did not save. Please check your connection and try again.',
 
+  // ------------------------------------------------------------------
   // Her results.
+  //
+  // THE ORDER ON THE SCREEN IS: the score, the scale it sits on, what the
+  // score means, the answers that came back highest, then the three named
+  // areas, then the disclaimer and the two buttons. Every sentence below
+  // is authored for exactly one of those, and the component draws them in
+  // that order.
+  // ------------------------------------------------------------------
+
+  /** The small label above the number. Drawn in upper case by the screen. */
   resultsTitle: 'Your Breathing Pattern',
-  resultsSignalsHeading: 'What is showing up',
+
+  /**
+   * The one line under the number.
+   *
+   * AT the reference figure counts as above it, which is how the figure is
+   * published and how the coach's own card reads it. One rule
+   * (bpcAtOrAboveReferenceThreshold), two screens.
+   */
+  resultsAboveThresholdLine: 'Above the traditional reference threshold',
+  resultsBelowThresholdLine: 'Below the traditional reference threshold',
+
+  // The scale. Its three landmarks are the two ends and the reference
+  // figure, and it deliberately draws no bands: an instrument that
+  // publishes one reference point does not license four coloured zones.
+  resultsScaleThresholdLabel: 'Traditional reference threshold',
+  resultsScaleYourScoreLabel: 'Your score',
+  /** Read out to a screen reader in place of the bar itself. */
+  resultsScaleAriaPrefix: 'Your score on a scale from',
+
+  resultsMeaningHeading: 'What your score means',
+  resultsMeaningAbove:
+    'Your score suggests that several breathing related signals are occurring frequently enough to be worth exploring further with your coach.',
+  resultsMeaningBelow:
+    'Your score suggests breathing related signals are showing up less frequently. It is still worth reviewing what stood out with your coach.',
+
+  /**
+   * THE ONE SENTENCE ALLOWED TO NAME WHAT THIS IS NOT.
+   *
+   * The guard in tests/breathing-check-in-layers.test.tsx names this
+   * constant explicitly, so the exception is one reviewed sentence rather
+   * than a hole in the scan.
+   */
+  resultsScoreDisclaimer:
+    'This is not a diagnosis of a breathing disorder. Your score is one part of understanding your breathing pattern, stress load, and overall health.',
+
+  resultsStrongestHeading: 'Your strongest signals',
+  /** Three or four of them. */
+  resultsStrongestIntro: 'These came back most often in your answers.',
+  /** Exactly two. */
+  resultsStrongestIntroTwo: 'Two came back at the higher end of the scale.',
+  /** Exactly one. */
+  resultsStrongestIntroOne: 'One came back at the higher end of the scale.',
+  /** None did. The section still stands, and says so plainly. */
+  resultsStrongestEmpty:
+    'Nothing came back at the higher end of the scale this time. What you did notice is below.',
+
+  resultsSignalsHeading: 'What stood out in your responses',
   /**
    * THE DISCLAIMER, AND IT IS NOT OPTIONAL FURNITURE. It is drawn on every
    * results screen, under the reading, in the same component, so there is
@@ -107,21 +166,40 @@ export const BPC_COPY = {
 } as const;
 
 /**
- * WHY THE PRIMARY BUTTON IS "Review With My Coach" AND NOT
- * "See My Breathing Reset".
+ * WHY THE PRIMARY BUTTON IS "Review With My Coach", AND WHERE IT NOW GOES.
  *
  * A button never claims what the rows cannot support. The Breathing Reset
- * experience does not exist yet, so a primary action offering to open it
- * would be a promise with no destination, and the standing rule is that an
- * offer's primary action OPENS the thing. "Review With My Coach" is true
- * today: her coach genuinely receives this and it genuinely lands on his
- * client screen. When the Breathing Reset ships, this constant and the
- * href beside it are the one place that changes.
+ * experience still does not exist, so a primary action offering to open it
+ * would be a promise with no destination. "Review With My Coach" is true
+ * today, and as of this change it is true IMMEDIATELY: it opens a Root
+ * conversation rather than only sending the sitting to a coach's screen,
+ * so the review starts the moment she taps rather than whenever he next
+ * logs in. Her coach still receives the sitting exactly as before.
+ *
+ * THE ENTRY POINT IS WHAT CARRIES THE CONTEXT. /conversation reads
+ * `entry`, and for this one it builds Root's opening line and the context
+ * string from her OWN stored sitting, server side. The href carries no
+ * score, so a pasted or edited link cannot describe a sitting that is not
+ * hers.
  *
  * NEITHER BUTTON WRITES A COMPLETION. Both are navigation, so neither can
  * record an act she has not performed.
  */
-export const BPC_RESULTS_PRIMARY_HREF = '/conversation';
+export const BPC_CONVERSATION_ENTRY = 'breathing_check_in' as const;
+export const BPC_RESULTS_PRIMARY_HREF = `/conversation?entry=${BPC_CONVERSATION_ENTRY}`;
+
+/**
+ * What Root opens with when she arrives from her results.
+ *
+ * IT IS DRAWN, NOT STORED. The conversation page prints it in place of the
+ * generic empty state prompt, and writes no message row: a render that
+ * inserted a message would insert one again on every re-render of that
+ * route, and a Server Action on that page re-renders it. Her first real
+ * message is the first row in the thread, exactly as on every other entry
+ * point.
+ */
+export const BPC_CONVERSATION_OPENER =
+  'You just finished your Breathing Pattern Check-In. Want to walk through what stood out?';
 
 /**
  * The three pauses, at questions four, eight and twelve.

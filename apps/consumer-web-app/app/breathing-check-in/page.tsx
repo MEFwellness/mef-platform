@@ -15,13 +15,20 @@
  * this check-in keeps while she is partway through is created by her own
  * answer and by nothing else.
  *
- * THE MEMBER VIEW IS BUILT ON THE SERVER AND IT CARRIES NO NUMBER.
- * `buildBpcMemberView` takes the stored result and returns a statement,
- * a supporting line and three named areas with a phrase each. Everything a
- * client component receives is serialised into this page, so her score
- * would be in the payload whether a component drew it or not. It is not in
- * the payload, because the function that builds the prop has no field it
- * could sit in, and a test asserts that against a maximum scoring sitting.
+ * THE MEMBER VIEW IS BUILT ON THE SERVER AND IT CARRIES HER SCORE.
+ * `buildBpcMemberView` takes the stored result and returns her total, the
+ * maximum, the traditional reference threshold, the answers she gave
+ * highest, one statement, one supporting line and three named areas. That
+ * is a reversal of how this route shipped on 2026-09-12, when the prop
+ * deliberately had no field a number could sit in, and it is deliberate:
+ * she reads her own instrument better with the number and the sentences
+ * that bound it than with the sentences alone.
+ *
+ * WHAT THE SERVER STILL REFUSES TO SEND HER. The NAME of the underlying
+ * instrument, the coach's score sentence and the coaching prompt library.
+ * Those live in two coach only modules, and
+ * tests/breathing-check-in-layers.test.tsx fails if any file on this
+ * page's own import graph can reach either.
  */
 
 import { redirect } from 'next/navigation';

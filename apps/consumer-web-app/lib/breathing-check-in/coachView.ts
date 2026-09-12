@@ -19,13 +19,13 @@
 
 import {
   BPC_ITEMS,
-  BPC_REFERENCE_THRESHOLD,
   bpcItem,
   bpcOption,
   type BpcAnswers,
   type BpcResults,
 } from './instrument';
 import { BPC_COACHING_QUESTIONS, BPC_COACH_COPY } from './coachCopy';
+import { BPC_STRONGEST_MIN_POINTS, bpcAtOrAboveReferenceThreshold } from './signals';
 
 /** One of the sixteen, as the coach's table prints it. */
 export type BpcCoachResponseRow = {
@@ -65,13 +65,15 @@ export type BpcHighestResponse = {
  * How high a response has to be before it earns a line in the
  * highest-response list.
  *
- * THREE, WHICH IS "Often" AND ABOVE. A list that included "Sometimes"
- * would be most of the sixteen on a busy sitting and would stop being a
- * list of what stood out. It is a constant rather than a top N, because
- * "the three highest" on a quiet sitting would promote three ones and read
- * as though something stood out when nothing did.
+ * THREE, WHICH IS "Often" AND ABOVE, AND IT IS DEFINED ONCE. The member's
+ * own results screen now prints her strongest answers too, so this cut off
+ * and hers have to be the same number or the two screens would disagree
+ * about what stood out in one sitting. It lives in ./signals.ts, which the
+ * member layer can import and this file can too (the fence is one way:
+ * member surfaces may not reach HERE). Re-exported under its old name so
+ * nothing that already reads it has to move.
  */
-export const BPC_HIGHEST_RESPONSE_MIN_SCORE = 3;
+export const BPC_HIGHEST_RESPONSE_MIN_SCORE = BPC_STRONGEST_MIN_POINTS;
 
 /**
  * The symptoms she answered highest, strongest first.
@@ -101,7 +103,7 @@ export function bpcHighestResponses(
 
 /** Whether a stored total reaches the published reference figure. Coach facing only. */
 export function bpcAtOrAboveThreshold(results: BpcResults): boolean {
-  return results.totalScore >= BPC_REFERENCE_THRESHOLD;
+  return bpcAtOrAboveReferenceThreshold(results.totalScore);
 }
 
 /** Everything one sitting's coach card renders, built once on the server. */

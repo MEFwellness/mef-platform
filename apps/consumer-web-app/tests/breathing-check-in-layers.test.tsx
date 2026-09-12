@@ -17,14 +17,24 @@
  *      imports, and the two coach modules (which hold the instrument's own
  *      name, the threshold and the per item points) must be unreachable
  *      from all of them.
- *   3. THE BUILT PAYLOAD. The real member view is built from a maximum
- *      scoring sitting and serialised, and the result must contain no
- *      digit at all. This is the one that would catch a field added later.
+ *   3. THE BUILT PAYLOAD. The real member view is built from real sittings
+ *      and inspected. It MUST now carry her total, the maximum and the
+ *      reference threshold, and it must still carry no per item point
+ *      column and no instrument name.
  *   4. THE RENDERED SCREEN. Her results are rendered and the text is
- *      scanned, because innerText is what she actually reads.
+ *      scanned, because textContent is what she actually reads.
  *   5. THE WORDS THEMSELVES. Both member facing modules are scanned for
  *      the instrument's name, for the forbidden clinical vocabulary and
  *      for causal claims.
+ *
+ * WHAT CHANGED ON 2026-09-12, AND WHY THIS FILE NO LONGER SAYS IT. Claims
+ * 3 and 4 used to assert the OPPOSITE: that the serialised payload held no
+ * digit at all and that her rendered results printed none. That rule was
+ * deliberately reversed, she is shown her score, and these guards were
+ * rewritten to assert the new intent rather than disabled or deleted. The
+ * fence that did NOT move is claim 2: the instrument's own name, the
+ * coach's score sentence and the coaching prompt library are still
+ * unreachable from every member surface.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -67,6 +77,7 @@ const MEMBER_SURFACES = [
   'components/breathing-check-in/BreathRipple.tsx',
   'lib/breathing-check-in/signals.ts',
   'lib/breathing-check-in/copy.ts',
+  'lib/breathing-check-in/conversationEntry.ts',
 ];
 
 /** The two modules that hold what a coach reads and a member never does. */
@@ -156,35 +167,60 @@ describe('2. the import graph', () => {
   });
 });
 
-describe('3. the built payload carries no number', () => {
-  function maximumSitting() {
-    return scoreBpcAnswers(
-      Object.fromEntries(BPC_ITEMS.map((item) => [item.itemId, 'very_often']))
-    );
+describe('3. the built payload carries her score, and still no coach material', () => {
+  function sitting(valueKey: string) {
+    return scoreBpcAnswers(Object.fromEntries(BPC_ITEMS.map((item) => [item.itemId, valueKey])));
   }
 
-  it('has no digit anywhere in it, even for a sixty four out of sixty four sitting', () => {
-    const view = buildBpcMemberView(maximumSitting());
-    // Everything a client component receives is serialised into the page,
-    // so a number here would be in her payload whether a component drew it
-    // or not.
-    expect(JSON.stringify(view)).not.toMatch(/\d/);
+  it('carries the total, the maximum and the reference threshold', () => {
+    const view = buildBpcMemberView(sitting('very_often'));
+    expect(view.totalScore).toBe(64);
+    expect(view.maxScore).toBe(64);
+    expect(view.referenceThreshold).toBe(23);
+    expect(view.aboveThreshold).toBe(true);
   });
 
-  it('has no digit for a quiet sitting either', () => {
-    const view = buildBpcMemberView(
-      scoreBpcAnswers(Object.fromEntries(BPC_ITEMS.map((item) => [item.itemId, 'never'])))
-    );
-    expect(JSON.stringify(view)).not.toMatch(/\d/);
+  it('reports a quiet sitting as below the reference threshold', () => {
+    const view = buildBpcMemberView(sitting('never'));
+    expect(view.totalScore).toBe(0);
+    expect(view.aboveThreshold).toBe(false);
   });
 
-  it('carries exactly the three areas and nothing shaped like a score', () => {
-    const view = buildBpcMemberView(maximumSitting());
-    expect(Object.keys(view).sort()).toEqual(['areas', 'statement', 'supportingLine']);
+  it('serialises her total, so what the page ships and what it draws are one number', () => {
+    const payload = JSON.stringify(buildBpcMemberView(sitting('often')));
+    // Sixteen at three points each.
+    expect(payload).toContain('"totalScore":48');
+    expect(payload).toContain('"maxScore":64');
+    expect(payload).toContain('"referenceThreshold":23');
+  });
+
+  it('is exactly these fields, so a coach only one cannot be added unnoticed', () => {
+    const view = buildBpcMemberView(sitting('very_often'));
+    expect(Object.keys(view).sort()).toEqual([
+      'aboveThreshold',
+      'areas',
+      'maxScore',
+      'referenceThreshold',
+      'statement',
+      'strongest',
+      'supportingLine',
+      'totalScore',
+    ]);
     expect(view.areas).toHaveLength(3);
     for (const area of view.areas) {
       expect(Object.keys(area).sort()).toEqual(['areaKey', 'displayName', 'phrase']);
     }
+    // A strongest signal is a name and her own frequency word. NOT a point
+    // column: the per item points stay coach facing.
+    for (const signal of view.strongest) {
+      expect(Object.keys(signal).sort()).toEqual(['frequencyLabel', 'itemId', 'name']);
+    }
+  });
+
+  it('never puts the instrument its own name in the payload', () => {
+    const payload = JSON.stringify(buildBpcMemberView(sitting('very_often'))).toLowerCase();
+    expect(payload).not.toContain('nijmegen');
+    expect(payload).not.toContain('questionnaire');
   });
 });
 
@@ -251,12 +287,17 @@ describe('4. the rendered screen: what she actually reads', () => {
     return text;
   }
 
-  it('prints no digit on a maximum scoring sitting', () => {
-    expect(renderResults('very_often')).not.toMatch(/\d/);
+  it('prints her score on a maximum scoring sitting', () => {
+    const text = renderResults('very_often');
+    expect(text).toContain('64');
+    expect(text).toContain(BPC_COPY.resultsAboveThresholdLine);
   });
 
-  it('prints no digit on a quiet one', () => {
-    expect(renderResults('never')).not.toMatch(/\d/);
+  it('prints her score on a quiet one, and says it is below the reference figure', () => {
+    const text = renderResults('never');
+    expect(text).toContain('0');
+    expect(text).toContain(BPC_COPY.resultsBelowThresholdLine);
+    expect(text).not.toContain(BPC_COPY.resultsAboveThresholdLine);
   });
 
   it('never prints the name of the underlying instrument', () => {
@@ -265,9 +306,10 @@ describe('4. the rendered screen: what she actually reads', () => {
     expect(text).not.toContain('questionnaire');
   });
 
-  it('always prints the disclaimer, on every reading', () => {
+  it('always prints both disclaimers, on every reading', () => {
     for (const answer of ['never', 'sometimes', 'very_often']) {
       expect(renderResults(answer)).toContain(BPC_COPY.resultsDisclaimer);
+      expect(renderResults(answer)).toContain(BPC_COPY.resultsScoreDisclaimer);
     }
   });
 });
@@ -345,6 +387,11 @@ describe('5. the words themselves', () => {
           // The disclaimer is the one sentence allowed to use the word
           // "diagnosis", and only to say this is not one.
           if (word === 'diagnos' && lower.includes('is not a diagnosis')) continue;
+          // AND ONE NAMED CONSTANT MAY SAY WHAT HER SCORE IS NOT. The
+          // exception is this exact sentence, addressed by constant rather
+          // than by a pattern, so widening it is an edit to this line
+          // rather than something a new string can slip through.
+          if (text === BPC_COPY.resultsScoreDisclaimer) continue;
           expect(lower, `${file}: ${text}`).not.toContain(word);
         }
       }
@@ -360,6 +407,20 @@ describe('5. the words themselves', () => {
     'due to',
     'explains',
   ];
+
+  it('is one sentence that is exempt, and it is the disclaimer, worded exactly this way', () => {
+    // The exemption above is addressed by constant. This is what that
+    // constant is allowed to be: a refusal, not a claim.
+    expect(BPC_COPY.resultsScoreDisclaimer).toBe(
+      'This is not a diagnosis of a breathing disorder. Your score is one part of understanding your breathing pattern, stress load, and overall health.'
+    );
+
+    // And nothing else in either module leans on it.
+    const exempted = MEMBER_WORD_MODULES.flatMap((file) => memberStrings(file)).filter(
+      (text) => text === BPC_COPY.resultsScoreDisclaimer
+    );
+    expect(exempted).toHaveLength(1);
+  });
 
   it('claims no causation', () => {
     for (const file of MEMBER_WORD_MODULES) {

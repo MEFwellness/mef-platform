@@ -21,11 +21,26 @@ export function ConversationView({
   initialMessages,
   entryPoint,
   suggestedPrompts,
+  opener = null,
+  entryContext = null,
 }: {
   session: ConversationSession;
   initialMessages: ConversationMessage[];
   entryPoint: ConversationEntryPoint;
   suggestedPrompts: string[];
+  /**
+   * Root's opening line for this entry point, drawn in place of the
+   * generic empty state question. DRAWN, NEVER STORED: a page render that
+   * inserted a message row would insert one again on every re-render, and
+   * sending a message re-renders this route.
+   */
+  opener?: string | null;
+  /**
+   * The short, model facing context string for this entry point, sent with
+   * her FIRST message and with every one after it in this sitting. A
+   * member never reads it.
+   */
+  entryContext?: string | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -49,7 +64,8 @@ export function ConversationView({
         trimmed,
         session.id,
         `/conversation?entry=${entryPoint}`,
-        entryPoint
+        entryPoint,
+        entryContext
       );
       if (result.error) {
         setError(result.error);
@@ -77,7 +93,9 @@ export function ConversationView({
         <div className="flex min-h-[220px] flex-col">
           {!hasMessages && !pendingEcho && (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 py-8 text-center">
-              <p className="text-sm text-[#6B7A72]">What would you like to talk through today?</p>
+              <p className="text-sm text-[#6B7A72]">
+                {opener ?? 'What would you like to talk through today?'}
+              </p>
               <div className="flex flex-wrap justify-center gap-2">
                 {suggestedPrompts.map((prompt) => (
                   <button

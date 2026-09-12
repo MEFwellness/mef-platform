@@ -3,9 +3,27 @@
  * LAYER 2. HER READING. The Rooted Reset interpretation of a score.
  * =====================================================================
  *
- * WHAT THIS TURNS A NUMBER INTO. One status statement, and three named
- * signal areas each carrying a plain phrase. That is the whole of what a
- * member is shown about her result, and none of it is a number.
+ * WHAT THIS TURNS A NUMBER INTO. Her own total out of sixty four, whether
+ * it sits above or below the traditional reference threshold, the handful
+ * of answers that came back highest, one status statement, and three named
+ * signal areas each carrying a plain phrase.
+ *
+ * SHE IS SHOWN HER SCORE, AND THAT IS A DELIBERATE REVERSAL. This
+ * experience shipped on 2026-09-12 with a member view that had no field a
+ * number could sit in, and a guard that asserted the serialised payload
+ * held no digit at all. The decision since is that a member reading her
+ * own instrument is better served by the number plus the sentences that
+ * bound it than by the sentences alone, so the total, the maximum and the
+ * reference threshold are carried here on purpose.
+ * tests/breathing-check-in-results.test.tsx now asserts they RENDER, and
+ * the old absence guard is gone rather than merely disabled, so nothing in
+ * the suite claims two different things about one screen.
+ *
+ * WHAT IS STILL FENCED. The NAME of the underlying instrument, the coach's
+ * score sentence and the coaching prompt library stay in ./coachCopy.ts
+ * and ./coachView.ts, which no member surface may import.
+ * tests/breathing-check-in-layers.test.tsx still walks the import graph of
+ * every member facing file and fails if any path reaches either.
  *
  * IT CHANGES NO ARITHMETIC, AND THE FENCE IS STRUCTURAL. This module is
  * handed a finished BpcResults and reads it. It cannot score, it cannot
@@ -39,6 +57,8 @@ import {
   BPC_ITEMS,
   BPC_MAX_ITEM_POINTS,
   BPC_MAX_SCORE,
+  BPC_REFERENCE_THRESHOLD,
+  BPC_SCALE,
   type BpcResults,
 } from './instrument';
 
@@ -227,26 +247,160 @@ export function bpcMemberBand(totalScore: number): BpcMemberBand {
 }
 
 /**
- * EVERYTHING HER RESULTS SCREEN IS HANDED, and nothing else.
+ * =====================================================================
+ * WHAT SHE ANSWERED HIGHEST. Plain names, and her own frequency word.
+ * =====================================================================
+ */
+
+/**
+ * The sixteen, in the words a member reads them back in.
  *
- * THERE IS NO FIELD HERE A NUMBER COULD SIT IN. Not the total, not the
- * maximum, not a percentage, not the reference threshold and not a per
- * item point. That is the fence: her screen cannot print a score because
- * the object it renders does not carry one, whatever a component author
- * later decides to draw. A test builds this from a maximum scoring sitting
- * and asserts the serialised payload contains no digit at all.
+ * THESE ARE NOT THE VALIDATED STIMULUS AND THEY NEVER REPLACE IT. The
+ * prompts in ./instrument.ts are what she ANSWERS, verbatim, and nothing
+ * here can reach them. These are what a finished result CALLS the same
+ * thing afterwards, in ordinary language, because "Tight feelings round
+ * mouth" is a stimulus and "Tightness around the mouth" is a sentence.
+ * Rewriting any of them moves no answer and no point.
+ *
+ * A test asserts there is exactly one of these for each of the sixteen, so
+ * an item added to the instrument cannot reach her screen unnamed.
+ */
+export const BPC_MEMBER_ITEM_NAMES: Readonly<Record<string, string>> = Object.freeze({
+  chest_pain: 'Pain in the chest',
+  feeling_tense: 'Feeling tense',
+  blurred_vision: 'Blurred vision',
+  dizzy_spells: 'Dizziness',
+  feeling_confused: 'Feeling foggy or unclear',
+  faster_deeper_breathing: 'Faster or deeper breathing',
+  short_of_breath: 'Feeling short of breath',
+  tight_chest: 'Tightness in the chest',
+  bloated_stomach: 'A bloated feeling in the stomach',
+  tingling_fingers: 'Tingling in the fingers',
+  unable_to_breathe_deeply: 'Not being able to breathe deeply',
+  stiff_fingers_arms: 'Stiffness in the fingers or arms',
+  tight_round_mouth: 'Tightness around the mouth',
+  cold_hands_feet: 'Cold hands or feet',
+  palpitations: 'A racing or pounding heartbeat',
+  feelings_of_anxiety: 'Feeling anxious',
+});
+
+/**
+ * How high an answer has to be before it counts as one of her strongest.
+ *
+ * THREE, WHICH IS "Often" AND ABOVE, and it is defined HERE rather than
+ * beside the coach's list because both lists must mean the same thing.
+ * ./coachView.ts imports this one. A list that included "Sometimes" would
+ * be most of the sixteen on a busy sitting and would stop being a list of
+ * what stood out, and a plain "top three" would promote three ones on a
+ * quiet sitting and read as though something stood out when nothing did.
+ */
+export const BPC_STRONGEST_MIN_POINTS = 3;
+
+/** At most four, so the section stays a short list rather than a table. */
+export const BPC_STRONGEST_MAX = 4;
+
+/** The frequency word a point value belongs to, or null when nothing on the scale carries it. */
+export function bpcFrequencyLabelForPoints(points: number): string | null {
+  return BPC_SCALE.find((option) => option.points === points)?.label ?? null;
+}
+
+/** One line of her strongest signals list. */
+export type BpcStrongestSignal = {
+  itemId: string;
+  /** Plain member language, from BPC_MEMBER_ITEM_NAMES. */
+  name: string;
+  /** Her own frequency answer, exactly as she read it while answering. */
+  frequencyLabel: string;
+  /** What it was worth. Decides the ordering. Not printed beside the pair. */
+  points: number;
+};
+
+/**
+ * The answers she gave highest, strongest first.
+ *
+ * TIES KEEP THE INSTRUMENT'S OWN ORDER, so one sitting reads the same way
+ * on every render rather than reshuffling. It reads results.itemScores
+ * rather than her raw answers, so the frequency word printed beside a name
+ * is derived from the same stored points the total was summed from: one
+ * source, and no way for the word and the number to disagree.
+ */
+type BpcRankedSignal = BpcStrongestSignal & { position: number };
+
+export function bpcStrongestSignals(
+  results: BpcResults,
+  limit: number = BPC_STRONGEST_MAX
+): BpcStrongestSignal[] {
+  const ranked: BpcRankedSignal[] = [];
+
+  for (const item of BPC_ITEMS) {
+    const points = results.itemScores[item.itemId];
+    if (typeof points !== 'number' || points < BPC_STRONGEST_MIN_POINTS) continue;
+    const frequencyLabel = bpcFrequencyLabelForPoints(points);
+    if (!frequencyLabel) continue;
+    ranked.push({
+      itemId: item.itemId,
+      position: item.position,
+      name: BPC_MEMBER_ITEM_NAMES[item.itemId] ?? item.itemId,
+      frequencyLabel,
+      points,
+    });
+  }
+
+  return ranked
+    .sort((a, b) => (b.points === a.points ? a.position - b.position : b.points - a.points))
+    .slice(0, Math.max(0, limit))
+    .map(({ itemId, name, frequencyLabel, points }) => ({ itemId, name, frequencyLabel, points }));
+}
+
+/**
+ * EVERYTHING HER RESULTS SCREEN IS HANDED.
+ *
+ * IT CARRIES HER SCORE ON PURPOSE. The total, the maximum and the
+ * traditional reference threshold are all here, because her screen now
+ * prints all three: the number, the bar it sits on, and the one line
+ * saying which side of the reference figure it falls. That is a reversal
+ * of how this experience shipped, and the reversal is deliberate.
+ *
+ * WHAT IS STILL NOT HERE. The instrument's own NAME, the coach's score
+ * sentence, the coaching prompt library and the per item point column. She
+ * gets her strongest answers as a name and a frequency word, which is what
+ * a conversation needs, and never as a scored table.
  */
 export type BpcMemberView = {
+  /** Nought to sixty four, exactly the stored total. */
+  totalScore: number;
+  /** Sixty four. Read from the stored result rather than recomputed. */
+  maxScore: number;
+  /** Twenty three. The published reference figure her screen marks on the bar. */
+  referenceThreshold: number;
+  /** True at the threshold itself and above it. */
+  aboveThreshold: boolean;
   statement: string;
   supportingLine: string;
+  /** Nought to four of them. Empty when nothing came back at the higher end. */
+  strongest: { itemId: string; name: string; frequencyLabel: string }[];
   areas: { areaKey: string; displayName: string; phrase: BpcAreaPhrase }[];
 };
+
+/** Whether a total reaches the published reference figure. One rule, read by both sides. */
+export function bpcAtOrAboveReferenceThreshold(totalScore: number): boolean {
+  return totalScore >= BPC_REFERENCE_THRESHOLD;
+}
 
 export function buildBpcMemberView(results: BpcResults): BpcMemberView {
   const band = bpcMemberBand(results.totalScore);
   return {
+    totalScore: results.totalScore,
+    maxScore: results.maxScore,
+    referenceThreshold: BPC_REFERENCE_THRESHOLD,
+    aboveThreshold: bpcAtOrAboveReferenceThreshold(results.totalScore),
     statement: band.statement,
     supportingLine: band.supportingLine,
+    strongest: bpcStrongestSignals(results).map(({ itemId, name, frequencyLabel }) => ({
+      itemId,
+      name,
+      frequencyLabel,
+    })),
     areas: bpcAreaReadings(results).map((area) => ({
       areaKey: area.areaKey,
       displayName: area.displayName,

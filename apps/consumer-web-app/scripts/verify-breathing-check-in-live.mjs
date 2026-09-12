@@ -12,10 +12,20 @@
  *   as the coach again, the card: the score out of sixty four, the
  *     threshold sentence, all sixteen responses and the coaching
  *     questions;
- *   and the two rules that cannot be proved anywhere but on a real screen
- *     against a real database: SHE IS NEVER SHOWN A NUMBER FROM THE
- *     SCORING MODEL, and SHE IS NEVER SHOWN THE NAME OF THE UNDERLYING
- *     INSTRUMENT.
+ *   the tap from her results into Root, which is where "Review With My
+ *     Coach" now goes;
+ *   and the rules that cannot be proved anywhere but on a real screen
+ *     against a real database: SHE IS SHOWN NO NUMBER WHILE SHE IS
+ *     ANSWERING, HER SCORE ON THE RESULTS SCREEN IS THE ONE IN HER STORED
+ *     ROW, and SHE IS NEVER SHOWN THE NAME OF THE UNDERLYING INSTRUMENT.
+ *
+ * WHAT CHANGED ON 2026-09-12. This run used to assert her reading showed
+ * NO score at all. That rule was deliberately reversed: she now reads her
+ * total out of sixty four, the scale it sits on and which side of the
+ * traditional reference threshold she fell. The check was rewritten to
+ * assert the new intent, and it compares the number ON THE SCREEN to the
+ * number IN THE ROW rather than to a constant, so a presentation that
+ * drifted from the stored result would fail here.
  *
  * WHY IT EXISTS AT ALL, when the feature has ninety unit tests. The one
  * that mattered on the Health & Lifestyle Intake was invisible to every
@@ -33,6 +43,10 @@
  *   PROD_ANON_KEY_FILE      a PATH to the anon key
  *   BPC_MEMBER / BPC_MEMBER_EMAIL   the member to walk as
  *   BPC_COACH  / BPC_COACH_EMAIL    the coach assigned to her
+ *   BPC_PROFILE             "high" (default) or "low". Two different
+ *                           sittings, so both sides of the reference
+ *                           threshold are walked on a real screen rather
+ *                           than one side being taken on trust.
  *
  * KEYS ARRIVE AS FILE PATHS, never on a command line.
  *
@@ -96,13 +110,79 @@ const PROMPTS = [
  * What this run answers, and the total it must therefore produce.
  *
  * A MIXED SITTING RATHER THAN SIXTEEN OF THE SAME, so the score is a real
- * sum that a wrong point map would get wrong. Four Very often, four Often,
- * four Sometimes, four Never: 16 + 12 + 8 + 0 = 36.
+ * sum that a wrong point map would get wrong.
+ *
+ * TWO PROFILES, BECAUSE THE SCREEN SAYS TWO DIFFERENT THINGS. "high" lands
+ * above the traditional reference threshold, "low" lands below it, and the
+ * line under her score, the paragraph explaining it and the number of
+ * strongest signals all change with it. One run of each is the only way to
+ * see both on a real screen.
+ *
+ *   high: four Very often, four Often, four Sometimes, four Never
+ *         = 16 + 12 + 8 + 0 = 36, above 23, four strongest.
+ *   low:  two Often, two Sometimes, twelve Never
+ *         = 6 + 4 + 0 = 10, below 23, exactly two strongest, which is
+ *         also the "fewer than three qualified" wording on her screen.
  */
-const ANSWERS = PROMPTS.map((_, index) =>
-  index < 4 ? 'Very often' : index < 8 ? 'Often' : index < 12 ? 'Sometimes' : 'Never'
+const PROFILE = (process.env.BPC_PROFILE ?? 'high').toLowerCase();
+if (PROFILE !== 'high' && PROFILE !== 'low') {
+  throw new Error(`BPC_PROFILE must be "high" or "low", got ${PROFILE}`);
+}
+
+const ANSWERS =
+  PROFILE === 'high'
+    ? PROMPTS.map((_, index) =>
+        index < 4 ? 'Very often' : index < 8 ? 'Often' : index < 12 ? 'Sometimes' : 'Never'
+      )
+    : PROMPTS.map((_, index) => (index < 2 ? 'Often' : index < 4 ? 'Sometimes' : 'Never'));
+
+const POINTS = { Never: 0, Rarely: 1, Sometimes: 2, Often: 3, 'Very often': 4 };
+const EXPECTED_TOTAL = ANSWERS.reduce((sum, answer) => sum + POINTS[answer], 0);
+const MAX_SCORE = 64;
+const REFERENCE_THRESHOLD = 23;
+const EXPECTED_ABOVE = EXPECTED_TOTAL >= REFERENCE_THRESHOLD;
+
+/**
+ * The plain language names her results screen prints, for the items this
+ * run answered at Often or above, strongest first, at most four.
+ *
+ * DERIVED FROM WHAT THIS RUN TAPPED, not typed as a literal list, so
+ * changing a profile above cannot leave a stale expectation here.
+ */
+const MEMBER_NAMES = [
+  'Pain in the chest',
+  'Feeling tense',
+  'Blurred vision',
+  'Dizziness',
+  'Feeling foggy or unclear',
+  'Faster or deeper breathing',
+  'Feeling short of breath',
+  'Tightness in the chest',
+  'A bloated feeling in the stomach',
+  'Tingling in the fingers',
+  'Not being able to breathe deeply',
+  'Stiffness in the fingers or arms',
+  'Tightness around the mouth',
+  'Cold hands or feet',
+  'A racing or pounding heartbeat',
+  'Feeling anxious',
+];
+
+const EXPECTED_STRONGEST = ANSWERS.map((answer, index) => ({
+  name: MEMBER_NAMES[index],
+  answer,
+  points: POINTS[answer],
+  position: index + 1,
+}))
+  .filter((row) => row.points >= 3)
+  .sort((a, b) => (b.points === a.points ? a.position - b.position : b.points - a.points))
+  .slice(0, 4);
+
+console.log(
+  `profile "${PROFILE}": expecting ${EXPECTED_TOTAL} / ${MAX_SCORE}, ` +
+    `${EXPECTED_ABOVE ? 'above' : 'below'} the reference threshold, ` +
+    `${EXPECTED_STRONGEST.length} strongest signal(s)`
 );
-const EXPECTED_TOTAL = 36;
 
 if (!process.env.PROD_SERVICE_KEY_FILE || !process.env.PROD_ANON_KEY_FILE) {
   console.error('Set PROD_SERVICE_KEY_FILE and PROD_ANON_KEY_FILE to key file PATHS.');
@@ -466,19 +546,146 @@ try {
   screen = await waitForScreenChange(page, screen, 40000);
 
   check('member: her reading appears', /your breathing pattern/i.test(screen));
+
+  // ---- 2b. HER SCORE, WHICH SHE NOW READS --------------------------
   check(
-    'member: it leads with a statement, not a score',
-    /signals are showing up|signals are quiet|showing up clearly/i.test(screen)
+    'member: HER READING SHOWS HER SCORE, out of sixty four',
+    new RegExp(`${EXPECTED_TOTAL}\\s*/\\s*${MAX_SCORE}`).test(screen.replace(/\s+/g, ' ')),
+    screen.replace(/\s+/g, ' ').slice(0, 160)
   );
+  check(
+    'member: the line under it names the right side of the reference threshold',
+    EXPECTED_ABOVE
+      ? /above the traditional reference threshold/i.test(screen) &&
+          !/below the traditional reference threshold/i.test(screen)
+      : /below the traditional reference threshold/i.test(screen) &&
+          !/above the traditional reference threshold/i.test(screen)
+  );
+  check(
+    'member: the paragraph explaining the score matches that side too',
+    EXPECTED_ABOVE
+      ? /occurring frequently enough to be worth exploring further/i.test(screen)
+      : /showing up less frequently/i.test(screen)
+  );
+  check(
+    'member: the sentence saying what the score is NOT is on the screen',
+    /this is not a diagnosis of a breathing disorder/i.test(screen)
+  );
+  check(
+    'member: the scale names its two landmarks',
+    new RegExp(`traditional reference threshold:\\s*${REFERENCE_THRESHOLD}`, 'i').test(screen) &&
+      new RegExp(`your score:\\s*${EXPECTED_TOTAL}`, 'i').test(screen)
+  );
+
+  /*
+    THE MARKER IS READ OFF THE REAL DOM, not inferred from the text. The
+    bar is drawn from inline percentages, so a caption saying the right
+    number beside a dot in the wrong place would pass a text scan and fail
+    here.
+  */
+  const marks = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('[style*="left"]'))
+      .map((node) => Number.parseFloat(node.style.left))
+      .filter((value) => Number.isFinite(value))
+  );
+  const expectedScorePercent = (EXPECTED_TOTAL / MAX_SCORE) * 100;
+  const expectedThresholdPercent = (REFERENCE_THRESHOLD / MAX_SCORE) * 100;
+  const near = (target) => marks.some((mark) => Math.abs(mark - target) < 0.01);
+  check(
+    'member: her marker sits at her own share of the scale',
+    near(expectedScorePercent),
+    `expected ~${expectedScorePercent.toFixed(2)}%, found ${marks.map((m) => m.toFixed(2)).join(', ')}`
+  );
+  check(
+    'member: the reference figure is marked at its own share',
+    near(expectedThresholdPercent),
+    `expected ~${expectedThresholdPercent.toFixed(2)}%`
+  );
+  check(
+    'member: the scale paints no severity band',
+    !/severe|moderate|mild|warning|danger|abnormal/i.test(screen)
+  );
+
+  // ---- 2c. HER STRONGEST SIGNALS -----------------------------------
+  check('member: the strongest signals section is there', /your strongest signals/i.test(screen));
+  check(
+    'member: it lists exactly what she answered highest, in her own words',
+    EXPECTED_STRONGEST.every((row) => screen.includes(row.name)),
+    EXPECTED_STRONGEST.map((row) => `${row.name} / ${row.answer}`).join(' | ')
+  );
+  check(
+    'member: strongest first, in the order the points put them',
+    EXPECTED_STRONGEST.every((row, index) =>
+      index === 0
+        ? true
+        : screen.indexOf(row.name) > screen.indexOf(EXPECTED_STRONGEST[index - 1].name)
+    )
+  );
+  check(
+    'member: the intro matches how many qualified',
+    EXPECTED_STRONGEST.length >= 3
+      ? /these came back most often in your answers/i.test(screen)
+      : EXPECTED_STRONGEST.length === 2
+        ? /two came back at the higher end of the scale/i.test(screen)
+        : EXPECTED_STRONGEST.length === 1
+          ? /one came back at the higher end of the scale/i.test(screen)
+          : /nothing came back at the higher end of the scale/i.test(screen)
+  );
+  check(
+    'member: nothing she answered Sometimes or lower is listed as strongest',
+    ANSWERS.every((answer, index) =>
+      POINTS[answer] >= 3 ? true : !screen.includes(MEMBER_NAMES[index])
+    )
+  );
+
+  // ---- 2d. THE ROOTED RESET LAYER, still there, now below ----------
   check('member: the three areas are named', /breathing sensations/i.test(screen) && /tension signals/i.test(screen) && /body sensations/i.test(screen));
-  check('member: the disclaimer is on the reading', /not a diagnosis/i.test(screen));
   check(
-    'member: HER READING SHOWS NO SCORE AT ALL',
-    scoreDigitsIn(screen).length === 0,
-    scoreDigitsIn(screen).join(',')
+    'member: they sit under their new heading, below the strongest signals',
+    /what stood out in your responses/i.test(screen) &&
+      screen.toLowerCase().indexOf('your strongest signals') <
+        screen.toLowerCase().indexOf('what stood out in your responses')
   );
+  check('member: the disclaimer is on the reading', /this check-in is not a diagnosis/i.test(screen));
   check('member: her reading never names the instrument', !/nijmegen/i.test(screen));
   check('member: no em dash on her reading', !screen.includes(EM));
+
+  // ---- 2e. THE TWO BUTTONS ACTUALLY GO SOMEWHERE -------------------
+  check('member: both buttons are on the reading', /review with my coach/i.test(screen) && /return home/i.test(screen));
+
+  await page.getByRole('link', { name: /review with my coach/i }).first().click({ timeout: 20000 });
+  await page.waitForURL(/\/conversation/, { timeout: 30000 }).catch(() => {});
+  const conversationUrl = page.url();
+  const conversationScreen = await settled(page);
+
+  check(
+    'member: Review With My Coach opens a Root conversation, with its own entry point',
+    /\/conversation\?entry=breathing_check_in/.test(conversationUrl),
+    conversationUrl
+  );
+  check(
+    'member: Root opens on the check-in she just finished',
+    /you just finished your breathing pattern check-in/i.test(conversationScreen),
+    conversationScreen.slice(0, 160)
+  );
+  check(
+    'member: it is a real conversation, with somewhere to type',
+    (await page.locator('textarea').count()) > 0
+  );
+  check('member: no em dash on the conversation screen', !conversationScreen.includes(EM));
+  check('member: Root never names the instrument either', !/nijmegen/i.test(conversationScreen));
+
+  // Back to the results, and out the quiet way.
+  await page.goto(`${BASE}/breathing-check-in`, { waitUntil: 'domcontentloaded' });
+  const backOnResults = await settled(page);
+  check(
+    'member: coming back to a finished check-in gives her the reading again, score and all',
+    new RegExp(`${EXPECTED_TOTAL}\\s*/\\s*${MAX_SCORE}`).test(backOnResults.replace(/\s+/g, ' '))
+  );
+
+  await page.getByRole('button', { name: /return home/i }).first().click({ timeout: 20000 });
+  await page.waitForURL(/\/dashboard/, { timeout: 30000 }).catch(() => {});
+  check('member: Return Home goes Home', /\/dashboard/.test(page.url()), page.url());
 
   // -------------------------------------------------------------------
   // 3. THE STORED ROW, read back independently of the screen.

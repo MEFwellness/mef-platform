@@ -33,10 +33,13 @@
  * parenthesis is added beside one on her screen, because anything added
  * beside the stimulus changes what she is answering.
  *
- * NO MEMBER EVER SEES A NUMBER FROM THIS FILE WHILE SHE IS ANSWERING, and
- * none afterwards either: her screens read ./signals.ts, which takes the
- * scored output and says nothing numeric. The points exist so a coach can
- * be shown a score, and so two sittings can be compared.
+ * NO MEMBER EVER SEES A NUMBER FROM THIS FILE WHILE SHE IS ANSWERING. Her
+ * results screen is a different matter as of 2026-09-12: it now prints her
+ * total, the maximum and BPC_REFERENCE_THRESHOLD, all of them read through
+ * ./signals.ts. Nothing in THIS file moved for that, and nothing in it may
+ * move for a presentation decision: the sixteen prompts, the five labels,
+ * the point map, the maximum and the reference figure are what they were.
+ * A per item point is still coach facing and appears on no member screen.
  */
 
 /** One response, its stored key, what she reads, and what it is worth. */
@@ -126,10 +129,14 @@ export const BPC_MAX_SCORE = BPC_ITEM_COUNT * BPC_MAX_ITEM_POINTS;
 /**
  * The traditional reference threshold published with this instrument.
  *
- * COACH FACING ONLY, AND IT IS A REFERENCE POINT RATHER THAN A VERDICT. It
- * is never shown to a member, it appears on no member surface, and the
- * sentence a coach reads beside it (./coachCopy.ts) deliberately does not
- * say it diagnoses anything.
+ * IT IS A REFERENCE POINT RATHER THAN A VERDICT, and as of 2026-09-12 both
+ * sides read it. A coach sees it in the sentence beside his score
+ * (./coachCopy.ts), which deliberately does not say it diagnoses anything;
+ * a member sees it marked on the scale under her own total, with the one
+ * line saying which side of it she falls and the sentence saying that this
+ * is not a diagnosis. Neither presentation may turn it into a verdict, and
+ * neither may split it into severity bands: the instrument publishes one
+ * reference figure and no bands at all.
  */
 export const BPC_REFERENCE_THRESHOLD = 23;
 

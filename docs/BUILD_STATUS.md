@@ -1,3 +1,131 @@
+## She reads her own breathing score now (2026-09-12)
+
+The Breathing Pattern Check-In shipped this morning with a member results
+screen that carried no number at all, behind a prop with no field a number
+could sit in and a guard asserting the serialised payload held no digit.
+That rule has been deliberately reversed. She now reads her total out of
+sixty four, the scale it sits on, which side of the traditional reference
+threshold she fell, and the three or four answers she gave highest.
+
+**The guards were rewritten, not switched off.** The two that asserted the
+absence of a score (`tests/breathing-check-in-layers.test.tsx` claims 3 and
+4, and the walk's closing assertion in
+`tests/breathing-check-in-experience.test.tsx`) now assert the number
+RENDERS and matches what the walk actually produced. Nothing in the suite
+claims two different things about one screen.
+
+### THE SCREEN, TOP TO BOTTOM
+
+Her score as "36 / 64" in the serif display face, under the same gold
+eyebrow the screen already had, with one line saying "Above the traditional
+reference threshold" or "Below" it. Then a calm horizontal bar from nought
+to sixty four with exactly three landmarks: the two ends and a hairline at
+twenty three. Then "What your score means", which is one paragraph chosen
+by the same rule as the line above it, followed by the sentence saying what
+the score is not. Then "Your strongest signals". Then the three named areas
+from the original build, moved down under "What stood out in your
+responses". Then the disclaimer card, both buttons and the footer line,
+untouched.
+
+**THE BAR HAS NO SEVERITY BANDS AND NOTHING IS RED.** An instrument that
+publishes one reference figure does not license four coloured ranges, and a
+red zone would be the screen inventing a verdict the instrument does not
+make. One muted rail, one hairline, one gold marker. A test asserts no
+warning palette class and no severity vocabulary appears at any score.
+
+**AT the reference figure counts as ABOVE it**, which is how the figure is
+published and how the coach's card already read it. One rule
+(`bpcAtOrAboveReferenceThreshold`) decides it for both screens, and the
+tests check twenty two, twenty three and twenty four explicitly, because an
+off by one there mislabels every borderline sitting.
+
+### HER STRONGEST SIGNALS, IN HER OWN WORDS
+
+The three or four answers she gave at "Often" or above, strongest first,
+ties broken by the instrument's own order. Each is a plain name and her own
+frequency word: "Tightness in the chest, Often".
+
+**THE PLAIN NAMES ARE A SECOND LIST, AND THAT IS THE POINT.** The sixteen
+prompts in `instrument.ts` are the validated stimulus and are still shown
+verbatim while she answers. `BPC_MEMBER_ITEM_NAMES` in `signals.ts` is what
+a finished result CALLS the same thing afterwards, because "Tight feelings
+round mouth" is a stimulus and "Tightness around the mouth" is a sentence.
+A test asserts there is exactly one name for each of the sixteen, so an
+item added to the instrument cannot reach her screen unnamed.
+
+**THE CUT OFF IS DEFINED ONCE.** The coach's "Highest-response symptoms"
+list and her "Your strongest signals" list have to mean the same thing or
+two screens would disagree about one sitting, so
+`BPC_STRONGEST_MIN_POINTS` lives in `signals.ts` and `coachView.ts` imports
+it. The fence is one way and still holds: her surfaces may not reach the
+coach modules; the coach modules may reach hers.
+
+**FEWER THAN THREE QUALIFYING IS A REAL CASE, NOT AN EDGE ONE.** The intro
+line changes with the count (three or more, exactly two, exactly one, none)
+and the section still stands when nothing qualified rather than vanishing.
+
+### "Review With My Coach" OPENS A ROOT CONVERSATION
+
+It used to point at `/conversation` with nothing attached, which opened a
+blank thread that knew nothing about the check-in she had just finished. It
+now carries its own entry point, `breathing_check_in` (migration 232 adds
+the value to `conversation_sessions.entry_point`, additively, the same
+drop and re-add pattern migrations 35, 37, 55 and 58 used).
+
+The conversation page reads HER OWN stored sitting, server side, under her
+own policies. **The link carries no score**, so a pasted or hand edited one
+cannot describe a sitting that is not hers.
+
+**THE OPENING LINE IS DRAWN, NEVER STORED.** Root opens with "You just
+finished your Breathing Pattern Check-In. Want to walk through what stood
+out?" in place of the generic empty state question, and no message row is
+written. A render that inserted one would insert it again on every
+re-render of that route, and sending a message re-renders it.
+
+**ROOT IS TOLD THE SITTING AND THE RULES.** The context string carries her
+total, the reference figure, which side she fell and the answers she gave
+highest, plus the standing rules in words on top of the system prompt's own
+HARD_LIMITS: never name the underlying instrument, never diagnose, no
+clinical vocabulary beyond "traditional reference threshold", one clear
+next step at a time. `ConversationView` now passes that context to the
+action, which it never did before, and a test drives a real click and reads
+the argument back off the call, because a builder tested on its own would
+not have noticed it was never sent.
+
+### WHAT DID NOT MOVE
+
+The frozen instrument. The sixteen prompts, the five labels, the point map,
+the sixty four point maximum and the twenty three point reference figure
+are all exactly what they were, and
+`tests/breathing-check-in-instrument.test.ts` still passes unchanged. Two
+comments in that file were corrected, because they said she never sees a
+number and she now does.
+
+The coach's card. Same score sentence, same threshold sentence, same
+sixteen response rows, same date and score history chips, no comparison in
+words. The member side got no history, no prior-sitting comparison and no
+"improved by" language, deliberately: she sees this sitting.
+
+### THE WALK, BOTH SIDES OF THE THRESHOLD
+
+`scripts/verify-breathing-check-in-live.mjs` takes a `BPC_PROFILE` of
+"high" or "low" and runs the whole thing twice, 163 of 163 each time.
+"high" answers a mixed sitting worth 36 and expects four strongest signals
+above the reference figure; "low" answers one worth 10 and expects the
+"Two came back at the higher end of the scale" wording below it.
+
+**IT READS THE MARKER OFF THE REAL DOM**, not off the caption. A number
+printed correctly beside a dot in the wrong place would pass a text scan,
+so the run collects the bar's inline percentages and compares them to
+her own share of the scale and to the reference figure's.
+
+**IT COMPARES THE SCREEN TO THE ROW**, not to a constant: the number she
+reads and the number stored for that sitting have to be the same one.
+
+It also taps both buttons. "Review With My Coach" must land on
+`/conversation?entry=breathing_check_in` with Root's opening line on it and
+a real place to type; "Return Home" must land on Home.
+
 ## The Breathing Pattern Check-In (2026-09-12)
 
 A coach can now send a member a short read on her breathing and the

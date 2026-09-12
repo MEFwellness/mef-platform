@@ -33,4 +33,11 @@ export const SUGGESTED_PROMPTS: Record<ConversationEntryPoint, string[]> = {
   ],
   food_lens: ['Why did this meal read that way?', 'What should I eat differently next time?'],
   movement: ['Why was this session chosen for me?', 'Can I make today’s session easier?'],
+  // Her Breathing Pattern Check-In results screen. Both prompts are about
+  // the sitting she has just read, and neither asks Root to interpret a
+  // number for her on its own.
+  breathing_check_in: [
+    'Walk me through what stood out',
+    'What should I do with this?',
+  ],
 };
