@@ -164,6 +164,18 @@ export function wholeBodySignalPopupMessageKey(assignmentId: string): string {
 }
 
 /**
+ * The Health & Lifestyle Intake's own key (migration 230).
+ *
+ * A DISTINCT PREFIX again, and for the same reason as the two above it.
+ * A member can legitimately be sitting on the intake, the survey and the
+ * signal assessment at once, and a shared prefix would let one dismissal
+ * silence the other two.
+ */
+export function healthIntakePopupMessageKey(assignmentId: string): string {
+  return `health_intake:${assignmentId}`;
+}
+
+/**
  * Owning Your Value's own key, scoped to the assignment exactly as the
  * Stress & Load Deep-Dive's above is, and with the identical recurring
  * dismissal lifetime. A coach can send this experience more than once, and

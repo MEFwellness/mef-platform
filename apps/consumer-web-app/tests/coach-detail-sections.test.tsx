@@ -87,9 +87,13 @@ function tagIndex(componentName: string): number {
 }
 
 describe('nothing fell out, and everything landed inside a section', () => {
-  it('opens and closes exactly six sections', () => {
-    expect(RANGES).toHaveLength(6);
-    expect(DETAIL_SECTIONS).toHaveLength(6);
+  it('opens and closes exactly seven sections', () => {
+    // Seven since 2026-09-12, when Health Context joined them. It is its own
+    // section rather than a card inside Assessments and Findings because it
+    // is the background every reading in that section is read against
+    // rather than a reading of its own.
+    expect(RANGES).toHaveLength(7);
+    expect(DETAIL_SECTIONS).toHaveLength(7);
   });
 
   /**

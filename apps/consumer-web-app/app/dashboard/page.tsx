@@ -100,6 +100,8 @@ import { WholeBodySignalEntry } from '@/components/whole-body-signal/WholeBodySi
 import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
 import { getMyBodySystemsSurvey } from '@/lib/body-systems/view';
 import { getMyWholeBodySignal } from '@/lib/whole-body-signal/view';
+import { HealthIntakeEntry } from '@/components/health-intake/HealthIntakeEntry';
+import { getMyHealthIntake } from '@/lib/health-intake/view';
 import { OwningYourValueEntry } from '@/components/owning-your-value/OwningYourValueEntry';
 import { getMyOwningYourValue } from '@/lib/owning-your-value/view';
 import { WhereYourJoyLivesEntry } from '@/components/where-your-joy-lives/WhereYourJoyLivesEntry';
@@ -445,6 +447,7 @@ async function DayFrameRegion() {
     stressLoad,
     bodySystems,
     wholeBodySignal,
+    healthIntake,
     owningYourValue,
     whereYourJoyLives,
     theGivingLedger,
@@ -472,7 +475,10 @@ async function DayFrameRegion() {
       // chain in PopupRegion asks for the same thing on the same render.
       getMyBodySystemsSurvey(),
       getMyWholeBodySignal(),
-      // Request-memoized, exactly as the two above are, and the pop-up
+      // Request-memoized, exactly as the three above are, and the pop-up
+      // chain in PopupRegion asks for the same thing on the same render.
+      getMyHealthIntake(),
+      // Request-memoized, exactly as the four above are, and the pop-up
       // chain in PopupRegion asks for the same thing on the same render.
       getMyOwningYourValue(),
       // Request-memoized, exactly as the three above are, and the pop-up
@@ -608,6 +614,33 @@ async function DayFrameRegion() {
           {/* The card carries the assignment's delivery receipt
               (migration 210), which is why it needs the assignment id. */}
           <WholeBodySignalEntry assignmentId={wholeBodySignal.assignmentId} />
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* THE HEALTH & LIFESTYLE INTAKE, persistent, for as     */}
+      {/* long as her coach's assignment is open.               */}
+      {/*                                                       */}
+      {/* A SEPARATE INSTRUMENT again, and the one that         */}
+      {/* establishes the context the three above it are read   */}
+      {/* against, so all four cards stand when a coach has     */}
+      {/* sent all four. It is long and resumable, so           */}
+      {/* 'in_progress' is not "done", it is "waiting for her   */}
+      {/* to come back", and the card is the way back and says  */}
+      {/* so in its own button.                                 */}
+      {/*                                                       */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately.    */}
+      {/* The assignment is the whole gate                      */}
+      {/* (lib/health-intake/access.ts).                        */}
+      {/* ==================================================== */}
+      {(healthIntake?.status === 'pending' || healthIntake?.status === 'in_progress') && (
+        <div className="pt-3">
+          {/* The card carries the assignment's delivery receipt
+              (migration 210), which is why it needs the assignment id. */}
+          <HealthIntakeEntry
+            assignmentId={healthIntake.assignmentId}
+            inProgress={healthIntake.status === 'in_progress'}
+          />
         </div>
       )}
 

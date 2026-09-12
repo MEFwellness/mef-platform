@@ -117,6 +117,19 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
     ],
   },
   {
+    /*
+      HEALTH CONTEXT (2026-09-12), and it sits here rather than inside
+      Assessments and Findings on purpose. Everything in that section is a
+      reading of one sitting. This is the background every one of those
+      readings is read AGAINST: what she is treated for, what she takes,
+      what has happened to her body, and what she has already tried. A coach
+      opens it before the findings, not among them.
+    */
+    id: 'detail-section-health-context',
+    title: 'Health Context',
+    cards: [{ id: 'detail-card-health-intake', title: 'Health & Lifestyle Intake' }],
+  },
+  {
     id: 'detail-section-progress',
     title: 'Progress and History',
     cards: [

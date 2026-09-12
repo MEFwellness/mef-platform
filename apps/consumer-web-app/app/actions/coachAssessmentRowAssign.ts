@@ -47,6 +47,7 @@ import { assignAssessmentAction } from './assessmentAssignments';
 import { assignStressLoadDeepDiveAction } from './stressLoad';
 import { assignBodySystemsSurveyAction } from './bodySystems';
 import { assignWholeBodySignalAction } from './wholeBodySignal';
+import { assignHealthIntakeAction } from './healthIntake';
 import { assignOwningYourValueAction } from './owningYourValue';
 import { assignWhereYourJoyLivesAction } from './whereYourJoyLives';
 import { assignTheGivingLedgerAction } from './theGivingLedger';
@@ -65,6 +66,7 @@ const OWN_ACTION_BY_ROW_ID: Record<
 > = {
   'body-systems-survey': assignBodySystemsSurveyAction,
   'whole-body-signal': assignWholeBodySignalAction,
+  'health-lifestyle-intake': assignHealthIntakeAction,
   'stress-load-deep-dive': assignStressLoadDeepDiveAction,
   'owning-your-value': assignOwningYourValueAction,
   'where-your-joy-lives': assignWhereYourJoyLivesAction,

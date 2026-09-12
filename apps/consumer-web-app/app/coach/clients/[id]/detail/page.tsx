@@ -117,6 +117,7 @@ import {
   weeklyReflectionDigest,
   coachToolsDigest,
   appControlsDigest,
+  healthContextDigest,
 } from '@/lib/coach-detail/digests';
 import { CHECKIN_WINDOW_DAYS, loggedDaysInWindow } from '@/lib/coach-detail/checkinSeries';
 import {
@@ -166,6 +167,9 @@ import { BodySystemsPanel } from '../BodySystemsPanel';
 import { WholeBodySignalPanel } from '../WholeBodySignalPanel';
 import { getClientBodySystemsPanelAction } from '@/app/actions/bodySystems';
 import { getClientWholeBodySignalPanelAction } from '@/app/actions/wholeBodySignal';
+import { getClientHealthIntakePanelAction } from '@/app/actions/healthIntake';
+import { buildHealthContextView } from '@/lib/health-intake/coachView';
+import { HealthContextPanel } from '../HealthContextPanel';
 import { OwningYourValuePanel } from '../OwningYourValuePanel';
 import { getClientOwningYourValuePanelAction } from '@/app/actions/owningYourValue';
 import { WhereYourJoyLivesPanel } from '../WhereYourJoyLivesPanel';
@@ -301,6 +305,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     stressLoadPanel,
     bodySystemsPanel,
     wholeBodySignalPanel,
+    healthIntakePanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
@@ -352,6 +357,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientStressLoadPanelAction(profile.id),
     getClientBodySystemsPanelAction(profile.id),
     getClientWholeBodySignalPanelAction(profile.id),
+    getClientHealthIntakePanelAction(profile.id),
     getClientOwningYourValuePanelAction(profile.id),
     getClientWhereYourJoyLivesPanelAction(profile.id),
     getClientTheGivingLedgerPanelAction(profile.id),
@@ -517,6 +523,17 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
   ];
   const hasAnyDeepDiveResults = anyDeepDiveResults(deepDivePanelStates);
 
+  /*
+    THE MOST RECENT FINISHED INTAKE, read once for both the folded header
+    and the card. Building it twice would be two answers to one question.
+  */
+  const completedHealthIntakes = healthIntakePanel.sessions.filter(
+    (session) => session.completedAt !== null
+  );
+  const latestHealthContext = completedHealthIntakes[0]
+    ? buildHealthContextView(completedHealthIntakes[0].answers)
+    : null;
+
   const sectionDigests = {
     intelligence: intelligenceDigest({
       findings: rootCauseSignals?.signals.length ?? 0,
@@ -526,6 +543,15 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
       suggestedReassessments: rootCauseSignals?.suggestedReassessments.length ?? 0,
     }),
     assessments: assessmentsDigest(assessmentCounts),
+    healthContext: healthContextDigest({
+      completed: completedHealthIntakes.length,
+      waiting: healthIntakePanel.pendingProgress !== null,
+      // The same rules, over the same answers, that the card itself prints,
+      // so a folded header and the card under it cannot disagree about
+      // whether anything needs a look.
+      safetySignals: latestHealthContext?.safetySignals.length ?? 0,
+      exploringPrompts: latestHealthContext?.exploring.length ?? 0,
+    }),
     progress: progressDigest({
       loggedDays: loggedDaysInWindow(
         summary.checkins,
@@ -889,6 +915,23 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
                 </div>
               </FindingsGroup>
             )}
+          </DetailSection>
+
+          {/*
+            HEALTH CONTEXT, between the findings and the history, because it
+            is the background both of those are read against rather than a
+            reading of its own. Collapsed by default like every other
+            section, indexed in the pinned search like every other card, and
+            its header says the same thing the card says.
+          */}
+          <DetailSection
+            id="detail-section-health-context"
+            title="Health Context"
+            digest={sectionDigests.healthContext}
+          >
+            <div id="detail-card-health-intake" className="scroll-mt-24">
+              <HealthContextPanel state={healthIntakePanel} />
+            </div>
           </DetailSection>
 
           <DetailSection

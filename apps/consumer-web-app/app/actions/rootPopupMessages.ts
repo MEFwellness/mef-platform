@@ -138,6 +138,7 @@ import {
   weeklyReflectionPopupMessageKey,
   bodySystemsPopupMessageKey,
   wholeBodySignalPopupMessageKey,
+  healthIntakePopupMessageKey,
   stressLoadPopupMessageKey,
   owningYourValuePopupMessageKey,
   whereYourJoyLivesPopupMessageKey,
@@ -170,6 +171,9 @@ import {
   getMyWholeBodySignal,
 } from '@/lib/whole-body-signal/view';
 import { WBS_LABEL, WBS_ROUTE } from '@/lib/whole-body-signal/constants';
+import { getMyHealthIntake } from '@/lib/health-intake/view';
+import { HLI_ROUTE } from '@/lib/health-intake/constants';
+import { HLI_COPY } from '@/lib/health-intake/copy';
 import { memberCopy as wbsMemberCopy } from '@/lib/whole-body-signal/copyKeys';
 import { BODY_SYSTEMS_LABEL, BODY_SYSTEMS_ROUTE } from '@/lib/body-systems/constants';
 import { memberCopy } from '@/lib/body-systems/copyKeys';
@@ -366,6 +370,27 @@ export type RootPopupMessage =
    */
   | {
       kind: 'whole_body_signal_assigned';
+      messageKey: string;
+      assignmentId: string;
+      title: string;
+      body: string;
+      ctaLabel: string;
+      primaryHref: string;
+    }
+  /**
+   * The Health & Lifestyle Intake (coach assigned only, migration 230).
+   *
+   * ITS OWN KIND, AND ITS OWN KEY PREFIX, and both are load bearing for the
+   * same reason the two above it have them: a member can be sitting on the
+   * survey, the signal assessment and the intake at once, and a shared kind
+   * or a shared prefix would let one dismissal silence another's invitation.
+   *
+   * Carries no questions and no reading. This message is an INVITATION into
+   * an experience on its own route, so it renders through the same
+   * RootInvitePopup and inherits its real Maybe later and Ignore buttons.
+   */
+  | {
+      kind: 'health_intake_assigned';
       messageKey: string;
       assignmentId: string;
       title: string;
@@ -1014,6 +1039,43 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
         body: wbsMemberCopy(copy, 'member.popup_body'),
         ctaLabel: wbsMemberCopy(copy, 'member.popup_cta'),
         primaryHref: WBS_ROUTE,
+      };
+    }
+  }
+
+  // The Health & Lifestyle Intake, immediately below the signal assessment
+  // and for the identical reasons: a coach's direct action for this member,
+  // and finite, because finishing it closes the assignment out so it can
+  // never starve anything below it.
+  //
+  // BELOW rather than above the two instruments it gives context to, and
+  // that order is the only opinion held here. When a coach has sent more
+  // than one, the one listed first is the one Root asks about first, and
+  // this one is still due on her next open because its key has no dismissal
+  // row yet. None of them is ever swallowed by another.
+  //
+  // getMyHealthIntake returns null for every member who was never assigned
+  // this, so the gate and the offer are one read rather than two checks
+  // here that could drift from the route's. Its own branch checks its own
+  // due-ness and falls through, per this file's one rule: a branch that
+  // returned a candidate the outer due-check then threw away would silence
+  // everything below it.
+  //
+  // A sitting she has STARTED still pops. The invitation is to finish the
+  // thing her coach asked for, and an intake abandoned on chapter three is
+  // exactly the case a knock is for.
+  const healthIntake = await getMyHealthIntake();
+  if (healthIntake?.status === 'pending' || healthIntake?.status === 'in_progress') {
+    const messageKey = healthIntakePopupMessageKey(healthIntake.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'health_intake_assigned',
+        messageKey,
+        assignmentId: healthIntake.assignmentId,
+        title: HLI_COPY.popupTitle,
+        body: HLI_COPY.popupBody,
+        ctaLabel: HLI_COPY.popupCta,
+        primaryHref: HLI_ROUTE,
       };
     }
   }

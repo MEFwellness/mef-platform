@@ -25,6 +25,26 @@ export type ClassifyConcernInput = {
   text?: string | null | undefined;
   /** The check-in form's own "new or worsening concern" flag — a real, member-authored signal distinct from free-text keyword matching. */
   newOrWorseningConcern?: boolean | undefined;
+  /**
+   * Categories the CALLER established structurally, from answers this
+   * classifier has no text for.
+   *
+   * WHY IT EXISTS. `newOrWorseningConcern` above is already exactly this:
+   * a structural signal a caller knows and a keyword scan cannot see. The
+   * Health & Lifestyle Intake has six deterministic rules over structured
+   * answers (lib/health-intake/safety.ts), and restating one of them as a
+   * sentence engineered to trip a keyword would be stuffing a keyword the
+   * answers do not support, which lib/wbsa/safety.ts's header already
+   * refuses to do.
+   *
+   * IT ADDS, IT NEVER REPLACES. Named categories are merged with whatever
+   * the text matched, and the existing most-severe-wins ordering then
+   * decides the headline classification, so a caller naming a medium
+   * category on text that also mentions chest pain still classifies as
+   * chest pain. Omitted, every existing caller behaves byte for byte as it
+   * did before this existed.
+   */
+  structuralCategories?: readonly ConcernCategoryKey[] | undefined;
 };
 
 export type SafetyClassificationResult = {
@@ -66,7 +86,13 @@ export function classifyConcern(input: ClassifyConcernInput): SafetyClassificati
       category.keywords.length > 0 && category.keywords.some((k) => normalized.includes(k))
   );
 
-  let matched = keywordMatches;
+  const structural = (input.structuralCategories ?? [])
+    .filter((key, index, all) => all.indexOf(key) === index)
+    .map((key) => getConcernCategory(key));
+
+  let matched = structural.length > 0
+    ? [...keywordMatches, ...structural.filter((category) => !keywordMatches.includes(category))]
+    : keywordMatches;
   if (matched.length === 0 && input.newOrWorseningConcern) {
     matched = [getConcernCategory('borderline_wellness_concern')];
   }

@@ -41,6 +41,11 @@ export const PRODUCT_SURFACES = [
   // instrument from the survey above it. A surface she opened, and nothing
   // else: no answer and no reading reaches an analytics payload.
   'whole_body_signal',
+  // The Health & Lifestyle Intake, the coach assigned instrument that
+  // establishes the context the three above it are read against. A surface
+  // she opened, and nothing else: no answer, no medication, no history and
+  // no safety signal reaches an analytics payload.
+  'health_intake',
   // Owning Your Value, the first of the Happiness deep-dives. A surface she
   // opened, and nothing else: not a word she wrote and not the sentence she
   // asked Root to hold reaches an analytics payload.

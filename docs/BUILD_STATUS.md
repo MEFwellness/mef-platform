@@ -1,3 +1,172 @@
+## The Health & Lifestyle Intake (2026-09-12)
+
+A coach can now send a member the background behind everything else: her
+history, what she is here for, what she is treated for and takes, what has
+happened to her body, what she has already tried, her stress, her rhythm
+and what she has been experiencing. Eleven chapters, about eight to ten
+minutes, and it produces no score at all.
+
+### IT IS A FOURTH INSTRUMENT, AND IT STOPS WHERE THE OTHERS START
+
+The MEF Body Systems Survey says which systems are speaking loudly. The
+MEF Whole-Body Signal Assessment reads the same body a different way. The
+Stress & Load Deep-Dive goes deeper on one subject when a coach decides it
+is warranted. This one is the CONTEXT all three are read against, and
+nothing in it reads, writes, renames or retires any of them. Section six
+is deliberately two questions, enough for a coach to see the load and
+decide whether the deep dive is warranted, and never enough to be mistaken
+for it.
+
+Migration 230. Its own table, its own route, its own pop-up key, its own
+Home card, and a new collapsible section on the coach's client page.
+
+### WHY THE QUESTIONS ARE CODE AND NOT ROWS
+
+Every scored instrument in this app keeps its content in the database,
+because a coach retunes a weight, a cut off or a band and must not need a
+deploy. This one has no weight, no cut off, no band and no reading. What
+it has instead is eleven different KINDS of question, several carrying
+their own repeatable entries and their own per item follow-ups, and a row
+schema able to express all of them would be a second questionnaire engine
+rather than a content table. So the instrument is a typed constant in
+`lib/health-intake/questions.ts`, covered by tests that parse the same
+constant the app serves, exactly as the eight Happiness deep-dives hold
+theirs. `migration 230` holds the catalog row, the sitting and the RLS.
+
+### PROGRESSIVE DISCLOSURE IS THE DEFAULT, NOT A FEATURE OF ONE SECTION
+
+Eight binary gates in chapter three alone. Nobody is shown six empty rows
+before they have said there is anything to write in one: the list opens
+with one button, adding opens a small form, saving prints a clean summary
+card, and Edit reopens that card's own entry.
+
+### CONTINUE IS THE DELIBERATE STEP, WITH ONE NARROW EXCEPTION
+
+A screen carrying nothing but one binary Yes or No gate advances by itself
+after about four tenths of a second, because the whole point of a gate is
+that it opens or skips what follows and a Continue under it is a second
+tap to confirm a decision already made. Every multi-select, every scale,
+every text box and every screen a member might want to sit with waits for
+Continue. Reduced motion drops the settle to nothing rather than playing
+it slowly. `tests/health-intake-experience.test.tsx` presses the real
+buttons on a real screen and fails if that ever widens.
+
+### A CLOSED BRANCH STOPS EXISTING, AND SHE IS TOLD WHAT IT COSTS FIRST
+
+A member who said Yes to medications, added two, and comes back and says
+No is asked once: "This will remove the 2 medications you added." The
+count is read off her own stored entries, so it can never claim a number
+she does not have. Declining leaves every entry where it was. Confirming
+removes them from her live answers there and then.
+
+**THE REMOVAL IS COMPUTED BY ASKING THE SAME VISIBILITY FUNCTION WHAT
+WOULD BE SHOWN AFTERWARDS**, rather than by consulting a branch table, so
+a screen and its confirmation cannot fall out of step. The server
+re-applies the identical rule on every save and again at submit, so a
+stale page and a hand made POST both land in the same place. What she
+removed is archived in its own column for audit and handed to NOTHING: not
+the coach summary, not a safety rule, not a question worth exploring, not
+her own closing cards. The coach payload does not carry the column at all.
+
+### SIX SAFETY RULES, EACH ONE WRITTEN OUT
+
+Deterministic, over stored answer values, and each named in its own test
+at both edges of the condition that decides it:
+
+- **Any reported bleeding.** The one rule with no second condition, and
+  deliberately so: bleeding is the answer on this list where
+  "occasionally" is still worth a conversation.
+- **Shortness of breath** reported most days, or reported as getting
+  worse. The intake holds no severity scale for a symptom, so "most days"
+  stands in for severe.
+- **Weight loss she did not intend.** Lost, plus No or Not sure to whether
+  it was intentional. The word "significant" comes from the question she
+  was asked ("a meaningful change in your weight"), not from a number the
+  app does not hold.
+- **A fever** reported most days, or lasting several weeks or longer.
+- **A new change in vision, hearing, smell or taste**, where she said it
+  started recently. Hot and cold sensitivity is deliberately not in this
+  rule: it is a thing to coach around, and it still reaches the coach on
+  her card.
+- **Ongoing dizziness, or headaches getting worse.**
+
+The member reads ONE calm sentence, on the completion screen, and it is
+never attached to the answer that triggered it, because a line under one
+answer tells her which of her answers alarmed the app. It names no
+condition, no cause and no likelihood, and a test asserts it never begins
+with "You have", "This means", "This is caused by" or "This is likely".
+
+**THE ESCALATION IS THE PIPELINE THAT ALREADY EXISTS.** No second
+classifier, no second review queue and no second set of member facing
+words: it is `lib/safety/service.ts::evaluateConcern`, the one the
+check-in, the body assessment and the WBSA red flags already call. Her own
+free text goes through it too, unchanged, so the existing keyword
+categories still catch self harm language, chest pain and fainting in a
+box on this intake exactly as they do in a box on a check-in.
+
+**ONE THING WAS ADDED TO THE SHARED CLASSIFIER, AND IT IS ADDITIVE.**
+`classifyConcern` now takes an optional `structuralCategories`, which is
+the same idea `newOrWorseningConcern` already was: a signal the caller
+knows and a keyword scan cannot see. One new category,
+`health_intake_follow_up`, has NO keywords, so it can never be reached by
+classifying text and only enters a classification when a caller names it.
+`SAFETY_POLICY_VERSION` is therefore NOT bumped, because nothing an
+existing caller can produce has changed, and a test proves it: every
+existing classification still resolves exactly as it did.
+
+### QUESTIONS WORTH EXPLORING IS EIGHT RULES AND NOTHING CLEVERER
+
+Each fires only when BOTH of the things it names genuinely exist in her
+stored answers, so a prompt can never say "X and Y were both reported"
+about something she did not report. No model, no generation, no causation:
+a test scans every prompt for cause, caused, causing, because, leads to,
+due to, explains and diagnos, and fails on any of them. The coach's card
+draws "What she reported" and "A question the coach may want to explore"
+under two different headings, so one cannot be mistaken for the other.
+
+### THE COACH SIDE
+
+A seventh collapsible section on the client detail page, **Health
+Context**, collapsed by default like every other one, indexed in the
+pinned search like every other card, with a header digest that reads the
+same rules the card reads so the two cannot disagree. It sits between the
+findings and the history, because it is the background every reading in
+that section is read against rather than a reading of its own.
+
+It opens on a dense block of labelled lines (concerns, load, rhythm,
+movement, weight, senses, history, what is being treated, what she takes,
+what she has already tried), with the detail behind one Show the detail
+control and the notes she wrote printed verbatim. A line is drawn only for
+a fact she gave, with exactly two deliberate exceptions, both tested: the
+follow-up line is always drawn because "No immediate safety flag" is what
+a coach came to check, and the completion date is always drawn because a
+summary with no date on it is a summary of an unknown moment.
+
+Sending it is the ordinary path: the Assessment Status block at the top of
+Assessments and Findings, seven days from HER own today by default, the
+delivery receipt on a real display and never on a render, and the pop-up
+through the existing chain with its own key prefix.
+
+### WHAT IS PREFILLED, AND WHY IT IS ONE FIELD
+
+Her display name, and nothing else. There is no date of birth, occupation
+or height stored anywhere in this schema today, on `profiles`, in
+`member_health_profiles` or in `onboarding_submissions`, so there is
+nothing to prefill them from. Her welcome flow goals are deliberately not
+prefilled into chapter two either: they are answers to a different
+question, asked at a different time, in a different vocabulary, and
+pre-ticking a multi-select from them would write answers she never gave
+the moment she pressed Continue. The name is placed only in a box she has
+not already filled in herself.
+
+### WHAT IS GUARDED
+
+Six new test files, 159 assertions: the content and its punctuation
+(including the migration), the branching and the removal sentences, the
+six safety rules at every edge, the coach view and the eight exploring
+rules, the gate and everything the server refuses, and a jsdom pass that
+mounts the real taker and presses the real buttons.
+
 ## Sending an assessment again, and saying what happened last time (2026-09-12)
 
 A coach walking the client screen could send an assessment once. The

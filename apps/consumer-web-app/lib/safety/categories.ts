@@ -30,6 +30,7 @@ export type ConcernCategoryKey =
   | 'pregnancy_warning_signs'
   | 'severe_worsening_pain'
   | 'eating_disorder_risk'
+  | 'health_intake_follow_up'
   | 'medication_questions'
   | 'diagnosis_requests'
   | 'out_of_scope_medical'
@@ -229,6 +230,36 @@ export const CONCERN_CATEGORIES: ConcernCategoryConfig[] = [
       'making myself throw up',
       'afraid to eat',
     ],
+  },
+  {
+    /**
+     * A Health & Lifestyle Intake answer that a coach should follow up on
+     * rather than coach around (migration 230, lib/health-intake/safety.ts).
+     *
+     * STRUCTURAL ONLY, EXACTLY LIKE borderline_wellness_concern BELOW IT.
+     * It has no keywords, so it can never be reached by classifying text
+     * and can only enter a classification when a caller explicitly names it
+     * in `structuralCategories`. Today exactly one caller does. That is why
+     * SAFETY_POLICY_VERSION is NOT bumped by adding it: it cannot change
+     * any classification an existing caller produces, which is the
+     * condition lib/safety/policy.ts's own comment sets for a bump.
+     *
+     * IT OPENS A COACH REVIEW CASE AND RESTRICTS NOTHING. The intake's six
+     * rules say "this answer is better discussed with a clinician", which
+     * is a conversation to have, not a topic to ban, and the member is
+     * still coached normally on everything else. The specific answers that
+     * fired are carried in the review entry's own excerpt.
+     */
+    key: 'health_intake_follow_up',
+    label: 'Health intake answer needing follow-up',
+    classificationLevel: 'coach_review_required',
+    urgency: 'medium',
+    coachReviewRequired: true,
+    acknowledgmentRequired: false,
+    escalationAction: 'coach_review_queue',
+    restrictedTopics: [],
+    reasoningCode: 'HEALTH_INTAKE_FOLLOW_UP_SIGNAL',
+    keywords: [],
   },
   {
     key: 'medication_questions',

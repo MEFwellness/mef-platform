@@ -37,6 +37,7 @@ vi.mock('@/app/actions/assessmentAssignments', () => ({ assignAssessmentAction }
 const deepDive = {
   'body-systems-survey': vi.fn(async () => ({ ok: true })),
   'whole-body-signal': vi.fn(async () => ({ ok: true })),
+  'health-lifestyle-intake': vi.fn(async () => ({ ok: true })),
   'stress-load-deep-dive': vi.fn(async () => ({ ok: true })),
   'owning-your-value': vi.fn(async () => ({ ok: true })),
   'where-your-joy-lives': vi.fn(async () => ({ ok: true })),
@@ -53,6 +54,9 @@ vi.mock('@/app/actions/bodySystems', () => ({
 }));
 vi.mock('@/app/actions/wholeBodySignal', () => ({
   assignWholeBodySignalAction: deepDive['whole-body-signal'],
+}));
+vi.mock('@/app/actions/healthIntake', () => ({
+  assignHealthIntakeAction: deepDive['health-lifestyle-intake'],
 }));
 vi.mock('@/app/actions/stressLoad', () => ({
   assignStressLoadDeepDiveAction: deepDive['stress-load-deep-dive'],

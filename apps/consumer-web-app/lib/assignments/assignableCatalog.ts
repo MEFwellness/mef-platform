@@ -40,6 +40,12 @@ import {
   WBS_KEY,
   WBS_LABEL,
 } from '../whole-body-signal/constants';
+import {
+  HLI_AREA,
+  HLI_DEFINITION_ID,
+  HLI_KEY,
+  HLI_LABEL,
+} from '../health-intake/constants';
 import { STRESS_LOAD_AREA, STRESS_LOAD_LABEL } from '../stress-load/copy';
 import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_AREA, OYV_LABEL } from '../owning-your-value/copy';
@@ -115,8 +121,7 @@ export const REASSIGNABLE_ROW_IDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The ten coach-assigned experiences the registry deliberately does not
- * carry.
+ * The coach-assigned experiences the registry deliberately does not carry.
  *
  * WHY THEY APPEAR HERE. They land in the same assessment_assignments
  * ledger as everything above them, the coach's assessment list has always
@@ -150,6 +155,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
     definitionId: WBS_DEFINITION_ID,
     displayName: WBS_LABEL,
     areaLabel: WBS_AREA,
+  },
+  {
+    id: HLI_KEY,
+    definitionId: HLI_DEFINITION_ID,
+    displayName: HLI_LABEL,
+    areaLabel: HLI_AREA,
   },
   {
     id: 'stress-load-deep-dive',

@@ -114,6 +114,47 @@ export function assessmentsDigest(input: AssessmentsDigestInput): SectionDigest 
   return { text, dot: overdue > 0 ? 'gold' : empty ? 'grey' : 'green' };
 }
 
+/**
+ * The Health Context header (2026-09-12).
+ *
+ * THREE THINGS, IN THE ORDER A COACH CARES ABOUT THEM. Whether anything on
+ * the intake is asking for follow-up, whether it has come back at all, and
+ * whether it is still out. The gold dot is triggered by the same
+ * deterministic rules the card itself prints
+ * (lib/health-intake/safety.ts), so the header and the card can never
+ * disagree about whether something needs a look.
+ *
+ * A WAITING INTAKE IS NOT GOLD. Gold means something inside is asking for
+ * something, and an assignment she has not opened yet is asking HER, not
+ * the coach. It is named in the line so it is not invisible, and the
+ * Assessment Status block above is where an overdue one goes gold.
+ */
+export type HealthContextDigestInput = {
+  /** Finished sittings of the intake. */
+  completed: number;
+  /** True when an assignment is still open and unfinished. */
+  waiting: boolean;
+  /** Rules that fired on the most recent finished sitting. */
+  safetySignals: number;
+  /** Co-occurrence prompts on the most recent finished sitting. */
+  exploringPrompts: number;
+};
+
+export function healthContextDigest(input: HealthContextDigestInput): SectionDigest {
+  const { completed, waiting, safetySignals, exploringPrompts } = input;
+  const text = line(
+    [
+      safetySignals > 0 ? `${plural(safetySignals, 'answer')} to follow up` : null,
+      completed > 0 ? `${plural(completed, 'intake')} completed` : null,
+      exploringPrompts > 0 ? `${plural(exploringPrompts, 'question')} worth exploring` : null,
+      waiting ? 'one waiting' : null,
+    ],
+    'Not sent yet'
+  );
+  const empty = completed === 0 && !waiting;
+  return { text, dot: safetySignals > 0 ? 'gold' : empty ? 'grey' : 'green' };
+}
+
 export type ProgressDigestInput = {
   /** Days inside the window that carry a check-in row. */
   loggedDays: number;

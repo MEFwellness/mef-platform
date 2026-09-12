@@ -104,7 +104,7 @@ describe('the survey intro asks for it, and nothing else does', () => {
     expect(callers.length).toBeGreaterThan(5);
     for (const caller of callers) {
       /*
-        THE TWO COACH ASSIGNED INSTRUMENTS, AND ONLY THOSE TWO.
+        THE THREE COACH ASSIGNED INSTRUMENTS, AND ONLY THOSE THREE.
 
         IntroReveal's default plays its reveal once per device and hands
         out the finished state forever after. That is right for a welcome
@@ -114,6 +114,7 @@ describe('the survey intro asks for it, and nothing else does', () => {
       */
       if (caller.endsWith('BodySystemsExperience.tsx')) continue;
       if (caller.endsWith('WholeBodySignalExperience.tsx')) continue;
+      if (caller.endsWith('HealthIntakeExperience.tsx')) continue;
       const source = read(caller);
       expect(source).not.toContain('pace="brisk"');
       expect(source).not.toMatch(/<IntroReveal[\s\S]{0,2000}?\breplay\b[\s\S]{0,50}?\/?>/);

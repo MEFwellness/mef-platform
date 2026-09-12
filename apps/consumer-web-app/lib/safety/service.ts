@@ -37,6 +37,13 @@ export type EvaluateConcernInput = {
   sourceEventId?: string | null;
   text?: string | null;
   newOrWorseningConcern?: boolean;
+  /**
+   * Categories the caller established from structured answers rather than
+   * from text. See lib/safety/classifier.ts's own note: this adds to
+   * whatever the text matched and never replaces it, and omitting it leaves
+   * every existing caller behaving exactly as it did.
+   */
+  structuralCategories?: readonly import('./categories').ConcernCategoryKey[];
   /** Who actually triggered this evaluation — defaults to 'member'. A coach note or an internal agent-output guard passes 'coach'/'system'. */
   actorType?: SafetyActorType;
   actorId?: string | null;
@@ -66,6 +73,7 @@ export async function evaluateConcern(
   const result = classifyConcern({
     text: input.text,
     newOrWorseningConcern: input.newOrWorseningConcern,
+    structuralCategories: input.structuralCategories,
   });
 
   const needsMessage = result.classificationLevel !== 'standard_coaching';
