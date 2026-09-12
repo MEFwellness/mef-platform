@@ -1,3 +1,80 @@
+## What the production walk of the intake found (2026-09-12)
+
+The Health & Lifestyle Intake shipped, and then a real signed-in walk of it
+on app.mefwellness.com found four things no unit test in the feature could
+see. All four are fixed, all four now have a test that fails against the
+old behaviour, and the walk finishes 78 of 78.
+
+`apps/consumer-web-app/scripts/verify-health-intake-live.mjs` is that walk,
+committed beside the build. It assigns as the real coach with the real
+control, walks the whole intake as the member, closes the tab partway
+through and comes back, flips a gate and confirms the removal, reads the
+coach's Health Context card, and opens the MEF Body Systems Survey and the
+Stress & Load Deep-Dive to prove neither moved.
+
+### TEN CHAPTERS ANSWERED, AND NOTHING SAVED
+
+The worst of the four. The one-row-per-assignment index is PARTIAL (`where
+assignment_id is not null`), Postgres will not take a partial index as an
+ON CONFLICT arbiter unless the statement repeats its predicate, and
+PostgREST's `onConflict` cannot express one. So the upsert behind every
+save matched nothing, every time. Because a failed autosave is deliberately
+not something to interrupt a member with, the refusal never reached her
+screen: she answered ten chapters and her Home card still offered to begin.
+
+`saveHliProgress` is now the read, then insert or update shape
+`lib/whole-body-signal/data.ts` already used, for exactly this reason. The
+race the index exists for is still closed: a losing insert reads back the
+row that won.
+
+**`tests/health-intake-integration.test.ts` is what catches it**, against
+the real database, the real policies and the real index. It was checked
+against the broken version first and fails five of its claims there. No
+mock could have seen this, because the refusal came from the index.
+
+### HER STORED POSITION WAS ALWAYS ONE SCREEN BEHIND HER
+
+Twice over. The draft the taker keeps is refreshed while rendering, so a
+save fired in the same tick as a move still held the old index; and a
+chapter header's Continue used a mover that writes nothing at all. Her
+answers were never at risk, because resume never trusts a stored index on
+its own, but she left on a question and came back to the chapter header
+above it. Both movers now write the screen they are moving TO.
+
+### THE ARCHIVE WAS EMPTY AFTER A REAL REMOVAL
+
+When a member confirms a removal her screen simply stops holding those
+answers, so the save that follows carries nothing for the sanitiser to
+drop. The archive is now derived from what the SERVER already holds,
+diffed against the kept set, which sees the removal whatever the client
+did: a stale tab, a hand made POST and a browser that died mid
+confirmation all produce the same archive. Nothing reads it back into a
+coach facing surface, and the walk proves that separately.
+
+### A CARD THAT DROPS WHAT SHE TYPED READS AS THOUGH IT WAS NOT SAVED
+
+A medication's summary card printed the name and the reason and left out
+the dose she had just entered. It prints all three now.
+
+### AND FOUR THINGS THE SCRIPT ITSELF GOT WRONG, WRITTEN INTO ITS COMMENTS
+
+Every one of them is a way a verification run can lie, so each is recorded
+where the next person will read it:
+
+- **A screen key built from a heading that types itself out** changes on
+  every frame, so every wait for "the screen changed" returned instantly on
+  a screen that had not changed. The key is now the whole screen, and a
+  wait needs two samples a third of a second apart to agree.
+- **A check that cannot fail** is worse than no check: one line reported a
+  pass whatever its wait returned, so a run where nothing had been saved
+  printed "reopening offers the resume screen: PASS" before falling over
+  two lines later.
+- **A multi select row is a toggle, not a radio.** Looking only for a radio
+  chose nothing and stalled on a screen that was working correctly.
+- **`tap` waits for the answer to land, and on a gate that opens a removal
+  confirmation the answer deliberately does not land.** That one is the
+  product being right and the helper being wrong.
+
 ## The Health & Lifestyle Intake (2026-09-12)
 
 A coach can now send a member the background behind everything else: her
