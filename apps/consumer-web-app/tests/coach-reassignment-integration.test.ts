@@ -25,11 +25,24 @@
  *      point: reassignment after completion, with no cooldown and no
  *      limit, and the finished row still standing behind it so the
  *      reassessment comparison has two sittings to compare.
+ *   5. THE FINISHED ROW IS NOT MERELY STILL PRESENT, IT IS UNCHANGED.
+ *      Every column of it is compared before and after the second
+ *      assignment, because "a row with that id still exists" and "the
+ *      sitting she finished is intact" are two different claims and only
+ *      the second one is what a coach is promised.
+ *   6. AND THE COACH'S SCREEN, FILED FROM THOSE REAL ROWS, puts the open
+ *      sitting in Assigned, Waiting and leaves the finished one in
+ *      Completed. That is the bridge between the ledger and the block:
+ *      the unit tests file hand-made rows, this files the ones the
+ *      database actually wrote.
  */
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
 import { WBS_DEFINITION_ID } from '../lib/whole-body-signal/constants';
-import { dueAtForLocalDate } from '../lib/assignments/status';
+import { assignmentStatusLine, dueAtForLocalDate, resolveAssignmentProgress } from '../lib/assignments/status';
+import { groupAssessmentsByStatus } from '../lib/coach-detail/assessmentStatus';
+import { listAssignableTemplates } from '../lib/assignments/assignableCatalog';
+import { assignmentNameRecord } from '../lib/assignments/experienceNames';
 import { buildAssignmentHistory } from '../lib/coach-assign/history';
 import { DEFAULT_COACH_ASSIGN_COPY } from '../lib/coach-assign/copy';
 
@@ -191,6 +204,73 @@ describe('sending it again once she has finished', () => {
     // THE FINISHED ONE IS STILL THERE, which is what the reassessment
     // comparison reads to have two sittings to compare.
     expect(both.filter((row) => row.status === 'completed').length).toBe(1);
+  });
+
+  it('LEAVES THE FINISHED ROW BYTE FOR BYTE AS IT WAS, not merely still present', async () => {
+    await assignAsCoach('2026-09-19');
+    await completeIt();
+
+    const before = (await allRows())[0]!;
+    expect(before.status).toBe('completed');
+
+    await assignAsCoach('2026-09-30');
+
+    const after = (await allRows()).find((row) => row.id === before.id);
+    expect(after, 'the finished assignment was removed').toBeTruthy();
+    // Its own id, its own status, its own due date and the moment the
+    // trigger closed it out. A second assignment that rewrote any of them
+    // would be overwriting the sitting rather than adding one.
+    expect(after).toEqual(before);
+  });
+
+  it('files the real rows the way the coach screen reads them: one waiting, one completed', async () => {
+    await assignAsCoach('2026-09-19');
+    await completeIt();
+    await assignAsCoach('2026-09-30');
+
+    const rows = await allRows();
+    const memberToday = new Date().toISOString().slice(0, 10);
+    const assignments = rows.map((row) => {
+      const progress = resolveAssignmentProgress({
+        status: row.status as 'pending' | 'completed' | 'cancelled',
+        createdAt: row.created_at as string,
+        dueAt: (row.due_at as string | null) ?? null,
+        cancelledAt: null,
+        completedAt: row.status === 'completed' ? (row.updated_at as string) : null,
+        deliveredAt: null,
+        memberToday,
+      });
+      return {
+        id: row.id as string,
+        assessmentDefinitionId: WBS_DEFINITION_ID,
+        assignedBy: row.assigned_by as string,
+        isRequired: true,
+        status: row.status as 'pending' | 'completed' | 'cancelled',
+        createdAt: row.created_at as string,
+        progress,
+        statusLine: assignmentStatusLine(progress, { timeZone: 'UTC' }),
+      };
+    });
+
+    const groups = groupAssessmentsByStatus(
+      listAssignableTemplates(),
+      assignments,
+      assignmentNameRecord()
+    );
+
+    const waiting = groups.waiting.filter((row) => row.definitionId === WBS_DEFINITION_ID);
+    const completed = groups.completed.filter((row) => row.definitionId === WBS_DEFINITION_ID);
+    expect(waiting).toHaveLength(1);
+    expect(completed).toHaveLength(1);
+    expect(waiting[0]!.assignment!.id).toBe(
+      rows.find((row) => row.status === 'pending')!.id
+    );
+    expect(completed[0]!.assignment!.id).toBe(
+      rows.find((row) => row.status === 'completed')!.id
+    );
+    // The finished half cannot offer to send a second open sitting, which
+    // is the very thing the database refused in claim 2.
+    expect(completed[0]!.openElsewhere).toBe(true);
   });
 
   it('and a third, so nothing here counts how many times it has been sent', async () => {

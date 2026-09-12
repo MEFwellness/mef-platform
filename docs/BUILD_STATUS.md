@@ -1,3 +1,112 @@
+## Sending any of them again, and not losing the sitting she finished (2026-09-12)
+
+Two things were missing from the reassignment work that shipped this
+morning, and both were visible the moment a coach used it.
+
+**IT WAS OFFERED FOR TWO INSTRUMENTS OUT OF NINETEEN.** `Assign Again`
+appeared only on the MEF Whole-Body Signal Assessment and the Whole-Body
+Check-In, because that is what the brief of the day asked for. Every other
+finished row still had View results and nothing else.
+
+**AND SENDING A SECOND SITTING LOOKED LIKE LOSING THE FIRST.** One row per
+assessment was filed by `currentAssignmentFor`, where an open assignment
+beats a finished one, so the moment a coach pressed Assign Again the row
+left Completed and reappeared under Assigned, Waiting. The results a coach
+had been reading a second earlier were suddenly filed under nothing, on the
+very screen that exists to compare two sittings.
+
+### WHICH ROWS OFFER IT IS NOW READ, NOT KEPT
+
+`REASSIGNABLE_ROW_IDS` is gone. Two facts already answered the question and
+neither of them was being asked:
+
+- **A registry questionnaire answers it itself**, in
+  `reassessment.supportsReassessment`. Every entry `listAssignableAssessments()`
+  returns says true. The only entries saying false are the Coming Soon
+  placeholders, which are not live and are therefore not in that list at
+  all. A test asserts the flag equals the registry's own answer for every
+  row, so an instrument that one day genuinely cannot be retaken turns this
+  off by saying so in its own definition.
+- **A coach-assigned deep-dive answers it in its access rule.** All
+  thirteen resolve an OPEN assignment ahead of a finished sitting, so a
+  member sent one again is handed the taker rather than her old results.
+
+**THAT SECOND ONE IS A CLAIM ABOUT THE MEMBER SIDE, SO IT IS TESTED
+AGAINST THE MEMBER SIDE.** A button never claims what the rows cannot
+support, and "Assign Again" is only honest if being sent one starts a real
+second sitting. `tests/coach-reassignment.test.tsx` reads all thirteen
+access modules and fails if any one of them ever resolves a finished
+sitting before an open assignment.
+
+### A FINISHED SITTING KEEPS ITS ROW WHILE A NEW ONE IS OUT
+
+An assessment she has finished and been sent again now appears in BOTH
+groups: the open sitting in Assigned, Waiting with its sent date, and the
+most recent finished one still in Completed with View results on it. When
+she finishes the second, the two collapse back into one Completed row
+reading the newer sitting, and the results card below shows both, which is
+the per-sitting pattern those cards already render.
+
+**THE COMPLETED HALF OFFERS NO SEND.** One open sitting at a time is
+migration 144's partial unique index, not a preference, so a second Assign
+control on one assessment could only ever write nothing and report success.
+It says **"Already assigned, waiting"** where the control would have been,
+and the Resend control stays on the row that actually has an open sitting.
+A test asserts exactly one send control exists per assessment.
+
+**A ROW THEREFORE HAS TWO IDS, AND THE DIFFERENCE MATTERS.** `id` is the
+template's, which every write path, every data hook and the pinned search
+address it by, and it is deliberately the SAME on both halves.
+`instanceId` is unique across all three groups and is what React keys, DOM
+ids and the "which form is open" state read. Two elements sharing one DOM
+id is a defect, not a style question.
+
+**THE SUFFIX IS `__completed`, NOT `:completed`.** A colon in a DOM id is
+legal HTML and a pseudo-class in a CSS selector, so
+`querySelector('#assessment-row-x:completed')` throws rather than returning
+nothing, and several verification scripts address these rows by id. A test
+asserts every rendered row id is a usable selector.
+
+### ONE NEW WORD, ONE NEW ROW
+
+`assign.row_already_waiting` (migration 233), in `coach_assign_copy`
+alongside the other nineteen, with the same fallback-equals-seeded-value
+guard. `tests/coach-assign-history.test.ts` now reads BOTH migrations that
+seed this bank rather than only the first.
+
+### WHAT DID NOT CHANGE
+
+No questionnaire, no scoring, no storage, no member screen. Both write
+paths were already generic: `assignAssessmentRowAction` dispatches to every
+row's own action and `resendAssessmentRowAction` already gated on
+`allowsReassign`, so neither needed a line. The form, its four history
+states and the resend that moves a due date are exactly as they shipped.
+
+### TWO STANDING VERIFICATION SCRIPTS WERE BROKEN, AND ARE NOT NOW
+
+Both failures predate this work, were confirmed against a stashed tree, and
+were in the READER rather than in the product.
+
+**`verify-coach-reassignment-live.mjs` could not get past the Whole-Body
+Signal introduction.** It made one unchecked click on Start My Assessment,
+and a click before hydration does nothing and says nothing about it, so the
+walk read the intro as an "unrecognised screen" and died at 18 of 19. The
+obvious repair, "press until the heading changes", is WRONG here: that
+intro is an `IntroReveal` with `replay`, so its own title animates in on
+every visit and the h1 text changes several times a second while the screen
+has not moved at all. It now presses until A RADIO IS ON SCREEN, which the
+intro has none of and every question has five of, and presses again if it
+ever finds itself back on the intro. **43 of 43.**
+
+**`verify-assessment-status-block-live.mjs` filled the pinned search
+instead of typing into it.** `fill` sets the value in one step; that search
+builds its list from real keystrokes, so the field sat there with "joy" in
+it and an empty panel under it. A person typing the same three letters gets
+the result immediately, which is how it was proved to be the reader and not
+the search. **28 of 28.**
+
+`verify-breathing-check-in-live.mjs` was re-run unchanged: **163 of 163.**
+
 ## She reads her own breathing score now (2026-09-12)
 
 The Breathing Pattern Check-In shipped this morning with a member results

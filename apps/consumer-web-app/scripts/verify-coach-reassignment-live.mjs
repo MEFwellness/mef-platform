@@ -449,8 +449,44 @@ try {
   async function walkSignal(answerFor) {
     await page.goto(`${BASE}/whole-body-signal`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('h1', { timeout: 90000 });
-    const start = page.getByRole('button', { name: /start my assessment|continue assessment/i });
-    if (await start.count()) await start.first().click();
+
+    /*
+      THE OPENING PRESS IS CONFIRMED BY A QUESTION APPEARING, and by
+      nothing else.
+
+      Two traps, one after the other, and this walk hit both. A click
+      before hydration does nothing at all and says nothing about it, so
+      the single unchecked click this used to make simply vanished on a
+      cold route and the walk then read the intro as an unrecognised
+      screen. And the obvious confirmation, "the heading changed", is
+      WRONG here: the intro is an IntroReveal with `replay`, so its own
+      title animates in on every visit and the h1 text changes several
+      times a second while the screen has not moved at all. A press that
+      waited for the heading to change was satisfied by the animation and
+      walked on into the same intro.
+
+      A RADIO ON SCREEN is the app agreeing: the intro has none and every
+      question has five.
+    */
+    async function pressPastIntro() {
+      const start = page.getByRole('button', {
+        name: /start my assessment|continue assessment/i,
+      });
+      if ((await start.count()) === 0) return false;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        await start.first().click({ timeout: 10000 }).catch(() => {});
+        const answered = await page
+          .waitForFunction(() => document.querySelectorAll('[role="radio"]').length > 0, {
+            timeout: 2000,
+          })
+          .then(() => true)
+          .catch(() => false);
+        if (answered) return true;
+      }
+      throw new Error('the opening press never registered on the introduction screen');
+    }
+
+    await pressPastIntro();
 
     for (let screen = 0; screen < 400; screen += 1) {
       await page.waitForSelector('h1', { timeout: 90000 });
@@ -465,6 +501,12 @@ try {
       const radios = page.getByRole('radio');
       const radioCount = await radios.count();
       if (radioCount === 0) {
+        // Back on the introduction, which happens when a press was eaten
+        // by a screen that had not finished hydrating. Press it again
+        // rather than calling the screen unrecognised: it is recognised,
+        // it is the intro.
+        if (await pressPastIntro()) continue;
+
         const cont = page.getByRole('button', { name: /^continue$/i });
         if (await cont.count()) {
           await cont.first().click();
@@ -478,7 +520,20 @@ try {
           );
           continue;
         }
-        throw new Error(`unrecognised Whole-Body Signal screen: ${heading.slice(0, 60)}`);
+        /*
+          AN ERROR THAT NAMES WHAT IT SAW. This used to print the heading
+          alone, which on the intro screen is the same string as several
+          other screens' and told a reader nothing about where the walk
+          actually was. The url and the first of the body text are what
+          make the next failure diagnosable in one run instead of three.
+        */
+        throw new Error(
+          `unrecognised Whole-Body Signal screen at ${page.url()}: heading "${heading.slice(0, 80)}" | body "${(
+            await textOf(page)
+          )
+            .replace(/\s+/g, ' ')
+            .slice(0, 300)}"`
+        );
       }
 
       const options = (await radios.allInnerTexts()).map((text) => text.trim());

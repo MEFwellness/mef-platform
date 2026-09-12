@@ -176,9 +176,11 @@ describe('the coach sends it from the one place everything else is sent from', (
     expect(row!.definitionId).toBe(HLI_DEFINITION_ID);
     expect(row!.displayName).toBe(HLI_LABEL);
     expect(row!.assignKey).toBeNull();
-    // Not reassignable today, like everything but the two instruments that
-    // draw a real reassessment comparison.
-    expect(row!.allowsReassign).toBe(false);
+    // Sendable again once she has finished one, like every other row a
+    // coach can send (2026-09-12). Its access rule resolves an open
+    // assignment ahead of a finished sitting, so being sent it again
+    // really does hand her the intake rather than her old answers.
+    expect(row!.allowsReassign).toBe(true);
   });
 
   it('is named the same thing wherever an assignment row is printed', () => {

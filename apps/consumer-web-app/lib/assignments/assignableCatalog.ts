@@ -97,34 +97,46 @@ export type AssignableTemplate = {
    * WHETHER A COACH MAY SEND THIS ONE AGAIN once it has been finished, and
    * resend it while it is still open.
    *
-   * DELIBERATELY NARROW. Every instrument in this list can technically be
-   * assigned a second time, because the ledger allows a new cycle the
-   * moment the previous row leaves 'pending' (migration 144). What this
-   * flag decides is whether the COACH'S SCREEN offers it, and it is on for
-   * exactly the two instruments the reassessment work asked for: the MEF
-   * Whole-Body Signal Assessment and the Whole-Body Check-In. Both draw a
-   * real reassessment comparison from a second sitting, which is the whole
-   * reason to send one.
+   * IT IS READ FROM THE DATA THAT ALREADY ANSWERS THE QUESTION, not from a
+   * hand kept list. When this shipped on 2026-09-12 it was a set holding
+   * two ids, because the reassessment work asked for two instruments. The
+   * question a coach is actually asking is "can this client sit this one a
+   * second time", and two facts already answered it for every row:
    *
-   * Turning it on for another instrument is one entry in the set below.
-   * It is off for everything else so that this change moves nothing a
-   * coach was not asking to move, the MEF Body Systems Survey included.
+   *   A REGISTRY ROW answers it itself, in
+   *     `reassessment.supportsReassessment`. Every questionnaire
+   *     `listAssignableAssessments()` returns says true; the only entries
+   *     saying false are the Coming Soon placeholders, which are not live
+   *     and are therefore not in that list at all. So the rule is read off
+   *     the registry rather than duplicated beside it, and an instrument
+   *     that one day genuinely cannot be retaken turns this off by saying
+   *     so in its own entry.
+   *   A COACH-ASSIGNED DEEP-DIVE answers it in its access rule. Every one
+   *     of them resolves an OPEN assignment ahead of a past sitting
+   *     (`resolveOyvAccess` and its thirteen siblings), so a member who is
+   *     sent one again is handed the taker rather than her old results.
+   *     That is what makes the button honest: it opens something that
+   *     really happens on her screen.
+   *
+   * THE LEDGER ALWAYS ALLOWED IT. Migration 144's partial unique index
+   * only ever forbade a second OPEN row, so a new cycle has been possible
+   * the moment the previous one left 'pending' since the day it shipped.
+   * This flag has only ever decided whether the COACH'S SCREEN offers it.
    */
   allowsReassign: boolean;
 };
 
 /**
- * The row ids a coach may send again from the status block.
+ * Whether one coach-assigned deep-dive may be sent again.
  *
- * A SET RATHER THAN A PROPERTY ON EACH ENTRY, so the whole answer to "what
- * is reassignable today" is one readable line instead of a boolean
- * repeated twenty times, nineteen of them false.
+ * TRUE FOR ALL OF THEM, AND IT IS A CLAIM ABOUT THEIR ACCESS RULES rather
+ * than a preference. Each one puts an open assignment ahead of a finished
+ * sitting, so being sent again really does hand her the taker.
+ * `tests/coach-reassignment.test.tsx` reads every one of those access
+ * modules and fails if one stops doing it, so this constant cannot quietly
+ * become a promise the member side no longer keeps.
  */
-export const REASSIGNABLE_ROW_IDS: ReadonlySet<string> = new Set([
-  WBS_KEY,
-  // The Whole-Body Check-In, which the registry calls 'wbsa'.
-  'wbsa',
-]);
+const DEEP_DIVES_ALLOW_REASSIGN = true;
 
 /**
  * The coach-assigned experiences the registry deliberately does not carry.
@@ -249,7 +261,7 @@ export function listAssignableTemplates(): AssignableTemplate[] {
     displayName: names.get(entry.databaseId) ?? entry.displayName,
     areaLabel: assessmentAreaLabel(entry.category),
     assignKey: entry.key,
-    allowsReassign: REASSIGNABLE_ROW_IDS.has(entry.key),
+    allowsReassign: entry.reassessment.supportsReassessment,
   }));
   const experienceRows: AssignableTemplate[] = COACH_ASSIGNED_EXPERIENCES.map((experience) => ({
     id: experience.id,
@@ -257,7 +269,7 @@ export function listAssignableTemplates(): AssignableTemplate[] {
     displayName: names.get(experience.definitionId) ?? experience.displayName,
     areaLabel: experience.areaLabel,
     assignKey: null,
-    allowsReassign: REASSIGNABLE_ROW_IDS.has(experience.id),
+    allowsReassign: DEEP_DIVES_ALLOW_REASSIGN,
   }));
   return [...registryRows, ...experienceRows];
 }

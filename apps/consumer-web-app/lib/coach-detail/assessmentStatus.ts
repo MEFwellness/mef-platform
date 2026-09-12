@@ -18,6 +18,29 @@
  * every sentence a row prints is the assignment's own `statusLine`, written
  * on the server in HER timezone.
  *
+ * ONE EXCEPTION, AND IT IS WHY A SECOND SITTING IS VISIBLE AT ALL. A
+ * client who has FINISHED an assessment and been sent it AGAIN is two true
+ * facts at once: something has come back, and something is out. Until
+ * 2026-09-12 the open row simply won and the finished one vanished from
+ * Completed, so sending a second sitting looked like losing the first, and
+ * the results a coach had just been reading were suddenly filed under
+ * nothing. Such an assessment now appears in BOTH groups: the open sitting
+ * in Assigned, Waiting, and the most recent finished one still in
+ * Completed with its View results link intact.
+ *
+ * THE EXTRA ROW IS THE COMPLETED ONE, AND IT OFFERS NO SEND. One open
+ * sitting at a time is the ledger's own rule (migration 144's partial
+ * unique index), so a second Assign control on the same assessment could
+ * only ever write nothing. It carries a quiet line saying one is already
+ * out instead, and the Resend control stays where the open sitting is.
+ *
+ * A ROW THEREFORE HAS TWO IDS. `id` is the template's, which is what every
+ * write path, every data hook and the pinned search address it by, and is
+ * deliberately the SAME on both halves of a split. `instanceId` is unique
+ * across all three groups, and is what React keys, DOM ids and the
+ * "which form is open" state use, because two elements carrying one DOM id
+ * is a real defect and not a style question.
+ *
  * ONE SOURCE OF TRUTH FOR THE THREE COUNTS. The folded header's digest and
  * the three group headers read the same object, so a header saying
  * "2 waiting" over three waiting rows is not a state this page can reach.
@@ -121,8 +144,21 @@ export function assessmentRowElementId(rowId: string): string {
 
 /** What one row carries. Everything a row prints is on it, and nothing is computed while rendering. */
 export type AssessmentStatusRow = {
-  /** The template's row id, or the assignment id for a row no template names. Unique across all three groups. */
+  /**
+   * The template's row id, or the assignment id for a row no template
+   * names. It is what every write path and the pinned search address, and
+   * it is deliberately the SAME on both halves of a split assessment.
+   */
   id: string;
+  /**
+   * Unique across all three groups, always. React keys, DOM ids and the
+   * "which inline form is open" state read this one, never `id`, because a
+   * split assessment puts two rows on the screen for one template.
+   *
+   * It EQUALS `id` for every row that is not the extra completed half, so
+   * the pinned search's scroll target is unchanged.
+   */
+  instanceId: string;
   definitionId: string;
   displayName: string;
   areaLabel: string;
@@ -156,6 +192,15 @@ export type AssessmentStatusRow = {
   } | null;
   /** The card on this page that holds this assessment's results, or null when it has none. */
   resultsAnchorId: string | null;
+  /**
+   * TRUE ONLY ON THE COMPLETED HALF OF A SPLIT: she has finished this one,
+   * and a newer sitting is open right now.
+   *
+   * The row draws a quiet line instead of a send control, because the
+   * ledger allows exactly one open sitting per assessment and a second
+   * Assign here could only ever write nothing.
+   */
+  openElsewhere: boolean;
 };
 
 export type AssessmentStatusGroups = {
@@ -172,7 +217,49 @@ export type AssessmentStatusAssignment = AssignmentStatusSource & {
 };
 
 /**
- * Every assessment, filed under exactly one of the three groups.
+ * The instance id of the COMPLETED half of a split assessment.
+ *
+ * A suffix on the template's own id rather than a second scheme, so a
+ * reader who sees it on the page knows immediately which assessment it
+ * belongs to. The template id itself stays on the open half, which is what
+ * keeps the pinned search's scroll target unchanged.
+ *
+ * TWO UNDERSCORES AND NOT A COLON, because this becomes a DOM id and
+ * several verification scripts address these rows as `#assessment-row-…`.
+ * A colon in an id is legal HTML and a PSEUDO-CLASS in a CSS selector, so
+ * `querySelector('#assessment-row-x:completed')` throws rather than
+ * returning nothing, which is a failure in the reader rather than in the
+ * thing being read.
+ */
+export function completedInstanceId(rowId: string): string {
+  return `${rowId}__completed`;
+}
+
+/**
+ * The most recent FINISHED assignment for one definition, or null.
+ *
+ * Separate from `currentAssignmentFor`, which answers a different question
+ * ("where does this client stand"): an open row wins there, which is
+ * exactly why a finished one needs its own lookup to stay visible.
+ *
+ * It trusts the caller's order no more than `currentAssignmentFor` does:
+ * getClientAssessmentAssignments returns newest first, and the first
+ * completed row in that order is the most recent completion.
+ */
+function latestCompletedAssignmentFor<T extends AssessmentStatusAssignment>(
+  assignments: T[],
+  definitionId: string
+): T | null {
+  return (
+    assignments.find(
+      (row) => row.assessmentDefinitionId === definitionId && row.status === 'completed'
+    ) ?? null
+  );
+}
+
+/**
+ * Every assessment, filed under one of the three groups, and a finished
+ * one under an open one filed under two.
  *
  * Template order is preserved inside each group, which is registry order
  * followed by the nine deep-dives, so a coach sees one stable list rather
@@ -202,7 +289,8 @@ export function groupAssessmentsByStatus(
   for (const template of templates) {
     placedDefinitionIds.add(template.definitionId);
     const current = currentAssignmentFor(assignments, template.definitionId);
-    const row: AssessmentStatusRow = {
+
+    const base = {
       id: template.id,
       definitionId: template.definitionId,
       displayName: template.displayName,
@@ -213,6 +301,12 @@ export function groupAssessmentsByStatus(
       history: template.allowsReassign
         ? (historiesByDefinitionId[template.definitionId] ?? null)
         : null,
+      resultsAnchorId: ASSESSMENT_RESULT_ANCHORS[template.id] ?? null,
+    };
+
+    const row: AssessmentStatusRow = {
+      ...base,
+      instanceId: template.id,
       assignment:
         current && current.status !== 'cancelled'
           ? {
@@ -222,10 +316,42 @@ export function groupAssessmentsByStatus(
               isOverdue: current.progress.due.isOverdue,
             }
           : null,
-      resultsAnchorId: ASSESSMENT_RESULT_ANCHORS[template.id] ?? null,
+      openElsewhere: false,
     };
-    if (current?.status === 'pending') groups.waiting.push(row);
-    else if (current?.status === 'completed') groups.completed.push(row);
+
+    if (current?.status === 'pending') {
+      groups.waiting.push(row);
+
+      /*
+        AND THE SITTING SHE ALREADY FINISHED KEEPS ITS PLACE.
+
+        Sending a second sitting is not the same fact as losing the first,
+        and before this the open row simply won: the finished one left
+        Completed, taking its View results link with it, on the very screen
+        a coach opens to compare the two. So a finished sitting under an
+        open one gets its own row in Completed, carrying the FINISHED
+        assignment's own sentence rather than the open one's.
+
+        It offers no send. One open sitting at a time is the ledger's rule
+        (migration 144), so a second Assign control on one assessment could
+        only ever write nothing, and `openElsewhere` is what the screen
+        draws a quiet line from instead.
+      */
+      const finished = latestCompletedAssignmentFor(assignments, template.definitionId);
+      if (finished) {
+        groups.completed.push({
+          ...base,
+          instanceId: completedInstanceId(template.id),
+          assignment: {
+            id: finished.id,
+            statusLine: finished.statusLine,
+            isRequired: finished.isRequired,
+            isOverdue: finished.progress.due.isOverdue,
+          },
+          openElsewhere: true,
+        });
+      }
+    } else if (current?.status === 'completed') groups.completed.push(row);
     else groups.notYetAssigned.push(row);
   }
 
@@ -238,6 +364,7 @@ export function groupAssessmentsByStatus(
     if (!current || current.id !== assignment.id) continue;
     const row: AssessmentStatusRow = {
       id: `assignment-${assignment.id}`,
+      instanceId: `assignment-${assignment.id}`,
       definitionId: assignment.assessmentDefinitionId,
       displayName: namesByDefinitionId[assignment.assessmentDefinitionId] ?? 'Assessment',
       areaLabel: 'No longer offered',
@@ -254,6 +381,7 @@ export function groupAssessmentsByStatus(
         isOverdue: assignment.progress.due.isOverdue,
       },
       resultsAnchorId: null,
+      openElsewhere: false,
     };
     if (current.status === 'pending') groups.waiting.push(row);
     else groups.completed.push(row);

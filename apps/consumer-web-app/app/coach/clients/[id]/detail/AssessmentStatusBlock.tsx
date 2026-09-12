@@ -19,14 +19,30 @@
  * sentence under a row is the assignment's own `statusLine`, written on
  * the server in the MEMBER's timezone. This component formats no date.
  *
- * A FINISHED ASSESSMENT CAN BE SENT AGAIN. Two instruments draw a real
- * reassessment comparison from a second sitting, and until this change the
- * only control left on a row once it had been finished was View results,
- * so the screen that draws that comparison had no way to ask for the
- * sitting it compares. A row that allows it now carries Assign Again in
- * Completed and Resend in Assigned, Waiting, in the same place the
- * original Assign sits. Which rows those are is read off the template
- * (lib/assignments/assignableCatalog.ts), never off the group.
+ * A FINISHED ASSESSMENT CAN BE SENT AGAIN, AND NOW ANY OF THEM CAN. Until
+ * this change the only control left on a row once it had been finished was
+ * View results, so the screen that draws a reassessment comparison had no
+ * way to ask for the sitting it compares. A row now carries Assign Again
+ * in Completed and Resend in Assigned, Waiting, in the same place the
+ * original Assign sits. Whether a row offers it is read off the template
+ * (lib/assignments/assignableCatalog.ts), never off the group, and the
+ * template reads it off the registry entry or the deep-dive's own access
+ * rule rather than off a list kept by hand.
+ *
+ * SENDING A SECOND SITTING IS NOT LOSING THE FIRST. An assessment she has
+ * finished and been sent again appears in BOTH groups: the open sitting in
+ * Assigned, Waiting, and the finished one still in Completed with its View
+ * results link. That split is decided in
+ * lib/coach-detail/assessmentStatus.ts, which is also why every key, DOM
+ * id and open-form check in this file reads `row.instanceId` rather than
+ * `row.id`: two rows on one screen share a template id on purpose, and two
+ * elements sharing a DOM id would be a real defect.
+ *
+ * THE COMPLETED HALF OFFERS NO SEND. One open sitting at a time is the
+ * ledger's own rule, so a second Assign control on one assessment could
+ * only ever write nothing and report success. It says "Already assigned,
+ * waiting" where the control would have been, which is the true thing and
+ * points the coach at the row that does have a control.
  *
  * THE FORM SAYS WHAT ALREADY HAPPENED, AND THE SERVER WROTE THE
  * SENTENCES. Last assigned, who sent it, last completed, whether one is
@@ -193,14 +209,21 @@ export function AssessmentStatusBlock({
               <ul className="mt-1.5 divide-y divide-[#1B3A2D]/5 border-t border-[#1B3A2D]/5">
                 {groups[key].map((row) => (
                   <AssessmentRow
-                    key={row.id}
+                    key={row.instanceId}
                     row={row}
                     group={key}
                     clientId={clientId}
+                    /*
+                      THE MARK IS ADDRESSED BY TEMPLATE, THE FORM BY
+                      INSTANCE. A coach who searched for an assessment
+                      wants both halves of a split marked, because both
+                      are that assessment. An open form belongs to exactly
+                      one row on the screen.
+                    */
                     highlighted={highlightedRowId === row.id}
-                    formOpen={openFormRowId === row.id}
+                    formOpen={openFormRowId === row.instanceId}
                     busy={isPending}
-                    onToggleForm={() => toggleForm(row.id)}
+                    onToggleForm={() => toggleForm(row.instanceId)}
                     onAssigned={() => {
                       setOpenFormRowId(null);
                       router.refresh();
@@ -253,8 +276,17 @@ function AssessmentRow({
     saying the true thing about what pressing it will do.
   */
   const sendAgain = row.capability.canAssign && row.allowsReassign;
+  /*
+    ONE OPEN SITTING AT A TIME, SAID ON THE SCREEN AND NOT ONLY IN THE
+    DATABASE. The finished half of a split assessment can offer nothing:
+    the ledger holds one open row per assessment, so an Assign here would
+    write nothing and report success. It carries a quiet line instead, and
+    the Resend control stays on the row that actually has an open sitting.
+  */
   const offersSend =
-    row.capability.canAssign && (group === 'notYetAssigned' || sendAgain);
+    !row.openElsewhere &&
+    row.capability.canAssign &&
+    (group === 'notYetAssigned' || sendAgain);
   const sendLabel =
     group === 'notYetAssigned'
       ? coachAssignCopy(copy, 'assign.row_assign')
@@ -264,8 +296,8 @@ function AssessmentRow({
 
   return (
     <li
-      id={assessmentRowElementId(row.id)}
-      data-assessment-row={row.id}
+      id={assessmentRowElementId(row.instanceId)}
+      data-assessment-row={row.instanceId}
       className={`-mx-1 scroll-mt-24 rounded-xl px-1 py-2 transition ${
         highlighted ? 'bg-[#F5B700]/15' : ''
       }`}
@@ -313,6 +345,15 @@ function AssessmentRow({
             >
               Cancel
             </button>
+          )}
+
+          {row.openElsewhere && (
+            <span
+              data-assign-waiting-note={row.id}
+              className="shrink-0 text-xs font-medium text-[#6B7A72]"
+            >
+              {coachAssignCopy(copy, 'assign.row_already_waiting')}
+            </span>
           )}
 
           {offersSend && (

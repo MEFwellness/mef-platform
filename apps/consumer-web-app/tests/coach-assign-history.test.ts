@@ -34,10 +34,19 @@ import {
 } from '../lib/coach-assign/copy';
 import { RESEND_DEFAULT_DUE_IN_DAYS } from '../lib/coach-assign/constants';
 
-const MIGRATION = path.resolve(
-  __dirname,
-  '../../../supabase/migrations/00000000000229_coach_assign_copy.sql'
-);
+/**
+ * EVERY MIGRATION THAT SEEDS ONE OF THESE ROWS, not just the first.
+ *
+ * Migration 229 created the bank. 233 added the line a finished row prints
+ * while a newer sitting is still out. A guard reading only the first file
+ * would have reported "no row seeded" for a key that is seeded, which is a
+ * failure that teaches the wrong lesson, or worse, would have passed while
+ * a later addition drifted from its fallback.
+ */
+const MIGRATIONS = [
+  '00000000000229_coach_assign_copy.sql',
+  '00000000000233_coach_assign_already_waiting_copy.sql',
+].map((file) => path.resolve(__dirname, `../../../supabase/migrations/${file}`));
 
 const WBS = 'def-whole-body-signal';
 const OTHER = 'def-something-else';
@@ -216,7 +225,7 @@ describe('her first name, for the notice', () => {
 });
 
 describe('the copy rows migration 229 seeds', () => {
-  const sql = fs.readFileSync(MIGRATION, 'utf8');
+  const sql = MIGRATIONS.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
   const seeded = new Map<string, string>();
   for (const match of sql.matchAll(/\('(assign\.[a-z_]+)',\s*'((?:[^']|'')*)'/g)) {
     seeded.set(match[1]!, match[2]!.replace(/''/g, "'"));

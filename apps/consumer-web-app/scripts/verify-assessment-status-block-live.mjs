@@ -337,7 +337,16 @@ async function main() {
     });
     const field = page.locator('[data-detail-page-search="true"] input');
     await field.waitFor({ timeout: 30000 });
-    await field.fill('joy');
+    /*
+      TYPED, NOT FILLED. `fill` sets the value in one step, and this search
+      opens its panel and builds its list from real keystrokes, so a filled
+      field sat there with the right text in it and an empty panel under
+      it: the run then timed out on a result that a person typing the same
+      three letters gets immediately. The product is fine; the reader was
+      not typing.
+    */
+    await field.click();
+    await field.pressSequentially('joy', { delay: 90 });
     const joyResult = page.locator('[data-questionnaire-result="where-your-joy-lives"]');
     await joyResult.waitFor({ timeout: 15000 });
     check(
