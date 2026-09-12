@@ -248,6 +248,25 @@ async function noPractitionerWord(page, label) {
   check(`${label}: no percentage`, !/\d+\s*%/.test(text));
 }
 
+/**
+ * Press a control and WAIT FOR THE APP TO AGREE it was pressed.
+ *
+ * The coach detail page is large, and a click that lands on server
+ * rendered HTML before React has hydrated does nothing at all, silently.
+ * That is what made the first three runs report "View All Answers is not
+ * offered" about a panel that offers it perfectly: the fold had never been
+ * opened, because the click had never reached a listener.
+ */
+async function press(locator, attribute = 'aria-expanded') {
+  await locator.scrollIntoViewIfNeeded().catch(() => {});
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    await locator.click({ timeout: 10000 }).catch(() => {});
+    if ((await locator.getAttribute(attribute)) === 'true') return true;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  return false;
+}
+
 /** Open every folded section on the coach page, which is how its cards reach the DOM. */
 async function openFolds(page) {
   for (let pass = 0; pass < 3; pass += 1) {
@@ -264,6 +283,8 @@ async function openFolds(page) {
 const browser = await chromium.launch();
 let minted = null;
 let coach = null;
+/** Declared out here so the cleanup in the finally can read it. */
+let knownDismissals = null;
 
 try {
   // ------------------------------------------------------------------
@@ -353,19 +374,98 @@ try {
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('text=/whole-body signal/i', { timeout: 120000 });
-  const homeText = await textOf(page);
+
+  /*
+    ROOT KNOCKS ONCE AT A TIME, AND THIS ONE IS NOT NECESSARILY FIRST.
+
+    The chain returns a single message per open, in a fixed order, and this
+    member can legitimately have another one due above it. So this reads
+    every knock she is given, dismissing each in turn, and asserts that one
+    of them carried the approved line. Reading only the first would have
+    made this check depend on what else happened to be due that day.
+  */
+  /*
+    SHE MAY BE OWED MORE THAN ONE KNOCK, AND ROOT GIVES ONE PER OPEN.
+
+    The chain returns a single message per open, in a fixed order, and this
+    member legitimately has others above this one. So each knock is
+    dismissed with Maybe later, which genuinely means "ask again next
+    login", and Home is reopened to collect the next. Reading only the
+    first would have made this check depend on what else happened to be due
+    that day, which is exactly how it failed on the first run: she was
+    knocked about the Core Values Snapshot and this reported no knock.
+
+    EVERY DISMISSAL THIS RUN WRITES IS REMOVED AT THE END, and only the
+    ones this run wrote: the keys already on her row are read first.
+  */
+  const { data: dismissalsBefore } = await admin
+    .from('member_root_popup_dismissals')
+    .select('message_key')
+    .eq('member_id', MEMBER);
+  knownDismissals = new Set((dismissalsBefore ?? []).map((row) => row.message_key));
+
+  const knocks = [];
+  /*
+    AND THE KNOCK ARRIVES AFTER THE PAGE DOES. The chain is resolved on the
+    server and the frame mounts a moment after Home's own content, so
+    counting dialogs the instant the card's words appear counts zero and
+    reports "she was never knocked" about a member who was. Wait for the
+    frame, not for the page.
+  */
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (attempt > 0) {
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('text=/whole-body signal/i', { timeout: 120000 });
+    }
+    const appeared = await page
+      .waitForSelector('[role="dialog"]', { timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!appeared) break;
+
+    const dialog = page.getByRole('dialog').first();
+    // ITS TEXT ARRIVES AFTER ITS BOX DOES. The frame mounts first and its
+    // words a frame or two later, so reading innerText the instant the
+    // selector resolves reads an empty dialog and reports a knock nobody
+    // could see.
+    let knockText = '';
+    for (let read = 0; read < 25 && knockText.trim().length === 0; read += 1) {
+      // textContent rather than innerText: this frame fades in, and
+      // innerText reports what is PAINTED, so a dialog mid-animation reads
+      // as an empty one.
+      knockText = (await dialog.textContent().catch(() => '')) ?? '';
+      if (knockText.trim().length === 0) await page.waitForTimeout(200);
+    }
+    if (knockText.trim()) knocks.push(knockText);
+    check('a knock carries no em dash', !knockText.includes(EM));
+
+    const dismiss = dialog.getByRole('button', {
+      name: /maybe later|not today|not now|later|dismiss|no thanks|close/i,
+    });
+    if (await dismiss.count()) {
+      await dismiss.first().click().catch(() => {});
+    } else {
+      await page.keyboard.press('Escape').catch(() => {});
+    }
+    await page
+      .waitForFunction(() => document.querySelectorAll('[role="dialog"]').length === 0, {
+        timeout: 15000,
+      })
+      .catch(() => {});
+
+    if (knockText.includes(MEMBER_COPY['member.popup_body'])) break;
+  }
 
   check(
     'the pop-up knocks with the approved line',
-    homeText.includes(MEMBER_COPY['member.popup_body']),
-    MEMBER_COPY['member.popup_body']
+    knocks.some((text) => text.includes(MEMBER_COPY['member.popup_body'])),
+    `${knocks.length} knock(s): ${knocks.map((t) => t.split('\n')[1] ?? t.split('\n')[0]).join(' | ').slice(0, 160)}`
   );
-  await noEmDash(page, 'the pop-up');
 
-  // Dismiss the pop-up so the persistent card underneath can be read.
-  const maybeLater = page.getByRole('button', { name: /maybe later/i });
-  if (await maybeLater.count()) await maybeLater.first().click();
-  await page.waitForTimeout(400);
+  // Nothing may be covering the card underneath by the time it is read.
+  await page.waitForFunction(() => document.querySelectorAll('[role="dialog"]').length === 0, {
+    timeout: 30000,
+  });
 
   const cardText = await textOf(page);
   check('the entry card says what it is', cardText.includes(MEMBER_COPY['member.card_body']));
@@ -524,6 +624,56 @@ try {
     throw new Error(`${label}: the walk never reached the completion screen`);
   }
 
+  /**
+   * Wait for her results to arrive.
+   *
+   * THE SUBMIT IS ALREADY IN FLIGHT: her last answer started it, and the
+   * reveal plays over it, so View My Results is disabled until it lands and
+   * the screen turns into her results on its own. Waiting on the heading is
+   * waiting on the server.
+   *
+   * AND IF IT DOES NOT ARRIVE, THE BUTTON IS PRESSED. That button exists
+   * for the member whose submit did not land, and a run that never used it
+   * would never prove it works. Whatever happens, this reports what the
+   * screen actually said rather than a bare timeout.
+   */
+  async function awaitResults(label) {
+    const started = Date.now();
+    const heading = `text=/${MEMBER_COPY['member.results_heading']}/i`;
+    const arrived = await page
+      .waitForSelector(heading, { timeout: 90000 })
+      .then(() => true)
+      .catch(() => false);
+    if (arrived) {
+      check(label, true, `${Math.round((Date.now() - started) / 1000)}s`);
+      return;
+    }
+
+    const cta = page.getByRole('button', { name: MEMBER_COPY['member.completion_cta'] });
+    const pressable = (await cta.count()) > 0 && !(await cta.first().isDisabled());
+    if (pressable) {
+      await cta.first().click().catch(() => {});
+      const second = await page
+        .waitForSelector(heading, { timeout: 90000 })
+        .then(() => true)
+        .catch(() => false);
+      if (second) {
+        check(label, true, `${Math.round((Date.now() - started) / 1000)}s, after pressing View My Results`);
+        return;
+      }
+    }
+
+    const stuck = await textOf(page);
+    check(
+      label,
+      false,
+      `after ${Math.round((Date.now() - started) / 1000)}s the screen said: ${stuck
+        .replace(/\n/g, ' ')
+        .slice(0, 240)} | button pressable: ${pressable} | console: ${consoleErrors.slice(0, 2).join(' | ')}`
+    );
+    throw new Error(`${label}: her results never arrived`);
+  }
+
   // --- the first two sections, then a real close and resume ---
   const partial = await walk({
     label: 'first sitting',
@@ -582,25 +732,7 @@ try {
   );
 
   // --- the completion reveal, then her results ---
-  /*
-    THE SUBMIT IS ALREADY IN FLIGHT. Her last answer started it, and the
-    reveal plays over it, so View My Results is disabled until it lands and
-    the screen turns into her results on its own. Waiting on the heading is
-    waiting on the server; waiting on the button would be waiting on a
-    control that is about to be replaced.
-  */
-  const revealStarted = Date.now();
-  try {
-    await page.waitForSelector(`text=/${MEMBER_COPY['member.results_heading']}/i`, { timeout: 120000 });
-  } catch (waitError) {
-    const stuck = await textOf(page);
-    check('the completion reveal resolves into her results', false,
-      `after ${Math.round((Date.now() - revealStarted) / 1000)}s the screen said: ${stuck.replace(/\n/g, ' ').slice(0, 200)} | console: ${consoleErrors.slice(0, 2).join(' | ')}`);
-    throw waitError;
-  }
-  check('the completion reveal resolves into her results', true,
-    `${Math.round((Date.now() - revealStarted) / 1000)}s`);
-
+  await awaitResults('the completion reveal resolves into her results');
   const resultsText = await textOf(page);
   check('her results are headed with the approved line', resultsText.includes(MEMBER_COPY['member.results_heading']));
   check('and the calm opening sentence', resultsText.includes(MEMBER_COPY['member.results_intro']));
@@ -620,7 +752,12 @@ try {
   const cardOpen = await textOf(page);
   check('tapping a section opens its card', cardOpen.includes(MEMBER_COPY['member.section_card_next_heading']));
   check('with the what-happens-next copy', cardOpen.includes(MEMBER_COPY['member.section_card_next_body']));
-  check('and plain language themes only', cardOpen.includes(MEMBER_COPY['member.section_card_themes_label']));
+  // innerText reports what CSS PAINTED, and this label carries an
+  // `uppercase` class.
+  check(
+    'and plain language themes only',
+    new RegExp(MEMBER_COPY['member.section_card_themes_label'], 'i').test(cardOpen)
+  );
   await noPractitionerWord(page, 'an open section card');
 
   const { data: stored } = await admin
@@ -668,16 +805,30 @@ try {
   check('at most six coaching questions are offered', askButtons <= 6, `${askButtons} cards`);
   check('and at least one is', askButtons >= 1);
 
-  // View All Answers, on a real section.
-  await panel.getByRole('button', { name: /why this scored high/i }).count();
-  const sectionToggle = panel.locator('button[aria-expanded]').filter({ hasText: /%$/ }).first();
-  await sectionToggle.click().catch(() => {});
-  await coachPage.waitForTimeout(400);
+  /*
+    VIEW ALL ANSWERS, ON A REAL SECTION.
+
+    A why-section toggle is the only control on this panel that is both an
+    aria-expanded button and carries a percentage, which is what
+    distinguishes it from the coaching question chips (aria-pressed) and
+    from the page's own folds.
+  */
+  const sectionToggle = panel.locator('button[aria-expanded]').filter({ hasText: '%' }).first();
+  check('a section can be opened to see why it scored', (await sectionToggle.count()) > 0);
+  check('and the press registers', await press(sectionToggle));
   const viewAll = panel.getByRole('button', { name: /view all answers/i }).first();
-  check('View All Answers is offered on an open section', (await viewAll.count()) > 0);
-  if (await viewAll.count()) {
+  const viewAllAppeared = await viewAll
+    .waitFor({ state: 'visible', timeout: 20000 })
+    .then(() => true)
+    .catch(() => false);
+  check(
+    'View All Answers is offered on an open section',
+    viewAllAppeared,
+    viewAllAppeared ? '' : (await panel.innerText()).replace(/\n/g, ' ').slice(0, 200)
+  );
+  if (viewAllAppeared) {
     await viewAll.click();
-    await coachPage.waitForTimeout(400);
+    await coachPage.waitForTimeout(600);
     const opened = await panel.innerText();
     check('and it lists her own answers', /never|rarely|sometimes|often|almost always/i.test(opened));
   }
@@ -744,19 +895,70 @@ try {
   const different = SECTIONS.map((s) => s.section_key).find((key) => !recommended.includes(key));
   const differentName = SECTIONS.find((s) => s.section_key === different).display_name;
 
-  await panel.getByRole('button', { name: /change priority/i }).first().click();
-  await coachPage.waitForTimeout(300);
-  await panel.getByRole('button', { name: new RegExp(`^${differentName}`, 'i') }).first().click();
+  /*
+    ADDRESS THE FOCUS OPTION BY WHAT IT IS, not by its name alone.
 
+    Every section's name appears twice on this panel: once on its own
+    why-this-scored-high toggle and once in the focus list. Those are
+    different controls, and a first-match on the name presses the fold
+    rather than making the choice, which is exactly the failure a
+    copy-based locator produces: it clicks something, so it does not throw,
+    and the check then fails for a reason nobody can see. The focus options
+    are the aria-pressed buttons.
+  */
+  const changePriority = panel.getByRole('button', { name: /change priority/i }).first();
+  check('Change Priority opens the list of every section', await press(changePriority));
+  const focusOption = panel.locator('button[aria-pressed]').filter({ hasText: differentName }).first();
+  const focusOptionAppeared = await focusOption
+    .waitFor({ state: 'visible', timeout: 20000 })
+    .then(() => true)
+    .catch(() => false);
+  check(
+    'the focus list offers every section by name',
+    focusOptionAppeared,
+    focusOptionAppeared
+      ? differentName
+      : `${differentName} missing. aria-pressed controls: ${(
+          await panel.locator('button[aria-pressed]').allInnerTexts()
+        )
+          .join(' / ')
+          .slice(0, 200)}`
+  );
+  if (!focusOptionAppeared) throw new Error('the focus list never opened');
+
+  /*
+    CONFIRMED BY THE ROW, NOT BY THE BUTTON.
+
+    Choosing a focus closes the list, so the control that was pressed is
+    gone a moment later and reading its aria-pressed back times out on a
+    choice that worked perfectly. What actually proves the tap landed is
+    the row it wrote, so this presses and then waits on the database, and
+    presses again if the first one arrived before hydration.
+  */
   let focus = null;
-  for (let attempt = 0; attempt < 60 && !focus; attempt += 1) {
-    const { data } = await admin
-      .from('member_whole_body_signal_focus')
-      .select('section_key, session_id')
-      .eq('session_id', stored.id)
-      .maybeSingle();
-    focus = data ?? null;
-    if (!focus) await new Promise((resolve) => setTimeout(resolve, 400));
+  for (let round = 0; round < 6 && !focus; round += 1) {
+    if (round > 0) {
+      const again = panel.locator('button[aria-pressed]').filter({ hasText: differentName }).first();
+      if ((await again.count()) === 0) {
+        await press(changePriority);
+      }
+    }
+    await panel
+      .locator('button[aria-pressed]')
+      .filter({ hasText: differentName })
+      .first()
+      .click({ timeout: 10000 })
+      .catch(() => {});
+
+    for (let attempt = 0; attempt < 15 && !focus; attempt += 1) {
+      const { data } = await admin
+        .from('member_whole_body_signal_focus')
+        .select('section_key, session_id')
+        .eq('session_id', stored.id)
+        .maybeSingle();
+      focus = data ?? null;
+      if (!focus) await new Promise((resolve) => setTimeout(resolve, 400));
+    }
   }
   check('the coach can choose a focus different from the recommendation', focus?.section_key === different,
     `${focus?.section_key} vs recommended ${recommended.join(',')}`);
@@ -766,7 +968,17 @@ try {
   await openFolds(coachPage);
   const afterFocus = await coachPage.locator('#detail-card-whole-body-signal').innerText();
   check('BOTH are shown: what the assessment recommended', /recommended by this assessment/i.test(afterFocus));
-  check('and what the coach chose', /chosen by you/i.test(afterFocus) && afterFocus.includes(differentName));
+  /*
+    READ IT OUT OF THE FOCUS BLOCK. Every section name appears in the
+    signal map too, so searching the whole panel for it would pass whatever
+    the coach had chosen, including nothing.
+  */
+  const chosenBlock = afterFocus.slice(afterFocus.search(/chosen by you/i));
+  check(
+    'and what the coach chose, beside it rather than instead of it',
+    /chosen by you/i.test(afterFocus) && chosenBlock.slice(0, 200).includes(differentName),
+    chosenBlock.replace(/\n/g, ' ').slice(0, 120)
+  );
 
   // ------------------------------------------------------------------
   // 4. A RETAKE, ANSWERED DIFFERENTLY.
@@ -785,8 +997,7 @@ try {
   await page.getByRole('button', { name: MEMBER_COPY['member.intro_button'] }).click();
   // Answered at the QUIET end this time, so every section moves.
   await walk({ label: 'retake', answerFor: () => 'Never' });
-  await page.waitForSelector(`text=/${MEMBER_COPY['member.results_heading']}/i`, { timeout: 120000 });
-  check('the retake finishes and shows her a fresh picture', true);
+  await awaitResults('the retake finishes and shows her a fresh picture');
   await noPractitionerWord(page, 'the retake results');
 
   await coachPage.reload({ waitUntil: 'domcontentloaded' });
@@ -812,6 +1023,26 @@ try {
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passing`);
   if (failed.length) console.log('FAILED:\n' + failed.map((f) => `  ${f.name} ${f.note}`).join('\n'));
+
+  // Only the dismissals THIS RUN wrote, and only if it got far enough to
+  // read what was there before it started.
+  if (knownDismissals) {
+    const { data: after } = await admin
+      .from('member_root_popup_dismissals')
+      .select('message_key')
+      .eq('member_id', MEMBER);
+    const added = (after ?? [])
+      .map((row) => row.message_key)
+      .filter((key) => !knownDismissals.has(key));
+    if (added.length > 0) {
+      await admin
+        .from('member_root_popup_dismissals')
+        .delete()
+        .eq('member_id', MEMBER)
+        .in('message_key', added);
+      console.log(`removed ${added.length} dismissal row(s) this run created`);
+    }
+  }
 
   if (coach) await retireSession(coach);
   if (minted) await retireSession(minted);

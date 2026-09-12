@@ -1,3 +1,302 @@
+## The MEF Whole-Body Signal Assessment (2026-09-11)
+
+A new, original, coach-assigned practitioner assessment. Nine sections,
+ninety six questions, one branching section, six Zones, eight cross section
+patterns and fifty three coaching questions.
+
+**IT IS A NEW INSTRUMENT, and the other two are not touched.** The MEF Body
+Systems Survey (migrations 220 to 224) and the legacy Whole-Body Check-In in
+the assessment registry keep their own definition ids, their own tables and
+their own bands. Migration 225 alters neither of them, drops nothing, and
+writes to no table belonging to either. The one place a sibling is named is
+the `assessment_attempts` source table check, re-added additively with every
+existing value kept, and a test asserts exactly that.
+
+### EVERY WORD AND EVERY NUMBER IS A ROW
+
+Eleven content tables plus one shared revision trail
+(`whole_body_signal_content_revisions`, the same shape
+`body_systems_content_revisions` has held since migration 220, and for the
+same reason). Sections, questions, both point maps of the five option scale,
+the reverse flag, the routing question and its branch map, the four bands
+and their cut offs, the six Zones with their spinal segments, organ and
+gland lists and chakra lenses, the three Signal Load weights, the pattern
+rules, the whole coaching question library and every member and coach line.
+A correction needs no deploy.
+
+**The bands are this instrument's own.** No global threshold set was created
+and none was touched. `body_systems_bands` is a different table for a
+different instrument and is byte for byte what it was.
+
+### THE TWO LAYERS ARE SEPARATED FOUR TIMES OVER
+
+The brief called them almost two different products, and the separation is
+structural rather than a screen choosing not to draw something:
+
+**In the database.** `whole_body_signal_zones`, `_patterns` and
+`_coaching_questions` carry a staff select policy and NO member policy at
+all, so a member session asking for a Zone row directly gets none. The
+coach's chosen focus and his marks on coaching questions have no member
+policy either: a coaching priority is a working note about her, decided in a
+conversation she has not had yet.
+
+**In the loader.** Three bundles, each issuing its own select rather than
+filtering one big object. `loadMemberContent` is what CROSSES TO THE
+BROWSER: seven columns on a question, and not one of them is a direction, a
+Zone, an organ, a gland or a coach topic. `loadReadingContent` runs server
+side on her own request and adds only the two things her own reading needs,
+the direction each question scores in and its plain language theme, plus the
+Zone KEYS, because a Zone rollup is arithmetic over question tags and a key
+carries no words. `loadCoachContent` is called in exactly one place, after
+the caller has been established as a coach or an administrator.
+
+**In the type.** `MemberResultsView` has no field a Zone, a chakra, an
+organ, a colour, a score or a percentage could sit in. Bar length on the
+signal landscape is `bandStep`, the band's own place in the band order, so
+four bands make four lengths and no percentage ever reaches her payload. A
+percentage would have been easier.
+
+**In the guard.** `tests/whole-body-signal-member-payload.test.tsx` checks
+all four: the column list read out of the source, the built view walked key
+by key and string by string, the transitive import graph of every member
+surface, and the rendered screen including its serialised markup. It proves
+itself non-vacuous by asserting the coach panel CAN reach the three
+practitioner modules.
+
+### ONE QUESTION PER SCREEN, DELIBERATELY
+
+This app's other questionnaires put two or three on a screen. This one does
+not, and that is written at the top of the component so nobody corrects it:
+the question sits in the upper middle of a phone, the five answers sit in
+thumb reach, a normal question screen never scrolls, and the change to the
+next one is two tenths of a second.
+
+**A tap is the answer and the advance.** Ninety six Continues under ninety
+six answers is a hundred and ninety two taps. The correction path is Back,
+which keeps the answer on screen so changing it is one tap. The screens that
+are NOT a question, the section intro and the section beat, carry a real
+Continue, because there is nothing on them to tap instead.
+
+Every section opens and closes with its own beat, and the intro plays that
+section's own abstract motion cue from its stored `motion_cue` key: soft
+organic shapes, a slow circular pulse, a flowing line, connected dots, a
+downward clearing flow, a line that begins tight and opens, a sunrise arc, a
+balanced wave, and a pulse that settles. Two inks, both already on the
+panel. Never a chakra colour and never anatomy.
+
+### WHERE SHE PICKS UP IS DERIVED, NEVER A STORED INDEX
+
+Section 8's length depends on what she answered to its routing question, so
+an index stored yesterday can mean a different screen today. The first
+screen she has not dealt with decides it, and each kind has its own honest
+test: a section intro is dealt with once she has answered something in that
+section, the routing screen once she has answered it, a question once she
+has answered it, and a beat is always skipped.
+
+**A test caught a real bug in that rule.** The first version returned the
+first unanswered QUESTION, which meant a brand new sitting opened on
+Section 1's first question and never showed Section 1's beat at all. A
+section she has not started now opens on its own beat, which is also what
+puts a returning member back at a section boundary properly.
+
+### THE SCORING, AND WHAT IT REFUSES TO DO
+
+Deterministic. No AI provider is anywhere near it.
+
+Response conversion is a LOOKUP, not a subtraction: each scale option
+carries both of its point values as stored columns, so nothing in code knows
+what the top of the scale is in order to flip it. The member sees no
+difference: the five labels are one list with no direction on them.
+
+A section's maximum counts only the questions this member was SHOWN. A
+Prefer not to answer leaves both sides of the fraction and contributes to no
+Zone, on either side. A section nobody answered is left out of the Signal
+Load entirely, because averaging in a section she was never asked about
+would report her as less loaded than she is.
+
+The Zone rollup is QUESTION level, never section level: full weight from a
+primary tag, half from a secondary one, normalised, so a Zone fed by four
+questions and one fed by forty read on one scale. A Zone no answered
+question touches is left out rather than reported at nought, because "no
+question she answered touches Zone 4" and "Zone 4 is quiet" are different
+facts and only one of them is true.
+
+The secondary Zone is SUPPRESSED unless it clears both stored thresholds, at
+least 25 absolute and at least 60 percent of the primary. A second Zone that
+is neither is not a pattern, it is the next line of a list.
+
+**The Signal Load produces 65 for the approved worked example**, and its
+test says so in those terms: sections 29, 61, 83, 42, 38, 88, 72, 54, 69
+give components 59.6, 66.7 and 81.0 and a Load of 65. The components are
+stored at one decimal and the Load is computed from the UNROUNDED ones, so
+what a coach reads adds up.
+
+**Where the number 50 lives.** Once, as
+`whole_body_signal_settings.load.elevated_min_percent`. Every pattern rule
+and every coaching trigger omits its own threshold and reads that one row,
+and a test fails if any seeded rule carries one. The same applies to
+`why.strong_min_signal`, which is the one definition of a strong answer the
+whole instrument uses, member side and coach side.
+
+### THE COACH'S PAGE, IN THE ORDER HE READS IT
+
+Priorities with the two buttons, the signal map, the Signal Load with its
+three components and its change, why-this-scored-high per section with View
+All Answers, the Zone pattern panel with its contributors, the associated
+coaching map (organs and glands, spinal segments and chakra lens, verbatim,
+text only), the fired cross patterns, at most six coaching questions with
+asked, copy, hide and save, the coaching focus, and the reassessment.
+
+**The coach's choice sits beside the recommendation, never instead of it.**
+The focus table holds only what he picked; what the assessment recommended
+is recomputed from the stored results every time, so both are always on the
+screen and a later content fix moves the recommendation without rewriting
+what he once decided.
+
+**The three marks on a coaching question are independent.** Three
+timestamps rather than one state column, and only the field his tap names is
+written, so marking one asked does not quietly clear that it was saved. A
+blank is not an erasure.
+
+**Nothing writes a sentence about a pattern.** Every pattern line and every
+coaching question is a column on the row that fired. The single assembled
+sentence in the whole feature is the Zone contribution line, built from three
+stored fragments plus her own top coach topics, and it is EMPTY rather than
+half a sentence when there is nothing to name.
+
+### WHAT THE COACHING QUESTIONS DO WITH SIX SLOTS
+
+Combination triggers first, then answer level, then Zone, then section,
+strongest first inside each tier, near duplicate topics collapsed BEFORE the
+cut rather than after it, capped by a stored number. A hidden question is
+still selected: hiding is the coach's note about one sitting, applied by the
+surface, because a selection that reshuffled when he hid a card would
+promote a seventh question he had never been offered.
+
+### THE MEMBER'S RESULTS
+
+Strongest first, grouped under band names, soft tonal differences and not
+one traffic light. A vertical signal landscape of thin bars, each labelled
+with its band's own plain intensity word. Tapping a section opens a card
+with the band, one calm sentence, up to three plain language themes and what
+happens next.
+
+**The lead sentence is only printed where it is true.** "Your answers
+suggest ... patterns are showing up strongly right now" is drawn only for a
+section that actually reached the elevated threshold. Below it the band's
+own calm line stands alone, because the alternative is Root telling her
+something untrue on the quietest card on her screen.
+
+### A SUBMIT THAT REJECTS MUST NOT LEAVE HER ON A DEAD BUTTON
+
+Found on the first live walk against production. Her last answer starts the
+submit and the reveal plays over it, so View My Results is disabled until it
+lands. The await had nothing around it, so a call that REJECTED rather than
+returning an error left `submitting` true forever: disabled button, no
+message, no way forward. A rejection is what a dropped connection on a phone
+looks like. A finally is the fix, and pressing the button again is safe
+because completion is write once in the database.
+
+### TESTS
+
+Five new files and one fixture that READS the migrations rather than
+retyping them: `whole-body-signal-scoring.test.ts` (38),
+`whole-body-signal-content.test.ts` (32),
+`whole-body-signal-member-payload.test.tsx` (16),
+`whole-body-signal-coach-reading.test.ts` (35),
+`whole-body-signal-gate.test.ts` (44), plus
+`whole-body-signal-fixture.ts`.
+
+**The fixture had a real bug of its own, and the tests found it.** These
+migrations carry explanatory comments inside their values blocks, and a
+comment containing an apostrophe opened a string the tuple parser never
+closed, swallowing every row after it. The whole copy table parsed as
+nothing. `stripSqlComments` is quote aware for exactly that reason.
+
+**Six new guards were proved by breaking them and watching them fail**: a
+Zone put on the member view, a retuned Signal Load weight, an em dash typed
+into the seeded copy, the pop-up branch skipping its own due check, the
+coaching question cap lifted, and a Prefer not to answer counted in a
+section maximum. All six failed, all six were reverted and re-verified.
+
+Full suite 568 files, 10,711 tests, all passing. Typecheck clean, lint 0
+errors, production build clean. `/whole-body-signal` first load 8.71 kB, and
+shared JavaScript for every page is unchanged at 87.7 kB.
+
+### PRODUCTION
+
+Migrations 225, 226 and 227 applied 2026-09-11 and read back: 6 zones, 9
+sections, 96 questions, 5 scale options, 4 bands, 6 routing options, 6
+branch rules, 8 patterns, 53 coaching questions, 106 copy rows, 14 settings.
+Zero member policies on the three practitioner tables. Zero em dashes in
+stored content. The Body Systems Survey re-counted and unchanged at 11
+sections and 76 copy rows.
+
+The migration ledger had caught up: production's
+`supabase_migrations.schema_migrations` now ends at 224, so a standard
+`db push` applied exactly these three. The note that it ended at 219 is out
+of date.
+
+### LIVE VERIFICATION, PRODUCTION, 2026-09-11
+
+`scripts/verify-whole-body-signal-live.mjs` drives the whole journey against
+a running app and is parameterised by environment variables, so the same
+walk runs locally.
+
+**132 of 132 checks passing on app.mefwellness.com, twice in a row**, as
+8weeks2fab@gmail.com with the coach half as Osei. The coach's real Assign
+control wrote the assignment with a default due date seven days out; the
+pop-up knocked with the approved line; the card carried its own words and
+the delivery receipt was written once; the opening screen, all nine section
+beats, one question per screen with both progress lines, the Section 8
+branch answered "I am in perimenopause or menopause" asking exactly T1, T2,
+B1 and the universal four and none of the cycle questions; a real close and
+a Welcome back resume that never restarted her; the completion reveal; her
+results in band language with no Zone, chakra, organ, gland, spinal segment,
+colour word or percentage on screen OR in the page payload; a section card
+opened to plain language themes; the coach's whole reading including View
+All Answers, the Zone panel, the associated coaching map, the fired
+patterns and six coaching questions with asked, copy, save and hide all
+stored; a coaching focus chosen DIFFERENT from the recommendation with both
+shown; and a retake whose comparison printed "45 to 60, +15", a Zone shift,
+the Signal Load trend and the priority chosen last time. Zero console or
+page errors on every screen either account saw.
+
+**THREE THINGS THE RUNS FOUND, and two of them were the script's own.** The
+submit rejection above was the app's. The other two are the traps this
+codebase already knew about, met again: a click that lands before hydration
+does nothing silently, which made three runs report "View All Answers is not
+offered" about a panel that offers it perfectly, and a control addressed by
+its name alone pressed the wrong thing, because every section's name appears
+twice on the coach's page. Both are now confirmed presses.
+
+**State left on production: none.** Confirmed after the run by an
+independent read on a fresh connection: no sitting, no assignment, no
+attempt, no focus row, no coaching question mark, no orphan delivery receipt
+and no dismissal row. The dismissals the run itself created by tapping
+"Maybe later" on another experience's knock are removed too, and only the
+ones it created: the keys already on her row are read before it starts.
+
+### JUDGMENT CALLS
+
+**No Root Map rows.** The brief enumerates in detail what the member and the
+coach each see and never mentions the Root Map, so this publishes no
+registry finding. Adding one would have meant inventing nine finding names
+and nine domain mappings nobody approved. The assessment_attempts ledger IS
+joined, because that is what closes the coach's assignment out.
+
+**`member_theme` is NOT NULL.** The specification gives a COACH topic per
+question and a member may never read one. A nullable column with a fallback
+to `coach_topic` would be a practitioner label one missing row away from her
+screen, so all ninety six are authored, and the guard can then be absolute.
+
+**Three copy rows are authored rather than approved**, and each says so in
+its own `note` column: the member transition line and area phrase on a
+section, because the specification gives a practitioner's description of
+what a section covers and a member needs a sentence, and the one save-error
+line.
+
+
 ## The bug fix and polish pass on the questionnaire work (2026-09-11)
 
 Four things reported from a real phone after the answering experience went
