@@ -73,7 +73,9 @@ export function ActiveExperimentsCard({ rows }: { rows: readonly ActiveExperimen
     <div /* `:where(.mef-card)` sets the padding at zero specificity on purpose
           (app/globals.css), so a plain `p-0` from the utilities layer wins and
           the rows can own their own insets edge to edge. */
-      className="mef-card overflow-hidden p-0">
+      className="mef-card overflow-hidden p-0"
+      data-testid="active-experiments-card"
+    >
       {rows.map((row, index) => {
         const open = openIds.includes(row.id);
         return (
@@ -85,6 +87,11 @@ export function ActiveExperimentsCard({ rows }: { rows: readonly ActiveExperimen
               type="button"
               onClick={() => toggle(row.id)}
               aria-expanded={open}
+              /* A stable handle for the production walk. The row's own text
+                 deliberately changes when it opens (the day and the logged
+                 state move to the panel), so a locator built from its words
+                 loses the row it just tapped. */
+              data-testid="active-experiment-row"
               className="mef-focus-ring flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-[#1B3A2D]/[0.03]"
             >
               <span className="min-w-0 flex-1">

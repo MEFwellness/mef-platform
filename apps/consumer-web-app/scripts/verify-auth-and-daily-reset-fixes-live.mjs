@@ -170,17 +170,38 @@ async function run() {
     await page.waitForTimeout(3000);
     const homeText = await page.evaluate(() => document.body.innerText ?? '');
     if (/active experiments/i.test(homeText)) {
-      const rows = page.locator('button[aria-expanded]').filter({ hasText: /Day \d+ of \d+/ });
+      // Addressed by its own handle, never by its words: an open row
+      // deliberately stops saying the day and the logged state, so a
+      // text-built locator would lose the row it had just tapped.
+      const rows = page.locator('[data-testid="active-experiment-row"]');
       const rowCount = await rows.count();
       check('Active Experiments renders as slim rows in one card', rowCount > 0, `${rowCount} rows`);
       if (rowCount > 0) {
-        await rows.first().click();
+        /*
+         * A plain DOM click, deliberately. Home's sections arrive through
+         * RevealOnScroll, whose transform keeps Playwright's own
+         * "scroll into view then click" retrying forever with "element is
+         * outside of the viewport" against a button it can already see.
+         * The row is an ordinary button with an ordinary onClick; nothing
+         * about this tap needs a real pointer.
+         */
+        const first = rows.first();
+        await first.scrollIntoViewIfNeeded().catch(() => {});
+        await page.waitForTimeout(400);
+        await first.evaluate((el) => el.click());
         await page.waitForTimeout(1200);
-        const expanded = await rows.first().getAttribute('aria-expanded');
+        const expanded = await first.getAttribute('aria-expanded');
         check('a row opens onto its own experiment panel', expanded === 'true');
+        const openText = await page.evaluate(() => document.body.innerText ?? '');
+        check(
+          'the opened panel offers the real logging controls',
+          /\bYes\b/.test(openText) && /Not today/.test(openText)
+        );
         await shot(page, 'home-experiments-open');
-        await rows.first().click();
+        await first.evaluate((el) => el.click());
         await page.waitForTimeout(800);
+        const closed = await first.getAttribute('aria-expanded');
+        check('and closes again', closed === 'false');
       }
       await shot(page, 'home-active-experiments');
     } else {
