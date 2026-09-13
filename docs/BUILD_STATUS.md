@@ -1,5 +1,63 @@
 ## Six fixes: the sign-in timeout, the Daily Reset's voice, and four screens (2026-09-13)
 
+### WHAT THE PRODUCTION WALK FOUND
+
+`scripts/verify-auth-and-daily-reset-fixes-live.mjs`, on app.mefwellness.com,
+signed in as the seeded test member with a one-time session minted from the
+service-role key and retired immediately afterwards. 18/18 with two
+experiments running, 14/15 once they were removed (the one failure being
+the section having nothing left to draw, which is the honest answer).
+
+**THE SIGN-IN TIMEOUT IS THE ONE THING THIS WALK CANNOT SEE, and saying so
+is the point.** Turnstile is live on production's auth forms and correctly
+refuses a scripted browser, so no automated run will ever complete the
+login form and none can therefore watch that message appear or not appear.
+CLAUDE.md says never to report that refusal as a failure and never to ask
+for the check to be turned off. What the walk measures instead is the part
+the app controls and the part the failure was made of: the bot check's
+script is in the server-rendered HTML on both screens, Cloudflare answered
+for it in 190ms to 750ms, and neither screen registers a service worker
+while signed out any more.
+
+Everything else was driven for real:
+
+- **The Daily Reset, four screens, every question read before it was
+  answered.** Today's bank gave her "Compared to your usual, does today
+  feel like more or less walking so far?" and "Have you had protein yet
+  today?", which are two of the rewritten ones, live. No question on any
+  screen matched an end-of-day phrase and none carried an em dash. The walk
+  reads and abandons; it never files a check-in.
+- **Active Experiments, with two running.** One card, two slim rows, each
+  with its question, "Day 3 of 7", "Not logged yet". A row opens onto its
+  own panel with the real Yes and Not today, and closes again.
+- **And the row and the panel stay in agreement.** Pressing Yes inside an
+  open row wrote the real log, the panel said "Logged: today counted.",
+  and the row underneath read "Day 3 of 7 · Logged" on collapse: the
+  Server Action re-renders Home, so the row's server-computed answer is
+  never the one from page load.
+- **Morning Mobility, begun and closed with the X**, landing on Home
+  rather than back on the session's own detail page.
+- **Zero console errors and zero page errors on every screen visited.**
+
+**WHAT WAS SEEDED AND WHAT WAS REMOVED.** The test account had no running
+experiment, so two rows were written in exactly the shape the real accept
+button writes (Owning Your Value and Being Seen, through
+lifestyle_experiments), the section was driven, and both rows were deleted
+afterwards along with the one daily log the walk created. The account is
+back to zero experiments and zero logs.
+
+**TWO THINGS WERE NOT DRIVEN LIVE, AND NEITHER IS A SILENT GAP.**
+
+- **The welcome title card.** The test account finished the welcome flow in
+  August, so the flow is closed for her, and reopening it means writing to
+  a production profile row. `tests/welcome-title-card-branding.test.tsx`
+  renders the card for real instead and reads both lines off the DOM.
+- **The Core Values Snapshot invite.** It is a trial arc day 1 message, and
+  the test account is not on the arc. `tests/trial-arc-pacing.test.ts`
+  holds both bodies, the branch between them, and the fact that neither
+  one calls itself the first question.
+
+
 ### 1. THE SIGN-IN THAT SAID "WE COULD NOT CONFIRM THAT IN TIME"
 
 That sentence has one author, and it is not Supabase and not a network
