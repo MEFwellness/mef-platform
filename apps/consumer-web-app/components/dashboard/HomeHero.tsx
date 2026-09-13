@@ -86,8 +86,8 @@ function ChangeNote({ change }: { change: number | null }) {
       : `${Math.abs(change)} pt${Math.abs(change) === 1 ? '' : 's'} ${change > 0 ? 'up' : 'down'}`;
   return (
     <span
-      className={`mt-2 block text-center text-[11px] font-medium tracking-wide ${
-        change > 0 ? 'text-[#E2C583]' : 'text-[#FAFAF8]/75'
+      className={`mt-2 block text-center text-[11px] font-medium tracking-wide [text-shadow:0_1px_6px_rgba(0,0,0,0.55)] ${
+        change > 0 ? 'text-[#EBD29A]' : 'text-[#FAFAF8]/85'
       }`}
     >
       {text}

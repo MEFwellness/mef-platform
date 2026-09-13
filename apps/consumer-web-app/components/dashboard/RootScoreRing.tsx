@@ -49,13 +49,23 @@ export function RootScoreRing({ score }: { score: number }) {
        * photograph). Both hero images put their light source in exactly
        * that corner, so a 3px gold arc and a cream numeral landed on the
        * brightest pixels either photo has. Measured on the evening image,
-       * the arc was all but invisible. This is a soft dark disc behind
-       * the ring only: it buys the contrast back without darkening the
-       * band, and it moves with the ring rather than being a second wash
-       * the overlay has to know about.
+       * the arc was all but invisible, and on production a score of 34
+       * read as a smudge. This is a soft dark disc behind the ring only:
+       * it buys the contrast back without darkening the band, and it
+       * moves with the ring rather than being a second wash the overlay
+       * has to know about.
        */}
       <div
-        className="pointer-events-none absolute -inset-2 rounded-full bg-black/30 blur-lg"
+        className="pointer-events-none absolute -inset-3 rounded-full bg-black/45 blur-xl"
+        aria-hidden="true"
+      />
+      {/* And a crisp disc inside the halo. The blurred halo alone spreads
+          its darkness past the ring and leaves the ring's own interior,
+          where the numeral is, sitting on the photograph. Confirmed on
+          production: a score of 34 over the evening image's sun was very
+          nearly unreadable with the halo alone. */}
+      <div
+        className="pointer-events-none absolute inset-0 rounded-full bg-black/35"
         aria-hidden="true"
       />
       <svg
@@ -70,7 +80,7 @@ export function RootScoreRing({ score }: { score: number }) {
           cy={SIZE / 2}
           r={RADIUS}
           fill="none"
-          stroke="rgba(245, 240, 228, 0.28)"
+          stroke="rgba(245, 240, 228, 0.25)"
           strokeWidth={STROKE}
         />
         <circle
@@ -79,7 +89,7 @@ export function RootScoreRing({ score }: { score: number }) {
           cy={SIZE / 2}
           r={RADIUS}
           fill="none"
-          stroke="#E2C583"
+          stroke="#EBD29A"
           strokeWidth={STROKE}
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}
