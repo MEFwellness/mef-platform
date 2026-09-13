@@ -77,9 +77,21 @@ export function ConnectWearableCard({ variant }: { variant: 'dashboard' | 'today
         aria-hidden="true"
       />
       <div className="relative mx-auto max-w-md md:max-w-3xl">
-        <div className="flex items-center gap-2 text-[#F5B700]">
-          <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          <p className="text-sm font-semibold uppercase tracking-wider">Unlock Smarter Coaching</p>
+        {/* Home presentation pass (2026-09-13). Two changes, both about
+            the same thing: this panel was shouting. The eyebrow was 14px
+            semibold uppercase, a heading's weight on a label, and it and
+            its icon were the BRIGHT gold (#F5B700) that the check-in
+            button owns. It is the section label size now, in the muted
+            gold every other eyebrow on Home uses. The Connect Device
+            button below keeps the bright gold, because that is the one
+            action this panel is for. */}
+        <div className="flex items-center gap-2">
+          <Sparkles
+            className="h-4 w-4 text-[#D9BC79]"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+          <p className="mef-home-label-light">Unlock Smarter Coaching</p>
         </div>
         <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-[#FAFAF8]/90">
           Connect your wearable so Root can personalize your sleep, recovery, stress, activity, and

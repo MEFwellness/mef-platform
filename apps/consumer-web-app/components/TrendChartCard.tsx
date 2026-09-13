@@ -36,6 +36,20 @@ type Props = {
   formatTooltip: (point: TrendChartPoint) => string;
   /** Lowercase metric name for aria-labels and the empty-range message, e.g. "energy" or "Root Score". */
   metricName: string;
+  /**
+   * What an empty window says, when the default sentence is not the right
+   * voice for the screen it is on.
+   *
+   * ADDITIVE, AND ONLY HOME PASSES IT (2026-09-13). The default is the
+   * sentence every caller got before and still gets: "No {metric} data yet
+   * for the last {range}." That is a correct sentence on Progress, where a
+   * member has gone to look at her data and an honest blank is the answer.
+   * On Home it is the first and only thing a member with a quiet week
+   * reads under a heading, and "No energy data yet" is exactly the kind of
+   * empty state this app does not write. Nothing else about the chart, the
+   * range pills or the data changes.
+   */
+  emptyRangeMessage?: string;
 };
 
 export function TrendChartCard({
@@ -47,6 +61,7 @@ export function TrendChartCard({
   formatValue,
   formatTooltip,
   metricName,
+  emptyRangeMessage,
 }: Props) {
   const [range, setRange] = useState<TrendRange>('1w');
 
@@ -70,7 +85,10 @@ export function TrendChartCard({
           formatValue={formatValue}
           formatTooltip={formatTooltip}
           ariaLabel={`${metricName} trend, ${TREND_RANGE_LABELS[range].toLowerCase()}, ${windowPoints.length} recorded day${windowPoints.length === 1 ? '' : 's'}`}
-          emptyRangeMessage={`No ${metricName} data yet for the last ${TREND_RANGE_LABELS[range].toLowerCase()}.`}
+          emptyRangeMessage={
+            emptyRangeMessage ??
+            `No ${metricName} data yet for the last ${TREND_RANGE_LABELS[range].toLowerCase()}.`
+          }
         />
       </ScrollDrawIn>
     </div>

@@ -87,7 +87,12 @@ export function MovementAssessmentCard({
         )}
         <div className={`relative flex items-center gap-2 ${labelTone}`}>
           <CheckCircle2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          <p className="text-sm font-semibold uppercase tracking-wider">
+          {/* Home presentation pass (2026-09-13): this was 14px semibold
+              uppercase, which is a heading's weight spent on a label, and
+              it sat two sections below three others at 11px. The tone
+              class still decides its colour, because this panel has both
+              a deep-green and a plain-white treatment. */}
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em]">
             Movement Assessment Complete
           </p>
         </div>

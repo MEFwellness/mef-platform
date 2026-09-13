@@ -339,7 +339,13 @@ export function PriorityCard({
               <div className="mt-4 rounded-2xl bg-[#1B3A2D]/[0.05] p-4">
                 <div className="flex items-center gap-2 text-[#1B3A2D]/70">
                   <Lightbulb className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                  <p className="text-xs font-semibold uppercase tracking-wider">
+                  <p
+                    className={
+                      feature
+                        ? 'mef-home-label'
+                        : 'text-xs font-semibold uppercase tracking-wider'
+                    }
+                  >
                     {PRIORITY_HELP_HEADING}
                   </p>
                 </div>

@@ -66,6 +66,16 @@ export function AnimatedEnergyTrendChart({
       formatValue={(v) => `${v}`}
       formatTooltip={(p) => `${formatDate(p.local_date)} · Energy ${p.value}/5`}
       metricName="energy"
+      /*
+       * WHAT A QUIET WEEK READS ON HOME (2026-09-13). The shared default
+       * is "No energy data yet for the last 1 week." On Progress that is
+       * the right answer to a question she went and asked. On Home it is
+       * an unprompted sentence under a heading, telling a member who has
+       * had a hard week that she has no data, with nothing to do about
+       * it. This says the same true thing and names the one action that
+       * changes it. The default is untouched for every other caller.
+       */
+      emptyRangeMessage="Your energy line starts with your next Daily Reset."
     />
   );
 }
