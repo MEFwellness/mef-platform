@@ -41,18 +41,31 @@
  * whether a boundary resolves first or last, because React puts a
  * boundary's content back in its own place regardless:
  *
- *   1. HERO          how am I doing        (the band, then the day's
- *                                           one chosen action)
- *   2. QUICK ACTIONS what can I do now     (its own boundary)
- *   3. ASSIGNED      is anything owed
+ *   1. HERO          how am I doing        (the band alone)
+ *   2. QUICK ACTIONS what can I do now     (its own boundary, and the
+ *                                           FIRST thing in <main>)
+ *   3. ASSIGNED      is anything owed      (every open assignment,
+ *                                           including the coach-assigned
+ *                                           questionnaires)
  *   4. YOUR PROGRAM  where am I up to
  *   5. WEEKLY/ACTIVE what else is running  (the weekly review, the
- *                                           invites, Today, the
+ *                                           free-arc invite, Today, the
+ *                                           day's chosen action, the
  *                                           experiments, the reset plan)
  *   6. INSIGHTS      what is Root noticing (the carousel, energy)
  *   7. YOUR PATH     what can I explore    (history, the wearable)
  *
  * and the completed priority settles under all of it.
+ *
+ * THE DAY'S CHOSEN ACTION IS NO LONGER THE SECOND THING SHE SEES (final
+ * structural pass, 2026-09-13). It was the feature card immediately under
+ * the hero, which meant the top of Home was a photograph and then a task,
+ * and the row of shortcuts that answers "what can I do right now" was
+ * below both. A member arriving at her own home screen should be offered
+ * her doors before she is handed a job. So Quick Actions leads <main>,
+ * and the priority card sits in the active/today part of the page in the
+ * ordinary card treatment both screens share, with its behaviour, its
+ * actions, its motion and its writes untouched.
  *
  * EVERY REGION READS THE SAME FACTS. `getHomeFrame`, `getMyPriorityView`,
  * `getMemberVisibility`, `getTodaysCheckin` and the rest are all
@@ -141,7 +154,11 @@ import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
 import { lockNoteMessage, lockOffersPlanLink } from '@/lib/locked-content/copy';
 import { AssignedProgramsCard } from '@/components/AssignedProgramsCard';
 import { QuestionnairesHomeCard } from '@/components/questionnaires/QuestionnairesHomeCard';
-import { DashboardInviteCards } from '@/components/dashboard/DashboardInviteCards';
+import {
+  AssignedInviteCards,
+  FreeArcInviteCards,
+  assignedInviteCandidates,
+} from '@/components/dashboard/DashboardInviteCards';
 import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCard';
 import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
@@ -205,6 +222,19 @@ const ZONE_LABEL = 'mef-home-label';
 // The one gap between two major sections of this page. It replaced
 // mt-8/mt-10/mt-14/mt-20, which were four answers to one question.
 const SECTION = 'mef-home-section';
+
+/**
+ * WHERE "YOUR WEEK WITH ROOT" ACTUALLY LIVES.
+ *
+ * The Weekly Root Review has no route of its own and never has: it is a
+ * collapsed entry on this page (WeeklyReviewEntry, below), reading the
+ * member_weekly_reviews row the Monday pop-up read. So the Quick Actions
+ * tile for it points at that entry by anchor rather than at a screen
+ * nobody built, and this is the one definition of both halves, so the
+ * link and the element it lands on cannot drift apart.
+ */
+const WEEKLY_REVIEW_ANCHOR_ID = 'your-week-with-root';
+const WEEKLY_REVIEW_ANCHOR_HREF = `/dashboard#${WEEKLY_REVIEW_ANCHOR_ID}`;
 
 function formatCompletedStatus(completedAt: string): string {
   const days = Math.floor((Date.now() - new Date(completedAt).getTime()) / (24 * 60 * 60 * 1000));
@@ -305,19 +335,13 @@ export default async function DashboardPage({
       </HomeHeroFrame>
 
       <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <RegionErrorBoundary message="Today's focus didn't load.">
-          <Suspense fallback={<PriorityPlaceholder expectCard={frame.expectPriorityCard} />}>
-            <PriorityRegion />
-          </Suspense>
-        </RegionErrorBoundary>
-
-        {/* QUICK ACTIONS, second in <main> and second in the page's own
-            hierarchy of questions: "what can I do right now", asked
-            immediately after "how am I doing". Its own boundary so that a
-            row of shortcuts is not held behind the twenty reads the day
-            frame makes. Silent on failure: a broken row of shortcuts is
-            better as no row than as a retry card wedged between the day's
-            one action and everything assigned to her. */}
+        {/* QUICK ACTIONS, the first thing in <main> and the first thing
+            under the hero: "what can I do right now", asked immediately
+            after "how am I doing". Its own boundary so that a row of
+            shortcuts is not held behind the twenty reads the day frame
+            makes. Silent on failure: a broken row of shortcuts is better
+            as no row than as a retry card wedged directly under her
+            greeting. */}
         <RegionErrorBoundary silent>
           <Suspense fallback={<QuickActionsPlaceholder />}>
             <QuickActionsRegion />
@@ -327,6 +351,17 @@ export default async function DashboardPage({
         <RegionErrorBoundary message="Your day didn't load.">
           <Suspense fallback={<DayFramePlaceholder />}>
             <DayFrameRegion />
+          </Suspense>
+        </RegionErrorBoundary>
+
+        {/* THE DAY'S ONE CHOSEN ACTION, in the active/today part of the
+            page rather than at the top of it. It keeps its own boundary,
+            so it still arrives independently of everything around it, and
+            it keeps every read, every action and every write it had. What
+            changed is where it is and how heavy it looks. */}
+        <RegionErrorBoundary message="Today's focus didn't load.">
+          <Suspense fallback={<PriorityPlaceholder expectCard={frame.expectPriorityCard} />}>
+            <PriorityRegion />
           </Suspense>
         </RegionErrorBoundary>
 
@@ -423,10 +458,21 @@ async function HeroBodyRegion() {
 /**
  * THE PRIORITY CARD, inline. The same card the Root pop-up delivers on
  * open, reading the same member_daily_priorities row, so whatever she did
- * in the pop-up is already reflected here with no syncing. First thing in
- * <main> on Home, above the invites and everything else. A saved card is
- * deliberately not rendered here: saving demotes it out of the dominant
- * slot, and Today is where it keeps its collapsed home.
+ * in the pop-up is already reflected here with no syncing. A saved card is
+ * deliberately not rendered here: saving demotes it out of this slot, and
+ * Today is where it keeps its collapsed home.
+ *
+ * WHERE IT SITS (final structural pass, 2026-09-13). It was the first
+ * block in <main> and it was drawn as the one feature card on the page.
+ * Both are gone: it renders in the active/today half of Home, under the
+ * Today zone, in the ordinary card treatment that the Today screen has
+ * always used for the identical card. The reason is the shape of the top
+ * of this screen rather than anything about the card. A member opening
+ * her own home screen met a photograph and then a task, with the row of
+ * doors that answers "what can I do right now" below both, so the day's
+ * job was the only thing on offer. The engine, the stored row, the
+ * buttons, the motion and everything this card writes are byte for byte
+ * unchanged; it is smaller and it is lower.
  *
  * Completed-priority behavior (2026-08-14): this dominant slot holds the
  * card only while it is ACTIVE. Once she taps Done it leaves the top and
@@ -466,20 +512,20 @@ async function PriorityRegion() {
 
   if (!isActive) {
     return (
-      <div className="pt-6">
+      <div className={SECTION}>
         <TodaysFocusLine href="/today" />
       </div>
     );
   }
 
-  /* THE ONE DOMINANT THING ON THIS SCREEN (Home presentation pass,
-     2026-09-13). `variant="feature"` is Home's and only Home's: the
-     display heading, the single full-width primary action and the one
-     elevated shell. The Today tab renders the identical card with no
-     variant and is unchanged. See components/priority/PriorityCard.tsx. */
+  /* ONE CARD ON BOTH SCREENS. Home passes no variant, exactly as the
+     Today tab does, so the two surfaces render the identical object from
+     the identical view. The card carries its own `mt-6`, so the wrapper
+     adds the remainder of the page's one section gap (3.5rem) rather
+     than stacking a second gap on top of it. */
   return (
-    <div className="pt-6">
-      <PriorityCard view={priority} variant="feature" />
+    <div className="mt-8">
+      <PriorityCard view={priority} />
     </div>
   );
 }
@@ -568,6 +614,32 @@ async function DayFrameRegion() {
   const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
 
   /*
+   * THE COACH-ASSIGNED QUESTIONNAIRES, INSIDE "ASSIGNED TO YOU" (final
+   * structural pass, 2026-09-13).
+   *
+   * These are the registry questionnaires a coach has actually sent this
+   * member by name (the Four Doctors Assessment among them) plus the Body
+   * Assessment's own assignment, and they used to render BELOW her
+   * program, under no heading, alongside the free-arc invite. That left
+   * "Assigned to You" as a section that did not contain every assigned
+   * thing, and it left a questionnaire she has been asked to complete
+   * further down Home than anything else waiting on her.
+   *
+   * NOTHING ABOUT WHO SEES THEM CHANGED. The list is the identical one
+   * `DashboardInviteCards` built (`assignedInviteCandidates`, now the one
+   * definition of it so the section's heading and its contents are
+   * counted from the same array), and it is still behind the identical
+   * `home.invite_cards` reveal rule. Each card still reads its own pop-up
+   * dismissal row to decide its badge. The free-arc conversation is NOT
+   * here: nobody is waiting on an invitation, and it keeps the place the
+   * pair used to share.
+   */
+  const showsInvites = shows(F.homeInviteCards);
+  const assignedQuestionnaires = showsInvites
+    ? assignedInviteCandidates(catalog, bodyAssessmentCard)
+    : [];
+
+  /*
    * WHETHER ANYTHING IS ASSIGNED TO HER AT ALL (Home presentation pass,
    * 2026-09-13).
    *
@@ -585,6 +657,7 @@ async function DayFrameRegion() {
    * this line, so counting them costs no read.
    */
   const assignedToHer =
+    assignedQuestionnaires.length > 0 ||
     stressLoad?.status === 'pending' ||
     bodySystems?.status === 'pending' ||
     bodySystems?.status === 'in_progress' ||
@@ -620,19 +693,29 @@ async function DayFrameRegion() {
       <NewlyRevealedNotice reveals={visibility.newlyRevealed} />
 
       {/* ==================================================== */}
-      {/* ASSIGNED TO YOU — one section, one name, fourteen       */}
-      {/* cards, and the first thing under Quick Actions.         */}
+      {/* ASSIGNED TO YOU — one section, one name, and the first   */}
+      {/* thing under Quick Actions.                              */}
       {/*                                                         */}
       {/* Each of these is something a person or Root has asked    */}
       {/* her for and has not had back yet: a coach's assignment,  */}
       {/* a deep-dive left half finished, this week's reflection.  */}
       {/* They used to stack straight onto the page with no        */}
       {/* heading at all, and then under "Waiting on you", which   */}
-      {/* named the state rather than the thing. "Assigned to      */}
-      {/* You" names what they are, and the line under it says     */}
-      {/* who they came from without claiming a coach sent every   */}
-      {/* one of them, because this week's reflection is the       */}
-      {/* member's plan rather than a person's request.            */}
+      {/* named the state rather than the thing.                   */}
+      {/*                                                         */}
+      {/* THE HEADING IS THE WHOLE HEADING (final structural       */}
+      {/* pass, 2026-09-13). "Assigned to You" stood over a        */}
+      {/* second line reading "Waiting on you", which is the       */}
+      {/* phrase the heading had just been changed away from, and  */}
+      {/* which reads as a nudge rather than as a name. The name   */}
+      {/* alone says what the section holds; it does not also      */}
+      {/* need to say that she has not done it yet.                */}
+      {/*                                                         */}
+      {/* IT NOW HOLDS EVERY OPEN ASSIGNMENT. The coach-assigned   */}
+      {/* questionnaires (Four Doctors among them) were below her  */}
+      {/* program under no heading at all until this pass, which   */}
+      {/* made this section's name untrue. They are the first      */}
+      {/* block in it now, on their own unchanged conditions.      */}
       {/*                                                         */}
       {/* ABOVE HER PROGRAM NOW (editorial pass, 2026-09-13).      */}
       {/* The program is a standing thing she is in the middle of  */}
@@ -644,18 +727,31 @@ async function DayFrameRegion() {
       {/* 24px flat forest card here, a 32px gradient hero there.  */}
       {/*                                                         */}
       {/* NOTHING ABOUT WHO SEES WHAT CHANGED. Every card below    */}
-      {/* renders on exactly the condition it always did, in       */}
-      {/* exactly the order it always did, with exactly the props  */}
-      {/* it always got, and none of them is hidden behind a       */}
-      {/* "view all". The section disappears with its heading      */}
-      {/* when none of them render (`assignedToHer` above),        */}
-      {/* rather than leaving a name over nothing.                 */}
+      {/* renders on exactly the condition it always did, with     */}
+      {/* exactly the props it always got, and none of them is     */}
+      {/* hidden behind a "view all". The section disappears with  */}
+      {/* its heading when none of them render (`assignedToHer`    */}
+      {/* above), rather than leaving a name over nothing.         */}
       {/* ==================================================== */}
       {assignedToHer && (
         <div className={SECTION}>
           <p className={ZONE_LABEL}>Assigned to You</p>
-          <p className="mef-home-section-note">Waiting on you</p>
-          <div className="mef-home-stack mt-5">
+          <div className="mef-home-stack mt-4">
+      {/* ==================================================== */}
+      {/* THE COACH-ASSIGNED QUESTIONNAIRES, first in the       */}
+      {/* section because they are the ones a person sent by    */}
+      {/* name. Four Doctors, Primal Pattern, Short-HAQ, the    */}
+      {/* Body Assessment: whichever of them is actually open.  */}
+      {/* Renders nothing when none is.                         */}
+      {/* ==================================================== */}
+      {assignedQuestionnaires.length > 0 && (
+        <div>
+          <Suspense fallback={null}>
+            <AssignedInviteCards cards={assignedQuestionnaires} />
+          </Suspense>
+        </div>
+      )}
+
       {/* ==================================================== */}
       {/* THE STRESS & LOAD DEEP-DIVE, persistent, for as long   */}
       {/* as her coach's assignment is open.                     */}
@@ -1105,7 +1201,7 @@ async function DayFrameRegion() {
         /* No label over it: the card's own first line already says
            "Weekly Root Review", and a quieter second voice above it
            saying the same words is one of the four this pass removed. */
-        <div className={SECTION}>
+        <div id={WEEKLY_REVIEW_ANCHOR_ID} className={`${SECTION} scroll-mt-6`}>
           <WeeklyReviewEntry
             review={weeklyReview.review}
             label={WEEKLY_REVIEW_LABEL}
@@ -1115,17 +1211,23 @@ async function DayFrameRegion() {
       )}
 
       {/* ==================================================== */}
-      {/* Priority invites — a coach-assigned questionnaire and/  */}
-      {/* or the next unstarted free-arc conversation (Core       */}
-      {/* Values Snapshot / Life Signal Check / Readiness Pulse,  */}
-      {/* FIX 5, 2026-08-03). Deliberately NOT gated on           */}
+      {/* The free-arc invite — the next unstarted conversation   */}
+      {/* (Core Values Snapshot / Life Signal Check / Readiness   */}
+      {/* Pulse, FIX 5, 2026-08-03). Deliberately NOT gated on    */}
       {/* hasRealHistory, since a brand-new member with zero      */}
       {/* check-ins is exactly who needs this reachable. Renders  */}
-      {/* nothing when there is neither.                          */}
+      {/* nothing when there is none left.                        */}
+      {/*                                                         */}
+      {/* IT IS AN OFFER, NOT AN ASSIGNMENT, which is the whole   */}
+      {/* reason it is down here and the coach-assigned           */}
+      {/* questionnaires are up in Assigned to You: nobody is     */}
+      {/* waiting on an invitation.                               */}
       {/* See components/dashboard/DashboardInviteCards.tsx.      */}
       {/* ==================================================== */}
-      {shows(F.homeInviteCards) && (
-        <DashboardInviteCards catalog={catalog} bodyAssessmentCard={bodyAssessmentCard} />
+      {showsInvites && (
+        <Suspense fallback={null}>
+          <FreeArcInviteCards catalog={catalog} />
+        </Suspense>
       )}
 
       {!hasRealHistory ? (
@@ -1165,29 +1267,49 @@ async function DayFrameRegion() {
 /**
  * QUICK ACTIONS, the compact row directly under the hero.
  *
- * IT IS ITS OWN BOUNDARY NOW (editorial pass, 2026-09-13). It used to be
- * the first block inside the day frame, which meant it could not paint
- * until every one of that boundary's twenty reads had resolved: the
- * fourteen assignment views, the program, the weekly review, the
- * questionnaire catalog. It is the answer to "what can I do right now",
- * so it arrives with the day's one action rather than behind everything
- * that is waiting on her. Every read below is request-memoized and is
- * already being made by another region on the same render, so splitting
- * it out costs no extra round trip.
+ * IT IS THE FIRST THING IN <main> (final structural pass, 2026-09-13).
+ * It was second, under the day's chosen action drawn as a feature card,
+ * which meant a member opening her own home screen was handed a job
+ * before she was offered a door. The chosen action moved down; this row
+ * moved up; nothing about either one's contents changed.
  *
- * NOTHING HERE IS A NEW DOOR. Case and Movement keep the exact visibility
- * rules they have always had. Food Lens is decided by the same
- * `tracker.food_lens` rule that decides its tab in the bottom bar, which
- * is on every screen in the app. Daily Reset and Progress are the gold
- * button and the Progress tab in that same bar, reachable from every
- * screen already, so putting them in this row moves a shortcut rather
- * than revealing a feature.
+ * IT IS ITS OWN BOUNDARY. It used to be the first block inside the day
+ * frame, which meant it could not paint until every one of that
+ * boundary's twenty reads had resolved: the fourteen assignment views,
+ * the program, the weekly review, the questionnaire catalog. Every read
+ * below is request-memoized and is already being made by another region
+ * on the same render, so having its own boundary costs no extra round
+ * trip.
+ *
+ * NOTHING HERE IS A NEW DOOR.
+ *
+ *   Daily Reset is the gold + in the bottom bar, on every screen.
+ *   Progress and Food Lens were tabs in that same bar until this pass
+ *   and are tiles here instead, Food Lens still decided by the identical
+ *   `tracker.food_lens` rule that used to decide its tab.
+ *   Movement and Case keep the exact visibility keys they have always
+ *   had.
+ *   Your Week with Root is the Weekly Root Review entry that already
+ *   stands further down this same page, drawn on exactly the two
+ *   conditions that entry is drawn on (the week has a review at all, and
+ *   `home.weekly_review` reveals it), so the tile can never point at
+ *   something that is not there. Both reads are the memoized ones the
+ *   day frame makes on this same render.
  *
  * THE HINTS ARE REAL OR THEY ARE FIXED, NEVER INVENTED. Movement carries
  * its true completion status when one exists, Daily Reset says whether
  * today's check-in is already logged (one read, the same memoized one the
  * hero and the Today zone make), and the rest carry a fixed line naming
  * what the tap opens.
+ *
+ * THE TONES ARE A ROTATION, NOT A CODE. Five Rooted Reset tones (cream,
+ * sage, forest, gold, charcoal) and one rule: no tile carries the tone of
+ * the tile beside it. They are assigned here rather than in the component
+ * because which tiles survive their gates is decided here, and a tone
+ * that is chosen before the gating can leave two neighbours matching.
+ * Forest, the one dark tile, is Your Week with Root: the most personal
+ * door in the row, drawn on the brand's own surface so a member's eye
+ * finds it without anything glowing.
  *
  * THE ONE LIT TILE. Exactly one tile may carry the warm halo, and it is
  * the Daily Reset tile on a day she has not checked in yet, decided from
@@ -1203,12 +1325,17 @@ async function DayFrameRegion() {
  */
 async function QuickActionsRegion() {
   const frame = await requireHomeFrame();
-  const [visibility, hasRealHistory, bodyAssessments, todaysCheckin] = await Promise.all([
-    getMemberVisibility(),
-    memberHasRealHistory(),
-    homeBodyAssessments(),
-    getTodaysCheckin(frame.localDate),
-  ]);
+  const [visibility, hasRealHistory, bodyAssessments, todaysCheckin, weeklyReview] =
+    await Promise.all([
+      getMemberVisibility(),
+      memberHasRealHistory(),
+      homeBodyAssessments(),
+      getTodaysCheckin(frame.localDate),
+      // Request-memoized, and the day frame asks for the same thing on
+      // the same render, so the tile and the entry it points at cannot
+      // disagree about whether this week has a review.
+      getMyWeeklyReview(),
+    ]);
   /* The same gate the day frame's own branch makes: before her first
      check-in the welcome card is the whole screen, and a row of
      shortcuts above it would be the empty dashboard that card exists to
@@ -1230,10 +1357,34 @@ async function QuickActionsRegion() {
       label: 'Daily Reset',
       hint: todaysCheckin ? 'Logged today' : 'Check in',
       href: '/checkin',
+      tone: 'gold',
       accent: !todaysCheckin,
     },
     ...(shows(F.trackerFoodLens)
-      ? [{ icon: 'foodLens' as const, label: 'Food Lens', hint: 'Scan a meal', href: '/food-lens' }]
+      ? [
+          {
+            icon: 'foodLens' as const,
+            label: 'Food Lens',
+            hint: 'Scan a meal',
+            href: '/food-lens',
+            tone: 'cream' as const,
+          },
+        ]
+      : []),
+    ...(weeklyReview && shows(F.homeWeeklyReview)
+      ? [
+          {
+            icon: 'weekWithRoot' as const,
+            label: 'Your Week with Root',
+            hint: 'See your week',
+            /* The review has no page of its own. It lives on Home, as the
+               collapsed entry further down this screen, and this is that
+               entry's own anchor. A tile that invented a destination for
+               it would be a screen nobody built. */
+            href: WEEKLY_REVIEW_ANCHOR_HREF,
+            tone: 'forest' as const,
+          },
+        ]
       : []),
     ...(shows(F.homeQuickActionMovement)
       ? [
@@ -1242,17 +1393,26 @@ async function QuickActionsRegion() {
             label: 'Movement',
             hint: movementActionStatus ?? 'Your movement',
             href: '/movement',
+            tone: 'sage' as const,
           },
         ]
       : []),
-    { icon: 'progress', label: 'Progress', hint: 'View trends', href: '/progress' },
+    { icon: 'progress', label: 'Progress', hint: 'View trends', href: '/progress', tone: 'charcoal' },
     ...(shows(F.homeQuickActionCase)
-      ? [{ icon: 'case' as const, label: 'Case', hint: 'What Root has found', href: '/case' }]
+      ? [
+          {
+            icon: 'case' as const,
+            label: 'Case',
+            hint: 'What Root has found',
+            href: '/case',
+            tone: 'cream' as const,
+          },
+        ]
       : []),
   ];
 
   return (
-    <div className="pt-9">
+    <div className="pt-6">
       <p className={ZONE_LABEL}>Quick Actions</p>
       <div className="mt-4">
         <QuickActionsGrid actions={actions} />

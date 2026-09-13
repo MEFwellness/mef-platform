@@ -69,25 +69,28 @@ describe('the shell waits for one thing', () => {
 
 describe('the order she reads in is the order in the markup', () => {
   /**
-   * THE EDITORIAL PASS (2026-09-13) ADDED ONE REGION, in second place.
-   * Quick Actions used to be the first block inside the day frame, which
-   * meant a row of shortcuts could not paint until that boundary's twenty
-   * reads had all resolved. It is its own boundary now, directly under the
-   * day's one action, and it is asserted here rather than left implicit
-   * because "what can I do right now" arriving after everything that is
-   * waiting on her is the exact defect the split exists to prevent.
+   * QUICK ACTIONS LEADS <main> (final structural pass, 2026-09-13).
+   *
+   * It was second, under the day's chosen action drawn as the one feature
+   * card on the page, so the top of Home was a photograph and then a job.
+   * The two swapped: the row of doors that answers "what can I do right
+   * now" is the first thing under the hero, and the day's chosen action
+   * renders in the active/today half of the page, under the day frame,
+   * in the ordinary card treatment the Today screen has always used for
+   * it. Both still have their own boundary, so neither waits on the
+   * other, and the assertion below is the whole of what the swap means.
    */
-  it('the regions inside <main> are priority, quick actions, day frame, stream, completed priority', () => {
+  it('the regions inside <main> are quick actions, day frame, priority, stream, completed priority', () => {
     const body = shellBody();
     const at = (needle: string) => {
       const i = body.indexOf(needle);
       expect(i, `${needle} is missing`).toBeGreaterThan(-1);
       return i;
     };
-    expect(at('<main')).toBeLessThan(at('<PriorityRegion />'));
-    expect(at('<PriorityRegion />')).toBeLessThan(at('<QuickActionsRegion />'));
+    expect(at('<main')).toBeLessThan(at('<QuickActionsRegion />'));
     expect(at('<QuickActionsRegion />')).toBeLessThan(at('<DayFrameRegion />'));
-    expect(at('<DayFrameRegion />')).toBeLessThan(at('<StreamRegion />'));
+    expect(at('<DayFrameRegion />')).toBeLessThan(at('<PriorityRegion />'));
+    expect(at('<PriorityRegion />')).toBeLessThan(at('<StreamRegion />'));
     expect(at('<StreamRegion />')).toBeLessThan(at('<CompletedPriorityRegion />'));
     expect(at('<CompletedPriorityRegion />')).toBeLessThan(at('</main>'));
   });
@@ -116,7 +119,14 @@ describe('the order she reads in is the order in the markup', () => {
     expect(at).toBeGreaterThan(-1);
     const fn = PLACEHOLDERS.slice(at, PLACEHOLDERS.indexOf('\n}\n', at));
     expect(fn.match(/basis-\[calc\(\(100%-1\.5rem\)\/2\.2\)\]/g)).toHaveLength(3);
-    expect(fn).toContain('h-[112px]');
+    // 124px since the tiles gained a tone, a 36px icon chip and the room
+    // to carry both (final structural pass, 2026-09-13). The placeholder
+    // and `.mef-home-quick-tile`'s own min-height are the same number or
+    // the row grows under her thumb the moment it resolves.
+    expect(fn).toContain('h-[124px]');
+    expect(read('app/globals.css')).toMatch(
+      /\.mef-home-quick-tile \{[^}]*min-height: 124px;/s,
+    );
   });
 });
 
@@ -178,7 +188,7 @@ describe('the placeholders are the brand settling, not a spinner circus', () => 
     expect(after.slice(0, after.indexOf('prefers-reduced-motion'))).toContain('mef-settling-on-photo');
   });
 
-  it('the dominant slot reserves the shape she is actually going to get', () => {
+  it("the day's chosen action reserves the shape she is actually going to get", () => {
     // A card-shaped hole for a card, a line-shaped hole for the pointer she
     // gets once today's priority is done or saved. The prediction comes from
     // today's stored row, read in the frame.

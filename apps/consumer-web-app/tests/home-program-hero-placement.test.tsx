@@ -60,13 +60,32 @@ function dayFrameBody(): string {
 }
 
 describe('the program card sits where the page puts it', () => {
-  it('renders above the invite cards, which share its treatment', () => {
+  it('renders above the free-arc invite, which shares its treatment', () => {
     const body = dayFrameBody();
     const hero = body.indexOf('{hasRealHistory && programHero &&');
-    const invites = body.indexOf('F.homeInviteCards');
+    const invite = body.indexOf('<FreeArcInviteCards');
     expect(hero, 'the card is not rendered at all').toBeGreaterThan(-1);
-    expect(invites).toBeGreaterThan(-1);
-    expect(hero).toBeLessThan(invites);
+    expect(invite).toBeGreaterThan(-1);
+    expect(hero).toBeLessThan(invite);
+  });
+
+  /**
+   * The other half of what used to be one invites block. The coach-assigned
+   * questionnaires moved up into Assigned to You (final structural pass,
+   * 2026-09-13), so they are now ABOVE the program rather than below it,
+   * which is the same rule the deep-dives and the intakes already follow:
+   * what somebody is waiting on goes stale, and a program does not.
+   */
+  it('renders below the coach-assigned questionnaires, which are now inside Assigned to You', () => {
+    const body = dayFrameBody();
+    const section = body.indexOf('{assignedToHer && (');
+    const assignedCards = body.indexOf('<AssignedInviteCards');
+    const hero = body.indexOf('{hasRealHistory && programHero &&');
+    expect(section).toBeGreaterThan(-1);
+    expect(assignedCards, 'the assigned questionnaires are not rendered at all').toBeGreaterThan(-1);
+    // Inside the section, and the section is above the program.
+    expect(section).toBeLessThan(assignedCards);
+    expect(assignedCards).toBeLessThan(hero);
   });
 
   it('renders above the Today zone', () => {

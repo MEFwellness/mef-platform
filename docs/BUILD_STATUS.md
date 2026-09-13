@@ -1,3 +1,169 @@
+## Home, the final structural pass (2026-09-13)
+
+Presentation and placement. No data fetch changed, no gate changed, no
+server action, no route, no permission, no copy condition and no write
+changed anywhere in this pass. Every card renders for exactly the member
+it rendered for before, on exactly the conditions it rendered on before.
+What changed is WHERE three things sit, WHAT the bottom bar holds, and
+what a Quick Action tile looks like.
+
+### THE BOTTOM BAR IS THREE DOORS
+
+Home, the gold Check-In button, Today. Food Lens and Progress left it.
+
+Both of them were already tiles in Home's Quick Actions row, so a bar
+that is on every screen in the app and a row of shortcuts on the main one
+were advertising the same two destinations. The bar now holds only the
+three places a member is always going.
+
+- **Nothing was removed from the app.** `/food-lens` and `/progress` are
+  unchanged routes with unchanged permissions, reachable from the Quick
+  Actions row and directly.
+- **The Food Lens reveal rule moved with the shortcut.** The tab existed
+  only when `tracker.food_lens` revealed it; the TILE asks the identical
+  question, and it is now the only thing asking it.
+- **`MemberBottomNav` makes no server read at all now.** It existed to
+  resolve that one question before the bar was drawn. `showFoodLens` is
+  gone from `BottomNav` too: a prop nothing reads is how a gate quietly
+  stops being a gate.
+- **Evenly balanced by construction.** One item in each `flex-1` half,
+  the fixed-width button between them, and the pill capped at 84px and
+  centred in its cell rather than filling it, so a one-item side cannot
+  read as a slab running to the screen edge.
+
+### QUICK ACTIONS IS THE FIRST THING IN `<main>`
+
+It was second, under the day's chosen action drawn as the one feature
+card on the page. So the top of Home was a photograph and then a job, and
+the row that answers "what can I do right now" was below both.
+
+The two swapped. Both keep their own streaming boundary, so neither waits
+on the other, and `QuickActionsRegion` makes only reads that another
+region is already making on the same render.
+
+**The day's chosen action did not disappear and did not change.** It
+renders in the active/today half of the page, under the Today zone, in
+the ordinary card treatment the Today screen has always used for it. Its
+engine, its stored row, its buttons, its motion, its analytics and
+everything it writes are untouched. `PriorityCard`'s `variant="feature"`
+had no caller afterwards, so the variant and `.mef-home-feature` were
+removed rather than kept as an option nothing takes. Home and Today now
+render the identical card, which is what that file's header always said.
+
+### A TILE IS A TONAL OBJECT, NOT A WHITE BOX
+
+Five near-identical near-white tiles made a row of five doors read as
+five utility placeholders. The geometry is untouched (the same
+`calc((100% - 1.5rem) / 2.2)` fraction, the same snap, the same 20
+percent peek, the same 200px desktop tile); what changed is that a tile
+now carries a TONE.
+
+- **Five tones from the existing palette**: warm cream, muted sage, deep
+  forest, muted gold, charcoal. Each is six custom properties (surface,
+  edge, ink, soft ink, icon chip, sheen) so a tone cannot be half
+  applied, and the sheen is one soft light source in the top-right corner
+  rather than a second border.
+- **The rotation is a rule, not a code.** No tile carries the tone of the
+  tile beside it. Tones are assigned on the server AFTER the gating, so a
+  tile that disappears cannot leave two matching neighbours behind.
+- **Still exactly one LIT tile**, and it is still Daily Reset on a day
+  she has not checked in, read off the stored row. A halo is laid over
+  whichever tone the tile already carries, so lighting a tile is a
+  spotlight and not a sixth colour.
+- The tile is 124px rather than 112px and the icon chip is 36px rather
+  than 32px, because the icon is the first thing a thumb-sized tile says
+  and it was the faintest thing on it.
+
+### "YOUR WEEK WITH ROOT" IS A TILE, POINTING AT A REAL SCREEN
+
+**The Weekly Root Review has no route of its own and never has.** It is
+the collapsed entry that already stands further down Home, reading the
+`member_weekly_reviews` row the Monday pop-up read. So the tile is an
+anchor to that entry (`#your-week-with-root`, defined once alongside the
+href so the link and its target cannot drift), and it is drawn on exactly
+the two conditions the entry is drawn on: the week has a review at all,
+and `home.weekly_review` reveals it. A tile for a screen nobody built
+would have been the one thing the brief explicitly asked not to do.
+
+### "ASSIGNED TO YOU" NOW CONTAINS EVERY OPEN ASSIGNMENT
+
+The coach-assigned registry questionnaires, the Four Doctors Assessment
+among them, plus the Body Assessment's own assignment, used to render
+BELOW her program under no heading at all, sharing a block with the
+free-arc invite. A section called "Assigned to You" that did not contain
+them was saying something untrue, and a questionnaire a coach sent by
+name sat further down Home than anything else waiting on her.
+
+`DashboardInviteCards` is two components now, because they were always
+two kinds of thing:
+
+- **`AssignedInviteCards`** is what a coach asked for and has not had
+  back. First block inside Assigned to You.
+- **`FreeArcInviteCards`** is an invitation. Nobody is waiting on it, so
+  it keeps the place the pair used to share, below the program.
+
+`assignedInviteCandidates` is the one definition of which cards count as
+assigned, so the section's heading and its contents are counted from the
+same array and a name can never be drawn over nothing. The identical
+`home.invite_cards` reveal rule still gates both halves, and each card
+still reads its own pop-up dismissal row for its badge.
+
+**The questionnaire LIBRARY did not move.** `QuestionnairesHomeCard` is
+an aggregate count row and stays in Your Path, which is the distinction
+the brief drew: an assigned questionnaire is an obligation, the catalog
+is something to browse.
+
+### "WAITING ON YOU" IS GONE
+
+The heading stood over a second line reading "Waiting on you", which is
+the phrase the heading had just been changed away from and which reads as
+a nudge rather than as a name. The name alone says what the section
+holds; it does not also need to say she has not done it yet.
+
+### THE ASSIGNED CARDS ARE LIT OBJECTS
+
+Three cards of one flat green, stacked, read as one block of colour with
+three buttons in it. `.mef-assigned-card` is a shallow gradient now,
+carrying the page's own forest halo under its contact shadow, with the
+title at 22px. The warm light in the corner is still each card's OWN gold
+bloom: all sixteen draw it themselves, and a duplicate in the shared rule
+would have been two glows in one corner.
+
+### THE ORDER IN `<main>`
+
+    1. HERO            how am I doing
+    2. QUICK ACTIONS   what can I do right now
+    3. ASSIGNED TO YOU is anything owed (every open assignment)
+    4. YOUR PROGRAM    where am I up to
+    5. WEEKLY REVIEW, the free-arc invite, Today, the day's chosen
+       action, Active Experiments, the Reset Plan
+    6. INSIGHTS        the Noticing carousel, the Energy Trend
+    7. YOUR PATH       history, then the wearable
+
+and the completed priority settles under all of it.
+
+### WHAT WAS RUN
+
+- 11,215 tests in 588 files, all passing. Six test files were updated
+  with their intent intact and the reason written into each: the bar's
+  five destinations became three, `showFoodLens` left two files, the
+  region order in `<main>` swapped, the quick-tile height went to 124px,
+  the `feature` variant assertion became "Home and Today are now
+  literally the same card", and the invites assertion became two. Three
+  assertions that read the BAR for a `/food-lens` or `/progress` string
+  were rewritten to read `href: '...'`, because both words now appear in
+  that file's own prose recording where the tabs went, which is exactly
+  the "a check that cannot fail" trap.
+- Typecheck clean, lint clean (0 errors, the same pre-existing
+  console-statement warnings in scripts), production build clean.
+- `scripts/verify-home-final-structure-live.mjs` is the production walk
+  for this pass: the bar's three items and their measured spacing, the
+  hero-to-row gap with nothing large between them, the seven-section
+  order by measured y, every assigned card being inside the section,
+  the peek percentage, the tone rotation read off computed surfaces, the
+  Your Week with Root anchor landing on screen, and five taps asserted on
+  the URL.
+
 ## Home, the editorial pass (2026-09-13)
 
 Presentation only, again. No data fetch changed, no gate changed, no

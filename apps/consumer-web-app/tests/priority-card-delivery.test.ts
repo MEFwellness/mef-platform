@@ -273,17 +273,17 @@ describe('one card, one state, three surfaces', () => {
     expect(view).toContain('requestCache');
   });
 
-  it('the inline card exists on both Home and Today', () => {
-    // Home presentation pass (2026-09-13): Home passes `variant="feature"`
-    // and Today passes nothing, which is the whole of the difference. The
-    // variant chooses class strings inside components/priority/PriorityCard.tsx
-    // and reaches no behaviour, no action and no write, so what this test
-    // is for (the same card, from the same view, on both screens) is
-    // unchanged.
-    expect(read('app/dashboard/page.tsx')).toContain(
-      '<PriorityCard view={priority} variant="feature" />'
-    );
+  it('the inline card exists on both Home and Today, and is now literally the same card', () => {
+    // Home briefly passed `variant="feature"` for the slot directly under
+    // its hero. The final structural pass (2026-09-13) moved the day's
+    // chosen action out of that slot and into the active/today half of
+    // the page, which left the variant with no caller, so it was removed
+    // from the component rather than kept as an option nothing takes.
+    // What this test is for (the same card, from the same view, on both
+    // screens) is not just unchanged, it is now true byte for byte.
+    expect(read('app/dashboard/page.tsx')).toContain('<PriorityCard view={priority} />');
     expect(read('app/today/page.tsx')).toContain('<PriorityCard view={priority} />');
+    expect(read('components/priority/PriorityCard.tsx')).not.toContain('PriorityCardVariant');
   });
 
   it('Done writes one row, so it reads as Done on every surface with no syncing', () => {

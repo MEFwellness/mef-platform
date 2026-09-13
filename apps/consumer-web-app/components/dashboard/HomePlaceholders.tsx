@@ -25,34 +25,36 @@ function Bar({ className }: { className: string }) {
 }
 
 /**
- * The dominant slot at the top of <main>.
+ * The day's chosen action, in the active/today half of <main>.
  *
- * Shaped to the feature card (2026-09-13): the label, a two-line display
- * heading, two lines of reason, a full-width primary button and a quieter
- * row under it. It is the one thing on Home that must not move when it
- * lands, because it is the one thing she is looking at.
+ * Shaped to the ordinary card both Home and Today draw since the final
+ * structural pass (2026-09-13): the label, a two-line priority sentence,
+ * two lines of reason and a wrapping row of three pill buttons. The
+ * offsets are the region's own (`mt-8` under a card that carries its own
+ * `mt-6`, `mef-home-section` for the pointer line), so the block that
+ * lands is the block that was reserved.
  */
 export function PriorityPlaceholder({ expectCard }: { expectCard: boolean }) {
   if (!expectCard) {
     // The pointer line she gets once today's priority is saved or done.
     return (
-      <div data-settling="true" aria-hidden="true" className="pt-6">
+      <div data-settling="true" aria-hidden="true" className="mef-home-section">
         <div className="mef-settling h-[92px] w-full rounded-[28px]" />
       </div>
     );
   }
   return (
-    <div data-settling="true" aria-hidden="true" className="pt-6">
-      <div className="mef-home-feature bg-white p-7">
-        <Bar className="h-3 w-28" />
-        <Bar className="mt-5 h-7 w-full" />
-        <Bar className="mt-2.5 h-7 w-3/4" />
-        <Bar className="mt-5 h-4 w-full" />
-        <Bar className="mt-2 h-4 w-2/3" />
-        <div className="mef-settling mt-7 h-[52px] w-full rounded-2xl" />
-        <div className="mt-3 flex gap-3">
-          <Bar className="h-9 flex-1" />
-          <Bar className="h-9 flex-1" />
+    <div data-settling="true" aria-hidden="true" className="mt-8">
+      <div className="mef-card mt-6 bg-white">
+        <Bar className="h-4 w-28" />
+        <Bar className="mt-4 h-6 w-full" />
+        <Bar className="mt-2 h-6 w-2/3" />
+        <Bar className="mt-4 h-4 w-full" />
+        <Bar className="mt-2 h-4 w-1/2" />
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Bar className="h-10 w-28" />
+          <Bar className="h-10 w-28" />
+          <Bar className="h-10 w-24" />
         </div>
       </div>
     </div>
@@ -75,12 +77,12 @@ export function PriorityPlaceholder({ expectCard }: { expectCard: boolean }) {
  */
 export function QuickActionsPlaceholder() {
   return (
-    <div data-settling="true" aria-hidden="true" className="pt-9">
+    <div data-settling="true" aria-hidden="true" className="pt-6">
       <Bar className="h-3 w-28" />
       <div className="mt-4 flex gap-3 overflow-hidden">
-        <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
-        <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
-        <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+        <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+        <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+        <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
       </div>
     </div>
   );
@@ -163,27 +165,18 @@ export function HomeShellPlaceholder() {
       </section>
 
       <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
+        {/* Quick Actions leads <main>, so it leads the route skeleton too. */}
         <div className="pt-6">
-          <div className="mef-home-feature bg-white p-7">
-            <Bar className="h-3 w-28" />
-            <Bar className="mt-5 h-7 w-full" />
-            <Bar className="mt-2.5 h-7 w-3/4" />
-            <Bar className="mt-5 h-4 w-full" />
-            <Bar className="mt-2 h-4 w-2/3" />
-            <div className="mef-settling mt-7 h-[52px] w-full rounded-2xl" />
-            <div className="mt-3 flex gap-3">
-              <Bar className="h-9 flex-1" />
-              <Bar className="h-9 flex-1" />
-            </div>
-          </div>
-        </div>
-        <div className="pt-9">
           <Bar className="h-3 w-28" />
           <div className="mt-4 flex gap-3 overflow-hidden">
-            <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
-            <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
-            <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+            <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+            <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+            <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
           </div>
+        </div>
+        <div className="mef-home-section">
+          <Bar className="h-3 w-32" />
+          <div className="mef-settling mt-5 h-40 rounded-[24px]" />
         </div>
       </main>
     </div>

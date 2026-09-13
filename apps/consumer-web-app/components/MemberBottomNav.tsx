@@ -1,24 +1,27 @@
 /**
- * The member bar, with its Food Lens tab decided by the Visibility Layer.
+ * The member bar.
  *
  * A server component wrapping the unchanged presentational
- * components/BottomNav.tsx, for one reason: the bar is on every member
- * screen, so a tab in it is the single most persistent advertisement in the
- * app, and this build's rule is that no screen may advertise a feature the
- * member's own rules have not revealed. Deciding that needs a server read,
- * and BottomNav is a client component because it reads the current path.
+ * components/BottomNav.tsx, which is a client component because it reads
+ * the current path.
  *
- * `getMemberVisibility()` is request-memoized, so on Home, Today and
- * Progress (which already ask it) this costs nothing at all, and on every
- * other screen it is one gather.
+ * IT NO LONGER RESOLVES ANYTHING (Home final structural pass,
+ * 2026-09-13). It existed to answer one question on the server before the
+ * bar was drawn: whether this member's own rules had revealed Food Lens,
+ * because a tab on every screen in the app is the most persistent
+ * advertisement it has. The bar holds three items now, Home, Check-In and
+ * Today, and none of them is gated, so there is nothing left to read.
  *
- * Staff accounts short-circuit before any visibility read: they get
- * StaffNav, so there is no member tab to decide.
+ * THE RULE DID NOT GO ANYWHERE. Food Lens is a tile in Home's Quick
+ * Actions row and that row asks `tracker.food_lens` before it draws the
+ * tile, which is the same question this file used to ask. What changed is
+ * where the advertisement lives, not who may see it.
+ *
+ * Staff accounts get StaffNav, exactly as before: a coach or an
+ * administrator is never handed a member tab.
  */
 
 import { BottomNav } from '@/components/BottomNav';
-import { getMemberVisibility } from '@/lib/visibility';
-import { F } from '@/lib/visibility/catalog';
 
 export async function MemberBottomNav({
   isCoach = false,
@@ -27,10 +30,5 @@ export async function MemberBottomNav({
   isCoach?: boolean;
   isAdmin?: boolean;
 }) {
-  if (isCoach || isAdmin) return <BottomNav isCoach={isCoach} isAdmin={isAdmin} />;
-
-  const visibility = await getMemberVisibility();
-  const showFoodLens = visibility.byKey.get(F.trackerFoodLens)?.visible ?? false;
-
-  return <BottomNav showFoodLens={showFoodLens} />;
+  return <BottomNav isCoach={isCoach} isAdmin={isAdmin} />;
 }

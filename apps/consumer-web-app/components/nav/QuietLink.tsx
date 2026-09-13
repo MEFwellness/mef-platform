@@ -39,9 +39,16 @@
  * for and buys nothing whatsoever.
  *
  * SO THE RULE IS: automatic prefetch is for the links she taps most days and
- * whose targets are cheap. That is the bottom bar's Check-In, Today,
- * Progress and Food Lens tabs, and the day's one Priority Card button.
- * Everything else on Home uses this component.
+ * whose targets are cheap. That is the bottom bar's Check-In and Today
+ * tabs, and the day's one Priority Card button. Everything else on Home
+ * uses this component, the Quick Actions row included.
+ *
+ * The bar held Progress and Food Lens tabs when those numbers were taken,
+ * and they kept their automatic prefetch for the same reason. Both left
+ * the bar in Home's final structural pass (2026-09-13) and are tiles in
+ * the Quick Actions row instead, where they are quiet like everything else
+ * in that row: a row of six shortcuts that all prefetch on sight is
+ * exactly the cost this component exists to avoid.
  *
  * IT IS NOT "NO PREFETCH". Next still prefetches on `touchstart` and on
  * hover when `prefetch` is false, and it fetches the full route rather than

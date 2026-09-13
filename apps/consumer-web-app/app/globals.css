@@ -1636,11 +1636,13 @@
    * below the fold. This layer gives the screen one focus and makes
    * everything else visibly step down from it.
    *
-   * THREE RADII AND NOTHING ELSE. A card is 28px and the one feature card
-   * is 32px (both tokens the rest of the app already carries), a tile or
-   * a control inside a card is 16px, and a button or a chip is fully
-   * round. Any other value on this screen is a mistake. Home carried
-   * 14px, 16px, 24px, 28px and 32px before this pass.
+   * THE RADII ARE A LADDER, not a set of guesses. A card is 28px and the
+   * one feature surface (her program) is 32px, a tile or a control inside
+   * a card is 16px, and a button or a chip is fully round. The block
+   * further down adds the two rungs between: 24px for an assigned action
+   * card and 18px for a quick-action tile. Any other value on this screen
+   * is a mistake. Home carried 14px, 16px, 24px, 28px and 32px with no
+   * rule behind any of them before this pass.
    */
   .mef-home {
     --mef-home-radius-card: var(--mef-radius-card); /* 28px */
@@ -1653,8 +1655,6 @@
      * card reads as sitting ON the cream rather than hovering above it.
      */
     --mef-home-shadow: 0 1px 1px rgba(27, 58, 45, 0.02), 0 14px 34px -22px rgba(27, 58, 45, 0.28);
-    --mef-home-shadow-feature: 0 2px 3px rgba(27, 58, 45, 0.03),
-      0 30px 64px -34px rgba(27, 58, 45, 0.38);
     --mef-home-hairline: rgba(27, 58, 45, 0.055);
   }
 
@@ -1670,15 +1670,17 @@
   }
 
   /*
-   * `.mef-home-feature` — the one dominant card on the screen, holding
-   * the day's single action. It is the only thing on Home carrying this
-   * much elevation, which is what makes the elevation mean something.
+   * THERE IS NO `.mef-home-feature` ANY MORE. It was the one dominant
+   * shell on this screen, 32px with the deepest drop the page had, worn
+   * by the day's chosen action while that card sat directly under the
+   * hero. The final structural pass (2026-09-13) moved the action down
+   * into the active/today half of the page in the ordinary card
+   * treatment the Today screen has always used for it, which left the
+   * class and its shadow token with no caller, so both are gone rather
+   * than kept as a shape nothing takes. The deepest object on Home is
+   * now the program card, which draws its own 32px gradient shell
+   * (components/AssignedProgramsCard.tsx).
    */
-  .mef-home .mef-home-feature {
-    border-radius: 32px;
-    border: 1px solid rgba(27, 58, 45, 0.07);
-    box-shadow: var(--mef-home-shadow-feature);
-  }
 
   /*
    * `.mef-home-quiet` — a section that is NOT a card: a tonal shift on
@@ -1805,8 +1807,8 @@
    * that descends with weight, and every value on this screen is one
    * rung of it:
    *
-   *   32px  the one feature surface (the day's action, her program)
-   *   28px  an ordinary card
+   *   32px  the one feature surface (her program)
+   *   28px  an ordinary card, the day's chosen action included
    *   24px  an assigned action card, medium weight by design
    *   18px  a compact quick-action tile
    *   16px  a control or an inner tile
@@ -1815,10 +1817,9 @@
    * GLOW IS A SPOTLIGHT, NOT A FINISH. Two, and only two, are defined
    * here: a warm gold halo and a forest one. They are diffused, wide
    * and low in opacity, they are never an outline, and they go on the
-   * few objects that have earned a member's eye: the day's one action,
-   * the one quick action she has not done yet, an assignment waiting on
-   * her, her live program. Everything else on this page is lit by
-   * spacing.
+   * few objects that have earned a member's eye: the one quick action
+   * she has not done yet, the cards waiting on her, her live program.
+   * Everything else on this page is lit by spacing.
    */
   .mef-home {
     --mef-home-radius-assigned: 24px;
@@ -1830,15 +1831,6 @@
      */
     --mef-home-glow-gold: 0 0 0 1px rgba(196, 160, 80, 0.16), 0 10px 40px -12px rgba(196, 160, 80, 0.34);
     --mef-home-glow-forest: 0 0 0 1px rgba(27, 58, 45, 0.06), 0 16px 44px -20px rgba(27, 58, 45, 0.3);
-  }
-
-  /*
-   * The feature card keeps its elevation and gains the warm halo, at a
-   * third of the strength the gold objects carry, so the day's one
-   * action is lit rather than outlined.
-   */
-  .mef-home .mef-home-feature {
-    box-shadow: var(--mef-home-shadow-feature), 0 12px 48px -18px rgba(196, 160, 80, 0.26);
   }
 
   /*
@@ -1875,25 +1867,168 @@
     }
   }
 
+  /*
+   * THE TILE IS A TONAL OBJECT, NOT A WHITE BOX (Home final structural
+   * pass, 2026-09-13).
+   *
+   * Every tile in this row was the identical near-white gradient, which
+   * made a row of five doors read as five utility placeholders: the
+   * member could see that something was there and had no reason to want
+   * any of it. The geometry below is untouched (the same fraction, the
+   * same snap, the same peek); what changed is that a tile now carries a
+   * TONE from the Rooted Reset palette, and no two tiles beside each
+   * other carry the same one.
+   *
+   * FIVE TONES, AND THE PAGE ALREADY OWNED ALL FIVE. Warm cream, muted
+   * sage, deep forest, muted gold and charcoal. Nothing neon and nothing
+   * saturated: each one is the brand colour at the weight a 148px tile
+   * can hold, and which tile gets which is decided on the server
+   * (app/dashboard/page.tsx) so this file invents nothing.
+   *
+   * A tone is expressed entirely through six custom properties, so a
+   * tile's surface, its edge, its ink, its icon chip and its sheen move
+   * together and a new tone cannot be half applied.
+   */
   .mef-home-quick-tile {
+    /* Warm cream is the default, and it is what the row used to be for
+       every tile rather than for one of them. */
+    --mef-quick-surface: linear-gradient(158deg, #fffdf8 0%, #f7f1e3 100%);
+    --mef-quick-border: rgba(27, 58, 45, 0.08);
+    --mef-quick-ink: #1b3a2d;
+    --mef-quick-ink-soft: rgba(27, 58, 45, 0.62);
+    --mef-quick-chip: rgba(27, 58, 45, 0.07);
+    --mef-quick-chip-ink: #1b3a2d;
+    /* The sheen is one soft light source in the top-right corner of the
+       tile. It is what gives a flat tonal rectangle its depth, and it is
+       the reason none of these needs a second border to read as an
+       object. */
+    --mef-quick-sheen: radial-gradient(
+      120% 90% at 100% 0%,
+      rgba(255, 255, 255, 0.75),
+      rgba(255, 255, 255, 0) 62%
+    );
+
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
     flex: 0 0 calc((100% - 1.5rem) / 2.2);
     scroll-snap-align: start;
     display: flex;
     flex-direction: column;
-    min-height: 112px;
+    min-height: 124px;
     padding: 0.875rem;
     border-radius: var(--mef-home-radius-action);
-    border: 1px solid rgba(27, 58, 45, 0.07);
-    background: linear-gradient(160deg, #ffffff 0%, #fbf7ee 100%);
-    box-shadow: 0 1px 1px rgba(27, 58, 45, 0.02), 0 10px 24px -18px rgba(27, 58, 45, 0.3);
+    border: 1px solid var(--mef-quick-border);
+    background: var(--mef-quick-surface);
+    color: var(--mef-quick-ink);
+    box-shadow:
+      0 1px 1px rgba(27, 58, 45, 0.03),
+      0 12px 26px -18px rgba(27, 58, 45, 0.38);
     transition:
       box-shadow var(--mef-duration-standard) ease,
       border-color var(--mef-duration-standard) ease;
   }
 
+  /* The light source. Behind the content, never over it. */
+  .mef-home-quick-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--mef-quick-sheen);
+    pointer-events: none;
+  }
+
   .mef-home-quick-tile:hover {
-    border-color: rgba(27, 58, 45, 0.14);
-    box-shadow: 0 1px 1px rgba(27, 58, 45, 0.03), 0 14px 30px -18px rgba(27, 58, 45, 0.36);
+    border-color: rgba(27, 58, 45, 0.16);
+    box-shadow:
+      0 1px 1px rgba(27, 58, 45, 0.04),
+      0 16px 32px -18px rgba(27, 58, 45, 0.42);
+  }
+
+  /*
+   * MUTED SAGE. The softest of the five, for a door that is an ordinary
+   * part of her week rather than a decision.
+   */
+  .mef-home-quick-tile--sage {
+    --mef-quick-surface: linear-gradient(158deg, #eef4ec 0%, #dee9dd 100%);
+    --mef-quick-border: rgba(27, 58, 45, 0.1);
+    --mef-quick-ink: #1b3a2d;
+    --mef-quick-ink-soft: rgba(27, 58, 45, 0.6);
+    --mef-quick-chip: rgba(27, 58, 45, 0.09);
+    --mef-quick-chip-ink: #1b3a2d;
+    --mef-quick-sheen: radial-gradient(
+      120% 90% at 100% 0%,
+      rgba(255, 255, 255, 0.7),
+      rgba(255, 255, 255, 0) 62%
+    );
+  }
+
+  /*
+   * DEEP FOREST, the one dark tile in the row. It is the brand's own
+   * surface, the same green the assigned cards and the program card are
+   * drawn on, and it is reserved for the most personal door in the row
+   * so that a member's eye finds it without anything glowing.
+   */
+  .mef-home-quick-tile--forest {
+    --mef-quick-surface: linear-gradient(158deg, #234737 0%, #143026 100%);
+    --mef-quick-border: rgba(15, 36, 28, 0.5);
+    --mef-quick-ink: #f5f0e4;
+    --mef-quick-ink-soft: rgba(245, 240, 228, 0.68);
+    --mef-quick-chip: rgba(217, 188, 121, 0.18);
+    --mef-quick-chip-ink: #d9bc79;
+    --mef-quick-sheen: radial-gradient(
+      130% 95% at 100% 0%,
+      rgba(217, 188, 121, 0.22),
+      rgba(217, 188, 121, 0) 62%
+    );
+    box-shadow:
+      0 1px 2px rgba(14, 31, 23, 0.1),
+      0 16px 34px -22px rgba(14, 31, 23, 0.6);
+  }
+
+  .mef-home-quick-tile--forest:hover {
+    border-color: rgba(217, 188, 121, 0.32);
+    box-shadow:
+      0 1px 2px rgba(14, 31, 23, 0.12),
+      0 20px 40px -22px rgba(14, 31, 23, 0.68);
+  }
+
+  /*
+   * MUTED GOLD. The warmest surface, and the only one that is ever also
+   * lit. Gold is still never a large surface on Home: this is the tone
+   * at a tile's scale, under a member's thumb, not a gold card.
+   */
+  .mef-home-quick-tile--gold {
+    --mef-quick-surface: linear-gradient(158deg, #fdf6e4 0%, #f6e9c9 100%);
+    --mef-quick-border: rgba(196, 160, 80, 0.26);
+    --mef-quick-ink: #1b3a2d;
+    --mef-quick-ink-soft: rgba(86, 68, 22, 0.68);
+    --mef-quick-chip: rgba(196, 160, 80, 0.22);
+    --mef-quick-chip-ink: #8a6a1f;
+    --mef-quick-sheen: radial-gradient(
+      120% 90% at 100% 0%,
+      rgba(255, 255, 255, 0.8),
+      rgba(255, 255, 255, 0) 60%
+    );
+  }
+
+  /*
+   * CHARCOAL, the coolest of the five and the one that reads as data.
+   */
+  .mef-home-quick-tile--charcoal {
+    --mef-quick-surface: linear-gradient(158deg, #f0f0ed 0%, #e1e3df 100%);
+    --mef-quick-border: rgba(43, 50, 46, 0.14);
+    --mef-quick-ink: #2b322e;
+    --mef-quick-ink-soft: rgba(43, 50, 46, 0.62);
+    --mef-quick-chip: rgba(43, 50, 46, 0.1);
+    --mef-quick-chip-ink: #2b322e;
+    --mef-quick-sheen: radial-gradient(
+      120% 90% at 100% 0%,
+      rgba(255, 255, 255, 0.72),
+      rgba(255, 255, 255, 0) 62%
+    );
   }
 
   /*
@@ -1910,51 +2045,56 @@
   }
 
   /*
-   * The one tile that may be lit: the action she has not taken yet
-   * today. One at a time, decided on the server from a real row, never
-   * a second one alongside it.
+   * The one tile that may be LIT, as opposed to merely toned: the action
+   * she has not taken yet today. One at a time, decided on the server
+   * from a real row, never a second one alongside it. The halo is laid
+   * over whichever tone the tile already carries, so lighting a tile is
+   * a spotlight on it and not a sixth colour.
    */
   .mef-home-quick-tile-accent {
-    border-color: rgba(196, 160, 80, 0.28);
-    background: linear-gradient(160deg, #fffdf7 0%, #fbf2dd 100%);
+    border-color: rgba(196, 160, 80, 0.4);
     box-shadow: var(--mef-home-glow-gold);
   }
 
   .mef-home-quick-tile-accent:hover {
-    border-color: rgba(196, 160, 80, 0.42);
-    box-shadow: 0 0 0 1px rgba(196, 160, 80, 0.22), 0 14px 46px -12px rgba(196, 160, 80, 0.42);
+    border-color: rgba(196, 160, 80, 0.55);
+    box-shadow: 0 0 0 1px rgba(196, 160, 80, 0.24), 0 14px 46px -12px rgba(196, 160, 80, 0.44);
   }
 
-  /* The line icon's own small tile. 12px, the bottom rung of the ladder. */
+  /*
+   * The line icon's own chip. 36px rather than 32px and carrying the
+   * tone's own ink, because the icon is the first thing a thumb-sized
+   * tile says and it was previously the faintest thing on it.
+   */
   .mef-home-quick-icon {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: 12px;
-    background: rgba(27, 58, 45, 0.06);
-    color: #1b3a2d;
-  }
-
-  .mef-home-quick-tile-accent .mef-home-quick-icon {
-    background: rgba(196, 160, 80, 0.18);
-    color: #8a6a1f;
+    background: var(--mef-quick-chip);
+    color: var(--mef-quick-chip-ink);
   }
 
   .mef-home-quick-label {
+    position: relative;
     margin-top: auto;
-    font-size: 0.8125rem; /* 13px */
+    padding-top: 0.625rem;
+    font-size: 0.8438rem; /* 13.5px */
     font-weight: 600;
     line-height: 1.2;
-    color: #1b3a2d;
+    letter-spacing: -0.005em;
+    color: var(--mef-quick-ink);
   }
 
   .mef-home-quick-hint {
+    position: relative;
     margin-top: 0.1875rem;
     font-size: 0.6875rem; /* 11px */
     line-height: 1.3;
-    color: #6b7a72;
+    color: var(--mef-quick-ink-soft);
     /* Two lines is the ceiling. The movement tile carries a real status
        ("Completed 26 days ago"), which is a true sentence that must not
        be cut to an ellipsis inside a 148px tile. */
@@ -1984,14 +2124,31 @@
    * These components are rendered on Home and on no other screen, so
    * this class is defined once and scoped to nothing.
    */
+  /*
+   * A LIT OBJECT, NOT A FLAT SLAB (final structural pass, 2026-09-13).
+   * Three cards of one flat green, stacked, read as one block of colour
+   * with three buttons in it rather than as three separate requests. The
+   * surface is a shallow gradient now and it carries the page's own
+   * forest halo under its contact shadow, so a stack of them reads as a
+   * stack of objects and the section stops looking like something to
+   * scroll past. Nothing louder than that: these still step down from
+   * the program card, which is the point of the 24px rung they sit on,
+   * and the warm light in the top-right corner is still each card's own
+   * gold bloom rather than a second one added here. All sixteen of them
+   * draw that bloom themselves; a duplicate in this rule would be two
+   * glows in one corner.
+   */
   .mef-assigned-card {
     position: relative;
     overflow: hidden;
     border-radius: var(--mef-home-radius-assigned, 24px);
-    background: #1b3a2d;
+    background: linear-gradient(158deg, #234939 0%, #172f26 100%);
     padding: 1.375rem;
     color: #f5f0e4;
-    box-shadow: 0 1px 2px rgba(14, 31, 23, 0.08), 0 18px 38px -28px rgba(14, 31, 23, 0.6);
+    box-shadow:
+      0 1px 2px rgba(14, 31, 23, 0.1),
+      0 18px 40px -26px rgba(14, 31, 23, 0.62),
+      var(--mef-home-glow-forest, 0 0 rgba(0, 0, 0, 0));
   }
 
   .mef-assigned-eyebrow {
@@ -2008,8 +2165,8 @@
     position: relative;
     margin-top: 0.625rem;
     font-family: var(--font-cormorant-garamond);
-    font-size: 1.3125rem; /* 21px */
-    line-height: 1.25;
+    font-size: 1.375rem; /* 22px */
+    line-height: 1.22;
     color: #f5f0e4;
   }
 

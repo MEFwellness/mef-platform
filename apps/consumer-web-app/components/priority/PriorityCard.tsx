@@ -67,33 +67,24 @@ import { PriorityBridge } from './PriorityBridge';
 import { FrictionQuestion } from './FrictionQuestion';
 
 /**
- * `feature` is Home's dominant slot and nothing else (Home presentation
- * pass, 2026-09-13).
+ * ONE TREATMENT, ON BOTH SCREENS.
  *
- * Home asked for ONE thing to own the top of the screen, and this card is
- * that thing: the day's single chosen action. `feature` gives it the type
- * and the weight to be read first (display heading rather than body text,
- * a full-width primary button rather than a pill in a row of three) and
- * the one elevated shell on the page.
- *
- * IT IS OPT-IN, AND ONLY HOME OPTS IN. The Today screen renders the
- * identical card through the identical component with no variant, and
- * looks exactly as it did. Nothing about the card's behaviour, its
- * actions, its motion or what it writes is reachable from this prop: it
- * chooses class strings and nothing else.
+ * This component briefly carried a `variant` prop, whose `feature` value
+ * was Home's alone: a display heading, a full-width primary button and
+ * the one elevated shell on that page, for the card sitting immediately
+ * under the hero. Home's final structural pass (2026-09-13) moved the
+ * day's chosen action out of that slot and into the active/today half of
+ * the screen, which left `feature` with no caller, so it is gone rather
+ * than kept as an option nothing takes. Home and Today now render the
+ * identical card, which is what this file's header always described.
  */
-export type PriorityCardVariant = 'default' | 'feature';
-
 export function PriorityCard({
   view,
   collapsed = false,
-  variant = 'default',
 }: {
   view: PriorityView;
   collapsed?: boolean;
-  variant?: PriorityCardVariant;
 }) {
-  const feature = variant === 'feature';
   // Behavior lives in the shared hook so the inline card and the pop-up
   // can never disagree about what Done means. See
   // components/priority/usePriorityCardActions.ts.
@@ -247,23 +238,12 @@ export function PriorityCard({
   const receding = motion.resolvePhase === 'receding';
 
   return (
-    <section
-      className={
-        feature
-          ? /* The one elevated shell on Home, and the only place `.mef-home-feature`
-               is used (app/globals.css). Its own padding, because a card this size
-               wants more room round the words than the shared 24px recipe gives. */
-            'mef-home-feature relative overflow-hidden bg-white p-7 sm:p-8'
-          : 'mef-card relative mt-6 overflow-hidden border-[#1B3A2D]/15 shadow-[0_2px_28px_-6px_rgba(27,58,45,0.16)]'
-      }
-    >
+    <section className="mef-card relative mt-6 overflow-hidden border-[#1B3A2D]/15 shadow-[0_2px_28px_-6px_rgba(27,58,45,0.16)]">
       {/* The one gold moment in this card: a warm bloom behind the top-right
           corner, kept faint. Gold on Home marks progress and the day's own
           action, and this is the day's own action. */}
       <div
-        className={`pointer-events-none absolute -right-12 -top-12 rounded-full blur-3xl ${
-          feature ? 'h-52 w-52 bg-[#C4A050]/20' : 'h-44 w-44 bg-[#C4A050]/25'
-        }`}
+        className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-[#C4A050]/25 blur-3xl"
         aria-hidden="true"
       />
 
@@ -283,13 +263,7 @@ export function PriorityCard({
             {...revealStep(PRIORITY_REVEAL_INDEX.label, "relative flex items-center gap-2 text-[#6B7A72]")}
           >
             <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p
-              className={
-                feature
-                  ? 'mef-home-label'
-                  : 'text-sm font-semibold uppercase tracking-wider'
-              }
-            >
+            <p className="text-sm font-semibold uppercase tracking-wider">
               {PRIORITY_CARD_LABEL}
             </p>
           </div>
@@ -300,19 +274,15 @@ export function PriorityCard({
               not a competing second greeting. */}
           {isReEntry && welcomeLine && (
             <p
-              {...revealStep(PRIORITY_REVEAL_INDEX.welcome, `relative mt-3 font-[family-name:var(--font-cormorant-garamond)] leading-snug text-[#1B3A2D] ${feature ? 'text-xl text-[#1B3A2D]/70' : 'text-2xl'}`)}
+              {...revealStep(PRIORITY_REVEAL_INDEX.welcome, 'relative mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-snug text-[#1B3A2D]')}
             >
               {welcomeLine}
             </p>
           )}
 
-          {/* THE ONE SENTENCE THIS SCREEN IS FOR. In the feature slot it is
-              set in the display face at 24px, which is the largest type on
-              Home outside the greeting: the day's chosen action should be
-              what the eye lands on, and before this pass it was body copy
-              the same size as the reason underneath it. */}
+          {/* THE ONE SENTENCE THIS CARD IS FOR. */}
           <p
-            {...revealStep(PRIORITY_REVEAL_INDEX.priority, `relative text-[#1B3A2D] ${feature ? 'mt-4 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-[1.25]' : 'mt-3 text-xl leading-relaxed'}`)}
+            {...revealStep(PRIORITY_REVEAL_INDEX.priority, 'relative mt-3 text-xl leading-relaxed text-[#1B3A2D]')}
           >
             {selected.title}
           </p>
@@ -321,7 +291,7 @@ export function PriorityCard({
               replaced with filler. */}
           {selected.reason && (
             <p
-              {...revealStep(PRIORITY_REVEAL_INDEX.reason, `relative mt-3 leading-relaxed text-[#6B7A72] ${feature ? 'text-[15px]' : 'text-sm'}`)}
+              {...revealStep(PRIORITY_REVEAL_INDEX.reason, 'relative mt-3 text-sm leading-relaxed text-[#6B7A72]')}
             >
               {selected.reason}
             </p>
@@ -339,13 +309,7 @@ export function PriorityCard({
               <div className="mt-4 rounded-2xl bg-[#1B3A2D]/[0.05] p-4">
                 <div className="flex items-center gap-2 text-[#1B3A2D]/70">
                   <Lightbulb className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                  <p
-                    className={
-                      feature
-                        ? 'mef-home-label'
-                        : 'text-xs font-semibold uppercase tracking-wider'
-                    }
-                  >
+                  <p className="text-xs font-semibold uppercase tracking-wider">
                     {PRIORITY_HELP_HEADING}
                   </p>
                 </div>
@@ -362,16 +326,9 @@ export function PriorityCard({
               forward. */}
           {frictionQuestion && <FrictionQuestion question={frictionQuestion} />}
 
-          {/* ONE MAIN ACTION, AND TWO THAT ARE VISIBLY NOT IT (feature slot).
-              The three used to be pills of the same size in one wrapping
-              row, which on a 390px screen wrapped into a block of three
-              equally-loud controls and said nothing about which one the
-              card was asking for. The primary is now the full width of the
-              card and 52px tall, the two quieter actions share the row
-              beneath it, and the set-aside is the quietest of the three.
-              The default variant keeps the row it always had. */}
+          {/* The action row: the primary, Help me, and the set-aside. */}
           <div
-            {...revealStep(PRIORITY_REVEAL_INDEX.buttons, feature ? 'relative mt-6' : 'relative mt-5 flex flex-wrap gap-2')}
+            {...revealStep(PRIORITY_REVEAL_INDEX.buttons, 'relative mt-5 flex flex-wrap gap-2')}
           >
             {/* An offer opens the thing it named. It is the same address the
                 separate "Open it" link under the reason used to carry: one
@@ -379,11 +336,7 @@ export function PriorityCard({
             {actions.primary?.kind === 'open' && (
               <Link
                 href={actions.primary.href as Route}
-                className={
-                  feature
-                    ? 'mef-press mef-focus-ring flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#1B3A2D] px-6 text-sm font-semibold text-white shadow-[0_10px_28px_-12px_rgba(27,58,45,0.65)] transition hover:bg-[#163025]'
-                    : 'mef-press inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]'
-                }
+                className="mef-press inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
               >
                 {actions.primary.label}
                 <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -393,27 +346,19 @@ export function PriorityCard({
               <button
                 type="button"
                 onClick={onDone}
-                className={
-                  feature
-                    ? 'mef-press mef-focus-ring flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#1B3A2D] px-6 text-sm font-semibold text-white shadow-[0_10px_28px_-12px_rgba(27,58,45,0.65)] transition hover:bg-[#163025] disabled:opacity-60'
-                    : 'mef-press inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60'
-                }
+                className="mef-press inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
               >
                 <CheckCircle2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 {actions.primary.label}
               </button>
             )}
 
-            <div className={feature ? 'mt-3 flex items-center gap-2' : 'contents'}>
+            <div className="contents">
               <button
                 type="button"
                 onClick={onHelp}
                 aria-expanded={helpOpen}
-                className={
-                  feature
-                    ? 'mef-press mef-focus-ring inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1B3A2D]/12 px-4 text-[13px] font-semibold text-[#1B3A2D]/80 transition hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                    : 'mef-press inline-flex items-center gap-1.5 rounded-full border border-[#1B3A2D]/20 px-5 py-2.5 text-sm font-semibold text-[#1B3A2D] transition hover:border-[#1B3A2D]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]'
-                }
+                className="mef-press inline-flex items-center gap-1.5 rounded-full border border-[#1B3A2D]/20 px-5 py-2.5 text-sm font-semibold text-[#1B3A2D] transition hover:border-[#1B3A2D]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
               >
                 <Lightbulb className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 {actions.helpLabel}
@@ -421,11 +366,7 @@ export function PriorityCard({
               <button
                 type="button"
                 onClick={onSave}
-                className={
-                  feature
-                    ? 'mef-press mef-focus-ring inline-flex min-h-[44px] flex-1 items-center justify-center rounded-full px-4 text-[13px] font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] disabled:opacity-60'
-                    : 'mef-press inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60'
-                }
+                className="mef-press inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
               >
                 {actions.setAsideLabel}
               </button>

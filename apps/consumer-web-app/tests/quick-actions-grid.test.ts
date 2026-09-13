@@ -27,6 +27,22 @@
  * the next tile is visibly exposed, exactly one tile may be lit, and no
  * tile is a door a member did not already have.
  *
+ * THE FINAL STRUCTURAL PASS (2026-09-13) CHANGED TWO MORE THINGS AND THE
+ * RULES ABOVE ALL SURVIVED THEM.
+ *
+ *   The bottom bar gave up Food Lens and Progress, because both were also
+ *   tiles in this row and a bar on every screen in the app plus a row of
+ *   shortcuts on the main one were advertising the same two destinations.
+ *   The bar is Home, Check-In and Today. The Food Lens VISIBILITY RULE
+ *   did not move with the tab: this row still asks `tracker.food_lens`
+ *   before it draws that tile, which is the assertion that matters.
+ *
+ *   Every tile carries a TONE, and a sixth door (Your Week with Root)
+ *   joined the row. That door is the Weekly Root Review entry which
+ *   already stands further down Home, drawn on exactly the two
+ *   conditions that entry is drawn on, so it is still a shortcut to
+ *   something she has rather than a new feature.
+ *
  * A source scan, as before: no component harness renders a server
  * component's data assembly, and what is being held is which doors exist
  * and on what conditions.
@@ -59,22 +75,45 @@ describe('Quick Actions: a compact row of doors she already has', () => {
 
   it('every conditional tile is still decided by its own feature rule', () => {
     // Case and Movement keep the exact keys they have always had. Food
-    // Lens is decided by the same rule that decides its bottom-bar tab,
-    // which is the only reason it may appear here at all.
+    // Lens is decided by the rule that used to decide its bottom-bar tab,
+    // and since that tab is gone this row is the ONLY thing left asking
+    // the question, which makes this assertion the whole of the gate.
     expect(DASHBOARD_PAGE).toContain('shows(F.homeQuickActionMovement)');
     expect(DASHBOARD_PAGE).toContain('shows(F.homeQuickActionCase)');
     expect(DASHBOARD_PAGE).toContain('shows(F.trackerFoodLens)');
-    expect(BOTTOM_NAV).toContain('showFoodLens');
+    // The word appears in this file's own prose (it records where the
+    // tab went), so what is checked is an item actually reaching the bar.
+    expect(BOTTOM_NAV).not.toContain("href: '/food-lens'");
   });
 
-  it('the two unconditional tiles are doors the bottom bar already carries on every screen', () => {
-    // Daily Reset is the gold Check-In button and Progress is a tab. A
-    // tile for either one moves a shortcut; it does not reveal a feature,
-    // which is the rule that lets them skip a visibility key.
+  it('Your Week with Root points at a real existing screen, on that screen\'s own conditions', () => {
+    // The Weekly Root Review has no route of its own: it is the collapsed
+    // entry further down Home. So the tile is an anchor to that entry,
+    // and it is drawn on the identical pair of conditions the entry is
+    // drawn on, which is what stops a tile pointing at nothing.
+    expect(DASHBOARD_PAGE).toContain(
+      "const WEEKLY_REVIEW_ANCHOR_ID = 'your-week-with-root';",
+    );
+    expect(DASHBOARD_PAGE).toContain(
+      'const WEEKLY_REVIEW_ANCHOR_HREF = `/dashboard#${WEEKLY_REVIEW_ANCHOR_ID}`;',
+    );
+    expect(DASHBOARD_PAGE).toContain('href: WEEKLY_REVIEW_ANCHOR_HREF,');
+    expect(DASHBOARD_PAGE).toContain('<div id={WEEKLY_REVIEW_ANCHOR_ID}');
+    // The tile's gate and the entry's gate are the same two facts.
+    expect(DASHBOARD_PAGE).toContain('...(weeklyReview && shows(F.homeWeeklyReview)');
+    expect(DASHBOARD_PAGE).toContain('{weeklyReview && shows(F.homeWeeklyReview) && (');
+  });
+
+  it('the two unconditional tiles are doors she already had, and neither is a new permission', () => {
+    // Daily Reset is the gold Check-In button, which is still in the bar
+    // on every screen. Progress WAS a tab in that bar and is now this
+    // tile instead: the route, and who may open it, are untouched, and a
+    // tile for it moves a shortcut rather than revealing a feature, which
+    // is the rule that lets both skip a visibility key.
     expect(DASHBOARD_PAGE).toContain("href: '/checkin'");
     expect(DASHBOARD_PAGE).toContain("href: '/progress'");
     expect(BOTTOM_NAV).toContain("const MORNING_HREF = '/checkin'");
-    expect(BOTTOM_NAV).toContain("{ label: 'Progress', href: '/progress', Icon: BarChart2 }");
+    expect(BOTTOM_NAV).not.toContain("href: '/progress'");
   });
 
   it('renders nothing at all when no tile survives, rather than an empty row', () => {
@@ -135,7 +174,54 @@ describe('Quick Actions: a compact row of doors she already has', () => {
 
   it('the Case tile still borrows no completion fraction from the questionnaire count (C2)', () => {
     expect(DASHBOARD_PAGE).not.toContain('caseStatus');
-    expect(DASHBOARD_PAGE).toContain("label: 'Case', hint: 'What Root has found'");
+    expect(DASHBOARD_PAGE).toContain("label: 'Case',");
+    expect(DASHBOARD_PAGE).toContain("hint: 'What Root has found',");
+  });
+
+  it('every tile carries a tone, no two neighbours share one, and there are only five tones', () => {
+    // A row of five identical near-white tiles is what this replaced: a
+    // member could see something was there and had no reason to want any
+    // of it. The tones are assigned on the server, AFTER the gating, so a
+    // tile that disappears cannot leave two matching neighbours behind.
+    const region = DASHBOARD_PAGE.slice(
+      DASHBOARD_PAGE.indexOf('async function QuickActionsRegion()'),
+      DASHBOARD_PAGE.indexOf('async function TodayZone()'),
+    );
+    const tones = [...region.matchAll(/tone: '(\w+)'/g)].map((m) => m[1]);
+    expect(tones).toEqual(['gold', 'cream', 'forest', 'sage', 'charcoal', 'cream']);
+    for (let i = 1; i < tones.length; i += 1) {
+      expect(tones[i], `two neighbouring tiles share ${tones[i]}`).not.toBe(tones[i - 1]);
+    }
+    // Five names, and the component holds exactly those five.
+    expect(new Set(tones).size).toBe(5);
+    expect(GRID).toContain('const TONE_CLASS = {');
+    for (const tone of ['cream', 'sage', 'forest', 'gold', 'charcoal']) {
+      expect(GRID).toContain(`${tone}:`);
+    }
+    // And every tone but cream (the base surface) has its own block.
+    for (const tone of ['sage', 'forest', 'gold', 'charcoal']) {
+      expect(CSS).toContain(`.mef-home-quick-tile--${tone} {`);
+    }
+  });
+
+  it('a tone is six custom properties, so it cannot be half applied', () => {
+    // Surface, edge, ink, soft ink, icon chip and sheen move together or
+    // a tile ends up with dark text on a dark ground.
+    for (const tone of ['sage', 'forest', 'gold', 'charcoal']) {
+      const at = CSS.indexOf(`.mef-home-quick-tile--${tone} {`);
+      const block = CSS.slice(at, CSS.indexOf('\n  }', at));
+      for (const prop of [
+        '--mef-quick-surface',
+        '--mef-quick-border',
+        '--mef-quick-ink',
+        '--mef-quick-ink-soft',
+        '--mef-quick-chip',
+        '--mef-quick-chip-ink',
+        '--mef-quick-sheen',
+      ]) {
+        expect(block, `${tone} is missing ${prop}`).toContain(prop);
+      }
+    }
   });
 
   it('nothing truncates a true sentence to an ellipsis inside a 148px tile', () => {
@@ -171,26 +257,82 @@ describe('Quick Actions: a compact row of doors she already has', () => {
 
   it('the icon travels as a key, since a server component cannot hand over a component', () => {
     expect(GRID).toContain('const ICONS = {');
-    expect(Object.keys({ dailyReset: 1, foodLens: 1, movement: 1, progress: 1, case: 1 })).toEqual([
+    for (const key of [
       'dailyReset',
       'foodLens',
+      'weekWithRoot',
       'movement',
       'progress',
       'case',
-    ]);
-    for (const key of ['dailyReset', 'foodLens', 'movement', 'progress', 'case']) {
+    ]) {
       expect(GRID).toContain(`${key}:`);
       expect(DASHBOARD_PAGE).toContain(`icon: '${key}'`);
     }
   });
 });
 
-describe('Bottom nav: unchanged by this pass', () => {
-  it('member left/right items include Home, Food Lens, Progress, Today', () => {
+describe('Bottom nav: three doors, evenly balanced', () => {
+  /**
+   * FOOD LENS AND PROGRESS LEFT THIS BAR (final structural pass,
+   * 2026-09-13), because both are tiles in Home's Quick Actions row and
+   * the two surfaces were advertising the same destinations. The bar is
+   * the three places a member is always going: Home, the Check-In
+   * button, Today.
+   *
+   * Nothing was removed from the app. /food-lens and /progress are
+   * unchanged routes with unchanged permissions, still reachable from
+   * Home and still reachable directly, and the Food Lens reveal rule
+   * moved with the shortcut rather than being dropped (see the Quick
+   * Actions block above, which is now the only thing asking it).
+   */
+  it('holds Home, Check-In and Today, and nothing else', () => {
+    expect(BOTTOM_NAV).toContain("{ label: 'Home', href: '/dashboard', Icon: Home, quiet: true }");
     expect(BOTTOM_NAV).toContain(
-      "{ label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed }",
+      "const MEMBER_RIGHT_ITEMS: NavItem[] = [{ label: 'Today', href: '/today', Icon: Sparkles }];",
     );
-    expect(BOTTOM_NAV).toContain("{ label: 'Progress', href: '/progress', Icon: BarChart2 }");
+    expect(BOTTOM_NAV).toContain("const MORNING_HREF = '/checkin'");
+    // Exactly three destinations, counted rather than eyeballed.
+    const hrefs = [...BOTTOM_NAV.matchAll(/href: '(\/[\w-]+)'/g)].map((m) => m[1]);
+    expect(new Set(hrefs)).toEqual(new Set(['/dashboard', '/today']));
+    expect(BOTTOM_NAV).not.toContain("href: '/food-lens'");
+    expect(BOTTOM_NAV).not.toContain("href: '/progress'");
+  });
+
+  it('does not import the icons of the two tabs it no longer has', () => {
+    // A leftover import is how a removed tab comes back by accident.
+    expect(BOTTOM_NAV).toContain("import { Home, Sparkles, Plus } from 'lucide-react';");
+    expect(BOTTOM_NAV).not.toContain('UtensilsCrossed');
+    expect(BOTTOM_NAV).not.toContain('BarChart2');
+  });
+
+  it('the three items are evenly balanced across the bar', () => {
+    // One item a side, each in a flex-1 half, with the check-in button as
+    // a fixed-width sibling between them: its midpoint lands on the bar's
+    // exact centre and the two labels sit at the midpoints of the halves
+    // either side of it. The pill is capped and centred inside its cell
+    // rather than filling it, which is what stops a one-item side reading
+    // as a slab running to the screen edge.
+    expect(BOTTOM_NAV).toContain('grid min-w-0 flex-1 items-start gap-1 px-1 md:contents');
+    expect(BOTTOM_NAV).toContain(
+      'gridTemplateColumns: `repeat(${leftItems.length}, minmax(0, 1fr))`',
+    );
+    expect(BOTTOM_NAV).toContain(
+      'gridTemplateColumns: `repeat(${rightItems.length}, minmax(0, 1fr))`',
+    );
+    expect(BOTTOM_NAV).toContain('max-w-[84px]');
+    expect(BOTTOM_NAV).toContain('flex shrink-0 flex-col items-center gap-1.5 px-2 -mt-7');
+  });
+
+  it('no gate is left behind: the bar asks the server for nothing', () => {
+    // `showFoodLens` was the one server-resolved prop this bar took. With
+    // the tab gone there is nothing left to decide, so the prop and the
+    // visibility read in the wrapper went with it. Keeping a prop nothing
+    // reads is how a gate quietly stops being a gate.
+    expect(BOTTOM_NAV).not.toContain('showFoodLens');
+    const wrapper = source('components/MemberBottomNav.tsx');
+    expect(wrapper).not.toContain('getMemberVisibility');
+    expect(wrapper).not.toContain('trackerFoodLens');
+    expect(wrapper).toContain('return <BottomNav isCoach={isCoach} isAdmin={isAdmin} />;');
   });
 
   /**
@@ -210,27 +352,13 @@ describe('Bottom nav: unchanged by this pass', () => {
 
   it('builds the member groups from the member lists, and hands a staff account to StaffNav first', () => {
     expect(BOTTOM_NAV).toContain('MEMBER_LEFT_ITEMS');
-    expect(BOTTOM_NAV).toContain("MEMBER_LEFT_ITEMS.filter((item) => item.href !== '/food-lens')");
+    expect(BOTTOM_NAV).toContain('const leftItems: NavItem[] = MEMBER_LEFT_ITEMS;');
     expect(BOTTOM_NAV).toContain('const rightItems: NavItem[] = MEMBER_RIGHT_ITEMS;');
     expect(BOTTOM_NAV).toContain(
       'if (isCoach || isAdmin) return <StaffNav isCoach={isCoach} isAdmin={isAdmin} />;',
     );
     expect(BOTTOM_NAV.indexOf('if (isCoach || isAdmin) return')).toBeLessThan(
       BOTTOM_NAV.indexOf('const leftItems: NavItem[]'),
-    );
-  });
-
-  it('showFoodLens defaults to true, so a caller that has not been given the answer behaves as the bar always has', () => {
-    expect(BOTTOM_NAV).toContain('showFoodLens = true');
-  });
-
-  it('the server component that resolves it hands staff straight through without a visibility read', () => {
-    const wrapper = source('components/MemberBottomNav.tsx');
-    expect(wrapper).toContain(
-      'if (isCoach || isAdmin) return <BottomNav isCoach={isCoach} isAdmin={isAdmin} />;',
-    );
-    expect(wrapper.indexOf('if (isCoach || isAdmin) return')).toBeLessThan(
-      wrapper.indexOf('await getMemberVisibility()'),
     );
   });
 
@@ -241,5 +369,16 @@ describe('Bottom nav: unchanged by this pass', () => {
     expect(BOTTOM_NAV).toContain('h-14 w-14');
     expect(BOTTOM_NAV).toContain('<Plus className="h-7 w-7"');
     expect(BOTTOM_NAV).toContain('shadow-[0_12px_28px_-10px_rgba(245,183,0,0.7)]');
+  });
+
+  it('Home and Today keep the existing selected-state treatment', () => {
+    // The forest pill, the 3px forest mark above the icon, and the one
+    // icon weight. Unchanged by this pass, and worth holding because a
+    // bar with three items is the one a later edit would restyle.
+    expect(BOTTOM_NAV).toContain("'bg-[#1B3A2D]/[0.07] font-semibold text-[#1B3A2D]'");
+    expect(BOTTOM_NAV).toContain(
+      'absolute left-1/2 top-0 h-[3px] w-6 -translate-x-1/2 rounded-full bg-[#1B3A2D]',
+    );
+    expect(BOTTOM_NAV).toContain('<Icon className="h-5 w-5 shrink-0" strokeWidth={1.75}');
   });
 });

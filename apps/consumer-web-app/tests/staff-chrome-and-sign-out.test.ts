@@ -90,17 +90,26 @@ describe('the member bottom navigation never renders for a coach or an administr
     );
   });
 
-  it('the server wrapper hands staff through before it ever asks the visibility layer', () => {
-    // VISIBILITY LAYER (2026-08-17). MemberBottomNav is what member screens
-    // render now, so the staff hand-off has to hold there too, and it has to
-    // hold BEFORE any member-shaped read runs.
+  it('the server wrapper makes no member-shaped read at all, so there is nothing for staff to be handed through', () => {
+    // VISIBILITY LAYER (2026-08-17). MemberBottomNav used to resolve the
+    // Food Lens tab before the bar was drawn, so the staff hand-off had
+    // to happen in this file and BEFORE that read. Home's final
+    // structural pass (2026-09-13) took Food Lens and Progress off the
+    // bar, which left this wrapper with nothing to resolve: it makes no
+    // read, so no member-shaped query can run for a staff account here at
+    // all, and the hand-off is BottomNav's own first statement.
     const wrapper = fs.readFileSync(
       path.resolve(__dirname, '..', 'components/MemberBottomNav.tsx'),
       'utf-8'
     );
-    const handOff = 'if (isCoach || isAdmin) return <BottomNav isCoach={isCoach} isAdmin={isAdmin} />;';
-    expect(wrapper).toContain(handOff);
-    expect(wrapper.indexOf(handOff)).toBeLessThan(wrapper.indexOf('await getMemberVisibility()'));
+    expect(wrapper).not.toContain('getMemberVisibility');
+    expect(wrapper).not.toContain('await');
+    expect(wrapper).toContain('return <BottomNav isCoach={isCoach} isAdmin={isAdmin} />;');
+    const handOff = 'if (isCoach || isAdmin) return <StaffNav isCoach={isCoach} isAdmin={isAdmin} />;';
+    expect(BOTTOM_NAV).toContain(handOff);
+    expect(BOTTOM_NAV.indexOf(handOff)).toBeLessThan(
+      BOTTOM_NAV.indexOf('const leftItems: NavItem[]')
+    );
   });
 
   it('BottomNav no longer carries a coach bar of its own, so there is one staff bar and not two', () => {
@@ -176,19 +185,26 @@ describe('the admin and coach chrome never renders for a member', () => {
   });
 
   it('a member sees the member bar: the role props default to false, so nothing has to be passed', () => {
-    // A third prop joined them (Visibility Layer, 2026-08-17) and it also
-    // defaults safely: showFoodLens defaults to true, so a caller that has
-    // not been given the server-resolved answer behaves as this bar always
-    // has, and no default combination produces a member tab for staff.
-    expect(BOTTOM_NAV).toContain('export function BottomNav({ isCoach = false, isAdmin = false, showFoodLens = true }');
+    // These two are the only props this bar takes, and both default to
+    // false, so no default combination produces a member tab for staff. A
+    // third, `showFoodLens`, existed between 2026-08-17 and Home's final
+    // structural pass (2026-09-13) to decide the Food Lens tab; that tab
+    // is a Quick Actions tile now and asks the identical rule there, so
+    // the prop has nothing left to decide and is gone.
+    expect(BOTTOM_NAV).toContain('export function BottomNav({ isCoach = false, isAdmin = false }');
+    expect(BOTTOM_NAV).not.toContain('showFoodLens');
   });
 
-  it('the member bar itself is unchanged: the same five destinations, in the same places', () => {
+  it('the member bar holds three destinations, and no staff one', () => {
+    // Home, the Check-In button, Today. Food Lens and Progress left the
+    // bar in Home's final structural pass (2026-09-13) because both were
+    // also tiles in Home's Quick Actions row; the routes and who may open
+    // them did not change.
     expect(BOTTOM_NAV).toContain("{ label: 'Home', href: '/dashboard'");
-    expect(BOTTOM_NAV).toContain("{ label: 'Food Lens', href: '/food-lens'");
-    expect(BOTTOM_NAV).toContain("{ label: 'Progress', href: '/progress'");
     expect(BOTTOM_NAV).toContain("{ label: 'Today', href: '/today'");
     expect(BOTTOM_NAV).toContain("const MORNING_HREF = '/checkin'");
+    expect(BOTTOM_NAV).not.toContain("href: '/food-lens'");
+    expect(BOTTOM_NAV).not.toContain("href: '/progress'");
     // And no staff destination appears on it.
     expect(BOTTOM_NAV).not.toContain("href: '/coach'");
     expect(BOTTOM_NAV).not.toContain("href: '/admin'");

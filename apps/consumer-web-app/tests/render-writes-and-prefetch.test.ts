@@ -289,13 +289,17 @@ describe("Home's expensive links no longer ask the server on the way past", () =
     const source = read('components/BottomNav.tsx');
 
     expect(source).toMatch(/label: 'Home',\s*href: '\/dashboard',\s*Icon: Home,\s*quiet: true/);
-    // The cheap, daily-tapped tabs keep their prefetch: that is what a
-    // prefetch is for, and each of them costs about a third of Home's.
-    for (const tab of ['/food-lens', '/progress', '/today']) {
-      const line = source.split('\n').find((l) => l.includes(`href: '${tab}'`)) ?? '';
-      expect(line).not.toContain('quiet');
-    }
+    // The cheap, daily-tapped tab keeps its prefetch: that is what a
+    // prefetch is for, and it costs about a third of Home's. The bar held
+    // Food Lens and Progress tabs on the same terms until Home's final
+    // structural pass (2026-09-13) moved both into the Quick Actions row,
+    // where every tile is a QuietLink; a row of six shortcuts prefetching
+    // on sight is the cost QuietLink exists to avoid.
+    const todayLine = source.split('\n').find((l) => l.includes("href: '/today'")) ?? '';
+    expect(todayLine).toContain("href: '/today'");
+    expect(todayLine).not.toContain('quiet');
     expect(source).toContain("const MORNING_HREF = '/checkin'");
+    expect(read('components/dashboard/QuickActionsGrid.tsx')).toContain('<QuietLink');
   });
 
   it('the day priority button still prefetches, because it is the one thing she is asked to tap', () => {

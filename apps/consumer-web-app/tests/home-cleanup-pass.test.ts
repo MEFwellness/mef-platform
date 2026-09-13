@@ -242,9 +242,19 @@ describe('a completed priority leaves the top and settles at the bottom', () => 
   it('the only thing that may occupy the top slot afterwards is a genuinely pending finite item that already had its own card', () => {
     // A coach assignment or the next unstarted conversation, both of which
     // render nothing at all when there is neither.
-    expect(HOME).toContain('<DashboardInviteCards');
+    //
+    // THE PAIR IS TWO COMPONENTS NOW (final structural pass, 2026-09-13).
+    // The coach-assigned questionnaires moved up into the Assigned to You
+    // section, because a section called "Assigned to You" that did not
+    // contain them was saying something untrue; the free-arc invite kept
+    // the place the pair used to share, because an invitation is an offer
+    // and nobody is waiting on it. Both still disappear silently when
+    // they have nothing to draw, which is what this line is holding.
+    expect(HOME).toContain('<AssignedInviteCards cards={assignedQuestionnaires} />');
+    expect(HOME).toContain('<FreeArcInviteCards catalog={catalog} />');
     const invites = source('components/dashboard/DashboardInviteCards.tsx');
-    expect(invites).toContain('if (assignedCandidates.length === 0 && !freeArcCard) return null;');
+    expect(invites).toContain('if (cards.length === 0) return null;');
+    expect(invites).toContain('if (!freeArcCard) return null;');
     // And the finite day-3 / day-7 follow-ups keep their existing place in
     // the Root pop-up chain, ahead of the priority card itself.
     const chain = source('app/actions/rootPopupMessages.ts');

@@ -1,11 +1,27 @@
 'use client';
 
 /**
- * The MEMBER bar, and only the member bar: Home, Food Lens (left), the
- * Check-In button (center), Progress, Today (right), two evenly-weighted
- * tabs on each side of the center button. Root is reached through the
- * floating "Ask Root" launcher (FloatingCoachLauncher.tsx), never a
- * bottom-nav tab.
+ * The MEMBER bar, and only the member bar: Home (left), the Check-In
+ * button (center), Today (right). Root is reached through the floating
+ * "Ask Root" launcher (FloatingCoachLauncher.tsx), never a bottom-nav tab.
+ *
+ * THREE DOORS, NOT FIVE (Home final structural pass, 2026-09-13). It
+ * carried Food Lens and Progress as well, and both of them are also
+ * tiles in Home's Quick Actions row. A bar that is on every screen in
+ * the app and a row of shortcuts on the main one were advertising the
+ * same two destinations, so the persistent chrome gave them up and the
+ * row kept them: a shortcut belongs where the member is deciding what to
+ * do, and the bar should hold only the three places she is always going.
+ * Nothing was removed from the app. /food-lens and /progress are
+ * unchanged routes with unchanged permissions, and the Food Lens tile is
+ * still decided by the same `tracker.food_lens` rule that used to decide
+ * its tab here.
+ *
+ * THE THREE ITEMS ARE EVENLY BALANCED. Home and Today each take a
+ * `flex-1` half and centre their single pill inside it; the Check-In
+ * button is a fixed-width sibling between the two halves, so its
+ * midpoint lands on the bar's exact horizontal centre and the two labels
+ * sit at the midpoints of the halves either side of it.
  *
  * IT NO LONGER DRAWS A STAFF BAR. This component used to take an
  * `isCoach` boolean and draw a small coach bar when it was true. Coach and
@@ -27,7 +43,7 @@
  * items) with the Check-In button as a fixed-width sibling between them,
  * so Check-In's midpoint always lands on the bar's exact horizontal
  * center regardless of viewport width. Each half renders its items as
- * equal-width grid columns, so two items per side stay symmetrical.
+ * equal-width grid columns, which is now one column a side.
  *
  * BRAND COLOUR DISCIPLINE (revised, Home presentation pass 2026-09-13).
  * Inactive items read in muted gray. The active item gets a soft FOREST
@@ -49,7 +65,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Plus, UtensilsCrossed, BarChart2 } from 'lucide-react';
+import { Home, Sparkles, Plus } from 'lucide-react';
 import { StaffNav } from '@/components/StaffNav';
 import { QuietLink } from '@/components/nav/QuietLink';
 
@@ -67,13 +83,9 @@ type NavItem = { label: string; href: string; Icon: typeof Home; quiet?: boolean
 
 const MEMBER_LEFT_ITEMS: NavItem[] = [
   { label: 'Home', href: '/dashboard', Icon: Home, quiet: true },
-  { label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed },
 ];
 
-const MEMBER_RIGHT_ITEMS: NavItem[] = [
-  { label: 'Progress', href: '/progress', Icon: BarChart2 },
-  { label: 'Today', href: '/today', Icon: Sparkles },
-];
+const MEMBER_RIGHT_ITEMS: NavItem[] = [{ label: 'Today', href: '/today', Icon: Sparkles }];
 
 const MORNING_HREF = '/checkin';
 const EVENING_HREF = '/checkin/evening';
@@ -83,19 +95,18 @@ const EVENING_HREF = '/checkin/evening';
  *
  * They used to be one: the <Link> carried both the full grid column (so
  * the whole cell is tappable, which is right) and the active background
- * (which is not). The column is half the bar wide when one side holds a
- * single item, which is exactly what Home gets whenever the Visibility
- * Layer has not revealed Food Lens — so the active tab was a gold slab
- * running from the screen edge to the check-in button, reading like a
- * highlighter stroke rather than a selected tab. With two items a side it
- * was merely too wide.
+ * (which is not). Each side of this bar is half its width, so the active
+ * tab was a slab running from the screen edge to the check-in button,
+ * reading like a highlighter stroke rather than a selected tab.
  *
- * So the link keeps the full cell and the pill is capped and centred
- * inside it. The cap is only ever reached on a one-item side, so with two
- * items a side the pill is a little narrower than the cell and "PROGRESS"
- * still has the room it needs to spell itself out. Shrink-wrapping the
- * pill to its label was tried first and truncated that word to
- * "PROGRE..." at 390px, which is a worse bug than the one being fixed.
+ * So the link keeps the full cell and the pill is capped at 84px and
+ * centred inside it. With one item a side that cap is always what the
+ * pill takes, which is what makes the three items read as three evenly
+ * spaced objects rather than as two slabs either side of a button.
+ * Shrink-wrapping the pill to its label was tried when this bar still
+ * held five items and truncated "PROGRESS" to "PROGRE..." at 390px;
+ * capping is the treatment that survived, and both remaining labels are
+ * comfortably shorter than the words that found that bug.
  */
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.Icon;
@@ -169,25 +180,9 @@ type Props = {
    */
   isCoach?: boolean;
   isAdmin?: boolean;
-  /**
-   * VISIBILITY LAYER (2026-08-17). The bar is on every member screen, so a
-   * tab in it is the most persistent advertisement in the app. Food Lens is
-   * a real feature with a real audience (a member working on what she eats)
-   * and no audience at all for someone who came here about her lower back,
-   * so the tab exists only when her own rule reveals it. Home is the tab
-   * that takes its place, which keeps the left half of the bar balanced
-   * against the right rather than leaving a hole beside the check-in
-   * button.
-   *
-   * Defaults to true so that any caller which has not been given the
-   * server-resolved answer behaves exactly as this bar always has. The
-   * server component that DOES resolve it is components/MemberBottomNav.tsx,
-   * and it is what every member screen renders.
-   */
-  showFoodLens?: boolean;
 };
 
-export function BottomNav({ isCoach = false, isAdmin = false, showFoodLens = true }: Props) {
+export function BottomNav({ isCoach = false, isAdmin = false }: Props) {
   const pathname = usePathname();
 
   // A staff account gets the staff bar and nothing else. Returned before
@@ -195,9 +190,17 @@ export function BottomNav({ isCoach = false, isAdmin = false, showFoodLens = tru
   // that produces a member tab for a coach or an administrator.
   if (isCoach || isAdmin) return <StaffNav isCoach={isCoach} isAdmin={isAdmin} />;
 
-  const leftItems: NavItem[] = showFoodLens
-    ? MEMBER_LEFT_ITEMS
-    : MEMBER_LEFT_ITEMS.filter((item) => item.href !== '/food-lens');
+  /*
+   * VISIBILITY LAYER (2026-08-17), and where it went. Food Lens used to be
+   * a tab here, revealed only by its own `tracker.food_lens` rule, because
+   * a tab on every screen in the app is the most persistent advertisement
+   * it has. The tab is gone and the rule is not: Home's Quick Actions row
+   * asks the identical question before it draws the Food Lens tile
+   * (app/dashboard/page.tsx). So this bar no longer needs a server read to
+   * decide what it holds, and the three items below are the same three for
+   * every member.
+   */
+  const leftItems: NavItem[] = MEMBER_LEFT_ITEMS;
   const rightItems: NavItem[] = MEMBER_RIGHT_ITEMS;
   const checkInActive = pathname === MORNING_HREF || pathname === EVENING_HREF;
 
