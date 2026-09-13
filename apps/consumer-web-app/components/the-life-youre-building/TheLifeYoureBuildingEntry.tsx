@@ -40,7 +40,7 @@ export function TheLifeYoureBuildingEntry({
   return (
     <section
       aria-label={TLYB_LABEL}
-      className="relative overflow-hidden rounded-[28px] bg-[#1B3A2D] p-6 text-[#F5F0E4] shadow-[0_18px_40px_-24px_rgba(14,31,23,0.55)]"
+      className="mef-assigned-card"
     >
       <TrackAssignmentDelivered assignmentId={assignmentId} presentation="home_card" />
       <div
@@ -48,11 +48,11 @@ export function TheLifeYoureBuildingEntry({
         aria-hidden="true"
       />
 
-      <p className="relative text-[11px] font-semibold uppercase tracking-wider text-[#C4A050]">
+      <p className="mef-assigned-eyebrow">
         {TLYB_LABEL}
       </p>
 
-      <h2 className="relative mt-2 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#F5F0E4]">
+      <h2 className="mef-assigned-title">
         {TLYB_COPY.cardTitle}
       </h2>
 
@@ -62,7 +62,7 @@ export function TheLifeYoureBuildingEntry({
 
       <QuietLink
         href={TLYB_ROUTE as Route}
-        className="mef-focus-ring mef-press relative mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95"
+        className="mef-focus-ring mef-press mef-assigned-cta"
       >
         {hasDraft ? TLYB_COPY.cardResumeCta : TLYB_COPY.cardCta}
         <ArrowRight className="h-4 w-4" aria-hidden="true" />

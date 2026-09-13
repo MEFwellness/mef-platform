@@ -68,7 +68,16 @@ describe('the shell waits for one thing', () => {
 });
 
 describe('the order she reads in is the order in the markup', () => {
-  it('the regions inside <main> are priority, day frame, stream, completed priority', () => {
+  /**
+   * THE EDITORIAL PASS (2026-09-13) ADDED ONE REGION, in second place.
+   * Quick Actions used to be the first block inside the day frame, which
+   * meant a row of shortcuts could not paint until that boundary's twenty
+   * reads had all resolved. It is its own boundary now, directly under the
+   * day's one action, and it is asserted here rather than left implicit
+   * because "what can I do right now" arriving after everything that is
+   * waiting on her is the exact defect the split exists to prevent.
+   */
+  it('the regions inside <main> are priority, quick actions, day frame, stream, completed priority', () => {
     const body = shellBody();
     const at = (needle: string) => {
       const i = body.indexOf(needle);
@@ -76,7 +85,8 @@ describe('the order she reads in is the order in the markup', () => {
       return i;
     };
     expect(at('<main')).toBeLessThan(at('<PriorityRegion />'));
-    expect(at('<PriorityRegion />')).toBeLessThan(at('<DayFrameRegion />'));
+    expect(at('<PriorityRegion />')).toBeLessThan(at('<QuickActionsRegion />'));
+    expect(at('<QuickActionsRegion />')).toBeLessThan(at('<DayFrameRegion />'));
     expect(at('<DayFrameRegion />')).toBeLessThan(at('<StreamRegion />'));
     expect(at('<StreamRegion />')).toBeLessThan(at('<CompletedPriorityRegion />'));
     expect(at('<CompletedPriorityRegion />')).toBeLessThan(at('</main>'));
@@ -87,6 +97,7 @@ describe('the order she reads in is the order in the markup', () => {
     for (const [region, fallback] of [
       ['<HeroBodyRegion />', '<HomeHeroBodyPlaceholder'],
       ['<PriorityRegion />', '<PriorityPlaceholder'],
+      ['<QuickActionsRegion />', '<QuickActionsPlaceholder'],
       ['<DayFrameRegion />', '<DayFramePlaceholder'],
       ['<StreamRegion />', '<StreamPlaceholder'],
     ]) {
@@ -94,6 +105,18 @@ describe('the order she reads in is the order in the markup', () => {
       const boundary = body.lastIndexOf('<Suspense', at);
       expect(body.slice(boundary, at), `${region} has no placeholder`).toContain(fallback!);
     }
+  });
+
+  it('the quick-actions placeholder reserves the row it is standing in for, peek included', () => {
+    // Two whole tiles and a fifth of a third, at the tile's own height and
+    // its own computed width. A placeholder that reserves two whole tiles
+    // against a row that draws two and a slice grows sideways under her
+    // thumb the moment it resolves.
+    const at = PLACEHOLDERS.indexOf('export function QuickActionsPlaceholder');
+    expect(at).toBeGreaterThan(-1);
+    const fn = PLACEHOLDERS.slice(at, PLACEHOLDERS.indexOf('\n}\n', at));
+    expect(fn.match(/basis-\[calc\(\(100%-1\.5rem\)\/2\.2\)\]/g)).toHaveLength(3);
+    expect(fn).toContain('h-[112px]');
   });
 });
 

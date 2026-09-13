@@ -59,18 +59,51 @@ export function PriorityPlaceholder({ expectCard }: { expectCard: boolean }) {
   );
 }
 
-/** Her program, the weekly review, the invites, and the first zone she taps. */
+/**
+ * QUICK ACTIONS, the compact row under the hero.
+ *
+ * It reserves the row's real geometry rather than a generic band: the
+ * 11px section label, the 16px gap under it, and two whole tiles plus a
+ * fifth of a third at the tile's own committed height. The fractional
+ * third is the point — if the placeholder reserved two tiles and the real
+ * row draws two and a slice, the row grows sideways under her thumb.
+ *
+ * The widths are the same `calc((100% - 1.5rem) / 2.2)` the real tile
+ * carries (`.mef-home-quick-tile`, app/globals.css), written here as the
+ * one place a settling block is allowed to restate a layout value,
+ * because a placeholder that does not match is worse than none.
+ */
+export function QuickActionsPlaceholder() {
+  return (
+    <div data-settling="true" aria-hidden="true" className="pt-9">
+      <Bar className="h-3 w-28" />
+      <div className="mt-4 flex gap-3 overflow-hidden">
+        <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+        <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+        <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * What is assigned to her, her program, the weekly review, the invites and
+ * the Today zone.
+ *
+ * Two blocks, in the order the region draws them since the editorial pass
+ * (2026-09-13): an assigned card at its own medium height and 24px radius
+ * first, the program's 32px feature card under it. Quick Actions left this
+ * boundary for one of its own, so the label-plus-two-pills shape this used
+ * to reserve went with it.
+ */
 export function DayFramePlaceholder() {
   return (
     <div data-settling="true" aria-hidden="true">
-      <div className="mef-settling mt-12 h-44 rounded-[28px] md:mt-14" />
       <div className="mef-home-section">
-        <Bar className="h-3 w-28" />
-        <div className="mt-4 flex gap-3">
-          <div className="mef-settling h-16 flex-1 rounded-full" />
-          <div className="mef-settling h-16 flex-1 rounded-full" />
-        </div>
+        <Bar className="h-3 w-32" />
+        <div className="mef-settling mt-5 h-40 rounded-[24px]" />
       </div>
+      <div className="mef-settling mef-home-section h-48 rounded-[32px]" />
     </div>
   );
 }
@@ -144,7 +177,14 @@ export function HomeShellPlaceholder() {
             </div>
           </div>
         </div>
-        <div className="mef-settling mt-12 h-44 rounded-[28px] md:mt-14" />
+        <div className="pt-9">
+          <Bar className="h-3 w-28" />
+          <div className="mt-4 flex gap-3 overflow-hidden">
+            <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+            <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+            <div className="mef-settling h-[112px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+          </div>
+        </div>
       </main>
     </div>
   );

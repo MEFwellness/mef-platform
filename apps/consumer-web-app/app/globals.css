@@ -1788,6 +1788,288 @@
       stroke-dashoffset: var(--mef-arc-offset);
     }
   }
+  /*
+   * =================================================================
+   * HOME, THE EDITORIAL PASS (2026-09-13, second pass).
+   * =================================================================
+   *
+   * The pass above gave Home one rhythm and one card. This one gives it
+   * a HIERARCHY: six kinds of surface instead of one, so that what the
+   * page is made of tells her what each thing is before she reads a
+   * word. Nothing below changes a gate, a read, a route or a sentence.
+   *
+   * THE RADIUS SCALE IS THE HIERARCHY. The block above committed to
+   * three radii, which was the right correction to five arbitrary ones
+   * but left every surface on the page the same shape. A radius is the
+   * cheapest way to say how heavy a thing is, so it is now a ladder
+   * that descends with weight, and every value on this screen is one
+   * rung of it:
+   *
+   *   32px  the one feature surface (the day's action, her program)
+   *   28px  an ordinary card
+   *   24px  an assigned action card, medium weight by design
+   *   18px  a compact quick-action tile
+   *   16px  a control or an inner tile
+   *   full  a button, a chip, a status pill
+   *
+   * GLOW IS A SPOTLIGHT, NOT A FINISH. Two, and only two, are defined
+   * here: a warm gold halo and a forest one. They are diffused, wide
+   * and low in opacity, they are never an outline, and they go on the
+   * few objects that have earned a member's eye: the day's one action,
+   * the one quick action she has not done yet, an assignment waiting on
+   * her, her live program. Everything else on this page is lit by
+   * spacing.
+   */
+  .mef-home {
+    --mef-home-radius-assigned: 24px;
+    --mef-home-radius-action: 18px;
+    /*
+     * The two halos. Each is a wide, very soft, low-opacity spread with
+     * no hard edge, laid UNDER the surface's own contact shadow so it
+     * reads as light around the object rather than as a second border.
+     */
+    --mef-home-glow-gold: 0 0 0 1px rgba(196, 160, 80, 0.16), 0 10px 40px -12px rgba(196, 160, 80, 0.34);
+    --mef-home-glow-forest: 0 0 0 1px rgba(27, 58, 45, 0.06), 0 16px 44px -20px rgba(27, 58, 45, 0.3);
+  }
+
+  /*
+   * The feature card keeps its elevation and gains the warm halo, at a
+   * third of the strength the gold objects carry, so the day's one
+   * action is lit rather than outlined.
+   */
+  .mef-home .mef-home-feature {
+    box-shadow: var(--mef-home-shadow-feature), 0 12px 48px -18px rgba(196, 160, 80, 0.26);
+  }
+
+  /*
+   * =================================================================
+   * QUICK ACTIONS — the compact row directly under the hero.
+   * =================================================================
+   *
+   * THE NEXT TILE IS DELIBERATELY EXPOSED. A row that ends exactly at
+   * the column edge tells a member there is nothing past it, and the
+   * row had two items in it for that reason. The tile width is a
+   * fraction of the column rather than a fixed pixel value, so the same
+   * 20 percent of the next tile shows at 320px, at 390px and at 430px:
+   * two whole tiles, one gap, and a fifth of the third.
+   *
+   *   2 tiles + 2 gaps + 0.2 tile = the column
+   *   => tile = (100% - 2 * gap) / 2.2
+   *
+   * Measured at 390px: a 350px column gives a 148px tile, the third
+   * starts at 320px and 30px of it (20 percent) is visible at rest.
+   */
+  .mef-home-quick-row {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-behavior: smooth;
+    scroll-padding-left: 0;
+    padding-bottom: 0.25rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mef-home-quick-row {
+      scroll-behavior: auto;
+    }
+  }
+
+  .mef-home-quick-tile {
+    flex: 0 0 calc((100% - 1.5rem) / 2.2);
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    min-height: 112px;
+    padding: 0.875rem;
+    border-radius: var(--mef-home-radius-action);
+    border: 1px solid rgba(27, 58, 45, 0.07);
+    background: linear-gradient(160deg, #ffffff 0%, #fbf7ee 100%);
+    box-shadow: 0 1px 1px rgba(27, 58, 45, 0.02), 0 10px 24px -18px rgba(27, 58, 45, 0.3);
+    transition:
+      box-shadow var(--mef-duration-standard) ease,
+      border-color var(--mef-duration-standard) ease;
+  }
+
+  .mef-home-quick-tile:hover {
+    border-color: rgba(27, 58, 45, 0.14);
+    box-shadow: 0 1px 1px rgba(27, 58, 45, 0.03), 0 14px 30px -18px rgba(27, 58, 45, 0.36);
+  }
+
+  /*
+   * THE FRACTION IS A PHONE RULE. From md up the content column is
+   * max-w-5xl, and a fifth of it is a 450px tile: the peek exists to say
+   * "this row scrolls with your thumb", which is not a thing a desktop
+   * pointer needs told. Above that breakpoint the tile is a fixed 200px
+   * and the row simply holds as many as fit.
+   */
+  @media (min-width: 768px) {
+    .mef-home-quick-tile {
+      flex: 0 0 200px;
+    }
+  }
+
+  /*
+   * The one tile that may be lit: the action she has not taken yet
+   * today. One at a time, decided on the server from a real row, never
+   * a second one alongside it.
+   */
+  .mef-home-quick-tile-accent {
+    border-color: rgba(196, 160, 80, 0.28);
+    background: linear-gradient(160deg, #fffdf7 0%, #fbf2dd 100%);
+    box-shadow: var(--mef-home-glow-gold);
+  }
+
+  .mef-home-quick-tile-accent:hover {
+    border-color: rgba(196, 160, 80, 0.42);
+    box-shadow: 0 0 0 1px rgba(196, 160, 80, 0.22), 0 14px 46px -12px rgba(196, 160, 80, 0.42);
+  }
+
+  /* The line icon's own small tile. 12px, the bottom rung of the ladder. */
+  .mef-home-quick-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 12px;
+    background: rgba(27, 58, 45, 0.06);
+    color: #1b3a2d;
+  }
+
+  .mef-home-quick-tile-accent .mef-home-quick-icon {
+    background: rgba(196, 160, 80, 0.18);
+    color: #8a6a1f;
+  }
+
+  .mef-home-quick-label {
+    margin-top: auto;
+    font-size: 0.8125rem; /* 13px */
+    font-weight: 600;
+    line-height: 1.2;
+    color: #1b3a2d;
+  }
+
+  .mef-home-quick-hint {
+    margin-top: 0.1875rem;
+    font-size: 0.6875rem; /* 11px */
+    line-height: 1.3;
+    color: #6b7a72;
+    /* Two lines is the ceiling. The movement tile carries a real status
+       ("Completed 26 days ago"), which is a true sentence that must not
+       be cut to an ellipsis inside a 148px tile. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /*
+   * =================================================================
+   * ASSIGNED TO YOU — the fourteen cards that share one treatment.
+   * =================================================================
+   *
+   * Every one of these was the identical hand-copied class string in
+   * fourteen files: the same radius, the same green, the same padding,
+   * the same shadow, written out fourteen times. This is that string's
+   * one definition, which is what lets the section step down from the
+   * program hero without editing fourteen files again.
+   *
+   * MEDIUM WEIGHT, ON PURPOSE. 24px rather than 28px, less padding, a
+   * softer contact shadow and a 20px title rather than a 24px one, so
+   * that a screen holding three of these and one program card reads as
+   * one hero with three requests under it, not as four heroes.
+   *
+   * These components are rendered on Home and on no other screen, so
+   * this class is defined once and scoped to nothing.
+   */
+  .mef-assigned-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--mef-home-radius-assigned, 24px);
+    background: #1b3a2d;
+    padding: 1.375rem;
+    color: #f5f0e4;
+    box-shadow: 0 1px 2px rgba(14, 31, 23, 0.08), 0 18px 38px -28px rgba(14, 31, 23, 0.6);
+  }
+
+  .mef-assigned-eyebrow {
+    position: relative;
+    font-size: 0.6875rem; /* 11px, the page's one label size */
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #d9bc79;
+  }
+
+  .mef-assigned-title {
+    position: relative;
+    margin-top: 0.625rem;
+    font-family: var(--font-cormorant-garamond);
+    font-size: 1.3125rem; /* 21px */
+    line-height: 1.25;
+    color: #f5f0e4;
+  }
+
+  .mef-assigned-cta {
+    position: relative;
+    margin-top: 1.125rem;
+    display: inline-flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background: #f5f0e4;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1b3a2d;
+    transition: filter var(--mef-duration-quick) ease;
+  }
+
+  .mef-assigned-cta:hover {
+    filter: brightness(0.95);
+  }
+
+  /*
+   * =================================================================
+   * THE SECTION HEADER, AND THE QUIET HALF OF THE PAGE.
+   * =================================================================
+   *
+   * A section's name and the one line under it. The name is the label
+   * defined in the block above; this is the optional supporting line,
+   * which exists so a section can say what kind of thing it holds
+   * without a second heading-weight voice.
+   */
+  .mef-home-section-note {
+    margin-top: 0.375rem;
+    font-size: 0.8125rem; /* 13px */
+    line-height: 1.4;
+    color: rgba(27, 58, 45, 0.5);
+  }
+
+  /*
+   * `.mef-home-section-quiet` opens the part of the page she reads
+   * rather than acts on. A hairline and a wider gap, carried BY the
+   * section itself rather than drawn between two of them, so a divider
+   * can never be left hanging over a section that turned out to have
+   * nothing in it.
+   */
+  .mef-home-section-quiet {
+    margin-top: 4rem;
+    padding-top: 2.5rem;
+    border-top: 1px solid rgba(27, 58, 45, 0.07);
+  }
+
+  @media (min-width: 768px) {
+    .mef-home-section-quiet {
+      margin-top: 5rem;
+      padding-top: 3rem;
+    }
+  }
 }
 
 /*

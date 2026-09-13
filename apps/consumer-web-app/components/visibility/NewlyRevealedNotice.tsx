@@ -13,11 +13,15 @@
  * fails, she reads a friendly sentence twice, which is a far better failure
  * than a reveal that never explains itself.
  *
- * Rendered on Home only, directly under the day's one priority. It is
- * explicitly NOT a card per feature scattered across the app: the whole
- * point of this build is that Home stops competing with itself, and a reveal
- * announcement is a sentence, not a tenth call to action. There are no
- * buttons on it.
+ * Rendered on Home only, and on Home it is the first thing in the day
+ * frame: under the day's one priority and the Quick Actions row, above
+ * everything that is assigned to her. It is explicitly NOT a card per
+ * feature scattered across the app: the whole point of this build is that
+ * Home stops competing with itself, and a reveal announcement is a
+ * sentence, not a tenth call to action. There are no buttons on it.
+ *
+ * It carries Home's own section gap rather than a 12px nudge, because it
+ * no longer hangs off the bottom of the card above it.
  */
 
 import { Sparkles } from 'lucide-react';
@@ -30,7 +34,7 @@ export function NewlyRevealedNotice({ reveals }: { reveals: FeatureVisibility[] 
 
   return (
     <section
-      className="mt-3 rounded-[24px] border border-[#F5B700]/35 bg-[#F5B700]/[0.07] p-5"
+      className="mef-home-section rounded-[24px] border border-[#F5B700]/35 bg-[#F5B700]/[0.07] p-5"
       aria-label="Something new from Root"
     >
       <AcknowledgeReveals featureKeys={withSentences.map((r) => r.key)} />

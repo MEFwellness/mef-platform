@@ -28,16 +28,16 @@ export function FreeArcInviteCard({
   const ctaLabel = card.flags.inProgress ? 'Continue' : 'Start now';
 
   return (
-    <div className="mef-animate-in relative overflow-hidden rounded-[28px] bg-[#1B3A2D] p-6 text-[#F5F0E4] shadow-[0_20px_50px_-16px_rgba(27,58,45,0.5)]">
+    <div className="mef-animate-in mef-assigned-card">
       <div
         className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#C4A050]/16 blur-3xl"
         aria-hidden="true"
       />
-      <div className="relative flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#C4A050]">
+      <div className="mef-assigned-eyebrow flex items-center gap-2">
         <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
         From Root
       </div>
-      <h2 className="relative mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#F5F0E4]">
+      <h2 className="mef-assigned-title">
         {card.title}
       </h2>
       <p className="relative mt-2 text-sm leading-relaxed text-[#F5F0E4]/75">{card.description}</p>

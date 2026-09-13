@@ -36,11 +36,23 @@
  * exactly the same conditions. What changed is WHEN it arrives.
  *
  * THE ORDER IN <main> IS LOAD-BEARING and is preserved across the
- * boundaries: the priority, then the newly-revealed sentence, her program,
- * the weekly review, the invites, then either the welcome card or the
- * zones, and the completed priority last. React puts a boundary's content
- * back in its own place no matter which order the boundaries resolve in,
- * so the split costs nothing in layout.
+ * boundaries. Since the editorial pass (2026-09-13) it is the order of
+ * the seven questions this screen exists to answer, and it is the same
+ * whether a boundary resolves first or last, because React puts a
+ * boundary's content back in its own place regardless:
+ *
+ *   1. HERO          how am I doing        (the band, then the day's
+ *                                           one chosen action)
+ *   2. QUICK ACTIONS what can I do now     (its own boundary)
+ *   3. ASSIGNED      is anything owed
+ *   4. YOUR PROGRAM  where am I up to
+ *   5. WEEKLY/ACTIVE what else is running  (the weekly review, the
+ *                                           invites, Today, the
+ *                                           experiments, the reset plan)
+ *   6. INSIGHTS      what is Root noticing (the carousel, energy)
+ *   7. YOUR PATH     what can I explore    (history, the wearable)
+ *
+ * and the completed priority settles under all of it.
  *
  * EVERY REGION READS THE SAME FACTS. `getHomeFrame`, `getMyPriorityView`,
  * `getMemberVisibility`, `getTodaysCheckin` and the rest are all
@@ -142,9 +154,13 @@ import {
   DayFramePlaceholder,
   NoticingTilePlaceholder,
   PriorityPlaceholder,
+  QuickActionsPlaceholder,
   StreamPlaceholder,
 } from '@/components/dashboard/HomePlaceholders';
-import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid';
+import {
+  QuickActionsGrid,
+  type QuickAction,
+} from '@/components/dashboard/QuickActionsGrid';
 import { RevealOnScroll } from '@/components/dashboard/RevealOnScroll';
 import { ScrollCarousel } from '@/components/carousel/ScrollCarousel';
 import { AnimatedEnergyTrendChart } from '@/components/dashboard/AnimatedEnergyTrendChart';
@@ -292,6 +308,19 @@ export default async function DashboardPage({
         <RegionErrorBoundary message="Today's focus didn't load.">
           <Suspense fallback={<PriorityPlaceholder expectCard={frame.expectPriorityCard} />}>
             <PriorityRegion />
+          </Suspense>
+        </RegionErrorBoundary>
+
+        {/* QUICK ACTIONS, second in <main> and second in the page's own
+            hierarchy of questions: "what can I do right now", asked
+            immediately after "how am I doing". Its own boundary so that a
+            row of shortcuts is not held behind the twenty reads the day
+            frame makes. Silent on failure: a broken row of shortcuts is
+            better as no row than as a retry card wedged between the day's
+            one action and everything assigned to her. */}
+        <RegionErrorBoundary silent>
+          <Suspense fallback={<QuickActionsPlaceholder />}>
+            <QuickActionsRegion />
           </Suspense>
         </RegionErrorBoundary>
 
@@ -539,15 +568,15 @@ async function DayFrameRegion() {
   const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
 
   /*
-   * WHETHER ANYTHING IS WAITING ON HER AT ALL (Home presentation pass,
+   * WHETHER ANYTHING IS ASSIGNED TO HER AT ALL (Home presentation pass,
    * 2026-09-13).
    *
-   * The eleven cards below used to stack straight onto the page with no
-   * heading and a 12px gap, immediately under the day's one action, each
-   * one a full deep-green panel. Two of them at once read as two more
-   * things shouting at the same volume as the card above them, and a
-   * member had no way to tell that they are all the same KIND of thing:
-   * something a person, or Root, has asked her for and is waiting on.
+   * The cards below used to stack straight onto the page with no heading
+   * and a 12px gap, immediately under the day's one action, each one a
+   * full deep-green panel. Two of them at once read as two more things
+   * shouting at the same volume as the card above them, and a member had
+   * no way to tell that they are all the same KIND of thing: something a
+   * person, or Root, has asked her for and is waiting on.
    *
    * They are one section now, under one name. Which of them render, and
    * on exactly what conditions, did not change by a single character; the
@@ -555,7 +584,7 @@ async function DayFrameRegion() {
    * never drawn over nothing. Every one of them is already resolved above
    * this line, so counting them costs no read.
    */
-  const waitingOnHer =
+  const assignedToHer =
     stressLoad?.status === 'pending' ||
     bodySystems?.status === 'pending' ||
     bodySystems?.status === 'in_progress' ||
@@ -580,62 +609,53 @@ async function DayFrameRegion() {
       {/* ==================================================== */}
       {/* THE ONE PLAIN SENTENCE. Anything her rules revealed     */}
       {/* that she has not been told about yet, in Root's voice,  */}
-      {/* directly under the day's one priority and above         */}
-      {/* everything else. No buttons: this explains, it does not  */}
-      {/* compete with the card above it for the day's action.     */}
+      {/* and the first thing in this boundary. It sat directly   */}
+      {/* under the day's one priority until the editorial pass   */}
+      {/* (2026-09-13) put the Quick Actions row between the two;  */}
+      {/* what it is FOR is unaffected, because it announces      */}
+      {/* newly-revealed features rather than explaining that      */}
+      {/* card. No buttons either way: this tells her something,   */}
+      {/* it does not compete for the day's action.                */}
       {/* ==================================================== */}
       <NewlyRevealedNotice reveals={visibility.newlyRevealed} />
 
       {/* ==================================================== */}
-      {/* HER PROGRAM. The hero of this screen when one exists.   */}
-      {/*                                                          */}
-      {/* It used to be one of three blocks inside the "Today"     */}
-      {/* zone, below Quick Actions, in the same white card        */}
-      {/* language as everything around it. It is the most         */}
-      {/* personal thing on Home, a prescription a coach wrote for */}
-      {/* one member, and it now leads the page.                   */}
-      {/*                                                          */}
-      {/* Above the invites deliberately: those render the same    */}
-      {/* deep green treatment, and a hero sitting underneath      */}
-      {/* another full-bleed green panel is not a hero. The one    */}
-      {/* thing outranking it is still the day's single priority   */}
-      {/* directly above, and the sentence explaining it.          */}
-      {/*                                                          */}
-      {/* WHO sees it did not change. It is gated on the same      */}
-      {/* hasRealHistory the branch below uses, so a member with   */}
-      {/* no check-in history still gets the welcome card and      */}
-      {/* nothing else.                                            */}
-      {/*                                                          */}
-      {/* No zone label: a heading over a card whose own eyebrow   */}
-      {/* already says "Your program" is a second, quieter voice   */}
-      {/* saying the same thing. No RevealOnScroll either: a hero  */}
-      {/* that fades in as you scroll to it is a hero you already  */}
-      {/* scrolled past.                                           */}
+      {/* ASSIGNED TO YOU — one section, one name, fourteen       */}
+      {/* cards, and the first thing under Quick Actions.         */}
+      {/*                                                         */}
+      {/* Each of these is something a person or Root has asked    */}
+      {/* her for and has not had back yet: a coach's assignment,  */}
+      {/* a deep-dive left half finished, this week's reflection.  */}
+      {/* They used to stack straight onto the page with no        */}
+      {/* heading at all, and then under "Waiting on you", which   */}
+      {/* named the state rather than the thing. "Assigned to      */}
+      {/* You" names what they are, and the line under it says     */}
+      {/* who they came from without claiming a coach sent every   */}
+      {/* one of them, because this week's reflection is the       */}
+      {/* member's plan rather than a person's request.            */}
+      {/*                                                         */}
+      {/* ABOVE HER PROGRAM NOW (editorial pass, 2026-09-13).      */}
+      {/* The program is a standing thing she is in the middle of  */}
+      {/* and will be in the middle of tomorrow; these are         */}
+      {/* finite, they are somebody waiting, and they go stale.    */}
+      {/* So the page asks "is anything owed" before it says       */}
+      {/* "here is where you are", and the two are never confused  */}
+      {/* for each other because they are different objects: a     */}
+      {/* 24px flat forest card here, a 32px gradient hero there.  */}
+      {/*                                                         */}
+      {/* NOTHING ABOUT WHO SEES WHAT CHANGED. Every card below    */}
+      {/* renders on exactly the condition it always did, in       */}
+      {/* exactly the order it always did, with exactly the props  */}
+      {/* it always got, and none of them is hidden behind a       */}
+      {/* "view all". The section disappears with its heading      */}
+      {/* when none of them render (`assignedToHer` above),        */}
+      {/* rather than leaving a name over nothing.                 */}
       {/* ==================================================== */}
-      {hasRealHistory && programHero && <div className={SECTION}>{programHero}</div>}
-
-      {/* ==================================================== */}
-      {/* WAITING ON YOU — one section, one name, eleven cards.  */}
-      {/*                                                        */}
-      {/* Each of these is something a person or Root has asked   */}
-      {/* her for and has not had back yet: a coach's assignment, */}
-      {/* a deep-dive left half finished, this week's reflection. */}
-      {/* They used to stack straight onto the page with no       */}
-      {/* heading at all, directly under the day's one action, so */}
-      {/* two of them read as two more equal claims on her        */}
-      {/* attention rather than as a list of one kind of thing.   */}
-      {/*                                                        */}
-      {/* NOTHING ABOUT WHO SEES WHAT CHANGED. Every card below   */}
-      {/* renders on exactly the condition it always did, in      */}
-      {/* exactly the order it always did, with exactly the props */}
-      {/* it always got. The section disappears with its heading  */}
-      {/* when none of them render (`waitingOnHer` above), rather */}
-      {/* than leaving a name over nothing.                      */}
-      {/* ==================================================== */}
-      {waitingOnHer && (
+      {assignedToHer && (
         <div className={SECTION}>
-          <p className={ZONE_LABEL}>Waiting on you</p>
-          <div className="mef-home-stack mt-4">
+          <p className={ZONE_LABEL}>Assigned to You</p>
+          <p className="mef-home-section-note">Waiting on you</p>
+          <div className="mef-home-stack mt-5">
       {/* ==================================================== */}
       {/* THE STRESS & LOAD DEEP-DIVE, persistent, for as long   */}
       {/* as her coach's assignment is open.                     */}
@@ -1036,6 +1056,39 @@ async function DayFrameRegion() {
       )}
 
       {/* ==================================================== */}
+      {/* YOUR PROGRAM. The richest single object on this screen,  */}
+      {/* and the answer to "where am I in my program".            */}
+      {/*                                                          */}
+      {/* It used to be one of three blocks inside the "Today"     */}
+      {/* zone, below Quick Actions, in the same white card        */}
+      {/* language as everything around it. It is the most         */}
+      {/* personal thing on Home, a prescription a coach wrote for */}
+      {/* one member, so it is a 32px gradient feature card with   */}
+      {/* its own warm halo, and it is the only thing on the page  */}
+      {/* drawn that way apart from the day's one action.          */}
+      {/*                                                          */}
+      {/* BELOW ASSIGNED TO YOU (editorial pass, 2026-09-13), for  */}
+      {/* the reason written over that section: the things a       */}
+      {/* person is waiting on go stale and this does not. It is   */}
+      {/* still above the invites deliberately, since those render */}
+      {/* the same deep green treatment and a feature card         */}
+      {/* underneath another full-bleed green panel is not a       */}
+      {/* feature card.                                            */}
+      {/*                                                          */}
+      {/* WHO sees it did not change. It is gated on the same      */}
+      {/* hasRealHistory the branch below uses, so a member with   */}
+      {/* no check-in history still gets the welcome card and      */}
+      {/* nothing else.                                            */}
+      {/*                                                          */}
+      {/* No zone label: the card's own eyebrow already reads      */}
+      {/* "Your program", and a heading over it saying the same    */}
+      {/* words is a second, quieter voice. No RevealOnScroll      */}
+      {/* either: a card that fades in as you scroll to it is a    */}
+      {/* card you already scrolled past.                          */}
+      {/* ==================================================== */}
+      {hasRealHistory && programHero && <div className={SECTION}>{programHero}</div>}
+
+      {/* ==================================================== */}
       {/* THE WEEKLY ROOT REVIEW, persistent (Adaptive Coaching  */}
       {/* Direction, Part 2). After the pop-up has had its one    */}
       {/* showing this week, the review stays reachable here for  */}
@@ -1089,43 +1142,79 @@ async function DayFrameRegion() {
           <FirstCheckInWelcome />
         </div>
       ) : (
-        <div>
-          {/* ==================================================== */}
-          {/* Quick Actions — Case and Movement, as two capsule       */}
-          {/* pills. Food Lens and Progress moved to the bottom nav;  */}
-          {/* Flag a Concern moved out of Quick Actions entirely.     */}
-          {/* See components/dashboard/QuickActionsGrid.tsx.          */}
-          {/* ==================================================== */}
-          <QuickActionsZone />
-
-          {/* ==================================================== */}
-          {/* Today — Root's Daily Brief and today's honest line      */}
-          {/* when nothing is logged yet.                             */}
-          {/* ==================================================== */}
-          <TodayZone />
-        </div>
+        /* ==================================================== */
+        /* Today — Root's Daily Brief and today's honest line     */
+        /* when nothing is logged yet.                            */
+        /*                                                        */
+        /* Quick Actions used to be the first thing in this       */
+        /* branch. It is its own streamed region directly under   */
+        /* the hero now (QuickActionsRegion, in the shell above), */
+        /* because a shortcut a member wants in the first two     */
+        /* seconds cannot be behind the fourteen assignment       */
+        /* cards and the program card in the same boundary. The   */
+        /* branch itself is unchanged: a member with no history   */
+        /* still gets the welcome card and nothing else, and the  */
+        /* region above makes the identical check.                */
+        /* ==================================================== */
+        <TodayZone />
       )}
     </>
   );
 }
 
 /**
- * Quick Actions.
+ * QUICK ACTIONS, the compact row directly under the hero.
  *
- * The Case pill carries no second line. C2 (2026-08-27): it used to carry
- * `${completedCount} of ${totalCount} complete`, which is the QUESTIONNAIRE
- * count, printed again verbatim two zones lower under QUESTIONNAIRES. On the
- * pill it read as "your Case is 4 of 8 done", which is not a thing the Case
- * has or could have. There is no real completion fraction for a case, so
- * the pill carries no second line rather than borrowing a true number from
- * somewhere it is not about. Its own zone still shows the questionnaire
- * count, once.
+ * IT IS ITS OWN BOUNDARY NOW (editorial pass, 2026-09-13). It used to be
+ * the first block inside the day frame, which meant it could not paint
+ * until every one of that boundary's twenty reads had resolved: the
+ * fourteen assignment views, the program, the weekly review, the
+ * questionnaire catalog. It is the answer to "what can I do right now",
+ * so it arrives with the day's one action rather than behind everything
+ * that is waiting on her. Every read below is request-memoized and is
+ * already being made by another region on the same render, so splitting
+ * it out costs no extra round trip.
+ *
+ * NOTHING HERE IS A NEW DOOR. Case and Movement keep the exact visibility
+ * rules they have always had. Food Lens is decided by the same
+ * `tracker.food_lens` rule that decides its tab in the bottom bar, which
+ * is on every screen in the app. Daily Reset and Progress are the gold
+ * button and the Progress tab in that same bar, reachable from every
+ * screen already, so putting them in this row moves a shortcut rather
+ * than revealing a feature.
+ *
+ * THE HINTS ARE REAL OR THEY ARE FIXED, NEVER INVENTED. Movement carries
+ * its true completion status when one exists, Daily Reset says whether
+ * today's check-in is already logged (one read, the same memoized one the
+ * hero and the Today zone make), and the rest carry a fixed line naming
+ * what the tap opens.
+ *
+ * THE ONE LIT TILE. Exactly one tile may carry the warm halo, and it is
+ * the Daily Reset tile on a day she has not checked in yet, decided from
+ * the stored row rather than from the copy. Once she has, nothing in this
+ * row glows: a row where everything is highlighted highlights nothing.
+ *
+ * The Case tile carries no status line of its own. C2 (2026-08-27): it
+ * used to carry `${completedCount} of ${totalCount} complete`, which is
+ * the QUESTIONNAIRE count, printed again verbatim further down the page.
+ * There is no real completion fraction for a case, so the tile says what
+ * the tap opens instead of borrowing a true number from somewhere it is
+ * not about.
  */
-async function QuickActionsZone() {
-  const [visibility, bodyAssessments] = await Promise.all([
+async function QuickActionsRegion() {
+  const frame = await requireHomeFrame();
+  const [visibility, hasRealHistory, bodyAssessments, todaysCheckin] = await Promise.all([
     getMemberVisibility(),
+    memberHasRealHistory(),
     homeBodyAssessments(),
+    getTodaysCheckin(frame.localDate),
   ]);
+  /* The same gate the day frame's own branch makes: before her first
+     check-in the welcome card is the whole screen, and a row of
+     shortcuts above it would be the empty dashboard that card exists to
+     replace. */
+  if (!hasRealHistory) return null;
+
   const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
 
   // bodyAssessments is ordered newest-first (see lib/body-assessment/data.ts),
@@ -1134,24 +1223,41 @@ async function QuickActionsZone() {
   const movementActionStatus = latestAnalyzedAssessment
     ? formatCompletedStatus(latestAnalyzedAssessment.completed_at!)
     : null;
-  const caseStatus: string | null = null;
+
+  const actions: QuickAction[] = [
+    {
+      icon: 'dailyReset',
+      label: 'Daily Reset',
+      hint: todaysCheckin ? 'Logged today' : 'Check in',
+      href: '/checkin',
+      accent: !todaysCheckin,
+    },
+    ...(shows(F.trackerFoodLens)
+      ? [{ icon: 'foodLens' as const, label: 'Food Lens', hint: 'Scan a meal', href: '/food-lens' }]
+      : []),
+    ...(shows(F.homeQuickActionMovement)
+      ? [
+          {
+            icon: 'movement' as const,
+            label: 'Movement',
+            hint: movementActionStatus ?? 'Your movement',
+            href: '/movement',
+          },
+        ]
+      : []),
+    { icon: 'progress', label: 'Progress', hint: 'View trends', href: '/progress' },
+    ...(shows(F.homeQuickActionCase)
+      ? [{ icon: 'case' as const, label: 'Case', hint: 'What Root has found', href: '/case' }]
+      : []),
+  ];
 
   return (
-    <>
-      {(shows(F.homeQuickActionCase) || shows(F.homeQuickActionMovement)) && (
-        <RevealOnScroll className={SECTION}>
-          <p className={ZONE_LABEL}>Quick Actions</p>
-          <div className="mt-4">
-            <QuickActionsGrid
-              caseStatus={caseStatus}
-              movementStatus={movementActionStatus}
-              showCase={shows(F.homeQuickActionCase)}
-              showMovement={shows(F.homeQuickActionMovement)}
-            />
-          </div>
-        </RevealOnScroll>
-      )}
-    </>
+    <div className="pt-9">
+      <p className={ZONE_LABEL}>Quick Actions</p>
+      <div className="mt-4">
+        <QuickActionsGrid actions={actions} />
+      </div>
+    </div>
   );
 }
 
@@ -1234,8 +1340,10 @@ async function TodayZone() {
 // =====================================================================
 
 /**
- * Everything below the first screenful: Active Experiments, the Personal
- * Reset Plan, Your Path, What Root Is Noticing, Trends and Your Device.
+ * Everything below the first screenful, in the page's own order: Active
+ * Experiments and the Personal Reset Plan (still things she is doing),
+ * then What Root Is Noticing and the Energy Trend (things she reads),
+ * then Your Path and Your Device (things she explores).
  *
  * All of it is gated on the same `hasRealHistory` the day frame above uses,
  * so a member still on the welcome card gets none of it, exactly as before.
@@ -1283,9 +1391,19 @@ async function StreamRegion() {
         </RevealOnScroll>
       )}
 
-      <Suspense fallback={null}>
-        <YourPathZone />
-      </Suspense>
+      {/* ==================================================== */}
+      {/* INSIGHTS. From here down the page is something she      */}
+      {/* READS rather than something she acts on, and the two    */}
+      {/* sections below open that half: what Root has noticed,   */}
+      {/* and the shape of her own energy. `.mef-home-section-    */}
+      {/* quiet` is the hairline and the wider gap that says so.  */}
+      {/* It is carried by the section itself rather than drawn   */}
+      {/* as a divider between two of them, so a rule can never   */}
+      {/* be left hanging over a section that had nothing to      */}
+      {/* draw. Your Path moved BELOW both (editorial pass,       */}
+      {/* 2026-09-13): history and the deeper screens are the     */}
+      {/* last question this page answers, not the fifth.         */}
+      {/* ==================================================== */}
 
       {/* ==================================================== */}
       {/* What Root Is Noticing — What We're Noticing, Your Root  */}
@@ -1300,8 +1418,9 @@ async function StreamRegion() {
       {/* a bottom sheet with the full original content.             */}
       {/* ==================================================== */}
       {shows(F.homeNoticingCarousel) && (
-        <RevealOnScroll delayMs={60} className={SECTION}>
+        <RevealOnScroll delayMs={60} className="mef-home-section-quiet">
           <p className={ZONE_LABEL}>What Root Is Noticing</p>
+          <p className="mef-home-section-note">What your own weeks keep showing</p>
           {/* Dashboard Evolution (Prompt 5), requirement 3: a new
               discovery moment outranks routine cards whenever one
               exists — RootDiscoveryCard leads this carousel
@@ -1336,6 +1455,18 @@ async function StreamRegion() {
         <TrendsZone />
       </Suspense>
 
+      {/* ==================================================== */}
+      {/* YOUR PATH and YOUR DEVICE — the longer-term half.       */}
+      {/* Everything she can explore rather than everything she   */}
+      {/* owes: past assessments, the questionnaire library, the  */}
+      {/* comprehensive baseline, her wearable. Last on the page  */}
+      {/* on purpose, and unchanged in what it holds or who sees  */}
+      {/* it.                                                     */}
+      {/* ==================================================== */}
+      <Suspense fallback={null}>
+        <YourPathZone />
+      </Suspense>
+
       <Suspense fallback={null}>
         <YourDeviceZone />
       </Suspense>
@@ -1348,11 +1479,16 @@ async function StreamRegion() {
  * Questionnaires (plain row + progress bar), Personalized Insights (white
  * card, or nothing yet). Movement goes first and Questionnaires
  * last-if-Comprehensive-is-absent on purpose: Comprehensive (white) is
- * conditional and can be null, and the zone right after this one is an
- * image-backed carousel — ending on image-backed here too (if Movement were
- * last) would repeat that treatment back to back. With Movement first, this
- * zone always ends on Comprehensive (white) or Questionnaires (row), never
- * image-backed, regardless of which cards are present.
+ * conditional and can be null, and a zone that ends on an image-backed
+ * card butts that treatment against whatever comes next. With Movement
+ * first, this zone always ends on Comprehensive (white) or Questionnaires
+ * (row), never image-backed, regardless of which cards are present.
+ *
+ * THE ZONE IT SITS BESIDE CHANGED (editorial pass, 2026-09-13) and the
+ * rule survived it intact. It used to come immediately before the
+ * image-backed Noticing carousel; it now comes after that carousel and
+ * after the Energy Trend, at the bottom of the page with Your Device
+ * under it. Nothing inside it moved.
  *
  * VISIBILITY LAYER: no locked card ever renders here now. The Movement
  * Assessment used to appear for every member with a "Locked" treatment,
@@ -1389,9 +1525,10 @@ async function YourPathZone() {
   }
 
   return (
-    <RevealOnScroll delayMs={0} className={SECTION}>
+    <RevealOnScroll delayMs={0} className="mef-home-section-quiet">
       <p className={ZONE_LABEL}>Your Path</p>
-      <div className="mef-home-stack mt-4">
+      <p className="mef-home-section-note">Where you have been, and what is still open</p>
+      <div className="mef-home-stack mt-5">
         {shows(F.homeMovementAssessmentCard) && (
           /* SECOND, NOT EQUAL (polish pass, 2026-08-18). This panel and the
              program hero above share one visual treatment, the deep-green
@@ -1459,7 +1596,13 @@ async function TrendsZone() {
    * its data, its scroll-replay draw-in and its wrapper are untouched.
    */
   return (
-    <RevealOnScroll delayMs={0} className={SECTION}>
+    /* `.mef-home-section-quiet` rather than the plain section gap: this is
+       the second of the two sections a member READS, and each one carries
+       its own hairline so the quieter half of the page opens with a rule
+       whichever of them she actually has. A divider drawn between two
+       sections instead would be left hanging over nothing the moment one
+       of them had nothing to draw. */
+    <RevealOnScroll delayMs={0} className="mef-home-section-quiet">
       <p className={ZONE_LABEL}>Energy Trend</p>
       <section className="mt-4">
         <AnimatedEnergyTrendChart checkins={recentCheckins} todayLocalDate={frame.localDate} />

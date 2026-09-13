@@ -1,3 +1,177 @@
+## Home, the editorial pass (2026-09-13)
+
+Presentation only, again. No data fetch changed, no gate changed, no
+server action, no route, no permission, no copy condition and no write
+changed anywhere in this pass. Every card on Home renders for exactly the
+member it rendered for before, on exactly the conditions it rendered on
+before. What changed is the ORDER of the sections, the KIND of surface
+each one is drawn on, and where the eye goes first.
+
+### THE PAGE ANSWERS SEVEN QUESTIONS, IN ORDER
+
+The order in `<main>` used to be an accident of which zone was written
+first. It is now the order a member actually asks things in, and the page
+comment, the region names and `tests/home-streaming-structure.test.ts`
+all carry the same list:
+
+1. **Hero** how am I doing (the band, then the day's one chosen action)
+2. **Quick Actions** what can I do right now
+3. **Assigned to You** is anything owed
+4. **Your Program** where am I up to
+5. **Weekly / Active** what else is running
+6. **Insights** what is Root noticing
+7. **Your Path** what can I explore
+
+Measured on production before the change, as the seeded test member at
+390px: Quick Actions was at y=1716, the program at y=586, and Your Path
+at y=2409 ABOVE the insights at y=2960. The new rig scored the old page
+8/13 on its own checks, which is where those numbers come from. A
+comparison claim needs the old number taken off production first.
+
+**Two sections swapped and one moved.** What is assigned to her now sits
+ABOVE her program: the things a person is waiting on go stale, and a
+program is a standing thing she will still be in the middle of tomorrow.
+Your Path moved from between the reset plan and the Noticing carousel to
+the bottom, under the insights, because history is the last question this
+page answers and not the fifth.
+
+### QUICK ACTIONS IS A ROW NOW, AND IT IS ITS OWN BOUNDARY
+
+It was two capsule pills, 64px tall, running the full width of the
+column, a long way down the page. Two pills that exactly fill their
+container also tell a member there is nothing else.
+
+- **Five doors, none of them new.** Daily Reset, Food Lens, Movement,
+  Progress, Case. Case and Movement keep the exact visibility rules they
+  have always had; Food Lens is decided by the same `tracker.food_lens`
+  rule that decides its bottom-bar tab; Daily Reset and Progress are the
+  gold button and the Progress tab in that same bar, on every screen in
+  the app already. Putting them here moves a shortcut, it does not
+  reveal a feature, which is the rule that lets those two skip a key.
+- **The next tile is exposed on purpose, at 20 percent, at every width.**
+  The tile is `calc((100% - 1.5rem) / 2.2)` rather than a pixel value:
+  two whole tiles, one gap, and a fifth of the third. Measured in a real
+  browser at 320, 360, 390, 414 and 430px: 20 percent at all five, with
+  no clipped label and no sideways scroll on the page itself. From 768px
+  up the fraction is replaced by a flat 200px, because a fifth of a
+  1,024px column is a 450px tile and a desktop pointer does not need
+  telling that a row scrolls.
+- **Two tiles or fewer is a grid, not a row.** A peek at a tile that does
+  not exist is a lie, and a 148px tile with 200px of dead space beside it
+  reads as broken.
+- **Exactly one tile may be lit**, and it is Daily Reset on a day she has
+  not checked in yet, read off the stored row. Once she has, nothing in
+  the row glows.
+- **No status is invented.** Movement carries its real completion line
+  ("Completed 26 days ago") clamped to two lines rather than truncated to
+  an ellipsis, which is the bug the pill treatment shipped with and the
+  reason the previous pass could not fix it.
+- **It streams on its own.** It used to be the first block inside the day
+  frame, so a row of shortcuts could not paint until that boundary's
+  twenty reads had all resolved. Every read it makes is request-memoized
+  and already being made elsewhere on the same render, so the split costs
+  no round trip.
+
+### THE DAILY RESET IS NOT A BIG CARD ON HOME, AND NEVER WAS ONE
+
+Worth writing down because the brief asked for it to stop being one: on
+Home it has only ever been the gold + in the bottom bar. It is now also a
+compact tile in the row, and the gold button is untouched, including its
+warm halo.
+
+### FOURTEEN COPIES OF ONE CLASS STRING BECAME ONE CLASS
+
+`relative overflow-hidden rounded-[28px] bg-[#1B3A2D] p-6 text-[#F5F0E4]
+shadow-[0_18px_40px_-24px_rgba(14,31,23,0.55)]` was written out by hand,
+identically, in fourteen files. The eyebrow, the title and the button
+inside them were three more identical strings each. They are
+`.mef-assigned-card` / `-eyebrow` / `-title` / `-cta` now, defined once,
+which is the only reason the section could step down without editing
+fourteen files a second time. Every one of those components is rendered
+on Home and on no other screen.
+
+**They are medium weight now**: 24px rather than 28px, 22px of padding
+rather than 24px, a softer contact shadow, and a 21px title rather than a
+24px one. A screen holding three of them and a program card reads as one
+feature with three requests under it instead of as four features. The two
+invite cards (From Root, and a coach-assigned questionnaire) took the
+same treatment, so the deep-green family is one weight.
+
+**"Waiting on you" became "Assigned to You"**, with "Waiting on you" as
+the supporting line under it. The old heading named the state; the new
+one names the thing. The line deliberately does not say "From your
+coach", because the Weekly Reflection in that section is her plan rather
+than a person's request.
+
+**Nothing is hidden behind a "View all".** All fourteen still render on
+exactly the conditions they always did. Condensing them would change what
+a member can see before she taps, which is not presentation.
+
+### THE RADIUS LADDER IS THE HIERARCHY
+
+The pass before this one committed Home to three radii, which was the
+right correction to five arbitrary ones and left every surface the same
+shape. It is a ladder now, and it descends with weight:
+
+    32px  the one feature surface (the day's action, her program)
+    28px  an ordinary card
+    24px  an assigned action card
+    18px  a compact quick-action tile
+    16px  a control or an inner tile
+    full  a button, a chip, a status pill
+
+### GLOW IS A SPOTLIGHT, NOT A FINISH
+
+Two halos exist, `--mef-home-glow-gold` and `--mef-home-glow-forest`:
+wide, low-opacity, no hard edge, laid under the surface's own contact
+shadow so they read as light around an object rather than as a second
+border. They are on the day's one action, the one undone quick action,
+and nothing else that this pass added. Gold is still never a surface on
+Home.
+
+### THE QUIET HALF OPENS WITH A HAIRLINE
+
+`.mef-home-section-quiet` is a wider gap and a 7 percent rule, and it is
+carried BY the section rather than drawn between two of them, so a
+divider can never be left hanging over a section that turned out to have
+nothing to draw. It is on What Root Is Noticing, on the Energy Trend and
+on Your Path, which is the part of the page she reads rather than acts
+on. Two of those three also gained a one-line supporting note, which is
+the second type level a section is allowed and the only new one.
+
+### WHAT WAS RUN
+
+- 11,209 tests in 588 files, all passing, against a database freshly
+  `supabase db reset`. Three test files were rewritten with their intent
+  intact and their reasons written into their own headers: the Quick
+  Actions file pinned a capsule-pill shape that no longer exists (every
+  rule underneath the shape is kept, and three new ones added), the
+  streaming file gained the new region and its placeholder, and the
+  program-placement file had a check that **could no longer fail**. That
+  last one is the one worth reading: it compared source indexes across
+  two different functions, and since Quick Actions is now defined further
+  down the same file than the program block, it kept passing while
+  asserting the opposite of the truth. It compares positions inside one
+  block of JSX now.
+- Typecheck clean, lint clean (0 errors, the same 95 pre-existing
+  console-statement warnings in scripts), production build clean.
+- Driven locally in a real browser at 390x844 with a seeded member
+  carrying 21 check-ins, three coach assignments and a live program, and
+  measured at five viewport widths and at 1280px. Every seeded row was
+  removed by a full `supabase db reset` before the final suite run.
+- Driven on production by `scripts/verify-home-editorial-live.mjs`,
+  before and after.
+
+### WHAT THIS PASS DELIBERATELY DID NOT DO
+
+- **The program card keeps its own eyebrow instead of gaining a section
+  heading.** The card already reads "Your program" on its first line, and
+  a heading over it saying the same words is the second quieter voice the
+  previous pass spent four fixes removing.
+- **The fourteen assigned cards are still fourteen cards.** See above.
+- **The hero band is untouched.** It was rebuilt yesterday to a committed
+  400px and re-measured then; nothing here had a reason to reopen it.
+
 ## Home, a presentation and layout pass (2026-09-13)
 
 Presentation only. No data fetch, no server action, no gate, no copy

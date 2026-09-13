@@ -1,114 +1,117 @@
 'use client';
 
 /**
- * Home dashboard — Quick Actions zone. Two capsule pills (Case, Movement)
- * side by side. Food Lens and Progress moved to the member bottom nav
- * (components/BottomNav.tsx); Flag a Concern was removed from here
- * entirely — see app/dashboard/page.tsx's doc comment on where it needs a
- * new home, since this was its only entry point in the member app.
+ * Home — Quick Actions, the compact row directly under the hero.
  *
- * `status` is real, already-fetched data passed down from
- * app/dashboard/page.tsx (questionnaire completion count, most recent
- * completed movement assessment) — never computed or invented here. A
- * null status renders the pill with its label only, no second line, so
- * both pills stay the same height either way (fixed min-height + centered
- * content, rather than reserving space for a line that may not exist).
+ * WHAT THIS ROW IS FOR. It answers the second of the seven questions
+ * Home exists to answer ("what can I do right now"), and it answers it
+ * in the least space the page spends on anything: a horizontal row of
+ * small tiles she can thumb through, immediately under the day's one
+ * chosen action and above everything that is waiting on her.
  *
- * TREATMENT (Home cleanup pass, 2026-08-14). The pill SHAPE is settled and
- * unchanged: two rounded-full capsules, one row, same hrefs, same icons,
- * same status lines. What changed is that they no longer read as plain
- * labels sitting under the image-backed cards above them:
+ * IT WAS TWO FULL-WIDTH CAPSULES (Case, Movement) IN A GRID. Two pills
+ * running the whole width of the column, 64px tall, sitting a long way
+ * down the page under the program hero and the eleven assignment cards.
+ * They read as two more section-sized objects rather than as shortcuts,
+ * and a row of exactly two things that exactly fills its container tells
+ * a member there is nothing else. Both problems are the same problem: a
+ * shortcut that takes a section's worth of room is not a shortcut.
  *
- *   - each pill's icon now sits in a small illustrated tile — a flat
- *     brand-palette gradient (forest #1B3A2D into warm gold #C4A050) with
- *     a single soft highlight, the same flat artwork language the Noticing
- *     cards use, rather than the flat forest circle it used to be;
- *   - the pill itself carries a cream-to-white gradient (#F5F0E4 into
- *     white) and a slightly deeper shadow, so it reads as a raised door
- *     into a feature rather than a tinted label.
+ * THE NEXT TILE IS DELIBERATELY EXPOSED. The tile width is a fraction of
+ * the column, not a pixel value (`.mef-home-quick-tile`, app/globals.css),
+ * so two whole tiles, one gap and a fifth of the third are visible at
+ * rest at every phone width: 20 percent of the next tile at 320px, at
+ * 390px and at 430px alike. That slice is the whole signal that the row
+ * scrolls, and it is the reason the width is computed rather than fixed.
  *
- * A trailing chevron was tried and removed: at 390px each pill has about
- * 145px of inner width, and the chevron took enough of it to truncate
- * "2 of 9 complete" to "2 of 9 com...". A real status line is worth more
- * than a second affordance cue, and the raised tile already reads as a
- * door. Caught by screenshotting the real rendered pills, not by reading
- * the markup.
+ * WITH TWO TILES OR FEWER THERE IS NOTHING TO SCROLL TO, so the row
+ * becomes a plain grid and the tiles fill the column. A peek at a tile
+ * that does not exist is a lie about the row, and a 148px tile with 200px
+ * of empty space beside it reads as broken rather than as scrollable.
  *
- * No new artwork files, no new dependency, no fourth colour: every value
- * here is one of the three brand colours already in app/globals.css.
+ * EVERY TILE IS A DOOR SHE ALREADY HAS. Nothing here is a new feature and
+ * nothing here is a new permission: Daily Reset and Progress are in the
+ * bottom bar on every screen in the app, Food Lens is decided by the same
+ * `tracker.food_lens` rule that decides its bottom-bar tab, and Case and
+ * Movement keep the exact visibility rules they have always had. Which
+ * tiles exist is decided on the server (app/dashboard/page.tsx) and handed
+ * down; this component invents nothing and gates nothing.
+ *
+ * THE HINT LINE IS REAL OR IT IS STATIC, NEVER INVENTED. The Movement
+ * tile carries the true completion status when one exists ("Completed 26
+ * days ago"), the Daily Reset tile says whether today's check-in is
+ * already logged, and the rest carry a fixed line saying what is on the
+ * other side of the tap. The hint is held to two lines rather than
+ * truncated, because cutting a true sentence to an ellipsis is the bug
+ * the previous treatment shipped with.
  */
 
 import { QuietLink } from '@/components/nav/QuietLink';
 import type { Route } from 'next';
-import { Activity, Compass } from 'lucide-react';
-
-const PILL =
-  'mef-press mef-focus-ring flex min-h-[64px] items-center gap-2.5 rounded-full border border-[#1B3A2D]/12 bg-gradient-to-br from-[#F5F0E4] to-white px-3 py-3 shadow-[0_4px_16px_-6px_rgba(27,58,45,0.22)] transition hover:border-[#1B3A2D]/25 hover:shadow-[0_6px_20px_-6px_rgba(27,58,45,0.28)]';
+import { Activity, BarChart2, Compass, Sunrise, UtensilsCrossed } from 'lucide-react';
 
 /**
- * The illustrated icon tile. A rounded square rather than a circle so it
- * reads as a small piece of artwork inside the capsule instead of a bullet,
- * with the gradient running forest -> gold on the diagonal and one soft
- * cream highlight in the top-left corner (the `::before` equivalent, done
- * as a real child element below so it needs no extra CSS).
+ * A server component cannot hand a client component a function, so the
+ * icon travels as a key and is resolved here. The keys are the five doors
+ * this row can offer and nothing else.
  */
-const ICON_TILE =
-  'relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-gradient-to-br from-[#1B3A2D] via-[#24503C] to-[#C4A050] text-[#F5F0E4] shadow-[0_2px_8px_-2px_rgba(27,58,45,0.45)]';
+const ICONS = {
+  dailyReset: Sunrise,
+  foodLens: UtensilsCrossed,
+  movement: Activity,
+  progress: BarChart2,
+  case: Compass,
+} as const;
 
-const LABEL = 'text-sm font-semibold leading-tight text-[#1B3A2D]';
+export type QuickActionIcon = keyof typeof ICONS;
 
-const STATUS = 'mt-0.5 text-[11px] leading-tight text-[#6B7A72]';
+export type QuickAction = {
+  /** Stable key, used for React's list identity and for the icon. */
+  icon: QuickActionIcon;
+  label: string;
+  /** The one short line under the label. Real status where one exists, otherwise what the tap opens. */
+  hint: string;
+  href: string;
+  /**
+   * The single lit tile, when there is one. Decided on the server from a
+   * real row (today's check-in either exists or it does not), never from
+   * the copy and never more than once in the row.
+   */
+  accent?: boolean;
+};
 
-type QuickAction = { label: string; href: Route; Icon: typeof Activity; status: string | null };
+export function QuickActionsGrid({ actions }: { actions: QuickAction[] }) {
+  if (actions.length === 0) return null;
 
-/**
- * VISIBILITY LAYER (2026-08-17): each pill is a door into a feature, so
- * each one is decided by that feature's own rule rather than always drawn.
- * A member with nothing found yet has no case to open; a member for whom
- * movement is not a topic has no movement screen. The grid collapses to one
- * full-width pill when only one survives, rather than leaving a gap where
- * the other was, and Home drops the whole zone when neither does.
- */
-export function QuickActionsGrid({
-  caseStatus,
-  movementStatus,
-  showCase,
-  showMovement,
-}: {
-  caseStatus: string | null;
-  movementStatus: string | null;
-  showCase: boolean;
-  showMovement: boolean;
-}) {
-  const ACTIONS: QuickAction[] = [
-    ...(showCase ? [{ label: 'Case', href: '/case' as Route, Icon: Compass, status: caseStatus }] : []),
-    ...(showMovement
-      ? [{ label: 'Movement', href: '/movement' as Route, Icon: Activity, status: movementStatus }]
-      : []),
-  ];
-
-  if (ACTIONS.length === 0) return null;
+  // Two or fewer has nothing off screen to promise, so it is a grid.
+  const scrolls = actions.length > 2;
 
   return (
-    <div className={`grid gap-3 ${ACTIONS.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-      {ACTIONS.map(({ label, href, Icon, status }) => (
-        <QuietLink key={href} href={href} className={PILL}>
-          <span className={ICON_TILE}>
-            {/* The one highlight. Purely decorative, hidden from assistive
-                tech, and inside the tile's own overflow-hidden so it can
-                never bleed past the rounded corners. */}
-            <span
-              className="pointer-events-none absolute -left-2 -top-3 h-7 w-7 rounded-full bg-[#F5F0E4]/25 blur-[6px]"
-              aria-hidden="true"
-            />
-            <Icon className="relative h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className={`block ${LABEL}`}>{label}</span>
-            {status && <span className={`block truncate ${STATUS}`}>{status}</span>}
-          </span>
-        </QuietLink>
-      ))}
+    <div
+      className={
+        scrolls
+          ? 'mef-home-quick-row mef-scrollbar-hidden'
+          : `grid gap-3 ${actions.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`
+      }
+    >
+      {actions.map(({ icon, label, hint, href, accent }) => {
+        const Icon = ICONS[icon];
+        return (
+          <QuietLink
+            key={icon}
+            href={href as Route}
+            className={`mef-press mef-focus-ring mef-home-quick-tile ${
+              accent ? 'mef-home-quick-tile-accent' : ''
+            }`}
+          >
+            <span className="mef-home-quick-icon">
+              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            <span className="mef-home-quick-label">{label}</span>
+            <span className="mef-home-quick-hint">{hint}</span>
+          </QuietLink>
+        );
+      })}
     </div>
   );
 }

@@ -54,7 +54,7 @@ export function AssignedQuestionnairePriorityCard({
         return (
           <div
             key={card.key}
-            className="mef-animate-in relative overflow-hidden rounded-[28px] bg-[#1B3A2D] p-6 text-[#F5F0E4] shadow-[0_20px_50px_-16px_rgba(27,58,45,0.5)]"
+            className="mef-animate-in mef-assigned-card"
           >
             {/* The assignment's delivery receipt (migration 210). This card
                 really is the assignment reaching her, so it records that,
@@ -71,11 +71,11 @@ export function AssignedQuestionnairePriorityCard({
               className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#C4A050]/16 blur-3xl"
               aria-hidden="true"
             />
-            <div className="relative flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#C4A050]">
+            <div className="mef-assigned-eyebrow flex items-center gap-2">
               <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
               Assigned by your coach
             </div>
-            <h2 className="relative mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#F5F0E4]">
+            <h2 className="mef-assigned-title">
               {card.title}
             </h2>
             {card.coachAssignmentReason && (
