@@ -103,6 +103,72 @@ the screen edge and the word, not from shrinking the type again, and it
 was confirmed by measuring `scrollWidth` against `clientWidth` on the real
 rendered bar rather than by looking at it.
 
+### WHAT THE PRODUCTION WALK FOUND, AND WHAT IT FIXED
+
+`apps/consumer-web-app/scripts/verify-home-presentation-live.mjs`, on
+app.mefwellness.com at 390x844, as the seeded test member through a
+one-time session minted from the service-role key and retired
+immediately. It measures rather than admires: every check is a number or
+a fact read off the real rendered page. **20/20 on the final run**, with
+one check not applicable (that account has no running experiment today).
+
+It was run BEFORE the pass shipped as well, which is where the 500px and
+the y=500 in the first section of this entry come from. A comparison
+claim needs the old number taken off production before the new one
+replaces it.
+
+Three real defects, all found on the live site and none visible in a
+fixture:
+
+- **"No energy data yet for the last 1 week."** on Home for a member with
+  a quiet week: unprompted, under a heading, telling her she has nothing
+  with nothing to do about it. `TrendChartCard` gained an optional
+  `emptyRangeMessage` and Home passes *"Your energy line starts with your
+  next Daily Reset."* Progress and the coach view keep the sentence they
+  had, because there an honest blank answers a question she went and
+  asked.
+- **Two labels still at 14px semibold uppercase**, a heading's weight
+  spent on a label, two sections below three others at 11px: the movement
+  panel's and the wearable panel's. Both are Home's alone. The wearable
+  eyebrow also carried the BRIGHT gold the check-in button owns; it is the
+  muted tone now and the Connect Device button keeps the bright one.
+- **A 12px radius and a 12px label** from two components Home shares with
+  another screen: the trend chart's inner surfaces and the program card's
+  eyebrow. Both fixed by giving the caller a say (`surfaceRadiusClass`,
+  `labelClassName`), so /movement, Progress and the coach view are
+  byte-for-byte unchanged.
+
+**THE RING TOOK THREE ROUNDS AND ALL THREE WERE JUDGED ON PRODUCTION.**
+A 3px gold arc and a 24px numeral land in the right-hand third of the
+band, which is where the hero's legibility wash is deliberately weakest
+and where both photographs put their light source. A score of 34 over the
+evening image's sun read as a smudge behind a 30% halo and was still soft
+at 35%. It is a 55% disc behind a 3.5px arc with a shadow on the numeral,
+which reads as a deliberate mark.
+
+**FOUR OF THE WALK'S OWN CHECKS REPORTED FAILURES THAT WERE NOT THERE**,
+which is the worse kind of bug and is written down here because it nearly
+cost three real fixes their credibility. The primary button was looked for
+by an escaped Tailwind class and reported missing while sitting 292x52
+with its bottom edge at 706px; it is found by measured geometry now. The
+active tab was matched against `rgb(27, 58, 45` while Tailwind v4 serves
+`oklab()`, and re-reading it off a probe element returns oklab again; one
+pixel is painted to a canvas and read in real channels now. The check-in
+was measured for byte count the instant its URL changed, before its
+animated intro had painted; it waits for the screen's own words. And the
+gold count counted every child inheriting a colour as its own gold
+element, reporting 27 for a screen with 16.
+
+A FIFTH CHECK WAS WRONG IN A DIFFERENT WAY and is worth its own line:
+"never gold everywhere" was written as a ratio nobody derived (3% of the
+elements in `<main>`), which then failed at a measured 5.65% on a screen
+where all sixteen gold elements are an eyebrow, a progress mark or a
+button. Raising that number until it passed would have been the worse of
+the two available moves. It holds the rule the design actually states
+instead: **gold is never a surface on Home**, only text, a mark or a
+control, and the bright tone stays on real progress and on a section's one
+action.
+
 ### WHAT WAS RUN
 
 - 11,203 tests in 588 files, all passing, against a database freshly
@@ -113,7 +179,27 @@ rendered bar rather than by looking at it.
   console-statement warnings in scripts), production build clean.
 - Driven locally in a real browser at 390x844 as a seeded member with 21
   check-ins, a real score and three coach assignments, and measured at
-  every step rather than eyeballed.
+  every step rather than eyeballed. Every seeded row was deleted and the
+  local database was reset before the final suite run, so the 588/588 is
+  against seed state and not against the walk's own residue.
+- Driven on production, twice before the fixes and twice after, by
+  `scripts/verify-home-presentation-live.mjs`. 20/20.
+
+### WHAT THIS PASS DELIBERATELY DID NOT DO
+
+- **The Quick Actions pill still truncates a long status** ("Completed 26
+  d..."). That pill is 145px of inner width at 390px and the constraint is
+  recorded in its own file and its own test; nothing in this pass made it
+  worse and fixing it means changing what the status says, which is copy,
+  not presentation.
+- **The eleven coach-assigned cards are still eleven cards.** Grouping
+  them under one name was presentation. Condensing them into rows the way
+  Active Experiments was condensed would change what a member can see
+  before she taps, which is not a presentation change.
+- **The program card keeps its bright gold** on "Week 3 of 4", its
+  progress dots and its own action. That card is shared with /movement and
+  making it read differently on two screens is worse than the
+  concentration it has.
 
 ## Six fixes: the sign-in timeout, the Daily Reset's voice, and four screens (2026-09-13)
 
