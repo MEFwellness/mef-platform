@@ -36,6 +36,9 @@ import { chromium } from 'playwright';
 
 const BASE = process.env.BASE_URL ?? 'https://app.mefwellness.com';
 const RUNS = Number(process.env.RUNS ?? 5);
+// Which auth screen to measure. Both carry the same widget and the same
+// submit budget, so the same probe answers for either.
+const PATH = process.env.MEASURE_PATH ?? '/login';
 const THROTTLE = process.env.THROTTLE !== '0';
 const CF = 'challenges.cloudflare.com';
 
@@ -92,7 +95,7 @@ async function run() {
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   }
 
-  await page.goto(`${BASE}/login`, { waitUntil: 'commit', timeout: 60000 });
+  await page.goto(`${BASE}${PATH}`, { waitUntil: 'commit', timeout: 60000 });
   await page
     .waitForFunction(() => window.__mef && window.__mef.challengeLive !== undefined, null, {
       timeout: 25000,
@@ -139,6 +142,6 @@ console.log(`\ncf script requested : ${stat('cfScriptStart')}`);
 console.log(`cf script in hand   : ${stat('cfScriptEnd')}`);
 console.log(`challenge live      : ${stat('challengeLive')}`);
 console.log(
-  `\nThe app waits 8000ms from her tap. A challenge that only goes live at N ms has already\n` +
+  `\nThe app waits TOKEN_WAIT_MS from her tap. A challenge that only goes live at N ms has already\n` +
     `spent N ms of a real member's patience before she can even reach the button.`
 );

@@ -33,14 +33,36 @@ export async function isEligibleForWelcomeFlow(
     .maybeSingle();
 
   if (error || !profile) return false;
-  if (!profile.welcome_flow_eligible) return false;
-  if (profile.welcome_flow_completed_at) return false;
 
   const [isCoach, isAdmin] = await Promise.all([
     hasActiveRole(supabase, userId, 'coach'),
     hasActiveRole(supabase, userId, 'platform_administrator'),
   ]);
-  if (isCoach || isAdmin) return false;
 
+  return welcomeFlowEligibleFrom(profile, { isCoach, isAdmin });
+}
+
+/**
+ * The same decision, from rows a caller has already read.
+ *
+ * WHY IT IS SEPARATE (2026-09-13, the login speed pass). Signing in used
+ * to read `profiles` twice in a row for one member: once for her display
+ * name and once, through the function above, for these two columns. Two
+ * round trips, one after the other, for two columns of the same row, on
+ * the screen where a member is staring at a spinner. resolvePostLoginPath
+ * now reads all three columns in one select and asks this.
+ *
+ * Identical rule, in one place: eligible, not finished, not staff. A
+ * missing profile is not eligible, which the caller expresses by not
+ * calling this at all or by passing nulls.
+ */
+export function welcomeFlowEligibleFrom(
+  profile: { welcome_flow_eligible?: boolean | null; welcome_flow_completed_at?: string | null } | null,
+  roles: { isCoach: boolean; isAdmin: boolean }
+): boolean {
+  if (!profile) return false;
+  if (!profile.welcome_flow_eligible) return false;
+  if (profile.welcome_flow_completed_at) return false;
+  if (roles.isCoach || roles.isAdmin) return false;
   return true;
 }

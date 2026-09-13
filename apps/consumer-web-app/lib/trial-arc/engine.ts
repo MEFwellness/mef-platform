@@ -72,6 +72,7 @@ import {
 } from './constants';
 import {
   TRIAL_ARC_DAY_1,
+  TRIAL_ARC_DAY_1_AFTER_CHECKIN,
   TRIAL_ARC_DAY_2_ON_PACE,
   TRIAL_ARC_DAY_6,
   TRIAL_ARC_DAY_7,
@@ -119,6 +120,13 @@ export interface TrialArcFacts {
   experimentDeclined: boolean;
   /** True when she arrived through Where Your Energy Goes, which is what makes day 1 belong to the welcome rather than to a pop-up of its own. */
   hasPublicEntryOrigin: boolean;
+  /**
+   * True when she has already filled in today's Daily Reset. Read straight
+   * off the check-in dates the arc loads for pacing, so it costs nothing
+   * extra. Day 1's message is the only thing that reads it: it may only
+   * say "you have checked in" when she actually has.
+   */
+  checkedInToday: boolean;
   /** The pattern her nine public answers resolved to, or null when she never finished them. The day 1 welcome branches on it rather than inventing something to have noticed. */
   publicEntryPatternTitle: string | null;
   activeLocalDates: string[];
@@ -457,6 +465,7 @@ async function gatherTrialArcFacts(
     experimentDeclined,
     hasPublicEntryOrigin: origin !== null,
     publicEntryPatternTitle: origin?.patternKey ? ENERGY_PATTERN_COPY[origin.patternKey].title : null,
+    checkedInToday: checkinDates.includes(day.todayLocalDate),
     activeLocalDates,
     paceState,
     pacingClosed: closure.pacingClosed,
@@ -634,7 +643,10 @@ export function decideTrialArcMessage(
       // properly. A direct signup gets the arc's own pop-up.
       return facts.hasPublicEntryOrigin
         ? speak(facts, welcomeCopy(facts), 'public_entry_welcome')
-        : speak(facts, TRIAL_ARC_DAY_1);
+        : speak(
+            facts,
+            facts.checkedInToday ? TRIAL_ARC_DAY_1_AFTER_CHECKIN : TRIAL_ARC_DAY_1
+          );
 
     case 2:
       // ON_PACE on day 2 means the step day 1 pointed at is finished, which

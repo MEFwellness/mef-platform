@@ -157,6 +157,23 @@ export function MovementSessionPlayer({ detail }: { detail: MovementSessionDetai
       }
       exitLabel="Sessions"
       onExit={() => router.push('/movement/sessions' as Route)}
+      /*
+       * THE X MID-SESSION GETS OUT, RATHER THAN GOING BACK ONE SCREEN.
+       * (2026-09-13) It used to drop her on this session's own detail
+       * screen, which is where she had just come from, so closing a
+       * session looked like it had done nothing. It now returns her to
+       * wherever she opened the session from (Home, or the sessions list,
+       * whichever it was), and to Home when there is no in-app history to
+       * go back to, which is a session opened from a link or a reload.
+       * Same smart-back rule as components/BackButton.tsx.
+       */
+      onLeaveSession={() => {
+        if (typeof window !== 'undefined' && window.history.length > 1) {
+          router.back();
+          return;
+        }
+        router.push('/dashboard' as Route);
+      }}
       onBegin={handleBegin}
       onSkip={handleSkip}
       onDone={handleDone}

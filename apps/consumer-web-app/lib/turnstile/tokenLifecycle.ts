@@ -54,11 +54,24 @@
 export const TOKEN_FRESHNESS_MS = 120_000;
 
 /**
- * How long getToken()/refresh() will wait for a challenge to finish. Long
- * enough for a slow phone on a slow network, short enough that nobody sits
- * looking at a stuck button.
+ * How long getToken()/refresh() will wait for a challenge to finish.
+ *
+ * WIDENED FROM EIGHT SECONDS TO FIFTEEN (2026-09-13). Eight was chosen
+ * against a measurement of how long Cloudflare takes when everything goes
+ * right. It is not long enough for the case this window exists for: a
+ * member on a genuinely slow phone, on a genuinely slow network, who
+ * reaches the button before the challenge has finished. She was the one
+ * being told "We could not confirm that in time" while holding a correct
+ * password, because the wait ran out a second or two before the token
+ * arrived and the submission went out carrying nothing.
+ *
+ * Waiting longer costs nothing she can see. The button says "Logging in"
+ * for the whole of it, the retry below no longer spends a second full
+ * window, and a submission that is genuinely going nowhere still admits it
+ * in about twenty seconds rather than hanging. Failing a real member with
+ * a real password is the expensive outcome; waiting is the cheap one.
  */
-export const TOKEN_WAIT_MS = 8_000;
+export const TOKEN_WAIT_MS = 15_000;
 
 /**
  * THE SECOND ASK IS A TOP-UP, NOT A SECOND FULL WAIT. (2026-09-11)
@@ -73,16 +86,20 @@ export const TOKEN_WAIT_MS = 8_000;
  * specific case: the challenge finishing during the round trip that was
  * just refused. That takes as long as a round trip, not as long as a
  * challenge. So the top-up is generous for what it is actually waiting
- * for and short enough that a genuine failure is admitted in about
- * eleven seconds rather than seventeen.
+ * for and short enough that a genuine failure is still admitted in a
+ * bounded time rather than twice the full window.
  *
  * It is deliberately NOT applied to the first ask, which still gets its
- * full window: a real member on a genuinely slow phone deserves every one
- * of those eight seconds, and shortening them would fail people the long
- * wait exists for. And it is not applied to refresh() either, because
- * that one really has started a challenge from nothing.
+ * whole TOKEN_WAIT_MS: a real member on a genuinely slow phone deserves
+ * every one of those seconds, and shortening them would fail the people
+ * the long wait exists for. And it is not applied to refresh() either,
+ * because that one really has started a challenge from nothing.
+ *
+ * Widened from 2.5s to 4s on 2026-09-13 alongside TOKEN_WAIT_MS, for the
+ * same reason: this is the wait that has to cover a round trip on a slow
+ * phone, and a round trip on a slow phone is not always 2.5 seconds.
  */
-export const RETRY_TOPUP_WAIT_MS = 2_500;
+export const RETRY_TOPUP_WAIT_MS = 4_000;
 
 /** How long after a failure before the widget re-arms itself. */
 export const AUTO_REARM_DELAY_MS = 750;

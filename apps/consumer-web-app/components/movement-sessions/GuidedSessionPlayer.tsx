@@ -79,6 +79,22 @@ export interface GuidedSessionPlayerProps {
   /** Overview's way out, top left. */
   exitLabel: string;
   onExit: () => void;
+  /**
+   * THE X MID-SESSION LEAVES THE SESSION. (2026-09-13)
+   *
+   * It used to call `setPhase('overview')`, which put the member back on
+   * the session's own detail screen: the same page, one step earlier.
+   * Reported from the live app as "tapping the X does not exit, it
+   * returns me to the same session". It was right. A close control that
+   * lands you back inside the thing you closed is not a close control.
+   *
+   * So the X now leaves the flow, and this is where a caller says what
+   * leaving means for its own kind of session. Root Movement goes back to
+   * wherever the member launched the session from; an assigned workout
+   * goes back to the full list. Defaults to `onExit`, so a caller that
+   * has only one way out keeps exactly one way out.
+   */
+  onLeaveSession?: (() => void) | undefined;
   beginLabel?: string;
   /** The primary button while playing. "Next" for a Root session, "Mark done" for a program workout that records each exercise. */
   nextLabel?: string;
@@ -243,6 +259,7 @@ export function GuidedSessionPlayer({
   meta,
   exitLabel,
   onExit,
+  onLeaveSession,
   beginLabel = 'Begin',
   nextLabel = 'Next',
   finishLabel = 'Finish',
@@ -331,7 +348,7 @@ export function GuidedSessionPlayer({
         skipLabel={skipLabel}
         onNext={handleAdvance}
         onSkip={handleSkip}
-        onLeave={() => setPhase('overview')}
+        onLeave={onLeaveSession ?? onExit}
         extras={renderExerciseExtras?.(current)}
       />
     );

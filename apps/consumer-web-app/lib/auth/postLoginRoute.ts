@@ -1,7 +1,7 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { hasCompletedConsent } from '@/app/actions/consent';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { WELCOME_FLOW_ENABLED, isEligibleForWelcomeFlow } from '@/lib/welcome/eligibility';
+import { WELCOME_FLOW_ENABLED, welcomeFlowEligibleFrom } from '@/lib/welcome/eligibility';
 
 /**
  * The exact role/consent/onboarding routing decision app/page.tsx's
@@ -22,11 +22,36 @@ import { WELCOME_FLOW_ENABLED, isEligibleForWelcomeFlow } from '@/lib/welcome/el
  * cookie first).
  */
 export async function resolvePostLoginPath(supabase: SupabaseClient, user: User): Promise<string> {
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
-  if (isCoach) return '/coach';
+  /**
+   * ASKED ALL AT ONCE, NOT ONE AFTER THE OTHER (2026-09-13).
+   *
+   * This function used to make six database round trips strictly in
+   * sequence for one sign-in: coach, administrator, the display name, the
+   * welcome columns of the SAME profiles row, consent, and onboarding. A
+   * member on a slow connection paid all six end to end while the button
+   * said "Logging in", which is the delay reported on the live site.
+   *
+   * The decisions are unchanged, in the same order and with the same
+   * precedence. Only the asking is overlapped: the three answers needed to
+   * make the first three decisions are asked together, and the two needed
+   * for the last two are asked together. Reading a row we may not end up
+   * using costs nothing a member can feel; asking for it only after the
+   * previous answer came back costs her a round trip every time.
+   */
+  const [isCoach, isAdmin, profileResult] = await Promise.all([
+    hasActiveRole(supabase, user.id, 'coach'),
+    hasActiveRole(supabase, user.id, 'platform_administrator'),
+    supabase
+      .from('profiles')
+      .select('display_name, welcome_flow_eligible, welcome_flow_completed_at')
+      .eq('id', user.id)
+      .maybeSingle(),
+  ]);
 
-  const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
+  if (isCoach) return '/coach';
   if (isAdmin) return '/admin';
+
+  const profile = profileResult.data;
 
   // FIX 1 (2026-08-03) — no member should ever reach the home greeting
   // with no name on file (it used to fall back to the literal word
@@ -36,28 +61,20 @@ export async function resolvePostLoginPath(supabase: SupabaseClient, user: User)
   // step, with the same one-time, non-skippable screen. /name's own guard
   // (app/name/page.tsx) redirects straight past this the instant
   // display_name is set, so this never fires more than once per member.
-  const { data: nameProfile } = await supabase
-    .from('profiles')
-    .select('display_name')
-    .eq('id', user.id)
-    .single();
-  if (!nameProfile?.display_name) return '/name';
+  if (!profile?.display_name) return '/name';
 
-  if (WELCOME_FLOW_ENABLED) {
-    const eligibleForWelcome = await isEligibleForWelcomeFlow(supabase, user.id);
-    if (eligibleForWelcome) return '/welcome';
+  if (WELCOME_FLOW_ENABLED && welcomeFlowEligibleFrom(profile, { isCoach, isAdmin })) {
+    return '/welcome';
   }
-
-  const consented = await hasCompletedConsent(user.id);
-  if (!consented) return '/onboarding';
 
   // Existence check, not .maybeSingle() — see app/onboarding/page.tsx for
   // why this can't assume at most one row once reassessments exist.
-  const { data: submissions } = await supabase
-    .from('onboarding_submissions')
-    .select('id')
-    .eq('user_id', user.id)
-    .limit(1);
+  const [consented, submissionsResult] = await Promise.all([
+    hasCompletedConsent(user.id),
+    supabase.from('onboarding_submissions').select('id').eq('user_id', user.id).limit(1),
+  ]);
+  if (!consented) return '/onboarding';
+  const submissions = submissionsResult.data;
   if (!submissions || submissions.length === 0) return '/onboarding';
 
   return '/dashboard';

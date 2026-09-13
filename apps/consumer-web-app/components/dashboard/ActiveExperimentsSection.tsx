@@ -8,10 +8,19 @@
  * when no experiment existed yet at all. A member on, say, day 2 of 7 saw
  * nothing at all until day 3, and a running experiment had no persistent
  * place on the dashboard showing it was actually in progress. This section
- * always shows a card for every real active experiment (name, day
- * progress, today's real daily question) plus a calm "done for today"
- * state once answered, instead of disappearing — and any "start it later"
- * offer lives right here too, in the same place.
+ * always shows every real active experiment (name, day progress, today's
+ * real daily question) plus a calm "done for today" state once answered,
+ * instead of disappearing, and any "start it later" offer lives right
+ * here too, in the same place.
+ *
+ * CONDENSED, 2026-09-13. Each running experiment used to be its own
+ * full-size card, stacked, so two or three of them took the whole of Home
+ * and pushed everything else off the screen. They are now one card with
+ * one slim row each (the question, the day, whether today is logged), and
+ * a row opens onto that experiment's own panel, unchanged. See
+ * components/dashboard/ActiveExperimentsCard.tsx. Nothing about an
+ * experiment's data, logic or logging moved; only what is drawn before
+ * she taps.
  *
  * Reuses every underlying system as-is: CvsExperimentPanel/
  * LscExperimentPanel already render exactly this (day progress + daily
@@ -42,6 +51,22 @@ import { getCachedUser } from '@/lib/supabase/currentUser';
 import { createClient } from '@/lib/supabase/server';
 import { cvsPopupMessageKey, lscPopupMessageKey, rplPopupMessageKey } from '@/lib/root-popup-messages/data';
 import { resolveCvsCheckinPending, daysSinceStart } from '@/lib/core-values-snapshot/experiment';
+import { cvsDailyPromptCopy } from '@/lib/core-values-snapshot/copy';
+import { lscDailyPromptCopy } from '@/lib/life-signal-check/copy';
+import { SIGNAL_BY_LABEL } from '@/lib/life-signal-check/constants';
+import { rplReadyDailyPromptCopy, RPL_NOTICING_QUESTION } from '@/lib/readiness-pulse/copy';
+import { OYV_EXPERIMENT_DAILY_QUESTION } from '@/lib/owning-your-value/experiment';
+import { WYJL_EXPERIMENT_DAILY_QUESTION } from '@/lib/where-your-joy-lives/experiment';
+import { TGL_EXPERIMENT_DAILY_QUESTION } from '@/lib/the-giving-ledger/experiment';
+import { TWOY_EXPERIMENT_DAILY_QUESTION } from '@/lib/the-weight-of-yes/experiment';
+import { BSN_EXPERIMENT_DAILY_QUESTION } from '@/lib/being-seen/experiment';
+import { WYPD_EXPERIMENT_DAILY_QUESTION } from '@/lib/what-you-put-down/experiment';
+import { YOC_EXPERIMENT_DAILY_QUESTION } from '@/lib/your-own-company/experiment';
+import { TLYB_EXPERIMENT_DAILY_QUESTION } from '@/lib/the-life-youre-building/experiment';
+import {
+  ActiveExperimentsCard,
+  type ActiveExperimentRow,
+} from '@/components/dashboard/ActiveExperimentsCard';
 import { CvsExperimentPanel } from '@/components/core-values-snapshot/CvsExperimentPanel';
 import { LscExperimentPanel } from '@/components/life-signal-check/LscExperimentPanel';
 import { RplExperimentPanel } from '@/components/readiness-pulse/RplExperimentPanel';
@@ -203,6 +228,17 @@ export async function ActiveExperimentsSection() {
   // already read the same rows, so it says so.
   const activeExperiments = allExperiments.filter((e) => e.status === 'active');
 
+  /**
+   * EVERY EXPERIENCE THAT CAN RUN AN EXPERIMENT IS NAMED HERE, and five of
+   * them were not (2026-09-13). The Weight of Yes, Being Seen, What You
+   * Put Down, Your Own Company and The Life You're Building each had their
+   * status read above and their panel written below, but none of them were
+   * in this list, so a member whose ONLY running experiment was one of
+   * those got `null` and saw no Active Experiments section at all. Same
+   * shape of omission as the Stress and Load one found on 2026-09-06,
+   * which is why this list is now the same list the rows are built from
+   * rather than a second, hand-kept copy of it.
+   */
   const hasAnything =
     Boolean(
       cvsActive ||
@@ -214,6 +250,11 @@ export async function ActiveExperimentsSection() {
         oyvStatus ||
         wyjlStatus ||
         tglStatus ||
+        twoyStatus ||
+        bsnStatus ||
+        wypdStatus ||
+        yocStatus ||
+        tlybStatus ||
         slStatus
     ) ||
     recommendationExperiments.length > 0;
@@ -225,6 +266,12 @@ export async function ActiveExperimentsSection() {
     if (user) todayLocalDate = await localDateFor(createClient(), user.id);
   }
 
+  // WHETHER A FOLLOW-UP IS GENUINELY WAITING, kept alongside the
+  // high-priority flag it was already computed for. The condensed card
+  // reads it to decide which rows open on arrival: a day 3 or day 7
+  // question she has not answered must not end up folded behind a tap
+  // just because the section got smaller.
+  let cvsFollowUpPending = false;
   let cvsHighPriority = false;
   if (cvsActive && cvsStatus) {
     const pending = resolveCvsCheckinPending({
@@ -233,12 +280,14 @@ export async function ActiveExperimentsSection() {
       isDay7Eligible: cvsStatus.isDay7Eligible,
       day7Acknowledged: cvsStatus.experiment.day7AcknowledgedAt !== null,
     });
+    cvsFollowUpPending = Boolean(pending);
     if (pending) {
       const dismissal = await getMyRootPopupDismissalAction(cvsPopupMessageKey(pending, cvsStatus.experiment.id));
       cvsHighPriority = dismissal?.status === 'snoozed';
     }
   }
 
+  let lscFollowUpPending = false;
   let lscHighPriority = false;
   if (lscActive && lscStatus) {
     const pending = resolveCvsCheckinPending({
@@ -247,12 +296,14 @@ export async function ActiveExperimentsSection() {
       isDay7Eligible: lscStatus.isDay7Eligible,
       day7Acknowledged: lscStatus.experiment.day7AcknowledgedAt !== null,
     });
+    lscFollowUpPending = Boolean(pending);
     if (pending) {
       const dismissal = await getMyRootPopupDismissalAction(lscPopupMessageKey(pending, lscStatus.experiment.id));
       lscHighPriority = dismissal?.status === 'snoozed';
     }
   }
 
+  let rplFollowUpPending = false;
   let rplHighPriority = false;
   if (rplActive && rplStatus) {
     const pending = resolveCvsCheckinPending({
@@ -261,71 +312,184 @@ export async function ActiveExperimentsSection() {
       isDay7Eligible: rplStatus.isDay7Eligible,
       day7Acknowledged: rplStatus.experiment.day7AcknowledgedAt !== null,
     });
+    rplFollowUpPending = Boolean(pending);
     if (pending) {
       const dismissal = await getMyRootPopupDismissalAction(rplPopupMessageKey(pending, rplStatus.experiment.id));
       rplHighPriority = dismissal?.status === 'snoozed';
     }
   }
 
+  /**
+   * ONE CARD, ONE ROW PER RUNNING EXPERIMENT (2026-09-13).
+   *
+   * Each of these used to be a full-size card of its own, stacked, so two
+   * or three running experiments took the whole of Home. The panels below
+   * are byte for byte the components that were those cards, with the same
+   * props: they are handed to ActiveExperimentsCard as the body of a row
+   * and rendered when she opens it. Nothing about an experiment, its day
+   * count, its daily question or its logging changed.
+   *
+   * The day count and the question are read from the same status object
+   * the panel reads them from, and by the same rule, so the row and the
+   * panel can never disagree about which day it is or what was asked.
+   */
+  const dayLabel = (daysSince: number, durationDays: number): string =>
+    `Day ${Math.min(daysSince + 1, durationDays)} of ${durationDays}`;
+
+  const rows: ActiveExperimentRow[] = [];
+
+  if (cvsActive && cvsStatus) {
+    rows.push({
+      id: cvsStatus.experiment.id,
+      question: cvsDailyPromptCopy(cvsStatus.experiment.title),
+      dayLabel: dayLabel(cvsStatus.daysSinceStart, cvsStatus.experiment.durationDays),
+      loggedToday: cvsStatus.todayCompleted,
+      waitingOnHer: cvsFollowUpPending,
+      panel: (
+        <CvsExperimentPanel scoring={null} initialStatus={cvsStatus} isHighPriority={cvsHighPriority} />
+      ),
+    });
+  }
+
+  if (lscActive && lscStatus) {
+    // The panel resolves the signal from the experiment's own title the
+    // same way; when it cannot, the panel draws no question either, so the
+    // row falls back to the experiment's own title rather than inventing
+    // a prompt nobody was asked.
+    const lscSignal = SIGNAL_BY_LABEL[lscStatus.experiment.title] ?? null;
+    rows.push({
+      id: lscStatus.experiment.id,
+      question: lscSignal ? lscDailyPromptCopy(lscSignal) : lscStatus.experiment.title,
+      dayLabel: dayLabel(lscStatus.daysSinceStart, lscStatus.experiment.durationDays),
+      loggedToday: lscStatus.todayCompleted,
+      waitingOnHer: lscFollowUpPending,
+      panel: (
+        <LscExperimentPanel scoring={null} initialStatus={lscStatus} isHighPriority={lscHighPriority} />
+      ),
+    });
+  }
+
+  if (rplActive && rplStatus) {
+    const isNoticing = rplStatus.kind === 'still_deciding' || rplStatus.kind === 'not_yet';
+    const rplQuestion = isNoticing
+      ? RPL_NOTICING_QUESTION
+      : rplStatus.targetSignal
+        ? rplReadyDailyPromptCopy(rplStatus.targetSignal, rplStatus.small)
+        : rplStatus.experiment.title;
+    rows.push({
+      id: rplStatus.experiment.id,
+      question: rplQuestion,
+      dayLabel: dayLabel(rplStatus.daysSinceStart, rplStatus.experiment.durationDays),
+      loggedToday: rplStatus.todayCompleted,
+      waitingOnHer: rplFollowUpPending,
+      panel: (
+        <RplExperimentPanel scoring={null} initialStatus={rplStatus} isHighPriority={rplHighPriority} />
+      ),
+    });
+  }
+
+  if (oyvStatus) {
+    rows.push({
+      id: oyvStatus.experiment.id,
+      question: OYV_EXPERIMENT_DAILY_QUESTION,
+      dayLabel: dayLabel(oyvStatus.daysSinceStart, oyvStatus.experiment.durationDays),
+      loggedToday: oyvStatus.todayCompleted,
+      panel: <OwningYourValueExperimentPanel status={oyvStatus} />,
+    });
+  }
+
+  if (wyjlStatus) {
+    rows.push({
+      id: wyjlStatus.experiment.id,
+      question: WYJL_EXPERIMENT_DAILY_QUESTION,
+      dayLabel: dayLabel(wyjlStatus.daysSinceStart, wyjlStatus.experiment.durationDays),
+      loggedToday: wyjlStatus.todayCompleted,
+      panel: <WhereYourJoyLivesExperimentPanel status={wyjlStatus} />,
+    });
+  }
+
+  if (tglStatus) {
+    rows.push({
+      id: tglStatus.experiment.id,
+      question: TGL_EXPERIMENT_DAILY_QUESTION,
+      dayLabel: dayLabel(tglStatus.daysSinceStart, tglStatus.experiment.durationDays),
+      loggedToday: tglStatus.todayCompleted,
+      panel: <TheGivingLedgerExperimentPanel status={tglStatus} />,
+    });
+  }
+
+  if (twoyStatus) {
+    rows.push({
+      id: twoyStatus.experiment.id,
+      question: TWOY_EXPERIMENT_DAILY_QUESTION,
+      dayLabel: dayLabel(twoyStatus.daysSinceStart, twoyStatus.experiment.durationDays),
+      loggedToday: twoyStatus.todayCompleted,
+      panel: <TheWeightOfYesExperimentPanel status={twoyStatus} />,
+    });
+  }
+
+  if (bsnStatus) {
+    rows.push({
+      id: bsnStatus.experiment.id,
+      question: BSN_EXPERIMENT_DAILY_QUESTION,
+      dayLabel: dayLabel(bsnStatus.daysSinceStart, bsnStatus.experiment.durationDays),
+      loggedToday: bsnStatus.todayCompleted,
+      panel: <BeingSeenExperimentPanel status={bsnStatus} />,
+    });
+  }
+
+  if (wypdStatus) {
+    rows.push({
+      id: wypdStatus.experiment.id,
+      question: WYPD_EXPERIMENT_DAILY_QUESTION,
+      dayLabel: dayLabel(wypdStatus.daysSinceStart, wypdStatus.experiment.durationDays),
+      loggedToday: wypdStatus.todayCompleted,
+      panel: <WhatYouPutDownExperimentPanel status={wypdStatus} />,
+    });
+  }
+
+  if (yocStatus) {
+    rows.push({
+      id: yocStatus.experiment.id,
+      question: YOC_EXPERIMENT_DAILY_QUESTION,
+      dayLabel: dayLabel(yocStatus.daysSinceStart, yocStatus.experiment.durationDays),
+      loggedToday: yocStatus.todayCompleted,
+      panel: <YourOwnCompanyExperimentPanel status={yocStatus} />,
+    });
+  }
+
+  if (tlybStatus) {
+    rows.push({
+      id: tlybStatus.experiment.id,
+      question: TLYB_EXPERIMENT_DAILY_QUESTION,
+      dayLabel: dayLabel(tlybStatus.daysSinceStart, tlybStatus.experiment.durationDays),
+      loggedToday: tlybStatus.todayCompleted,
+      panel: <TheLifeYoureBuildingExperimentPanel status={tlybStatus} />,
+    });
+  }
+
+  if (slStatus) {
+    rows.push({
+      id: slStatus.experiment.id,
+      question: slStatus.dailyQuestion,
+      dayLabel: dayLabel(slStatus.daysSinceStart, slStatus.experiment.durationDays),
+      loggedToday: slStatus.todayCompleted,
+      panel: <StressLoadExperimentPanel status={slStatus} />,
+    });
+  }
+
   return (
     <div>
       <p className={ZONE_LABEL}>Active Experiments</p>
       <div className="mt-4 space-y-4">
-        {cvsActive && cvsStatus && (
-          <CvsExperimentPanel scoring={null} initialStatus={cvsStatus} isHighPriority={cvsHighPriority} />
-        )}
-        {!cvsActive && cvsOffer && (
-          <CvsExperimentPanel
-            sessionId={cvsOffer.sessionId}
-            topValue={cvsOffer.scoring.topValue}
-            scoring={cvsOffer.scoring}
-            initialStatus={null}
-          />
-        )}
+        <ActiveExperimentsCard rows={rows} />
 
-        {lscActive && lscStatus && (
-          <LscExperimentPanel scoring={null} initialStatus={lscStatus} isHighPriority={lscHighPriority} />
-        )}
-        {!lscActive && lscOffer && (
-          <LscExperimentPanel
-            sessionId={lscOffer.sessionId}
-            chosenSignal={lscOffer.scoring.chosenSignal}
-            scoring={lscOffer.scoring}
-            initialStatus={null}
-            activeExperiments={activeExperiments}
-          />
-        )}
-
-        {rplActive && rplStatus && (
-          <RplExperimentPanel scoring={null} initialStatus={rplStatus} isHighPriority={rplHighPriority} />
-        )}
-        {!rplActive && rplOffer && (
-          <RplExperimentPanel
-            sessionId={rplOffer.sessionId}
-            scoring={rplOffer.scoring}
-            initialStatus={null}
-            activeExperiments={activeExperiments}
-          />
-        )}
-
-        {oyvStatus && <OwningYourValueExperimentPanel status={oyvStatus} />}
-
-        {wyjlStatus && <WhereYourJoyLivesExperimentPanel status={wyjlStatus} />}
-
-        {tglStatus && <TheGivingLedgerExperimentPanel status={tglStatus} />}
-
-        {twoyStatus && <TheWeightOfYesExperimentPanel status={twoyStatus} />}
-
-        {bsnStatus && <BeingSeenExperimentPanel status={bsnStatus} />}
-
-        {wypdStatus && <WhatYouPutDownExperimentPanel status={wypdStatus} />}
-
-        {yocStatus && <YourOwnCompanyExperimentPanel status={yocStatus} />}
-
-        {tlybStatus && <TheLifeYoureBuildingExperimentPanel status={tlybStatus} />}
-
-        {slStatus && <StressLoadExperimentPanel status={slStatus} />}
-
+        {/*
+          A Recommendation-Engine experiment has no daily question of its
+          own, so it cannot be a row that opens onto one. It keeps its own
+          card, with its real day progress and the one link where its
+          reflect and close flow already lives.
+        */}
         {recommendationExperiments.map((experiment) => (
           <RecommendationExperimentRow
             key={experiment.id}
@@ -338,6 +502,40 @@ export async function ActiveExperimentsSection() {
             }
           />
         ))}
+
+        {/*
+          An OFFER is not a running experiment: it has no day count, no
+          daily question and nothing logged, so there is nothing to put on
+          a row. It keeps the full card it has always had, underneath the
+          running ones.
+        */}
+        {!cvsActive && cvsOffer && (
+          <CvsExperimentPanel
+            sessionId={cvsOffer.sessionId}
+            topValue={cvsOffer.scoring.topValue}
+            scoring={cvsOffer.scoring}
+            initialStatus={null}
+          />
+        )}
+
+        {!lscActive && lscOffer && (
+          <LscExperimentPanel
+            sessionId={lscOffer.sessionId}
+            chosenSignal={lscOffer.scoring.chosenSignal}
+            scoring={lscOffer.scoring}
+            initialStatus={null}
+            activeExperiments={activeExperiments}
+          />
+        )}
+
+        {!rplActive && rplOffer && (
+          <RplExperimentPanel
+            sessionId={rplOffer.sessionId}
+            scoring={rplOffer.scoring}
+            initialStatus={null}
+            activeExperiments={activeExperiments}
+          />
+        )}
       </div>
     </div>
   );

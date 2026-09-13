@@ -530,6 +530,7 @@ function arcFacts(dayNumber: number): TrialArcFacts {
     experimentHref: null,
     experimentDeclined: false,
     hasPublicEntryOrigin: false,
+    checkedInToday: false,
     publicEntryPatternTitle: null,
     activeLocalDates: [],
     paceState: 'BEHIND',

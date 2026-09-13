@@ -418,7 +418,7 @@ function CinematicPage({
           )}
           {/*
             "I'm ready" belongs on the title card, where it is an answer to
-            "Welcome to MEF Wellness". Every page after that one has a back
+            "Welcome to Rooted Reset". Every page after that one has a back
             control, and a member reading with reduced motion turned on was
             shown the same "I'm ready" seven times in a row, which reads as
             a screen that failed to change rather than a sequence. The
@@ -484,16 +484,26 @@ function PageLogoWelcome({ onAdvance, onSkip, reducedMotion }: CinematicPageProp
             style={{ objectFit: 'contain', borderRadius: '12px' }}
           />
         </div>
-        <h1
-          className={`${HEADING} ${reducedMotion ? '' : 'mef-animate-in'}`}
+        {/* THE PRODUCT IS NAMED FIRST, THE COMPANY SECOND, exactly as the
+            login screen's lockup says it (components/brand/RootedResetLockup.tsx).
+            This card used to welcome her to MEF Wellness, which is the
+            company that makes the app rather than the thing she just
+            signed up for, so the first words she read named something
+            she had not come for. One name per thing, in the same order,
+            everywhere she can read it. */}
+        <div
+          className={reducedMotion ? '' : 'mef-animate-in'}
           style={
             reducedMotion
               ? undefined
               : { animationDelay: `${headlineDelay}ms`, animationDuration: `${headlineMs}ms` }
           }
         >
-          Welcome to MEF Wellness
-        </h1>
+          <h1 className={HEADING}>Welcome to Rooted Reset</h1>
+          <p className="mt-2 text-[11px] font-medium uppercase tracking-wider text-[#6B7A72]">
+            by MEF Wellness
+          </p>
+        </div>
       </div>
     </CinematicPage>
   );

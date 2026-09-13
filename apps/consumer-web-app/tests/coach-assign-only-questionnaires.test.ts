@@ -254,10 +254,14 @@ describe('the rename is complete in the source, and is display name only', () =>
           continue;
         }
         if (!/\.(ts|tsx|mjs)$/.test(entry.name)) continue;
-        // This file itself quotes both old names, in the list above and in
-        // the migration assertion below, which is the only way either
-        // check can be non-vacuous.
+        // Two files quote both old names ON PURPOSE, and each is the only
+        // way its own check can be non-vacuous: this test, in the list
+        // above and in the migration assertion below, and the production
+        // walk, which asserts the old name appears nowhere on the real
+        // shelf. A guard that flagged the assertion that the thing is gone
+        // would be a guard nobody could satisfy.
         if (rel === 'tests/coach-assign-only-questionnaires.test.ts') continue;
+        if (rel === 'scripts/verify-coach-assign-only-shelf-prod.mjs') continue;
         const source = read(rel);
         if (OLD_NAMES.some((name) => source.includes(name))) offenders.push(rel);
       }

@@ -227,6 +227,7 @@ function facts(overrides: Partial<TrialArcFacts> = {}): TrialArcFacts {
     experimentHref: null,
     experimentDeclined: false,
     hasPublicEntryOrigin: false,
+    checkedInToday: false,
     publicEntryPatternTitle: null,
     activeLocalDates: [],
     paceState: 'BEHIND',

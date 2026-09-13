@@ -1,5 +1,14 @@
 /**
- * ONE SUBMISSION, WITH THE BOT CHECK ALLOWED ONE SILENT SECOND CHANCE.
+ * ONE SUBMISSION, WITH ONE SILENT SECOND CHANCE.
+ *
+ * TWO FAILURES EARN THAT SECOND CHANCE, AND ONLY TWO: the bot check
+ * refusing the request, and the account service giving no answer at all
+ * (a 5xx, or a request that never completed). They are the same shape of
+ * problem. Neither one is an answer about what the member typed, neither
+ * one created an account, issued a session, sent an email or checked a
+ * password, and neither one is anything she can act on. Everything else
+ * (a wrong password, an address already registered, a rate limit) is a
+ * real answer and is returned untouched, immediately.
  *
  * The other half of the 2026-09-05 signup failure. Even with a widget that
  * keeps itself armed (lib/turnstile/tokenLifecycle.ts), a token can still
@@ -18,9 +27,11 @@
  * password, an address already registered, a rate limit) is a real answer
  * about what was submitted and is returned untouched, immediately.
  *
- * EXACTLY ONE RETRY. If a genuinely fresh token is refused too, something
- * real is wrong and she is told so. A loop here would turn one bad minute
- * at Cloudflare into a form that spins forever.
+ * EXACTLY ONE RETRY, for either reason. If a genuinely fresh token is
+ * refused too, or the service still will not answer, something real is
+ * wrong and she is told so. A loop here would turn one bad minute at
+ * Cloudflare, or one bad minute at Supabase, into a form that spins
+ * forever.
  *
  * WHAT IT DOES NOT TOUCH. It never inspects, rewrites or resends anything
  * else the form is carrying. The signup form's one-time quiz reference
@@ -32,6 +43,16 @@
 
 import { isCaptchaError } from './captcha';
 import { RETRY_TOPUP_WAIT_MS } from './tokenLifecycle';
+
+/**
+ * How long to pause before re-running a submission the account service
+ * gave no answer to. Short enough that a member does not notice it,
+ * long enough that a one-off blip (a cold instance, a dropped connection,
+ * a single 5xx) has passed rather than being hit again immediately.
+ */
+export const TRANSIENT_RETRY_DELAY_MS = 600;
+
+const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * The part of components/auth/TurnstileGate.tsx's handle this needs.
@@ -51,6 +72,14 @@ export interface TurnstileTokenSource {
 /** Every Server Action in this app answers with this shape, or redirects. */
 export interface CaptchaAttemptResult {
   error?: string | null | undefined;
+  /**
+   * True when the account service gave NO ANSWER rather than an answer:
+   * a 5xx, or a request that never completed at all. Set by
+   * app/actions/auth.ts, never by anything a member typed. Nothing was
+   * decided, so running the submission again is the first one arriving,
+   * which is the same reasoning that makes the captcha retry safe.
+   */
+  retryable?: boolean | undefined;
 }
 
 /** True when a result is the bot check refusing the request, rather than an answer about what was submitted. */
@@ -60,8 +89,20 @@ export function isCaptchaRefusal(result: CaptchaAttemptResult | null | undefined
 }
 
 /**
+ * True when a result is the account service failing to answer at all,
+ * rather than answering about what was submitted. A wrong password, an
+ * address already registered and a rate limit are all real answers and are
+ * never this.
+ */
+export function isTransientFailure(result: CaptchaAttemptResult | null | undefined | void): boolean {
+  if (!result || typeof result !== 'object') return false;
+  return result.retryable === true;
+}
+
+/**
  * Runs one submission with a token that is fresh at the moment of
- * submitting, and re-runs it once if the check refuses it.
+ * submitting, and re-runs it once if the check refuses it or the account
+ * service does not answer.
  *
  * `attempt` receives the token and is responsible for putting it wherever
  * this particular call site puts it (a FormData field, a Supabase option).
@@ -119,10 +160,19 @@ export async function submitWithFreshCaptcha<T extends CaptchaAttemptResult | nu
 ): Promise<T> {
   const firstToken = (await gate?.getToken()) ?? null;
   const first = await attempt(firstToken);
-  if (!isCaptchaRefusal(first)) {
+
+  const captchaRefused = isCaptchaRefusal(first);
+  const noAnswer = isTransientFailure(first);
+  if (!captchaRefused && !noAnswer) {
     gate?.reset();
     return first;
   }
+
+  // A blip is given a moment to pass. A refused captcha is not a blip and
+  // waits for nothing: the token is the thing that has to change, and the
+  // ask below is what changes it.
+  if (noAnswer) await pause(TRANSIENT_RETRY_DELAY_MS);
+
   const retryToken =
     firstToken === null ? await gate?.getToken(RETRY_TOPUP_WAIT_MS) : await gate?.refresh();
   const second = await attempt(retryToken ?? null);

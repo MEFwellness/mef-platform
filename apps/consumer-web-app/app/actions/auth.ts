@@ -25,6 +25,17 @@ import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track'
 
 export interface ActionResult {
   error?: string;
+  /**
+   * The account service gave NO ANSWER rather than an answer: a 5xx, or a
+   * request that never completed at all. Nothing was created, nothing was
+   * checked and nothing was decided, so the browser is allowed to run the
+   * submission again once before showing anything to the member. See
+   * lib/turnstile/submit.ts, which is the one place that acts on it.
+   *
+   * Never set for anything a member typed. A wrong password, an address
+   * already registered and a rate limit are all real answers.
+   */
+  retryable?: boolean;
 }
 
 /**
@@ -85,7 +96,13 @@ function logAuthFailure(stage: AuthStage, action: string, err: unknown): void {
  */
 function toActionError(action: string, err: unknown): ActionResult {
   logAuthFailure('client_init', action, err);
-  return { error: 'Unable to connect to the account service. Please try again in a moment.' };
+  return {
+    error: 'Unable to connect to the account service. Please try again in a moment.',
+    // Nothing reached Supabase, by this function's own reasoning above, so
+    // the browser may run the whole submission once more before telling
+    // her anything.
+    retryable: true,
+  };
 }
 
 /**
@@ -108,6 +125,10 @@ function toResult(error: { message: string; status?: number | undefined }): Acti
     return {
       error:
         'The account service is having a temporary problem on our end. Please try again in a few minutes.',
+      // A 5xx is the service failing to answer, not an answer. Worth one
+      // silent second attempt before a member is shown anything, which is
+      // what this flag buys (lib/turnstile/submit.ts).
+      retryable: true,
     };
   }
   return { error: error.message };
@@ -258,11 +279,19 @@ async function linkArrival(
     // the claim route, which runs this same match itself the moment the
     // token turns out to be unable to bind.
     if (bound || options.browserCarriesArrival) return;
-    // Sequential rather than concurrent on purpose: the bind is the one a
-    // member can actually see the result of, and it should not be racing an
-    // analytics write for the same connection.
-    await bindOriginFromEmailMatch(service, { memberId: user.id, email, accountCreatedAt });
-    await attachUserAcquisitionFromLead(service, { memberId: user.id, email, accountCreatedAt });
+    // TOGETHER RATHER THAN ONE BEHIND THE OTHER (2026-09-13). These were
+    // sequential on the reasoning that the bind should not race an
+    // analytics write, but they are two independent PostgREST requests
+    // touching different tables, with no ordering between them: the bind
+    // writes member_public_entry_origin, the attribution writes
+    // user_acquisition, and neither reads what the other writes. Run end
+    // to end they were up to seven round trips standing between "your
+    // account exists" and the screen that says so, which is the delay
+    // after pressing the button that was reported on the live site.
+    await Promise.all([
+      bindOriginFromEmailMatch(service, { memberId: user.id, email, accountCreatedAt }),
+      attachUserAcquisitionFromLead(service, { memberId: user.id, email, accountCreatedAt }),
+    ]);
   } catch (err) {
     console.error('linkArrival failed', err);
   }
@@ -373,9 +402,16 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
       // one genuine return visit. See docs/PRODUCT_ANALYTICS.md for the
       // derivation queries. Must be before redirectWithEntryAnimation,
       // which throws.
-      await recordSessionStarted(supabase, data.user.id, 'password');
-
-      destination = await resolvePostLoginPath(supabase, data.user);
+      // Alongside the routing reads, not in front of them (2026-09-13).
+      // This is an analytics row; nothing about where she lands depends on
+      // it, so making her wait for it before the routing questions are even
+      // asked was a round trip spent on nobody's behalf. Both still finish
+      // before the redirect below.
+      const [, resolved] = await Promise.all([
+        recordSessionStarted(supabase, data.user.id, 'password'),
+        resolvePostLoginPath(supabase, data.user),
+      ]);
+      destination = resolved;
       if (destination === '/dashboard' && isSafePostLoginRedirect(redirectedFrom?.toString())) {
         destination = redirectedFrom!.toString();
       }
@@ -412,9 +448,13 @@ export async function completePasskeyLogin(redirectedFrom?: string | null): Prom
       logAuthFailure('supabase_request', 'completePasskeyLogin', error ?? new Error('no session after passkey sign-in'));
       return { error: 'Face ID sign-in did not go through. Please try again or use your password.' };
     }
-    await recordSessionStarted(supabase, user.id, 'passkey');
-
-    destination = await resolvePostLoginPath(supabase, user);
+    // Same reasoning as signIn above: the analytics row and the routing
+    // reads are asked together rather than one behind the other.
+    const [, resolved] = await Promise.all([
+      recordSessionStarted(supabase, user.id, 'passkey'),
+      resolvePostLoginPath(supabase, user),
+    ]);
+    destination = resolved;
     if (destination === '/dashboard' && isSafePostLoginRedirect(redirectedFrom)) {
       destination = redirectedFrom;
     }

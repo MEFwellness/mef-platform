@@ -1,3 +1,165 @@
+## Six fixes: the sign-in timeout, the Daily Reset's voice, and four screens (2026-09-13)
+
+### 1. THE SIGN-IN THAT SAID "WE COULD NOT CONFIRM THAT IN TIME"
+
+That sentence has one author, and it is not Supabase and not a network
+timeout: it is `lib/turnstile/env.ts`, shown when the bot check refuses a
+submission twice. The whole failure is a token that had not arrived yet.
+
+Four things changed, and none of them weaken the check.
+
+- **THE FIRST WAIT WENT FROM EIGHT SECONDS TO FIFTEEN.** Eight was chosen
+  against how long Cloudflare takes when everything goes right. It is not
+  long enough for the case the wait exists for, which is a slow phone on a
+  slow network reaching the button before the challenge has finished. The
+  retry top-up went from 2.5s to 4s for the same reason: it is covering a
+  round trip on that same phone.
+- **A TRANSIENT FAILURE IS NOW RETRIED, once, like a refused captcha.**
+  `ActionResult` gained `retryable`, set by `app/actions/auth.ts` for a 5xx
+  and for a request that never completed, and by nothing else. A wrong
+  password, an address already registered and a rate limit are answers, and
+  answers are returned untouched and immediately. A 5xx is not an answer,
+  nothing was created or checked, and `lib/turnstile/submit.ts` runs the
+  submission once more after a 600ms pause before a member is told
+  anything.
+- **THE SIGNED-OUT AUTH SCREENS STOPPED REGISTERING A SERVICE WORKER.**
+  `PushServiceWorkerRegistrar` sits in the root layout, so it ran on /login
+  and /signup: a fetch, a parse and an install competing for the same
+  thread and the same seconds as the app's hydration and Cloudflare's
+  challenge, for a visitor with no account who cannot be sent a push by
+  anybody. It is skipped on /login, /signup, /verify and /reset-password
+  and, everywhere else, waits for the browser to be idle.
+- **LOGGING IN STOPPED ASKING SIX QUESTIONS IN A ROW.**
+  `resolvePostLoginPath` made six database round trips strictly in
+  sequence (coach, administrator, display name, the welcome columns OF THE
+  SAME profiles row, consent, onboarding). It now asks the first three
+  together, in one profiles select, and the last two together. Same
+  decisions, same order, same precedence. The analytics `session_started`
+  row is written alongside the routing reads rather than in front of them,
+  and on signup the two arrival links run together rather than end to end.
+
+**WHAT A SLOW SUCCESS DOES.** Nothing. A successful sign-in redirects, so
+the action never returns and there is no result to turn into an error. The
+message can only be reached by two refusals of a submission that carried a
+genuinely fresh token, or by a second failure of a service that gave no
+answer twice.
+
+### 2. "WELCOME TO ROOTED RESET", WITH THE COMPANY UNDERNEATH
+
+The welcome flow's title card said "Welcome to MEF Wellness", which names
+the company that makes the app rather than the thing she just signed up
+for. It now reads **Welcome to Rooted Reset** with **by MEF Wellness**
+small underneath, the same order and the same treatment as the login
+screen's lockup.
+
+### 3. THE DAILY RESET SPEAKS AT ANY HOUR (migration 235)
+
+Migration 113 folded the entire question bank onto the morning screen, so
+all 87 live questions are Daily Reset questions. Most of them were written
+for an evening surface and still spoke as though the day were over. A
+member who signs up at 8am was being asked how many of today's meals had
+protein.
+
+**FORTY-SIX PROMPTS AND TWENTY OPTION SETS REWRITTEN.** The rule: a
+question about the present says "right now", a question about what has
+accumulated says "so far today", and a question about last night keeps
+saying last night, untouched. The two named in the report:
+
+| was | is |
+| --- | --- |
+| How many of today's meals had a real protein source? | So far today, how many of your meals had a real protein source? |
+| What's most of today's stress coming from, if anything? | What is weighing on you most right now, if anything? |
+
+**AND THE ANSWER SHE WAS MISSING NOW EXISTS.** "Haven't eaten yet" on the
+protein question, on the protein source question and on breakfast timing;
+"None yet today" on bowel movements and on the last caffeine; "Haven't
+carried anything", "No movement yet today", "None that I have noticed".
+
+**TWO SPECIAL CASES.** `last_meal_timing` asks about last NIGHT now, said
+out loud: its own answers are all evening clock times and it exists to
+measure late eating against sleep, so at 8am "your last meal" was
+ambiguous and at 8pm it invited today's lunch. `protein_at_breakfast` was
+"Did your first meal today include protein?", which had no honest answer
+before she had eaten; it is "Have you had protein yet today?", still a
+plain yes or no, still FUE-7.
+
+**NO OPTION VALUE AND NO RESPONSE TYPE CHANGED**, so every answer already
+stored still resolves to the label it was chosen as and nothing stored
+changes shape. Nothing was added, retired, re-driver'd or moved between
+screens. The migration is words. It also sets each prompt by key without
+matching the old text, so re-running it is a no-op.
+
+### 4. THE CORE VALUES SNAPSHOT INVITE STOPPED CALLING ITSELF THE FIRST QUESTION
+
+Day 1 of the trial arc opened with "Most of this app is about how you are
+doing. The first question is a different one." By the time a member reads
+it she has usually just finished a full check-in, so the card was
+contradicting the screen she had come from.
+
+It is now titled **A different kind of question** and says what is
+actually true: the check-in is how she is doing, this is what she is
+trying to protect, and Root reads one against the other.
+
+**AND IT ONLY CLAIMS THE CHECK-IN WHEN THERE IS ONE.** The arc's pop-up is
+second in the chain and waits for nothing, so a member can reach day 1
+before checking in. `TrialArcFacts` gained `checkedInToday`, read from the
+check-in dates the arc already loads for pacing, and day 1 picks between
+two bodies the same way day 2 already picks on whether the Snapshot is
+finished. Same key, same receipt, same step, same button.
+
+### 5. THE X IN A SESSION LEAVES THE SESSION
+
+Mid-session, the X called `setPhase('overview')`: it put the member back on
+the session's own detail screen, one step earlier in the same page.
+Reported from the live app as "tapping the X does not exit, it returns me
+to the same session". It was right. A close control that lands you back
+inside the thing you closed is not a close control.
+
+`GuidedSessionPlayer` gained `onLeaveSession`, and the X calls it.
+
+- **Root Movement** returns to wherever the member launched the session
+  from, and to Home when there is no in-app history, which is a session
+  opened from a link or a reload. Same smart-back rule as `BackButton`.
+- **A coach-assigned workout** returns to the full list view, which is
+  what leaving that walk-through has always meant, through the handler it
+  already had.
+
+Both session types were checked; those are the only two, and there is only
+one player.
+
+### 6. ACTIVE EXPERIMENTS IS ONE CARD NOW
+
+Every running experiment rendered as its own full-size card, stacked, so
+two or three took the whole of Home. They are now one card with one slim
+row each: the question it asks her, what day of it she is on, and whether
+today is logged. Tapping a row opens that experiment's own panel
+underneath it.
+
+**NOTHING ABOUT AN EXPERIMENT CHANGED.** The panel inside a row is the
+same component that used to be the card, with the same props, from the
+same server section. Logging is the same action writing the same row.
+
+Three rules it holds:
+
+- **The row never states something the panel contradicts.** Open, the row
+  stops saying the day and the logged state at all, because the panel three
+  lines below is the live one.
+- **Anything genuinely waiting on her opens by itself.** A day 3 or day 7
+  follow-up is a question she has not answered, so its row is open when
+  Home arrives. Condensing a section must not hide the one thing in it
+  that needed her.
+- **An offer is not a row.** It has no day count, no daily question and
+  nothing logged, so the three offer panels keep their full cards
+  underneath, as does a Recommendation-Engine experiment, which has no
+  daily question of its own.
+
+**AND FIVE EXPERIENCES WERE MISSING FROM THE SECTION'S OWN GATE.** The
+Weight of Yes, Being Seen, What You Put Down, Your Own Company and The
+Life You're Building each had their status read and their panel written,
+but none were named in `hasAnything`, so a member whose only running
+experiment was one of those saw no Active Experiments section at all. Same
+omission as the Stress and Load one found on 2026-09-06. Fixed.
+
 ## Four of them stand on the shelf now, locked, and two have new names (2026-09-12)
 
 The Health & Lifestyle Intake, the Body Systems Survey, the Whole-Body

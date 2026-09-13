@@ -48,8 +48,41 @@ const EYEBROW = 'From Root';
  */
 export const TRIAL_ARC_DAY_1: TrialArcMessageCopy = {
   eyebrow: EYEBROW,
-  title: 'Where this starts',
-  body: 'Most of this app is about how you are doing. The first question is a different one: what are you actually trying to protect. Core Values Snapshot is twelve questions about that, and everything I notice later is read against your answers.',
+  // IT NO LONGER CALLS ITSELF THE FIRST QUESTION (2026-09-13). It used to
+  // open with "Most of this app is about how you are doing. The first
+  // question is a different one", which was written for a member who had
+  // not done anything yet. In practice this card is read by somebody who
+  // has just finished a full check-in, and telling her that the FIRST
+  // question was still to come contradicted the screen she had come from.
+  //
+  // What it has to say instead is that this is a SECOND, SEPARATE thing.
+  // The check-in is how she is doing. This is what she values. Root reads
+  // one against the other, which is the reason to do it at all.
+  title: 'A different kind of question',
+  body: 'The daily check-in tells me how you are doing. This one is separate, and it asks something else: what you are actually trying to protect. Core Values Snapshot is twelve questions about that, and everything I notice from here is read against your answers.',
+  ctaLabel: 'Start Core Values Snapshot',
+  href: TRIAL_ARC_ROUTES.coreValuesSnapshot,
+  step: 'core_values_snapshot',
+};
+
+/**
+ * The same day 1 message for a member who has ALREADY checked in today.
+ *
+ * WHY IT IS A SECOND CONSTANT RATHER THAN A SENTENCE ADDED TO THE ONE
+ * ABOVE. "You have checked in" is a claim about a row, so it may only be
+ * said when the row exists. The pop-up chain puts the trial arc second,
+ * immediately after the welcome, and nothing about it waits for a
+ * check-in, so a day 1 member who opens the app before checking in reads
+ * the message above and is told nothing that is not true of her.
+ *
+ * Same key, same receipt, same step, same button. Only the first sentence
+ * differs, chosen from her own check-in dates, which the arc has already
+ * read for pacing (lib/trial-arc/engine.ts).
+ */
+export const TRIAL_ARC_DAY_1_AFTER_CHECKIN: TrialArcMessageCopy = {
+  eyebrow: EYEBROW,
+  title: 'A different kind of question',
+  body: 'You have checked in, so I know how today is going. This one is separate, and it asks something else: what you are actually trying to protect. Core Values Snapshot is twelve questions about that, and everything I notice from here is read against your answers.',
   ctaLabel: 'Start Core Values Snapshot',
   href: TRIAL_ARC_ROUTES.coreValuesSnapshot,
   step: 'core_values_snapshot',
