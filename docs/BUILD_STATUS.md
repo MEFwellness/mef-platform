@@ -63,6 +63,12 @@ now carries a TONE.
   edge, ink, soft ink, icon chip, sheen) so a tone cannot be half
   applied, and the sheen is one soft light source in the top-right corner
   rather than a second border.
+- **The cream tile's foot was corrected on production.** Its gradient
+  ended on `#F7F3EA`, which is the page floor, so a cream tile read as
+  white on almost white with only its hairline separating it, which is
+  the exact defect this pass set out to fix. It ends on a warm sand now
+  and is still the quietest of the five. Found by looking at the real
+  rendered row at 390px, not in a fixture.
 - **The rotation is a rule, not a code.** No tile carries the tone of the
   tile beside it. Tones are assigned on the server AFTER the gating, so a
   tile that disappears cannot leave two matching neighbours behind.

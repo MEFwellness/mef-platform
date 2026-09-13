@@ -191,6 +191,13 @@ try {
       program: y(program),
       today: y(labelled('today')),
       priority: y(priorityLabel?.closest('section') ?? priorityLabel),
+      // The pointer Home draws instead of the card once today's priority
+      // is saved or done (components/focus/TodaysFocusLine.tsx).
+      focusLine: y(
+        [...main.querySelectorAll('a[href="/today"]')].find((a) =>
+          /your one thing today|done today/i.test(a.innerText),
+        ) ?? null,
+      ),
       noticing: y(labelled('what root is noticing')),
       energy: y(labelled('energy trend')),
       yourPath: y(labelled('your path')),
@@ -205,24 +212,40 @@ try {
     '2. QUICK ACTIONS sits directly under the hero',
     `hero ends ${order.heroBottom}px, Quick Actions at ${order.quickActions}px`,
   );
-  // Nothing large stands between the hero and the row.
-  const between = await page.evaluate((quickY) => {
+  /*
+   * NOTHING STANDS BETWEEN THE HERO AND THE ROW.
+   *
+   * The first version of this filtered <main>'s children for anything
+   * over 80px tall whose top was above the "Quick Actions" LABEL, and
+   * reported the Quick Actions block itself every time, because the
+   * block's own container starts 24px above its label. A check that
+   * cannot pass is worth no more than one that cannot fail. What the
+   * question actually is: which child of <main> holds the row, and is
+   * anything drawn before it. So that is what is asked.
+   */
+  const between = await page.evaluate(() => {
     const main = document.querySelector('main');
-    return [...main.children]
-      .map((el) => {
+    const kids = [...main.children];
+    const rowIndex = kids.findIndex((el) => el.querySelector('.mef-home-quick-row'));
+    return {
+      rowIndex,
+      before: kids.slice(0, Math.max(rowIndex, 0)).map((el) => {
         const r = el.getBoundingClientRect();
         return {
-          top: Math.round(r.top + scrollY),
           height: Math.round(r.height),
           text: el.innerText.trim().slice(0, 40).replace(/\n/g, ' '),
         };
-      })
-      .filter((b) => b.height > 80 && b.top < quickY - 4);
-  }, order.quickActions ?? 0);
+      }),
+    };
+  });
   check(
-    between.length === 0,
-    'no large card stands between the hero and Quick Actions',
-    between.map((b) => `${b.height}px "${b.text}"`).join(' ; ') || 'nothing above the row',
+    between.rowIndex === 0,
+    'Quick Actions is the first block in <main>, with nothing drawn above it',
+    between.rowIndex < 0
+      ? 'no child of <main> holds the row'
+      : between.before.length === 0
+        ? 'it is the first child'
+        : between.before.map((b) => `${b.height}px "${b.text}"`).join(' ; '),
   );
 
   if (order.assigned === null) {
@@ -249,13 +272,26 @@ try {
       `program at ${order.program}px, section above at ${above}px`,
     );
   }
-  if (order.priority === null) {
-    skip("the day's chosen action is below the program", 'no active priority card today');
+  /*
+   * THE DAY'S CHOSEN ACTION. Home renders one of three things here: the
+   * card while the priority is active, the one-line pointer to Today
+   * once it is saved or done, or nothing at all on a day the engine has
+   * no row for her. All three are the same region, so all three are
+   * measured, and the pointer counts: it is what occupies that slot on a
+   * day she has already acted, and it was at the TOP of the page before
+   * this pass exactly as the card was.
+   */
+  const priorityY = order.priority ?? order.focusLine;
+  if (priorityY === null) {
+    skip(
+      "the day's chosen action is in the active/today half",
+      'neither the card nor the Today pointer renders for this account today',
+    );
   } else {
     check(
-      order.priority > (order.program ?? order.assigned ?? order.quickActions),
+      priorityY > (order.program ?? order.assigned ?? order.quickActions),
       "the day's chosen action is in the active/today half, not at the top",
-      `priority card at ${order.priority}px, Quick Actions at ${order.quickActions}px`,
+      `${order.priority !== null ? 'card' : 'pointer'} at ${priorityY}px, Quick Actions at ${order.quickActions}px, program at ${order.program}px`,
     );
   }
   const insights = order.noticing ?? order.energy;

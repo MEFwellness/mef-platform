@@ -1891,9 +1891,15 @@
    */
   .mef-home-quick-tile {
     /* Warm cream is the default, and it is what the row used to be for
-       every tile rather than for one of them. */
-    --mef-quick-surface: linear-gradient(158deg, #fffdf8 0%, #f7f1e3 100%);
-    --mef-quick-border: rgba(27, 58, 45, 0.08);
+       every tile rather than for one of them. Its foot is deliberately
+       DEEPER than the page floor it sits on (#F7F3EA): measured on
+       production at the first setting, a cream tile whose gradient ended
+       on the page's own colour read as white-on-white with only its
+       hairline separating it, which is the exact thing this pass set out
+       to fix. It is a warm sand at the bottom now, and still the
+       quietest of the five. */
+    --mef-quick-surface: linear-gradient(158deg, #fffdf6 0%, #f3ead6 100%);
+    --mef-quick-border: rgba(27, 58, 45, 0.09);
     --mef-quick-ink: #1b3a2d;
     --mef-quick-ink-soft: rgba(27, 58, 45, 0.62);
     --mef-quick-chip: rgba(27, 58, 45, 0.07);
@@ -2001,8 +2007,8 @@
    * at a tile's scale, under a member's thumb, not a gold card.
    */
   .mef-home-quick-tile--gold {
-    --mef-quick-surface: linear-gradient(158deg, #fdf6e4 0%, #f6e9c9 100%);
-    --mef-quick-border: rgba(196, 160, 80, 0.26);
+    --mef-quick-surface: linear-gradient(158deg, #fdf5df 0%, #f4e3b9 100%);
+    --mef-quick-border: rgba(196, 160, 80, 0.3);
     --mef-quick-ink: #1b3a2d;
     --mef-quick-ink-soft: rgba(86, 68, 22, 0.68);
     --mef-quick-chip: rgba(196, 160, 80, 0.22);
