@@ -42,6 +42,12 @@ export interface ActiveExperimentRow {
   id: string;
   /** The question this experiment actually asks her, in its own words. */
   question: string;
+  /**
+   * The experiment's own short name, used as the row's label once it is
+   * open. The panel underneath says the question in full, so repeating it
+   * in the header above would be the same sentence twice on one screen.
+   */
+  title: string;
   /** "Day 3 of 7", counted by the same rule the panel counts it by. */
   dayLabel: string;
   /** Today's answer, or null when she has not answered today. */
@@ -97,12 +103,14 @@ export function ActiveExperimentsCard({ rows }: { rows: readonly ActiveExperimen
               <span className="min-w-0 flex-1">
                 {/*
                   OPEN, THE ROW STOPS COMPETING WITH THE PANEL. The panel
-                  it just revealed carries the question in full and the day
-                  and today's answer in its own words, so an open row keeps
-                  only a quiet label saying which one is open. Closed, the
+                  it just revealed carries the question in full, the day and
+                  today's answer in its own words, so an open row falls back
+                  to a quiet name saying only which one is open. Closed, the
                   row is the whole statement and says all three.
                 */}
-                <span className={open ? ROW_QUESTION_OPEN : ROW_QUESTION}>{row.question}</span>
+                <span className={open ? ROW_QUESTION_OPEN : ROW_QUESTION}>
+                  {open ? row.title : row.question}
+                </span>
                 {!open && (
                   <span className={ROW_META}>
                     {`${row.dayLabel} · ${loggedText(row.loggedToday)}`}

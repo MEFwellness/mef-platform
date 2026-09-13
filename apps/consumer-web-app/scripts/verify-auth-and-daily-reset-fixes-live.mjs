@@ -211,22 +211,101 @@ async function run() {
     check('Home carries no em dash', !homeText.includes(EM_DASH));
 
     // ------------------------ Daily Reset --------------------------
+    // The wizard is Continue-only, so the walk is: read what this screen
+    // asks, answer everything answerable on it, press Continue, repeat.
+    // Answers are chosen structurally (the middle option of each group),
+    // never by question text, so this survives the bank changing. Ported
+    // from scripts/verify-checkin-then-home-live.mjs, which is the walk
+    // that already knows the traps: never touch the coach-note toggle,
+    // never touch a step dot, never leave the wizard's own region.
+    const NAV =
+      /^(continue|next|back|done|submit|finish|save|skip|close|exit|cancel|update|home|go to screen|sign out|profile|membership|connected devices|notifications|help|about|e$)/i;
+    const DO_NOT_TOUCH = /send your coach|something new or worsening/i;
+    const ANSWER_SELECTOR =
+      'main button:not([disabled]), main [role="radio"], main [role="option"], main [role="switch"]';
+
     await page.goto(`${BASE}/checkin`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(4000);
+
     const seenQuestions = new Set();
-    for (let step = 0; step < 16; step += 1) {
-      const text = await page.evaluate(() => document.body.innerText ?? '');
+    let stuckOn = null;
+    let screensWalked = 0;
+    for (let screen = 0; screen < 12; screen += 1) {
+      await page.waitForTimeout(900);
+      screensWalked = screen + 1;
+
+      // Read the screen BEFORE answering it, so a question that a follow-up
+      // replaces is still recorded.
+      const text = await page.evaluate(() => document.querySelector('main')?.innerText ?? '');
       for (const line of text.split('\n')) {
         const trimmed = line.trim();
         if (trimmed.length > 12 && /[?:]$/.test(trimmed)) seenQuestions.add(trimmed);
       }
-      const next = page.getByRole('button', { name: /^(continue|next)$/i }).first();
-      if ((await next.count()) === 0) break;
-      if (!(await next.isEnabled().catch(() => false))) break;
-      await next.click().catch(() => {});
-      await page.waitForTimeout(1400);
+      await shot(page, `daily-reset-${String(screen).padStart(2, '0')}`);
+
+      const groups = await page.evaluate(([navSource, selector]) => {
+        const nav = new RegExp(navSource, 'i');
+        const byParent = new Map();
+        const controls = Array.from(document.querySelectorAll(selector));
+        controls.forEach((el, domIndex) => {
+          const name =
+            (el.textContent ?? '').trim().replace(/\s+/g, ' ') || el.getAttribute('aria-label') || '';
+          if (!name || nav.test(name) || /send your coach|something new or worsening/i.test(name)) return;
+          const key = el.parentElement
+            ? Array.from(document.querySelectorAll('*')).indexOf(el.parentElement)
+            : -1;
+          if (!byParent.has(key)) byParent.set(key, []);
+          byParent.get(key).push({ domIndex, name });
+        });
+        return Array.from(byParent.values()).filter((g) => g.length >= 2);
+      }, [NAV.source, ANSWER_SELECTOR]);
+
+      const controls = page.locator(ANSWER_SELECTOR);
+      for (const group of groups) {
+        const pick = group[Math.floor(group.length / 2)];
+        await controls.nth(pick.domIndex).click({ timeout: 4000 }).catch(() => {});
+        await page.waitForTimeout(250);
+      }
+
+      const continueBtn = page.getByRole('button', {
+        name: /^(continue|finish|submit|done|save check-in)$/i,
+      });
+      if ((await continueBtn.count()) === 0) break;
+
+      if (!(await continueBtn.first().isEnabled().catch(() => false))) {
+        const remaining = page.locator(ANSWER_SELECTOR);
+        const total = await remaining.count();
+        for (let i = 0; i < total; i += 1) {
+          const el = remaining.nth(i);
+          const name = ((await el.innerText().catch(() => '')) || '').trim().replace(/\s+/g, ' ');
+          if (!name || NAV.test(name) || DO_NOT_TOUCH.test(name)) continue;
+          await el.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(250);
+          if (await continueBtn.first().isEnabled().catch(() => false)) break;
+        }
+      }
+
+      if (!(await continueBtn.first().isEnabled().catch(() => false))) {
+        stuckOn = screen;
+        break;
+      }
+
+      // This walk READS the Daily Reset, it does not file one. The last
+      // control saves, so it stops there rather than writing a check-in
+      // nobody sat down to do.
+      const label = ((await continueBtn.first().innerText().catch(() => '')) || '').trim();
+      if (/save check-in|submit|finish/i.test(label)) break;
+
+      await continueBtn.first().click();
+      await page.waitForTimeout(2200);
+      if (!page.url().includes('/checkin')) break;
     }
-    await shot(page, 'daily-reset');
+
+    check(
+      'every Daily Reset screen was answerable',
+      stuckOn === null,
+      stuckOn === null ? `${screensWalked} screens` : `stuck on screen ${stuckOn}`
+    );
     note(`Questions read on the Daily Reset: ${seenQuestions.size}`);
     for (const q of seenQuestions) note(`  ${q}`);
     const offenders = [...seenQuestions].filter((q) =>

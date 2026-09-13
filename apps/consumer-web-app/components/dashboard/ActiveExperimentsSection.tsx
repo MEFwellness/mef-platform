@@ -341,6 +341,7 @@ export async function ActiveExperimentsSection() {
   if (cvsActive && cvsStatus) {
     rows.push({
       id: cvsStatus.experiment.id,
+      title: cvsStatus.experiment.title,
       question: cvsDailyPromptCopy(cvsStatus.experiment.title),
       dayLabel: dayLabel(cvsStatus.daysSinceStart, cvsStatus.experiment.durationDays),
       loggedToday: cvsStatus.todayCompleted,
@@ -359,6 +360,7 @@ export async function ActiveExperimentsSection() {
     const lscSignal = SIGNAL_BY_LABEL[lscStatus.experiment.title] ?? null;
     rows.push({
       id: lscStatus.experiment.id,
+      title: lscStatus.experiment.title,
       question: lscSignal ? lscDailyPromptCopy(lscSignal) : lscStatus.experiment.title,
       dayLabel: dayLabel(lscStatus.daysSinceStart, lscStatus.experiment.durationDays),
       loggedToday: lscStatus.todayCompleted,
@@ -378,6 +380,7 @@ export async function ActiveExperimentsSection() {
         : rplStatus.experiment.title;
     rows.push({
       id: rplStatus.experiment.id,
+      title: rplStatus.experiment.title,
       question: rplQuestion,
       dayLabel: dayLabel(rplStatus.daysSinceStart, rplStatus.experiment.durationDays),
       loggedToday: rplStatus.todayCompleted,
@@ -391,6 +394,7 @@ export async function ActiveExperimentsSection() {
   if (oyvStatus) {
     rows.push({
       id: oyvStatus.experiment.id,
+      title: oyvStatus.experiment.title,
       question: OYV_EXPERIMENT_DAILY_QUESTION,
       dayLabel: dayLabel(oyvStatus.daysSinceStart, oyvStatus.experiment.durationDays),
       loggedToday: oyvStatus.todayCompleted,
@@ -401,6 +405,7 @@ export async function ActiveExperimentsSection() {
   if (wyjlStatus) {
     rows.push({
       id: wyjlStatus.experiment.id,
+      title: wyjlStatus.experiment.title,
       question: WYJL_EXPERIMENT_DAILY_QUESTION,
       dayLabel: dayLabel(wyjlStatus.daysSinceStart, wyjlStatus.experiment.durationDays),
       loggedToday: wyjlStatus.todayCompleted,
@@ -411,6 +416,7 @@ export async function ActiveExperimentsSection() {
   if (tglStatus) {
     rows.push({
       id: tglStatus.experiment.id,
+      title: tglStatus.experiment.title,
       question: TGL_EXPERIMENT_DAILY_QUESTION,
       dayLabel: dayLabel(tglStatus.daysSinceStart, tglStatus.experiment.durationDays),
       loggedToday: tglStatus.todayCompleted,
@@ -421,6 +427,7 @@ export async function ActiveExperimentsSection() {
   if (twoyStatus) {
     rows.push({
       id: twoyStatus.experiment.id,
+      title: twoyStatus.experiment.title,
       question: TWOY_EXPERIMENT_DAILY_QUESTION,
       dayLabel: dayLabel(twoyStatus.daysSinceStart, twoyStatus.experiment.durationDays),
       loggedToday: twoyStatus.todayCompleted,
@@ -431,6 +438,7 @@ export async function ActiveExperimentsSection() {
   if (bsnStatus) {
     rows.push({
       id: bsnStatus.experiment.id,
+      title: bsnStatus.experiment.title,
       question: BSN_EXPERIMENT_DAILY_QUESTION,
       dayLabel: dayLabel(bsnStatus.daysSinceStart, bsnStatus.experiment.durationDays),
       loggedToday: bsnStatus.todayCompleted,
@@ -441,6 +449,7 @@ export async function ActiveExperimentsSection() {
   if (wypdStatus) {
     rows.push({
       id: wypdStatus.experiment.id,
+      title: wypdStatus.experiment.title,
       question: WYPD_EXPERIMENT_DAILY_QUESTION,
       dayLabel: dayLabel(wypdStatus.daysSinceStart, wypdStatus.experiment.durationDays),
       loggedToday: wypdStatus.todayCompleted,
@@ -451,6 +460,7 @@ export async function ActiveExperimentsSection() {
   if (yocStatus) {
     rows.push({
       id: yocStatus.experiment.id,
+      title: yocStatus.experiment.title,
       question: YOC_EXPERIMENT_DAILY_QUESTION,
       dayLabel: dayLabel(yocStatus.daysSinceStart, yocStatus.experiment.durationDays),
       loggedToday: yocStatus.todayCompleted,
@@ -461,6 +471,7 @@ export async function ActiveExperimentsSection() {
   if (tlybStatus) {
     rows.push({
       id: tlybStatus.experiment.id,
+      title: tlybStatus.experiment.title,
       question: TLYB_EXPERIMENT_DAILY_QUESTION,
       dayLabel: dayLabel(tlybStatus.daysSinceStart, tlybStatus.experiment.durationDays),
       loggedToday: tlybStatus.todayCompleted,
@@ -471,6 +482,7 @@ export async function ActiveExperimentsSection() {
   if (slStatus) {
     rows.push({
       id: slStatus.experiment.id,
+      title: slStatus.experiment.title,
       question: slStatus.dailyQuestion,
       dayLabel: dayLabel(slStatus.daysSinceStart, slStatus.experiment.durationDays),
       loggedToday: slStatus.todayCompleted,
