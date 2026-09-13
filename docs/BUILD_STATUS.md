@@ -128,6 +128,54 @@ could make it true. The retired blanket constant stays gone; the assertion
 now says so precisely, and points at the new file for the four cards that do
 have that state.
 
+Whole suite after the build: **586 files, 11,190 tests, all passing.**
+
+### AND IT WAS WALKED ON PRODUCTION
+
+`scripts/verify-coach-assign-only-shelf-prod.mjs`, **65 of 65** on
+app.mefwellness.com, committed beside the build.
+
+It uses **two accounts, for two different claims.** "All four are locked" can
+only honestly be asked of a member who has been sent none of them, so step 1
+runs as a test member with a clean slate: all four on the shelf, all four
+locked, all four under Premium with the gold corner marker, no link into any
+of them, both renamed titles reading the new name and the old name nowhere on
+the page. Each one is then tapped and the sheet read: the coach sentence word
+for word, no plan named, no View Membership link, no em dash. Then each of the
+four routes is opened by URL, and each one lands her on Home, which is the
+server refusing her rather than the card hiding it.
+
+Step 2 is the coach's own client Detail page and his real Assign control on
+the Breathing Pattern Check-In. Step 3 is her shelf afterwards: that one
+unlocked, under Assigned, with a real link, and the route really opens the
+taker.
+
+**AND THE OTHER THREE ARE READ AS THEY ACTUALLY ARE.** The coach's test
+client has already finished the intake and the Body Systems Survey, and a
+questionnaire she has finished is not locked: it sits in Completed so she can
+reach her own results, which is the same rule every other completed card in
+this library has followed since 2026-08-27. The Whole-Body Signal Assessment,
+which she has never been sent, is still locked. The run asserts each of the
+three against its real stored state rather than against an assumption, so it
+cannot pass by accident.
+
+**IT WRITES ONE ROW AND TAKES IT BACK.** The assignment the coach sends is
+the only thing it creates, and it never answers a question, because a
+finished sitting on production is a member's record. Her assignment ledger
+and all four sitting tables are compared, serialised, against what they were
+before it started.
+
+**TWO READER BUGS WERE FOUND AND FIXED BEFORE THE RUN WAS TRUSTED**, and
+both were in the script rather than in the product, which is why they are
+written down. It first climbed a fixed number of parents from a card's
+heading to find the card, which overshot into the grid for an UNLOCKED card
+and then found the next card's lock button, so three cards that were open
+read as locked. The card is the grid's own direct child and that is what it
+climbs to now. It also read `document.body.innerText` while a server side
+redirect was destroying the execution context underneath it, and three of
+the four routes redirect: the URL she landed on is the assertion now, with
+the text as the second half of the same claim.
+
 ## Sending any of them again, and not losing the sitting she finished (2026-09-12)
 
 Two things were missing from the reassignment work that shipped this

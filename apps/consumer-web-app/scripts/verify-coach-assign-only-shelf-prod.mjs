@@ -136,8 +136,18 @@ function watch(page, label) {
 // Reads, and waits that are on the app rather than on a clock.
 // ---------------------------------------------------------------------
 
+/**
+ * Reads the screen, and survives a navigation happening underneath it.
+ *
+ * A SERVER SIDE REDIRECT DESTROYS THE EXECUTION CONTEXT mid-evaluate, and
+ * three of the four routes redirect a member with no assignment. Treating
+ * that as an empty read rather than as a throw is what lets the caller
+ * settle on the page she actually landed on.
+ */
 async function screenKey(page) {
-  return page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').trim());
+  return page
+    .evaluate(() => document.body.innerText.replace(/\s+/g, ' ').trim())
+    .catch(() => '');
 }
 
 async function settled(page, timeoutMs = 30000) {
@@ -162,13 +172,23 @@ async function assignmentsFor(memberId, definitionId) {
   return data ?? [];
 }
 
+/**
+ * Her sitting ids in one table, and it THROWS on a failed read rather than
+ * answering with an empty list. A read that quietly returned [] would make
+ * the closing "her rows are exactly what they were" comparison report a
+ * change that never happened, or worse, miss one that did.
+ */
 async function sittingsFor(memberId, table) {
-  const { data } = await admin
-    .from(table)
-    .select('id')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
-  return (data ?? []).map((row) => row.id).sort();
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const { data, error } = await admin
+      .from(table)
+      .select('id')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false });
+    if (!error) return (data ?? []).map((row) => row.id).sort();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+  }
+  throw new Error(`could not read ${table} for ${memberId}`);
 }
 
 async function allSittings(memberId) {
@@ -189,26 +209,32 @@ async function ledgerReaches(memberId, definitionId, predicate, label) {
 /**
  * One card on the shelf, read out of the DOM by its own heading.
  *
- * ADDRESSED BY ITS HEADING, NOT BY A COPY MATCH ANYWHERE ON THE PAGE,
- * because a title that appears in a section header as well as on a card
- * would otherwise make a page-level `includes` pass for the wrong reason.
+ * ADDRESSED BY ITS HEADING, AND SCOPED TO ITS OWN CARD. The first version
+ * of this walked a fixed number of parents up from the heading, which
+ * overshot into the grid for an unlocked card and then found the NEXT
+ * card's lock button, so three cards that were genuinely open were read as
+ * locked. The card is the grid's own direct child, which is what the
+ * section renders one per questionnaire, so that is what is climbed to.
  */
 async function cardState(page, title) {
   return page.evaluate((wanted) => {
     const headings = Array.from(document.querySelectorAll('h3'));
     const heading = headings.find((h) => h.textContent.trim() === wanted);
     if (!heading) return { found: false };
-    // The card is the nearest ancestor that also carries the lock button
-    // or the primary action, which is the article/div the Card renders.
-    let node = heading;
-    for (let up = 0; up < 6 && node.parentElement; up += 1) node = node.parentElement;
-    const scope = node;
+
+    const section = heading.closest('section');
+    const grid = section ? section.querySelector('div.grid') : null;
+    let scope = heading;
+    if (grid) {
+      while (scope.parentElement && scope.parentElement !== grid) scope = scope.parentElement;
+      if (scope.parentElement !== grid) scope = section ?? heading.parentElement;
+    } else {
+      scope = section ?? heading.parentElement;
+    }
+
     const lockButton = scope.querySelector('button[aria-label*="locked"]');
     const lockMarker = scope.querySelector('[aria-label="Locked"]');
-    const section = heading.closest('section');
-    const sectionLabel = section
-      ? (section.querySelector('p')?.textContent ?? '').trim()
-      : '';
+    const sectionLabel = section ? (section.querySelector('p')?.textContent ?? '').trim() : '';
     const links = Array.from(scope.querySelectorAll('a')).map((a) => ({
       text: a.textContent.trim(),
       href: a.getAttribute('href'),
@@ -344,11 +370,20 @@ try {
   // -------------------------------------------------------------------
   for (const one of FOUR) {
     await clean.goto(`${BASE}${one.route}`, { waitUntil: 'domcontentloaded' });
+    // THE URL IS THE ASSERTION, not the words on the page. Each of these
+    // routes re-asks its own access rule on the server and sends a member
+    // with no assignment to Home before any content renders, so where she
+    // ended up is the only thing that proves the server refused her. The
+    // text is read too, and only as the second half of the same claim.
+    await clean
+      .waitForURL((url) => !url.pathname.startsWith(one.route), { timeout: 30000 })
+      .catch(() => {});
+    const landed = new URL(clean.url()).pathname;
     const screen = await settled(clean);
     check(
       `1c: ${one.route} refuses a member with no assignment`,
-      !/begin|start my|continue my|pick up where/i.test(screen),
-      screen.slice(0, 90)
+      landed !== one.route && !/begin|start my|continue my|pick up where/i.test(screen),
+      `landed on ${landed}`
     );
   }
 
@@ -476,9 +511,16 @@ try {
     JSON.stringify(restoredAssignments) === JSON.stringify(beforeAssignments),
     `${restoredAssignments.length} row(s), was ${beforeAssignments.length}`
   );
+  const sittingsDiff = FOUR.filter(
+    (one) => JSON.stringify(restoredSittings[one.key]) !== JSON.stringify(beforeSittings[one.key])
+  ).map(
+    (one) =>
+      `${one.key}: ${beforeSittings[one.key].length} -> ${restoredSittings[one.key].length}`
+  );
   check(
     'RESTORE: all four sitting tables are exactly what they were',
-    JSON.stringify(restoredSittings) === JSON.stringify(beforeSittings)
+    sittingsDiff.length === 0,
+    sittingsDiff.join(' | ')
   );
 
   for (const line of consoleErrors) console.log(`CONSOLE  ${line}`);
