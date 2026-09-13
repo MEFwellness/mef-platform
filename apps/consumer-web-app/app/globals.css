@@ -1616,6 +1616,163 @@
     flex-direction: column;
     justify-content: center;
   }
+
+  /*
+   * =================================================================
+   * HOME, THE PRESENTATION SYSTEM (2026-09-13).
+   * =================================================================
+   *
+   * Every rule below is scoped to `.mef-home`, which is on the Home
+   * shell's outermost div (app/dashboard/page.tsx) and on no other
+   * screen in the app. That scope is the whole reason this block can
+   * exist: Home needed a quieter card, a stricter radius set and a real
+   * spacing rhythm, and `.mef-card` is shared with about forty other
+   * screens that were not part of this pass.
+   *
+   * WHAT IT IS FOR. Home read as a stack of white boxes, each with its
+   * own gray-ish edge and its own guess at a gap, on top of a photo big
+   * enough to be the whole first screen. The single most important
+   * thing on the page, the one action the day's engine chose, was
+   * below the fold. This layer gives the screen one focus and makes
+   * everything else visibly step down from it.
+   *
+   * THREE RADII AND NOTHING ELSE. A card is 28px and the one feature card
+   * is 32px (both tokens the rest of the app already carries), a tile or
+   * a control inside a card is 16px, and a button or a chip is fully
+   * round. Any other value on this screen is a mistake. Home carried
+   * 14px, 16px, 24px, 28px and 32px before this pass.
+   */
+  .mef-home {
+    --mef-home-radius-card: var(--mef-radius-card); /* 28px */
+    --mef-home-radius-tile: var(--mef-radius-control); /* 16px, Tailwind's rounded-2xl */
+    /*
+     * NO OUTLINE, A DIFFUSED LIFT. The app-wide card shadow reads as a
+     * light-gray edge at phone sizes, which is what made every section
+     * look like a separate website card floating on the page. These two
+     * are a hairline contact shadow plus a wide, very soft drop, so a
+     * card reads as sitting ON the cream rather than hovering above it.
+     */
+    --mef-home-shadow: 0 1px 1px rgba(27, 58, 45, 0.02), 0 14px 34px -22px rgba(27, 58, 45, 0.28);
+    --mef-home-shadow-feature: 0 2px 3px rgba(27, 58, 45, 0.03),
+      0 30px 64px -34px rgba(27, 58, 45, 0.38);
+    --mef-home-hairline: rgba(27, 58, 45, 0.055);
+  }
+
+  /*
+   * Every card on Home, including the ones drawn by components shared
+   * with other screens. Those components keep their own look everywhere
+   * else; here they inherit one.
+   */
+  .mef-home .mef-card {
+    border-radius: var(--mef-home-radius-card);
+    border: 1px solid var(--mef-home-hairline);
+    box-shadow: var(--mef-home-shadow);
+  }
+
+  /*
+   * `.mef-home-feature` — the one dominant card on the screen, holding
+   * the day's single action. It is the only thing on Home carrying this
+   * much elevation, which is what makes the elevation mean something.
+   */
+  .mef-home .mef-home-feature {
+    border-radius: 32px;
+    border: 1px solid rgba(27, 58, 45, 0.07);
+    box-shadow: var(--mef-home-shadow-feature);
+  }
+
+  /*
+   * `.mef-home-quiet` — a section that is NOT a card: a tonal shift on
+   * the cream instead of another container. No shadow, no visible edge,
+   * just a panel a shade warmer than the page it sits on. This is what
+   * replaced three of Home's white boxes.
+   */
+  .mef-home-quiet {
+    border-radius: var(--mef-home-radius-card);
+    background: rgba(27, 58, 45, 0.028);
+    padding: var(--mef-space-card-padding);
+  }
+
+  @media (max-width: 380px) {
+    .mef-home-quiet {
+      padding: var(--mef-space-sm);
+    }
+  }
+
+  /*
+   * THE FOUR TYPE LEVELS ON THIS SCREEN, and there are only four.
+   *
+   *   `.mef-home-label`    the small capitalized name of a section
+   *   `.mef-home-title`    a section's own display heading
+   *   primary information  set inline, display type, 20px to 28px
+   *   `.mef-home-body`     description and supporting copy
+   *
+   * The label used to be `text-xs ... text-[#1B3A2D]/40` copied by hand
+   * into three files. It is one definition now, one point smaller and
+   * one step wider, so it reads as a name rather than as a second
+   * heading competing with the content under it.
+   */
+  .mef-home-label {
+    font-size: 0.6875rem; /* 11px */
+    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(27, 58, 45, 0.45);
+  }
+
+  .mef-home-title {
+    font-family: var(--font-cormorant-garamond);
+    font-size: 1.5rem; /* 24px */
+    line-height: 1.2;
+    color: #1b3a2d;
+  }
+
+  .mef-home-body {
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.65;
+    color: #6b7a72;
+  }
+
+  /*
+   * THE RHYTHM. One gap between major sections, one gap between a label
+   * and what it names, one gap between two cards of the same kind. Home
+   * carried nine different values for these three jobs (pt-3, pt-6,
+   * pt-8, mt-3, mt-4, mt-8, mt-10, mt-14, mt-20) and the result was a
+   * page with no discernible beat.
+   */
+  .mef-home-section {
+    margin-top: 3.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .mef-home-section {
+      margin-top: 4.5rem;
+    }
+  }
+
+  /* A card stacked under another card of the same kind. */
+  .mef-home-stack > * + * {
+    margin-top: 0.75rem;
+  }
+
+  /*
+   * `.mef-arc-draw` — the Root Score ring drawing itself once on arrival
+   * (components/dashboard/RootScoreRing.tsx). Cinematic tier, the draw
+   * curve, and it never loops: this is a measurement presenting itself,
+   * not an ambient effect. The two custom properties are set inline from
+   * the real score, and var() substitution happens before the keyframe
+   * interpolates, so the arc genuinely sweeps rather than stepping.
+   */
+  .mef-arc-draw {
+    animation: mef-arc-draw var(--mef-duration-cinematic) var(--mef-ease-draw) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mef-arc-draw {
+      animation: none;
+      stroke-dashoffset: var(--mef-arc-offset);
+    }
+  }
 }
 
 /*
@@ -1641,6 +1798,15 @@
  * overlay itself fades and lifts away, revealing the already-rendered
  * destination page beneath.
  */
+@keyframes mef-arc-draw {
+  from {
+    stroke-dashoffset: var(--mef-arc-length);
+  }
+  to {
+    stroke-dashoffset: var(--mef-arc-offset);
+  }
+}
+
 @keyframes mef-reset-entry-arrive {
   from {
     opacity: 0;

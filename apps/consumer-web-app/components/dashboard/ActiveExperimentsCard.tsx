@@ -59,8 +59,8 @@ export interface ActiveExperimentRow {
 }
 
 const ROW_QUESTION = 'block text-[15px] font-medium leading-snug text-[#1B3A2D]';
-const ROW_QUESTION_OPEN = 'block text-xs font-semibold uppercase tracking-wider text-[#6B7A72]';
-const ROW_META = 'mt-1 block text-xs text-[#6B7A72]';
+const ROW_QUESTION_OPEN = 'mef-home-label block';
+const ROW_META = 'mt-1.5 block text-xs text-[#6B7A72]';
 
 export function ActiveExperimentsCard({ rows }: { rows: readonly ActiveExperimentRow[] }) {
   const [openIds, setOpenIds] = useState<readonly string[]>(() =>
@@ -87,7 +87,10 @@ export function ActiveExperimentsCard({ rows }: { rows: readonly ActiveExperimen
         return (
           <div
             key={row.id}
-            className={index === 0 ? '' : 'border-t border-[#1B3A2D]/8'}
+            /* A hairline between rows, not a rule. At 8% it read as a
+               gray line across a white card; at 5% it separates two rows
+               without drawing anything. */
+            className={index === 0 ? '' : 'border-t border-[#1B3A2D]/[0.05]'}
           >
             <button
               type="button"
@@ -98,7 +101,7 @@ export function ActiveExperimentsCard({ rows }: { rows: readonly ActiveExperimen
                  state move to the panel), so a locator built from its words
                  loses the row it just tapped. */
               data-testid="active-experiment-row"
-              className="mef-focus-ring flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-[#1B3A2D]/[0.03]"
+              className="mef-focus-ring flex w-full items-start gap-3 px-6 py-[18px] text-left transition hover:bg-[#1B3A2D]/[0.03]"
             >
               <span className="min-w-0 flex-1">
                 {/*
@@ -134,7 +137,7 @@ export function ActiveExperimentsCard({ rows }: { rows: readonly ActiveExperimen
               same things on mount. Only whether a member can see one
               changed.
             */}
-            <div className={open ? 'px-3 pb-4' : 'hidden'}>{row.panel}</div>
+            <div className={open ? 'px-3 pb-5' : 'hidden'}>{row.panel}</div>
           </div>
         );
       })}

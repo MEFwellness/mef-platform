@@ -29,9 +29,21 @@
  * center regardless of viewport width. Each half renders its items as
  * equal-width grid columns, so two items per side stay symmetrical.
  *
- * Brand color discipline: inactive items read in muted gray; the active
- * item gets a soft gold pill behind the icon while its text/icon stay
- * dark green for contrast.
+ * BRAND COLOUR DISCIPLINE (revised, Home presentation pass 2026-09-13).
+ * Inactive items read in muted gray. The active item gets a soft FOREST
+ * pill behind it, not a gold one, and its icon and label go to full
+ * forest. Gold was doing two different jobs in a bar 64px tall: it was
+ * the check-in button, which is the one action this bar exists to offer,
+ * and it was also "you are here", which is not an action at all. One of
+ * them had to give it up, and it was not the button. The active state is
+ * stronger than it was, not weaker: the pill is deeper, the label goes
+ * from gray to forest and from medium to semibold, and a 3px forest mark
+ * sits above the icon.
+ *
+ * ONE ICON WEIGHT. Every icon in this bar is 20px at stroke 1.75,
+ * including the active one, which used to thicken to 2.25 and so was a
+ * different icon from its own inactive self. Weight is not how this bar
+ * says "here"; colour and the pill are.
  */
 
 import Link from 'next/link';
@@ -94,19 +106,37 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   // TypeScript will represent.
   const inner = (
     <span
-      className={`flex w-full max-w-[72px] flex-col items-center gap-1 rounded-2xl px-1.5 py-1.5 text-center text-[9px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:max-w-none md:gap-2 md:px-3.5 md:py-2.5 md:text-[11px] md:leading-normal md:tracking-wide ${
+      /* EVERY PIXEL OF THE CELL GOES TO THE LABEL. The pass that raised this
+         from 9px to 10px truncated "FOOD LENS" and "PROGRESS" on a 390px
+         screen, which is the exact bug the note above this component
+         records being fixed once already. The room came back from the
+         three paddings stacked between the screen edge and the word (the
+         group's, the link's and the pill's), not from shrinking the type
+         again, and `tracking-wide` went with it: at 10px in caps the
+         default tracking is enough. Measured on a 390px viewport, both
+         words spell themselves out with room to spare. */
+      className={`relative flex w-full max-w-[84px] flex-col items-center gap-1.5 rounded-2xl px-1 py-2 text-center text-[10px] uppercase leading-[1.05] transition-colors md:max-w-none md:gap-2 md:px-3.5 md:py-2.5 md:text-[11px] md:leading-normal md:tracking-wide ${
         active
-          ? 'bg-[#C4A050]/[0.22] text-[#1B3A2D]'
-          : 'text-[#6B7A72] group-hover:bg-[#1B3A2D]/[0.05] group-hover:text-[#1B3A2D]'
+          ? 'bg-[#1B3A2D]/[0.07] font-semibold text-[#1B3A2D]'
+          : 'font-medium text-[#6B7A72] group-hover:bg-[#1B3A2D]/[0.04] group-hover:text-[#1B3A2D]'
       }`}
     >
-      <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} aria-hidden="true" />
+      {/* The "you are here" mark. A 3px bar on the pill's top edge, which
+          is what makes the active tab legible at a glance on a bar where
+          every item is otherwise the same shape and the same weight. */}
+      {active && (
+        <span
+          className="absolute left-1/2 top-0 h-[3px] w-6 -translate-x-1/2 rounded-full bg-[#1B3A2D]"
+          aria-hidden="true"
+        />
+      )}
+      <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
       <span className="w-full truncate">{item.label}</span>
     </span>
   );
 
   const className =
-    'group flex min-h-[52px] min-w-0 flex-col items-center justify-center px-1 py-1 md:min-h-0 md:py-1.5';
+    'group flex min-h-[52px] min-w-0 flex-col items-center justify-center px-0.5 py-1 md:min-h-0 md:px-1 md:py-1.5';
   const ariaCurrent = active ? ('page' as const) : undefined;
 
   if (item.quiet) {
@@ -181,7 +211,11 @@ export function BottomNav({ isCoach = false, isAdmin = false, showFoodLens = tru
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-20 flex items-center border-t border-[#1B3A2D]/10 bg-white/95 pt-2 backdrop-blur [padding-bottom:max(0.5rem,env(safe-area-inset-bottom))] md:inset-y-0 md:left-0 md:right-auto md:top-0 md:h-full md:w-24 md:flex-col md:justify-start md:gap-6 md:border-r md:border-t-0 md:px-0 md:py-10"
+      /* LESS WEIGHT, MORE ROOM. The 10% border read as a gray rule under
+         every screen in the app; at 6% over a blurred cream it reads as
+         an edge without reading as a line. The bar sits on the cream
+         rather than on white for the same reason. */
+      className="fixed inset-x-0 bottom-0 z-20 flex items-center border-t border-[#1B3A2D]/[0.06] bg-[#FCFAF5]/92 pt-2.5 backdrop-blur-md [padding-bottom:max(0.625rem,env(safe-area-inset-bottom))] md:inset-y-0 md:left-0 md:right-auto md:top-0 md:h-full md:w-24 md:flex-col md:justify-start md:gap-6 md:border-r md:border-t-0 md:px-0 md:py-10"
       aria-label="Primary"
     >
       {/*
@@ -192,7 +226,7 @@ export function BottomNav({ isCoach = false, isAdmin = false, showFoodLens = tru
        * sidebar stack again, unchanged from before.
        */}
       <div
-        className="grid min-w-0 flex-1 items-start gap-0.5 px-1 md:contents"
+        className="grid min-w-0 flex-1 items-start gap-1 px-1 md:contents"
         style={{ gridTemplateColumns: `repeat(${leftItems.length}, minmax(0, 1fr))` }}
       >
         {leftItems.map((item) => (
@@ -203,22 +237,27 @@ export function BottomNav({ isCoach = false, isAdmin = false, showFoodLens = tru
       <Link
         href={checkInHref as Route}
         aria-label="Check In"
-        className="flex shrink-0 flex-col items-center gap-1.5 px-2 -mt-7 md:mt-0 md:gap-2"
+        className="mef-focus-ring flex shrink-0 flex-col items-center gap-1.5 px-2 -mt-7 md:mt-0 md:gap-2"
       >
+        {/* THE ONE GOLD OBJECT IN THE APP'S CHROME. Unchanged in size,
+            colour and icon; the ring it wears when it is the current
+            screen is now gold-on-gold rather than a dark collar, and the
+            drop is softer and wider so it reads as lit rather than as
+            stuck on. */}
         <span
-          className={`flex h-14 w-14 items-center justify-center rounded-full bg-[#F5B700] text-[#1B3A2D] shadow-[0_10px_24px_-6px_rgba(245,183,0,0.55)] transition-transform ${
-            checkInActive ? 'scale-105 ring-4 ring-[#1B3A2D]/15' : 'hover:scale-105'
+          className={`flex h-14 w-14 items-center justify-center rounded-full bg-[#F5B700] text-[#1B3A2D] shadow-[0_12px_28px_-10px_rgba(245,183,0,0.7)] transition-transform ${
+            checkInActive ? 'scale-105 ring-4 ring-[#F5B700]/25' : 'hover:scale-105'
           }`}
         >
-          <Plus className="h-7 w-7" strokeWidth={2.25} aria-hidden="true" />
+          <Plus className="h-7 w-7" strokeWidth={2} aria-hidden="true" />
         </span>
-        <span className="text-[9px] font-bold uppercase tracking-wide text-[#1B3A2D] md:text-[11px]">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-[#1B3A2D] md:text-[11px]">
           Check-In
         </span>
       </Link>
 
       <div
-        className="grid min-w-0 flex-1 items-start gap-0.5 px-1 md:contents"
+        className="grid min-w-0 flex-1 items-start gap-1 px-1 md:contents"
         style={{ gridTemplateColumns: `repeat(${rightItems.length}, minmax(0, 1fr))` }}
       >
         {rightItems.map((item) => (

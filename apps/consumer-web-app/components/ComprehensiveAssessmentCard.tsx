@@ -3,7 +3,10 @@ import type { Route } from 'next';
 import { Compass, Sparkles } from 'lucide-react';
 import type { BaselineAssessment } from '@/lib/onboarding/baseline';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+// Screen Layout System: was a hand-rolled copy of the card recipe. On
+// Home (this card's only surface) `.mef-home .mef-card` also softens it
+// to the hairline treatment the rest of that screen carries.
+const CARD = 'mef-card';
 
 function formatDate(localDate: string): string {
   const [year, month, day] = localDate.split('-').map(Number);
@@ -48,10 +51,10 @@ export function ComprehensiveAssessmentCard({
 }) {
   if (baseline) {
     return (
-      <section className={`${CARD} p-6 ${className}`}>
+      <section className={`${CARD} ${className}`}>
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          <p className="text-sm font-semibold uppercase tracking-wider">Personalized Insights</p>
+          <p className="mef-home-label">Personalized Insights</p>
         </div>
         <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">
           Your Baseline Assessment, completed {formatDate(baseline.localDate)}, is
@@ -74,7 +77,7 @@ export function ComprehensiveAssessmentCard({
   if (!movementCompleted) return null;
 
   return (
-    <section className={`${CARD} p-6 ${className}`}>
+    <section className={`${CARD} ${className}`}>
       <div className="flex items-center gap-2 text-[#6B7A72]">
         <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Recommended Next</p>

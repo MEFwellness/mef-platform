@@ -45,7 +45,10 @@ import {
 } from 'lucide-react';
 import type { MorningBrief, RootScoreSnapshot } from '@mef/shared-types-contracts';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+// Screen Layout System: was a hand-rolled copy of the card recipe. On
+// Home (this card's only surface) `.mef-home .mef-card` also softens it
+// to the hairline treatment the rest of that screen carries.
+const CARD = 'mef-card';
 
 type BriefLineProps = {
   icon: LucideIcon;
@@ -60,7 +63,7 @@ function BriefLine({ icon: Icon, label, text }: BriefLineProps) {
         <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden={true} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">{label}</p>
+        <p className="mef-home-label">{label}</p>
         <p className="mt-0.5 text-sm leading-relaxed text-[#1B3A2D]">{text}</p>
       </div>
     </div>
@@ -81,10 +84,10 @@ type Props = {
 
 export function MorningBriefCard({ brief, rootScoreSnapshot }: Props) {
   return (
-    <section className={`${CARD} mef-animate-in p-6`}>
+    <section className={`${CARD} mef-animate-in`}>
       <div className="flex items-center gap-2 text-[#6B7A72]">
         <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        <p className="text-sm font-semibold uppercase tracking-wider">Root&apos;s Daily Brief</p>
+        <p className="mef-home-label">Root&apos;s Daily Brief</p>
       </div>
 
       <div className="mt-5 space-y-4">
@@ -97,9 +100,7 @@ export function MorningBriefCard({ brief, rootScoreSnapshot }: Props) {
               <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden={true} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-                Root Score: {rootScoreSnapshot.root_score}
-              </p>
+              <p className="mef-home-label">Root Score: {rootScoreSnapshot.root_score}</p>
               <p className="mt-0.5 text-sm leading-relaxed text-[#1B3A2D]">
                 {rootScoreSnapshot.explanation_summary}
               </p>

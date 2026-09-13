@@ -16,7 +16,11 @@ import { RESET_PLAN_ENTRY_CARD_COPY } from '@/lib/reset-plan/copy';
 import { ResetPlanActiveCard } from './ResetPlanActiveCard';
 import { CVS_CARD, CVS_DISPLAY_FONT } from '@/components/core-values-snapshot/theme';
 
-const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
+// The zone-heading treatment, which is now one class rather than a
+// string three files each kept their own copy of. `.mef-home-label`
+// lives in app/globals.css beside the rest of Home's presentation
+// system; this section renders on Home and nowhere else.
+const ZONE_LABEL = 'mef-home-label';
 
 export async function PersonalResetPlanCard() {
   const state = await getMyResetPlanDashboardStateAction();

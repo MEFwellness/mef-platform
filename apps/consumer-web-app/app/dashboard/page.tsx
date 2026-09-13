@@ -174,9 +174,21 @@ import {
 // Screen Layout System (Prompt 2): this used to be a hand-rolled
 // `rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]`
 // literal, duplicated verbatim across a dozen files. `.mef-card`
-// (app/globals.css) is now that one recipe's single definition.
+// (app/globals.css) is now that one recipe's single definition, and on
+// this screen `.mef-home .mef-card` softens it: a hairline instead of a
+// shadow edge, so a card reads as sitting on the cream rather than
+// floating over it.
 const CARD = 'mef-card';
-const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
+// Home presentation pass (2026-09-13): was a hand-copied
+// `text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40`,
+// with its own duplicate in two other files. `.mef-home-label`
+// (app/globals.css) is the one definition, a point smaller and a step
+// wider, so a section's name reads as a name and not as a second heading
+// competing with the content it introduces.
+const ZONE_LABEL = 'mef-home-label';
+// The one gap between two major sections of this page. It replaced
+// mt-8/mt-10/mt-14/mt-20, which were four answers to one question.
+const SECTION = 'mef-home-section';
 
 function formatCompletedStatus(completedAt: string): string {
   const days = Math.floor((Date.now() - new Date(completedAt).getTime()) / (24 * 60 * 60 * 1000));
@@ -238,8 +250,12 @@ export default async function DashboardPage({
   const isFirstCheckinTransition = searchParams.firstCheckin === '1';
 
   return (
+    /* `mef-home` is the scope every rule in app/globals.css's Home block
+       hangs off, and it is on this element and on nothing else in the app.
+       See that block's own header for what it carries and why it is scoped
+       rather than applied to `.mef-card` everywhere. */
     <div
-      className={`min-h-screen font-[family-name:var(--font-dm-sans)] ${pageBackgroundForGreeting(frame.timeContext.greetingWord)}`}
+      className={`mef-home min-h-screen font-[family-name:var(--font-dm-sans)] ${pageBackgroundForGreeting(frame.timeContext.greetingWord)}`}
     >
       <TrackSurfaceView surface="home" />
       {/* -------------------------------------------------------- */}
@@ -417,15 +433,20 @@ async function PriorityRegion() {
 
   if (!isActive) {
     return (
-      <div className="pt-3">
+      <div className="pt-6">
         <TodaysFocusLine href="/today" />
       </div>
     );
   }
 
+  /* THE ONE DOMINANT THING ON THIS SCREEN (Home presentation pass,
+     2026-09-13). `variant="feature"` is Home's and only Home's: the
+     display heading, the single full-width primary action and the one
+     elevated shell. The Today tab renders the identical card with no
+     variant and is unchanged. See components/priority/PriorityCard.tsx. */
   return (
-    <div className="pt-3">
-      <PriorityCard view={priority} />
+    <div className="pt-6">
+      <PriorityCard view={priority} variant="feature" />
     </div>
   );
 }
@@ -513,6 +534,43 @@ async function DayFrameRegion() {
     ]);
   const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
 
+  /*
+   * WHETHER ANYTHING IS WAITING ON HER AT ALL (Home presentation pass,
+   * 2026-09-13).
+   *
+   * The eleven cards below used to stack straight onto the page with no
+   * heading and a 12px gap, immediately under the day's one action, each
+   * one a full deep-green panel. Two of them at once read as two more
+   * things shouting at the same volume as the card above them, and a
+   * member had no way to tell that they are all the same KIND of thing:
+   * something a person, or Root, has asked her for and is waiting on.
+   *
+   * They are one section now, under one name. Which of them render, and
+   * on exactly what conditions, did not change by a single character; the
+   * conditions are simply also counted here, so the section's name is
+   * never drawn over nothing. Every one of them is already resolved above
+   * this line, so counting them costs no read.
+   */
+  const waitingOnHer =
+    stressLoad?.status === 'pending' ||
+    bodySystems?.status === 'pending' ||
+    bodySystems?.status === 'in_progress' ||
+    wholeBodySignal?.status === 'pending' ||
+    wholeBodySignal?.status === 'in_progress' ||
+    healthIntake?.status === 'pending' ||
+    healthIntake?.status === 'in_progress' ||
+    breathingCheckIn?.status === 'pending' ||
+    breathingCheckIn?.status === 'in_progress' ||
+    owningYourValue?.status === 'pending' ||
+    whereYourJoyLives?.status === 'pending' ||
+    theGivingLedger?.status === 'pending' ||
+    theWeightOfYes?.status === 'pending' ||
+    beingSeen?.status === 'pending' ||
+    whatYouPutDown?.status === 'pending' ||
+    yourOwnCompany?.status === 'pending' ||
+    theLifeYoureBuilding?.status === 'pending' ||
+    weeklyReflection?.status === 'pending';
+
   return (
     <>
       {/* ==================================================== */}
@@ -550,8 +608,30 @@ async function DayFrameRegion() {
       {/* that fades in as you scroll to it is a hero you already  */}
       {/* scrolled past.                                           */}
       {/* ==================================================== */}
-      {hasRealHistory && programHero && <div className="pt-6 md:pt-8">{programHero}</div>}
+      {hasRealHistory && programHero && <div className={SECTION}>{programHero}</div>}
 
+      {/* ==================================================== */}
+      {/* WAITING ON YOU — one section, one name, eleven cards.  */}
+      {/*                                                        */}
+      {/* Each of these is something a person or Root has asked   */}
+      {/* her for and has not had back yet: a coach's assignment, */}
+      {/* a deep-dive left half finished, this week's reflection. */}
+      {/* They used to stack straight onto the page with no       */}
+      {/* heading at all, directly under the day's one action, so */}
+      {/* two of them read as two more equal claims on her        */}
+      {/* attention rather than as a list of one kind of thing.   */}
+      {/*                                                        */}
+      {/* NOTHING ABOUT WHO SEES WHAT CHANGED. Every card below   */}
+      {/* renders on exactly the condition it always did, in      */}
+      {/* exactly the order it always did, with exactly the props */}
+      {/* it always got. The section disappears with its heading  */}
+      {/* when none of them render (`waitingOnHer` above), rather */}
+      {/* than leaving a name over nothing.                      */}
+      {/* ==================================================== */}
+      {waitingOnHer && (
+        <div className={SECTION}>
+          <p className={ZONE_LABEL}>Waiting on you</p>
+          <div className="mef-home-stack mt-4">
       {/* ==================================================== */}
       {/* THE STRESS & LOAD DEEP-DIVE, persistent, for as long   */}
       {/* as her coach's assignment is open.                     */}
@@ -572,7 +652,7 @@ async function DayFrameRegion() {
       {/* those cases.                                           */}
       {/* ==================================================== */}
       {stressLoad?.status === 'pending' && (
-        <div className="pt-3">
+        <div>
           {/* The card carries the assignment's delivery receipt
               (migration 210), which is why it needs the assignment id. */}
           <StressLoadEntry assignmentId={stressLoad.assignmentId} />
@@ -594,7 +674,7 @@ async function DayFrameRegion() {
       {/* (lib/body-systems/access.ts).                         */}
       {/* ==================================================== */}
       {(bodySystems?.status === 'pending' || bodySystems?.status === 'in_progress') && (
-        <div className="pt-3">
+        <div>
           {/* The card carries the assignment's delivery receipt
               (migration 210), which is why it needs the assignment id. */}
           <BodySystemsEntry assignmentId={bodySystems.assignmentId} />
@@ -616,7 +696,7 @@ async function DayFrameRegion() {
       {/* (lib/whole-body-signal/access.ts).                     */}
       {/* ==================================================== */}
       {(wholeBodySignal?.status === 'pending' || wholeBodySignal?.status === 'in_progress') && (
-        <div className="pt-3">
+        <div>
           {/* The card carries the assignment's delivery receipt
               (migration 210), which is why it needs the assignment id. */}
           <WholeBodySignalEntry assignmentId={wholeBodySignal.assignmentId} />
@@ -640,7 +720,7 @@ async function DayFrameRegion() {
       {/* (lib/health-intake/access.ts).                        */}
       {/* ==================================================== */}
       {(healthIntake?.status === 'pending' || healthIntake?.status === 'in_progress') && (
-        <div className="pt-3">
+        <div>
           {/* The card carries the assignment's delivery receipt
               (migration 210), which is why it needs the assignment id. */}
           <HealthIntakeEntry
@@ -666,7 +746,7 @@ async function DayFrameRegion() {
       {/* ==================================================== */}
       {(breathingCheckIn?.status === 'pending' ||
         breathingCheckIn?.status === 'in_progress') && (
-        <div className="pt-3">
+        <div>
           {/* The card carries the assignment's delivery receipt
               (migration 210), which is why it needs the assignment id. */}
           <BreathingCheckInEntry
@@ -692,7 +772,7 @@ async function DayFrameRegion() {
       {/* rules forbid.                                          */}
       {/* ==================================================== */}
       {owningYourValue?.status === 'pending' && (
-        <div className="pt-3">
+        <div>
           {/* The card carries the assignment's delivery receipt
               (migration 210), which is why it needs the assignment id.
               `hasDraft` only chooses which words the button uses. */}
@@ -720,7 +800,7 @@ async function DayFrameRegion() {
       {/* lock the standing rules forbid.                        */}
       {/* ==================================================== */}
       {whereYourJoyLives?.status === 'pending' && (
-        <div className="pt-3">
+        <div>
           <WhereYourJoyLivesEntry
             assignmentId={whereYourJoyLives.assignmentId}
             hasDraft={Object.keys(whereYourJoyLives.draft).length > 0}
@@ -745,7 +825,7 @@ async function DayFrameRegion() {
       {/* lock the standing rules forbid.                        */}
       {/* ==================================================== */}
       {theGivingLedger?.status === 'pending' && (
-        <div className="pt-3">
+        <div>
           <TheGivingLedgerEntry
             assignmentId={theGivingLedger.assignmentId}
             hasDraft={Object.keys(theGivingLedger.draft).length > 0}
@@ -770,7 +850,7 @@ async function DayFrameRegion() {
       {/* she is offered this at all.                            */}
       {/* ==================================================== */}
       {theWeightOfYes?.status === 'pending' && (
-        <div className="pt-3">
+        <div>
           <TheWeightOfYesEntry
             assignmentId={theWeightOfYes.assignmentId}
             hasDraft={Object.keys(theWeightOfYes.draft).length > 0}
@@ -793,7 +873,7 @@ async function DayFrameRegion() {
       {/* the invisible lock the standing rules forbid.          */}
       {/* ==================================================== */}
       {beingSeen?.status === 'pending' && (
-        <div className="pt-3">
+        <div>
           <BeingSeenEntry
             assignmentId={beingSeen.assignmentId}
             hasDraft={Object.keys(beingSeen.draft).length > 0}
@@ -824,7 +904,7 @@ async function DayFrameRegion() {
       {/* something she is halfway through.                      */}
       {/* ==================================================== */}
       {whatYouPutDown?.status === 'pending' && (
-        <div className="pt-3">
+        <div>
           <WhatYouPutDownEntry
             assignmentId={whatYouPutDown.assignmentId}
             hasDraft={
@@ -859,7 +939,7 @@ async function DayFrameRegion() {
       {/* through.                                               */}
       {/* ==================================================== */}
       {yourOwnCompany?.status === 'pending' && (
-        <div className="pt-3">
+        <div>
           <YourOwnCompanyEntry
             assignmentId={yourOwnCompany.assignmentId}
             hasDraft={
@@ -902,7 +982,7 @@ async function DayFrameRegion() {
       {/* when she opens it, and the card is never told.         */}
       {/* ==================================================== */}
       {theLifeYoureBuilding?.status === 'pending' && (
-        <div className="pt-3">
+        <div>
           <TheLifeYoureBuildingEntry
             assignmentId={theLifeYoureBuilding.assignmentId}
             hasDraft={
@@ -933,7 +1013,7 @@ async function DayFrameRegion() {
       {/* getMyWeeklyReflection returns null or 'completed'.     */}
       {/* ==================================================== */}
       {weeklyReflection?.status === 'pending' && (
-        <div className="pt-3">
+        <div>
           {/* The delivery receipt (migration 191). This card really is the
               reflection reaching her, so it records that, exactly as the
               pop-up does. Both can mount in this one pass; the database's
@@ -944,6 +1024,10 @@ async function DayFrameRegion() {
             presentation="home_card"
           />
           <WeeklyReflectionEntry offer={weeklyReflection.offer} />
+        </div>
+      )}
+
+          </div>
         </div>
       )}
 
@@ -961,7 +1045,10 @@ async function DayFrameRegion() {
       {/* except the one the pop-up owned.                        */}
       {/* ==================================================== */}
       {weeklyReview && shows(F.homeWeeklyReview) && (
-        <div className="pt-3">
+        /* No label over it: the card's own first line already says
+           "Weekly Root Review", and a quieter second voice above it
+           saying the same words is one of the four this pass removed. */
+        <div className={SECTION}>
           <WeeklyReviewEntry
             review={weeklyReview.review}
             label={WEEKLY_REVIEW_LABEL}
@@ -994,11 +1081,11 @@ async function DayFrameRegion() {
            A short gap here (not the zones' generous spacing below) —
            the hero above is already compact in this state, sized so
            this card's CTA sits within the first screen. */
-        <div className="pt-3">
+        <div className="pt-6">
           <FirstCheckInWelcome />
         </div>
       ) : (
-        <div className="pt-8 md:pt-10">
+        <div>
           {/* ==================================================== */}
           {/* Quick Actions — Case and Movement, as two capsule       */}
           {/* pills. Food Lens and Progress moved to the bottom nav;  */}
@@ -1048,9 +1135,9 @@ async function QuickActionsZone() {
   return (
     <>
       {(shows(F.homeQuickActionCase) || shows(F.homeQuickActionMovement)) && (
-        <RevealOnScroll>
+        <RevealOnScroll className={SECTION}>
           <p className={ZONE_LABEL}>Quick Actions</p>
-          <div className="mt-3">
+          <div className="mt-4">
             <QuickActionsGrid
               caseStatus={caseStatus}
               movementStatus={movementActionStatus}
@@ -1101,9 +1188,12 @@ async function TodayZone() {
       <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
     ) : null;
 
+  /* A tonal panel rather than a rule under a line of gray text. Same
+     sentence, same condition, one less border on a screen the pass was
+     removing borders from. */
   const checkinPromptNode = todaysCheckin ? null : (
-    <div className="flex items-center justify-between gap-3 border-b border-[#1B3A2D]/8 py-4">
-      <p className="text-sm text-[#6B7A72]">
+    <div className="mef-home-quiet">
+      <p className="mef-home-body">
         Once today&apos;s check-in is done, your numbers are on the Today tab.
       </p>
     </div>
@@ -1124,9 +1214,9 @@ async function TodayZone() {
   if (!todayCardOrder.some((key) => TODAY_CARD_NODES[key] !== null)) return null;
 
   return (
-    <RevealOnScroll delayMs={60} className="mt-8 md:mt-10">
+    <RevealOnScroll delayMs={60} className={SECTION}>
       <p className={ZONE_LABEL}>Today</p>
-      <div className="mt-4 space-y-4">
+      <div className="mt-4 mef-home-stack">
         {todayCardOrder.map((key) => (
           <Fragment key={key}>{TODAY_CARD_NODES[key]}</Fragment>
         ))}
@@ -1167,7 +1257,7 @@ async function StreamRegion() {
       {/* leaving an empty heading.                                */}
       {/* ==================================================== */}
       {shows(F.homeActiveExperiments) && (
-        <RevealOnScroll delayMs={30} className="mt-14 md:mt-20">
+        <RevealOnScroll delayMs={30} className={SECTION}>
           <Suspense fallback={null}>
             <ActiveExperimentsSection />
           </Suspense>
@@ -1182,7 +1272,7 @@ async function StreamRegion() {
       {/* components/reset-plan/PersonalResetPlanCard.tsx.        */}
       {/* ==================================================== */}
       {shows(F.homeResetPlan) && (
-        <RevealOnScroll delayMs={30} className="mt-14 md:mt-20">
+        <RevealOnScroll delayMs={30} className={SECTION}>
           <Suspense fallback={null}>
             <PersonalResetPlanCard />
           </Suspense>
@@ -1206,7 +1296,7 @@ async function StreamRegion() {
       {/* a bottom sheet with the full original content.             */}
       {/* ==================================================== */}
       {shows(F.homeNoticingCarousel) && (
-        <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
+        <RevealOnScroll delayMs={60} className={SECTION}>
           <p className={ZONE_LABEL}>What Root Is Noticing</p>
           {/* Dashboard Evolution (Prompt 5), requirement 3: a new
               discovery moment outranks routine cards whenever one
@@ -1295,9 +1385,9 @@ async function YourPathZone() {
   }
 
   return (
-    <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
+    <RevealOnScroll delayMs={0} className={SECTION}>
       <p className={ZONE_LABEL}>Your Path</p>
-      <div className="mt-4 space-y-4">
+      <div className="mef-home-stack mt-4">
         {shows(F.homeMovementAssessmentCard) && (
           /* SECOND, NOT EQUAL (polish pass, 2026-08-18). This panel and the
              program hero above share one visual treatment, the deep-green
@@ -1355,14 +1445,19 @@ async function TrendsZone() {
   ]);
   if (!(visibility.byKey.get(F.homeTrendsEnergy)?.visible ?? false)) return null;
 
+  /*
+   * NO CARD, AND ONE HEADING INSTEAD OF TWO (Home presentation pass,
+   * 2026-09-13). This was a white box inside a section labelled "Trends"
+   * whose first line then said "Energy Trend": a heading, a quieter
+   * heading saying the same thing, and a container round both. The chart
+   * sits on the page now under the one name it has, and the section reads
+   * as a section rather than as another website card. The chart itself,
+   * its data, its scroll-replay draw-in and its wrapper are untouched.
+   */
   return (
-    <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
-      <p className={ZONE_LABEL}>Trends</p>
-      <section className={`${CARD} mt-4`}>
-        <div className="flex items-center gap-2 text-[#6B7A72]">
-          <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          <p className="text-sm font-semibold uppercase tracking-wider">Energy Trend</p>
-        </div>
+    <RevealOnScroll delayMs={0} className={SECTION}>
+      <p className={ZONE_LABEL}>Energy Trend</p>
+      <section className="mt-4">
         <AnimatedEnergyTrendChart checkins={recentCheckins} todayLocalDate={frame.localDate} />
       </section>
     </RevealOnScroll>
@@ -1395,31 +1490,37 @@ async function YourDeviceZone() {
   return (
     <>
       {shows(F.homeWearableConnect) && (
-        <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
-      <p className={ZONE_LABEL}>Your Device</p>
-      <div className="mt-4 space-y-4">
-        {hasConnectedWearable ? (
-          decision?.wearableSnapshot ? (
-            <section className={CARD}>
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">
-                  Today&apos;s Recovery
+        /*
+         * NO ZONE LABEL (Home presentation pass, 2026-09-13). All three
+         * states below already name themselves: the connected card says
+         * "Today's Recovery", the waiting line says her device is
+         * connected, and the pitch panel says "Unlock Smarter Coaching".
+         * "Your Device" above any of them was a second, quieter voice
+         * saying a third thing.
+         */
+        <RevealOnScroll delayMs={60} className={SECTION}>
+          {hasConnectedWearable ? (
+            decision?.wearableSnapshot ? (
+              <section className={CARD}>
+                <div className="flex items-center gap-2 text-[#6B7A72]">
+                  <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <p className={ZONE_LABEL}>Today&apos;s Recovery</p>
+                </div>
+                <WearableStatsRow snapshot={decision.wearableSnapshot} />
+              </section>
+            ) : (
+              /* A tonal panel, not a bordered row. The rule under it was
+                 the only bottom border left on this screen. */
+              <div className="mef-home-quiet">
+                <p className="mef-home-body">
+                  Your device is connected. Recovery numbers will appear here after your first
+                  sync.
                 </p>
               </div>
-              <WearableStatsRow snapshot={decision.wearableSnapshot} />
-            </section>
+            )
           ) : (
-            <div className="flex items-center gap-3 border-b border-[#1B3A2D]/8 py-4">
-              <p className="text-sm leading-relaxed text-[#6B7A72]">
-                Your device is connected. Recovery numbers will appear here after your first sync.
-              </p>
-            </div>
-          )
-        ) : (
-          <ConnectWearableCard variant="dashboard" />
-        )}
-      </div>
+            <ConnectWearableCard variant="dashboard" />
+          )}
         </RevealOnScroll>
       )}
     </>
@@ -1444,7 +1545,7 @@ async function CompletedPriorityRegion() {
   const isDone = priority?.status === 'done';
   if (!priority || !isDone) return null;
   return (
-    <div className="mt-10">
+    <div className={SECTION}>
       <PriorityCard view={priority} collapsed />
     </div>
   );

@@ -47,11 +47,24 @@ export function heroOverlayForGreeting(greetingWord: TimeContext['greetingWord']
   return HERO_OVERLAY[greetingBandFromWord(greetingWord)];
 }
 
-/** The page shell's own background wash (app/dashboard/page.tsx), same subtle-warmth treatment: unchanged mint/cream by day, a touch of cream/gold warmth in the evening. */
+/**
+ * The page shell's own background wash (app/dashboard/page.tsx), same
+ * subtle-warmth treatment: mint at the top, cream below, a touch more
+ * cream in the evening.
+ *
+ * THE FLOOR IS CREAM NOW (Home presentation pass, 2026-09-13). It was
+ * #FAFAF8, an off-white, and against it a white card is white on almost
+ * white: the only thing separating a section from the page was the card's
+ * own gray-ish shadow edge, which is exactly the framing this pass set out
+ * to remove. #F7F3EA is the brand cream (#F5F0E4) lightened to a page
+ * ground, which is enough for a white card to read as a card with no
+ * border at all, and enough for a section with NO card to read as its own
+ * thing on a tonal shift. Home is the only screen this palette reaches.
+ */
 const PAGE_BACKGROUND: Record<GreetingBand, string> = {
-  morning: 'bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8]',
-  afternoon: 'bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8]',
-  evening: 'bg-gradient-to-b from-[#F5EFDD] to-[#FAFAF8]',
+  morning: 'bg-gradient-to-b from-[#EFF6F1] to-[#F7F3EA]',
+  afternoon: 'bg-gradient-to-b from-[#EFF6F1] to-[#F7F3EA]',
+  evening: 'bg-gradient-to-b from-[#F5EFDD] to-[#F7F3EA]',
 };
 
 export function pageBackgroundForGreeting(greetingWord: TimeContext['greetingWord']): string {

@@ -274,7 +274,15 @@ describe('one card, one state, three surfaces', () => {
   });
 
   it('the inline card exists on both Home and Today', () => {
-    expect(read('app/dashboard/page.tsx')).toContain('<PriorityCard view={priority} />');
+    // Home presentation pass (2026-09-13): Home passes `variant="feature"`
+    // and Today passes nothing, which is the whole of the difference. The
+    // variant chooses class strings inside components/priority/PriorityCard.tsx
+    // and reaches no behaviour, no action and no write, so what this test
+    // is for (the same card, from the same view, on both screens) is
+    // unchanged.
+    expect(read('app/dashboard/page.tsx')).toContain(
+      '<PriorityCard view={priority} variant="feature" />'
+    );
     expect(read('app/today/page.tsx')).toContain('<PriorityCard view={priority} />');
   });
 

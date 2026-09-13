@@ -16,17 +16,32 @@
  * same object-position biased toward the lower-right, and the same
  * two-layer dark gradient (stronger left/top) keeps the cream header and
  * score text legible regardless of which photo or light source is showing.
+ *
+ * A MASTHEAD, NOT THE SCREEN (Home presentation pass, 2026-09-13).
+ *
+ * This band used to be 500px tall with a 60px numeral in it, which on a
+ * phone is the entire first screen: a member opened Home, read a
+ * photograph and a reading, and had to scroll to find the one thing the
+ * day's engine had actually chosen for her. The dominant element on Home
+ * is that card, so the hero now says who she is, what time it is and how
+ * her score stands, in a band short enough that the card begins inside
+ * the first screenful.
+ *
+ * The score itself is `RootScoreRing` beside the greeting rather than
+ * under it, which is what bought most of the height back. Nothing it
+ * reports changed: the same snapshot, the same explanation sentence, the
+ * same link to the full screen, the same baseline state.
  */
 
 import Image from 'next/image';
 import { QuietLink } from '@/components/nav/QuietLink';
-import { ChevronRight, Minus, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import { AvatarLink } from '@/components/AvatarLink';
 import { Breathe } from '@/components/motion/Breathe';
 import { heroOverlayForGreeting } from '@/lib/dashboard/timeOfDayPalette';
 import { greetingHeadline } from '@/lib/profile/greeting';
-import { RootScoreCountUp } from './RootScoreCountUp';
+import { RootScoreRing } from './RootScoreRing';
 import { HeroAmbientGlow } from './HeroAmbientGlow';
 
 /**
@@ -45,12 +60,6 @@ import { HeroAmbientGlow } from './HeroAmbientGlow';
  */
 const BASELINE_NOTE = 'Still building your baseline';
 
-const TREND_TINT: Record<'good' | 'attention' | 'poor', string> = {
-  good: 'text-emerald-300',
-  attention: 'text-amber-300',
-  poor: 'text-red-300',
-};
-
 const HERO_IMAGE_DAY = '/images/home-hero-day.jpg';
 const HERO_IMAGE_EVENING = '/images/home-hero-evening.jpg';
 
@@ -59,18 +68,29 @@ function heroImageForGreeting(greetingWord: string): string {
   return greetingWord === 'Good evening' ? HERO_IMAGE_EVENING : HERO_IMAGE_DAY;
 }
 
-function ChangePill({ change }: { change: number | null }) {
+/**
+ * How her score moved since the last one, in words, under the ring.
+ *
+ * It was a bordered, blurred chip beside a 60px numeral. A second framed
+ * object next to the number was one object too many for a reading this
+ * size, and the colour it carried (emerald / amber / red) is a status
+ * colour spent on a difference of one point. The words are the same
+ * words; the tint is now the one distinction that carries meaning, a
+ * gentle lift for up and the plain cream for everything else.
+ */
+function ChangeNote({ change }: { change: number | null }) {
   if (change === null) return null;
-  const status = change > 0 ? 'good' : change < 0 ? 'poor' : 'attention';
-  const Icon = change > 0 ? TrendingUp : change < 0 ? TrendingDown : Minus;
+  const text =
+    change === 0
+      ? 'Steady'
+      : `${Math.abs(change)} pt${Math.abs(change) === 1 ? '' : 's'} ${change > 0 ? 'up' : 'down'}`;
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium backdrop-blur-sm ${TREND_TINT[status]}`}
+      className={`mt-2 block text-center text-[11px] font-medium tracking-wide ${
+        change > 0 ? 'text-[#E2C583]' : 'text-[#FAFAF8]/75'
+      }`}
     >
-      <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-      {change === 0
-        ? 'Steady'
-        : `${Math.abs(change)} pt${Math.abs(change) === 1 ? '' : 's'} ${change > 0 ? 'up' : 'down'}`}
+      {text}
     </span>
   );
 }
@@ -142,16 +162,27 @@ function HeroChrome({
           compact
             ? 'min-h-[32vh] pb-6 pt-7 sm:pt-8 md:min-h-[250px] md:pb-8'
             : // ONE COMMITTED HEIGHT (performance and stability audit,
-              // 2026-09-06). This was 440px on a phone and 500px from md up,
-              // and the tall hero's real content sits between the two: a
-              // five-line Root Score explanation measured 499px on
-              // production, so the whole page dropped 59px the moment the
-              // score landed inside a box that had been reserved at 440.
-              // That single swap was 0.060 of Home's 0.061 layout shift.
-              // Committing to the height the design already commits to on
-              // every wider screen means the box the body lands in is the
-              // box that was reserved, whatever the length of her sentence.
-              'min-h-[500px] pb-10 pt-8 sm:pt-10 md:pb-14'
+              // 2026-09-06), and it is still one. It was 440px on a phone
+              // and 500px from md up, and the tall hero's real content sat
+              // between the two, so the page dropped 59px the moment the
+              // score landed inside a box reserved at 440: that one swap
+              // was 0.060 of Home's 0.061 layout shift. Committing to a
+              // single number means the box the body lands in is the box
+              // that was reserved, whatever the length of her sentence.
+              //
+              // THE NUMBER CHANGED WITH THE LAYOUT (2026-09-13), and the
+              // property it protects did not. The score moved from under
+              // the greeting to beside it as a ring and its explanation is
+              // held to two lines, and the band's real content was then
+              // MEASURED at 390px rather than estimated: 396px in its
+              // tallest state (with the baseline note showing), 375px
+              // without it, and 340px while the body is still settling.
+              // 400 is above all three, which is what makes the band the
+              // same height in every one of them and the swap move
+              // nothing. Both files that reserve this height carry the
+              // identical value, which is the point:
+              // components/dashboard/HomePlaceholders.tsx is the other.
+              'min-h-[400px] pb-8 pt-8 sm:pt-9 md:pb-12'
         }`}
       >
         <header className="flex items-center justify-between">
@@ -164,7 +195,7 @@ function HeroChrome({
               Confirmed by that exact regression — see git history. A plain
               semi-transparent tint gives the same corner legibility
               against the photo without creating a containing block. */}
-          <div className="flex items-center gap-3 rounded-2xl bg-black/40 py-1.5 pl-1.5 pr-3">
+          <div className="flex items-center gap-3 rounded-2xl bg-black/35 py-1.5 pl-1.5 pr-3.5">
             <Image
               src="/images/rooted-reset-logo.png"
               alt="Rooted Reset"
@@ -186,7 +217,7 @@ function HeroChrome({
           </div>
         </header>
 
-        <div className={compact ? 'mt-auto pt-8' : 'mt-auto pt-10'}>{children}</div>
+        <div className="mt-auto pt-6">{children}</div>
       </div>
     </section>
   );
@@ -235,8 +266,8 @@ export function HomeHeroFrame({
       compact={!hasCheckins}
     >
       <h1
-        className={`font-[family-name:var(--font-cormorant-garamond)] leading-tight text-[#FAFAF8] ${
-          hasCheckins ? 'text-4xl md:text-[2.75rem]' : 'text-3xl md:text-4xl'
+        className={`font-[family-name:var(--font-cormorant-garamond)] leading-[1.12] text-[#FAFAF8] ${
+          hasCheckins ? 'text-[2.125rem] md:text-[2.5rem]' : 'text-3xl md:text-4xl'
         }`}
       >
         {greetingHeadline(greetingWord, firstName)}
@@ -251,28 +282,57 @@ export function HomeHeroFrame({
  *
  * BLOCK FOR BLOCK, WITH THE REAL BODY'S OWN MEASUREMENTS. Every bar here is
  * the height and the top margin of the element it stands in for in
- * `HomeHeroBody` below: the greeting line is one 24px line at `mt-2`, the
- * score is the 60px row at `mt-6`, the explanation is four lines of
- * `text-[15px] leading-relaxed` at `mt-2`, and the link is 20px at `mt-5`.
- * It used to be a rough rhythm of 16px bars, which came to 59px short of
- * the real body and was most of the layout shift on this screen.
+ * `HomeHeroBody` below: the greeting line is one 22px line at `mt-2`, the
+ * ring is the 76px square on the right of that same row, the explanation
+ * is three lines of `text-sm leading-relaxed` at `mt-4`, and the link is
+ * 20px at `mt-4`. It used to be a rough rhythm of 16px bars, which came to
+ * 59px short of the real body and was most of the layout shift on this
+ * screen.
  *
- * Four lines for the explanation because that is the middle of what the
- * engine actually writes, not the shortest of it. The hero's own committed
- * height (HeroChrome above) is what absorbs the rest either way.
+ * Two lines for the explanation because the real one is held to two
+ * (`line-clamp-2` below), so this is not an estimate of it any more: it is
+ * the same number of lines the body can ever draw.
  */
 export function HomeHeroBodyPlaceholder({ hasCheckins }: { hasCheckins: boolean }) {
+  if (!hasCheckins) {
+    return (
+      <div data-settling="true" aria-hidden="true" className="mt-2">
+        <div className="mef-settling-on-photo h-[22px] w-3/4 rounded-full" />
+      </div>
+    );
+  }
+
   return (
     <div data-settling="true" aria-hidden="true" className="mt-2">
-      <div className="mef-settling-on-photo h-6 w-3/4 rounded-full" />
-      {hasCheckins && (
-        <>
-          <div className="mef-settling-on-photo mt-6 h-[60px] w-40 rounded-2xl" />
-          <div className="mef-settling-on-photo mt-2 h-[98px] w-full max-w-md rounded-2xl" />
-          <div className="mef-settling-on-photo mt-5 h-5 w-56 rounded-full" />
-        </>
-      )}
+      <div className="flex items-start gap-5">
+        <div className="min-w-0 flex-1 pt-1">
+          <div className="mef-settling-on-photo h-[22px] w-3/4 rounded-full" />
+        </div>
+        <div className="mef-settling-on-photo h-[64px] w-[64px] shrink-0 rounded-full" />
+      </div>
+      <div className="mef-settling-on-photo mt-3 h-[46px] w-full max-w-md rounded-2xl" />
+      <div className="mef-settling-on-photo mt-3 h-9 w-56 rounded-full" />
     </div>
+  );
+}
+
+/**
+ * The link out of the hero, in the one treatment both its states use.
+ *
+ * It was an underlined sentence with a chevron after it. Underlined body
+ * text on a photograph is the least legible thing this screen could draw,
+ * and the chevron was a fifth icon weight in a band that has three. This
+ * is a quiet capsule: same words, same destination, one obvious target.
+ */
+function HeroLink({ href, children }: { href: '/root-score'; children: React.ReactNode }) {
+  return (
+    <QuietLink
+      href={href}
+      className="mef-press mef-focus-ring mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#FAFAF8]/25 px-4 py-2 text-[13px] font-medium text-[#FAFAF8] transition hover:bg-[#FAFAF8]/10"
+    >
+      {children}
+      <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+    </QuietLink>
   );
 }
 
@@ -293,7 +353,7 @@ export function HomeHeroBody({
   snapshot: RootScoreSnapshot | null;
   hasCheckins: boolean;
 }) {
-  const line = <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>;
+  const line = <p className="mt-2 text-[15px] leading-snug text-[#FAFAF8]/85">{greetingLine}</p>;
 
   if (!hasCheckins) return line;
 
@@ -301,61 +361,60 @@ export function HomeHeroBody({
     return (
       <>
         {line}
-        <h2 className="mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#FAFAF8]">
+        <h2 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#FAFAF8]">
           Building your Root Score
         </h2>
-        <p className="mt-2 max-w-md text-[15px] leading-relaxed text-[#FAFAF8]/85">
+        <p className="mt-2 line-clamp-2 max-w-md text-sm leading-relaxed text-[#FAFAF8]/80">
           {snapshot?.explanation_summary ||
             'Complete a few check-ins and MEF Wellness will begin calculating your Root Score from real patterns, never a guess.'}
         </p>
-        <QuietLink
-          href="/root-score"
-          className="mef-press mt-5 inline-flex items-center gap-1 text-sm font-medium text-[#FAFAF8] underline underline-offset-4"
-        >
-          See what strengthens your score
-          <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        </QuietLink>
+        <HeroLink href="/root-score">See what strengthens your score</HeroLink>
       </>
     );
   }
 
   return (
     <>
-      {line}
+      {/* THE SCORE SITS BESIDE THE GREETING, NOT UNDER IT. That is the
+          whole of where this band's height went: a 60px numeral, a `/100`
+          and a bordered chip on their own row cost about 150px of the
+          first screen, and the card below is what that screen is for. */}
+      <div className="flex items-start gap-5">
+        <div className="min-w-0 flex-1">{line}</div>
 
-      <div className="mt-6 flex flex-wrap items-end gap-4">
         {/* Requirement 5 (Living Progress): the count-up (already built,
-            Prompt 1) is how the Root Score arrives; requirement 4/6
-            (Ambient Motion / Subtle State Moments) is how it idles once
-            settled — a gentle breathe rather than sitting frozen, the
-            one ambient breathing element this page uses (Bible §10: at
-            most one breathing/pulsing/floating element visible at once). */}
-        <Breathe className="flex items-baseline gap-1">
-          <RootScoreCountUp
-            value={snapshot.root_score}
-            className="font-[family-name:var(--font-cormorant-garamond)] text-6xl leading-none text-[#FAFAF8]"
-          />
-          <span className="text-lg font-medium text-[#FAFAF8]/60">/100</span>
+            Prompt 1) is still how the number arrives, inside the ring now;
+            requirement 4/6 (Ambient Motion / Subtle State Moments) is how
+            it idles once settled — a gentle breathe rather than sitting
+            frozen, the one ambient breathing element this page uses
+            (Bible §10: at most one breathing/pulsing/floating element
+            visible at once). */}
+        <Breathe className="relative block shrink-0">
+          <RootScoreRing score={snapshot.root_score} />
+          <ChangeNote change={snapshot.root_score_change} />
         </Breathe>
-        <ChangePill change={snapshot.root_score_change} />
       </div>
 
       {snapshot.root_confidence_level === 'building' && (
-        <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-[#F5B700]">
+        <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#C4A050]">
           {BASELINE_NOTE}
         </p>
       )}
-      <p className="mt-2 max-w-md text-[15px] leading-relaxed text-[#FAFAF8]/85">
+      {/* HELD TO TWO LINES, with the whole of it one tap away underneath.
+          The engine writes anything from one line to six here, and a band
+          that commits to a height cannot also let one sentence decide it.
+          Two is what the placeholder above reserves, exactly, and it is
+          what the measured band came to at 380px with the baseline note
+          also showing. */}
+      <p
+        className={`line-clamp-2 max-w-md text-sm leading-relaxed text-[#FAFAF8]/80 ${
+          snapshot.root_confidence_level === 'building' ? 'mt-2' : 'mt-3'
+        }`}
+      >
         {snapshot.explanation_summary}
       </p>
 
-      <QuietLink
-        href="/root-score"
-        className="mef-press mt-5 inline-flex items-center gap-1 text-sm font-medium text-[#FAFAF8] underline underline-offset-4"
-      >
-        See your full Root Score
-        <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-      </QuietLink>
+      <HeroLink href="/root-score">See your full Root Score</HeroLink>
     </>
   );
 }

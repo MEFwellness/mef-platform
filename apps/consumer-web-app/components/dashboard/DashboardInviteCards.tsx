@@ -60,8 +60,12 @@ export async function DashboardInviteCards({
       .map((card) => card.assignmentId!)
   );
 
+  /* `mef-home-section` / `mef-home-stack` are Home's own rhythm
+     (app/globals.css); this component renders on Home and nowhere else,
+     so it takes the same gap every other section on that page takes
+     rather than a `pt-6` of its own. */
   return (
-    <div className="space-y-3 pt-6">
+    <div className="mef-home-section mef-home-stack">
       <AssignedQuestionnairePriorityCard
         cards={assignedCandidates}
         highPriorityAssignmentIds={highPriorityAssignmentIds}

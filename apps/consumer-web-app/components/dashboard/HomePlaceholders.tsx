@@ -24,27 +24,35 @@ function Bar({ className }: { className: string }) {
   return <div className={`mef-settling rounded-full ${className}`} />;
 }
 
-/** The dominant slot at the top of <main>. */
+/**
+ * The dominant slot at the top of <main>.
+ *
+ * Shaped to the feature card (2026-09-13): the label, a two-line display
+ * heading, two lines of reason, a full-width primary button and a quieter
+ * row under it. It is the one thing on Home that must not move when it
+ * lands, because it is the one thing she is looking at.
+ */
 export function PriorityPlaceholder({ expectCard }: { expectCard: boolean }) {
   if (!expectCard) {
     // The pointer line she gets once today's priority is saved or done.
     return (
-      <div data-settling="true" aria-hidden="true" className="pt-3">
-        <Bar className="h-4 w-56" />
+      <div data-settling="true" aria-hidden="true" className="pt-6">
+        <div className="mef-settling h-[92px] w-full rounded-[28px]" />
       </div>
     );
   }
   return (
-    <div data-settling="true" aria-hidden="true" className="pt-3">
-      <div className="mef-card">
-        <Bar className="h-3 w-32" />
-        <Bar className="mt-4 h-5 w-full" />
-        <Bar className="mt-2 h-5 w-4/5" />
-        <Bar className="mt-4 h-4 w-full" />
+    <div data-settling="true" aria-hidden="true" className="pt-6">
+      <div className="mef-home-feature bg-white p-7">
+        <Bar className="h-3 w-28" />
+        <Bar className="mt-5 h-7 w-full" />
+        <Bar className="mt-2.5 h-7 w-3/4" />
+        <Bar className="mt-5 h-4 w-full" />
         <Bar className="mt-2 h-4 w-2/3" />
-        <div className="mt-6 flex gap-3">
-          <Bar className="h-9 w-24" />
-          <Bar className="h-9 w-24" />
+        <div className="mef-settling mt-7 h-[52px] w-full rounded-2xl" />
+        <div className="mt-3 flex gap-3">
+          <Bar className="h-9 flex-1" />
+          <Bar className="h-9 flex-1" />
         </div>
       </div>
     </div>
@@ -55,12 +63,12 @@ export function PriorityPlaceholder({ expectCard }: { expectCard: boolean }) {
 export function DayFramePlaceholder() {
   return (
     <div data-settling="true" aria-hidden="true">
-      <div className="mef-settling mt-6 h-44 rounded-[28px] md:mt-8" />
-      <div className="mt-8 md:mt-10">
+      <div className="mef-settling mt-12 h-44 rounded-[28px] md:mt-14" />
+      <div className="mef-home-section">
         <Bar className="h-3 w-28" />
-        <div className="mt-3 flex gap-3">
-          <div className="mef-settling h-16 flex-1 rounded-[24px]" />
-          <div className="mef-settling h-16 flex-1 rounded-[24px]" />
+        <div className="mt-4 flex gap-3">
+          <div className="mef-settling h-16 flex-1 rounded-full" />
+          <div className="mef-settling h-16 flex-1 rounded-full" />
         </div>
       </div>
     </div>
@@ -70,7 +78,7 @@ export function DayFramePlaceholder() {
 /** Everything below the first screenful. Deliberately short: it is off screen when it is drawn, and a tall placeholder there only makes the scrollbar lie. */
 export function StreamPlaceholder() {
   return (
-    <div data-settling="true" aria-hidden="true" className="mt-14 md:mt-20">
+    <div data-settling="true" aria-hidden="true" className="mef-home-section">
       <Bar className="h-3 w-40" />
       <div className="mef-settling mt-4 h-32 rounded-[28px]" />
     </div>
@@ -98,42 +106,45 @@ export function HomeShellPlaceholder() {
     <div
       data-settling="true"
       aria-hidden="true"
-      className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]"
+      className="mef-home min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#F7F3EA] font-[family-name:var(--font-dm-sans)]"
     >
       {/* The same committed height the real hero now carries (HomeHero.tsx),
           so the route skeleton and the screen that replaces it are the same
           size and the swap moves nothing. */}
-      <section className="relative flex min-h-[500px] w-full flex-col bg-[#0F241C] px-5 pb-10 pt-8 sm:px-6 md:px-10 md:pb-14 md:pl-28">
+      <section className="relative flex min-h-[400px] w-full flex-col bg-[#0F241C] px-5 pb-8 pt-8 sm:px-6 md:px-10 md:pb-12 md:pl-28">
         <div className="flex items-center justify-between">
           <div className="mef-settling-on-photo h-12 w-44 rounded-2xl" />
           <div className="mef-settling-on-photo h-10 w-10 rounded-full" />
         </div>
-        {/* The greeting, then the same four blocks HomeHeroBodyPlaceholder
+        {/* The greeting, then the same blocks HomeHeroBodyPlaceholder
             reserves, at the same heights. */}
-        <div className="mt-auto pt-10">
-          <div className="mef-settling-on-photo h-11 w-3/4 rounded-full" />
-          <div className="mef-settling-on-photo mt-2 h-6 w-2/3 rounded-full" />
-          <div className="mef-settling-on-photo mt-6 h-[60px] w-40 rounded-2xl" />
-          <div className="mef-settling-on-photo mt-2 h-[98px] w-full max-w-md rounded-2xl" />
-          <div className="mef-settling-on-photo mt-5 h-5 w-56 rounded-full" />
+        <div className="mt-auto pt-6">
+          <div className="mef-settling-on-photo h-10 w-3/4 rounded-full" />
+          <div className="mt-2 flex items-start gap-5">
+            <div className="mef-settling-on-photo mt-1 h-[22px] w-1/2 rounded-full" />
+            <div className="mef-settling-on-photo ml-auto h-[64px] w-[64px] shrink-0 rounded-full" />
+          </div>
+          <div className="mef-settling-on-photo mt-3 h-[46px] w-full max-w-md rounded-2xl" />
+          <div className="mef-settling-on-photo mt-3 h-9 w-56 rounded-full" />
         </div>
       </section>
 
       <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <div className="pt-3">
-          <div className="mef-card">
-            <Bar className="h-3 w-32" />
-            <Bar className="mt-4 h-5 w-full" />
-            <Bar className="mt-2 h-5 w-4/5" />
-            <Bar className="mt-4 h-4 w-full" />
+        <div className="pt-6">
+          <div className="mef-home-feature bg-white p-7">
+            <Bar className="h-3 w-28" />
+            <Bar className="mt-5 h-7 w-full" />
+            <Bar className="mt-2.5 h-7 w-3/4" />
+            <Bar className="mt-5 h-4 w-full" />
             <Bar className="mt-2 h-4 w-2/3" />
-            <div className="mt-6 flex gap-3">
-              <Bar className="h-9 w-24" />
-              <Bar className="h-9 w-24" />
+            <div className="mef-settling mt-7 h-[52px] w-full rounded-2xl" />
+            <div className="mt-3 flex gap-3">
+              <Bar className="h-9 flex-1" />
+              <Bar className="h-9 flex-1" />
             </div>
           </div>
         </div>
-        <div className="mef-settling mt-6 h-44 rounded-[28px] md:mt-8" />
+        <div className="mef-settling mt-12 h-44 rounded-[28px] md:mt-14" />
       </main>
     </div>
   );
@@ -145,7 +156,7 @@ export function NoticingTilePlaceholder() {
     <div
       data-settling="true"
       aria-hidden="true"
-      className="mef-settling aspect-[3/4] w-[172px] shrink-0 rounded-[24px]"
+      className="mef-settling aspect-[3/4] w-[196px] shrink-0 rounded-[28px]"
     />
   );
 }

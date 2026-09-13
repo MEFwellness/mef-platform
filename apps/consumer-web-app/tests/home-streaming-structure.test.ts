@@ -116,11 +116,27 @@ describe('the placeholders are the brand settling, not a spinner circus', () => 
     // production, so the whole page dropped 59px the moment the score landed
     // in a box reserved at 440. That one swap was 0.060 of Home's 0.061
     // layout shift. Both files carry the same number, which is the point.
-    expect(PLACEHOLDERS).toContain('min-h-[500px]');
+    //
+    // THE NUMBER CHANGED WITH THE LAYOUT (Home presentation pass,
+    // 2026-09-13) and the property it protects did not. The hero is a
+    // masthead now rather than the whole first screen: the score moved
+    // from under the greeting to beside it as a ring, and its explanation
+    // is held to two lines (`line-clamp-2`). The band was then MEASURED
+    // on a 390px viewport rather than estimated: 396px in its tallest
+    // state (baseline note showing), 375px without it, 340px while the
+    // body is still settling. 400 is above all three, so the band is the
+    // same height in every one of them. What is asserted is unchanged in
+    // substance: ONE committed height, and the two files that reserve it
+    // carrying the identical value, so the box the body lands in is the
+    // box the route skeleton reserved.
+    const COMMITTED_HERO_HEIGHT = 'min-h-[400px]';
+    expect(PLACEHOLDERS).toContain(COMMITTED_HERO_HEIGHT);
     expect(PLACEHOLDERS).not.toContain('min-h-[440px]');
+    expect(PLACEHOLDERS).not.toContain('min-h-[500px]');
     const hero = read('components/dashboard/HomeHero.tsx');
-    expect(hero).toContain('min-h-[500px]');
+    expect(hero).toContain(COMMITTED_HERO_HEIGHT);
     expect(hero).not.toContain('min-h-[440px]');
+    expect(hero).not.toContain('min-h-[500px]');
   });
 
   it('every placeholder is hidden from a screen reader and countable by a verification run', () => {

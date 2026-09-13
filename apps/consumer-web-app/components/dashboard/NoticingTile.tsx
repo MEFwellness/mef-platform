@@ -36,8 +36,10 @@ import type { Route } from 'next';
 import { useState, type ReactNode } from 'react';
 import { NoticingSheet } from './NoticingSheet';
 
+/* 28px, the one card radius on Home (app/globals.css). It was 24px, a
+   fourth value on a screen that now carries three. */
 const TILE_SHELL =
-  'mef-press relative block aspect-[3/4] w-[196px] shrink-0 snap-start overflow-hidden rounded-[24px] text-left';
+  'mef-press relative block aspect-[3/4] w-[196px] shrink-0 snap-start overflow-hidden rounded-[28px] text-left';
 
 function TileFace({ imageSrc, kicker, headline }: { imageSrc: string; kicker: string; headline: string }) {
   return (
@@ -55,7 +57,11 @@ function TileFace({ imageSrc, kicker, headline }: { imageSrc: string; kicker: st
           requirement, while still giving the text enough contrast. */}
       <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
       <div className="absolute inset-x-0 bottom-0 p-3.5">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-[#F5B700]">{kicker}</p>
+        {/* The kicker is the tile's one accent. Muted gold rather than the
+            bright focus gold, which on a photograph read as a warning. */}
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D9BC79]">
+          {kicker}
+        </p>
         <p className="mt-1 font-[family-name:var(--font-cormorant-garamond)] text-base leading-tight text-[#FAFAF8]">
           {headline}
         </p>

@@ -80,11 +80,11 @@ import { YourOwnCompanyExperimentPanel } from '@/components/your-own-company/You
 import { TheLifeYoureBuildingExperimentPanel } from '@/components/the-life-youre-building/TheLifeYoureBuildingExperimentPanel';
 import { StressLoadExperimentPanel } from '@/components/stress-load/StressLoadExperimentPanel';
 
-// Same zone-heading treatment as every other dashboard section (see the
-// local ZONE_LABEL constant in app/dashboard/page.tsx) — kept as a literal
-// here rather than a new shared export, since one string isn't worth an
-// abstraction.
-const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
+// The zone-heading treatment, which is now one class rather than a
+// string three files each kept their own copy of. `.mef-home-label`
+// lives in app/globals.css beside the rest of Home's presentation
+// system; this section renders on Home and nowhere else.
+const ZONE_LABEL = 'mef-home-label';
 // Screen Layout System (Prompt 2): was a hand-rolled duplicate of
 // `.mef-card` (app/globals.css) — now the one shared recipe.
 const ROW_CARD = 'mef-card';
@@ -493,7 +493,7 @@ export async function ActiveExperimentsSection() {
   return (
     <div>
       <p className={ZONE_LABEL}>Active Experiments</p>
-      <div className="mt-4 space-y-4">
+      <div className="mef-home-stack mt-4">
         <ActiveExperimentsCard rows={rows} />
 
         {/*

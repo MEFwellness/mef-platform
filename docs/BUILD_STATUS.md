@@ -1,3 +1,120 @@
+## Home, a presentation and layout pass (2026-09-13)
+
+Presentation only. No data fetch, no server action, no gate, no copy
+condition and no write changed anywhere in this pass. Every card on Home
+renders for exactly the member it rendered for before, in exactly the same
+order, with exactly the same props. What changed is what the screen looks
+like and which thing on it is biggest.
+
+### THE ONE PROBLEM THIS SET OUT TO FIX
+
+Measured on production before the change, at 390px, as the seeded test
+member: the hero band was 500px tall and the first block of `<main>`
+started at y=500. A phone is 844px. So the entire first screen was a
+photograph, a greeting and a Root Score, and the day's one chosen action,
+which is the thing the whole priority engine exists to produce, began
+below it with its button off the bottom of the screen.
+
+Home now answers "what matters today, and what do I do next" in the first
+screenful.
+
+- **The hero is a masthead, not the screen.** 500px to 400px. The Root
+  Score moved from a 60px numeral under the greeting to a 64px ring beside
+  it (`components/dashboard/RootScoreRing.tsx`), its change is said in
+  words under the ring instead of in a bordered chip, and its explanation
+  is held to two lines with the whole of it one tap away where it always
+  was.
+- **The priority card is the feature.** `PriorityCard` gained a `variant`
+  prop, and `feature` is Home's and only Home's: the day's sentence set in
+  the display face at 24px rather than as body copy, one full-width 52px
+  primary button rather than three pills of equal size in a wrapping row,
+  and the single most elevated shell on the page. The Today tab renders
+  the identical card with no variant and looks exactly as it did.
+- **Eleven cards became one named section.** The coach-assigned deep-dives,
+  the intakes and the Weekly Reflection used to stack straight onto the
+  page with no heading, directly under the day's action. They sit under
+  **Waiting on you** now, which is what they all are. The section
+  disappears with its name when none of them render.
+
+### THE COMMITTED HERO HEIGHT IS STILL ONE NUMBER
+
+The 2026-09-06 audit committed this band to a single height so the page
+cannot drop when the streamed score lands in it. That property is intact
+and the number was re-derived by measurement rather than estimate: at
+390px the band's real content is 396px with the baseline note showing,
+375px without it, and 340px while the body is still settling. 400 is above
+all three. `components/dashboard/HomeHero.tsx` and
+`components/dashboard/HomePlaceholders.tsx` carry the identical value and
+`tests/home-streaming-structure.test.ts` still holds them to it.
+
+`HomeHeroBodyPlaceholder` was rebuilt block for block against the new body:
+a 22px line and a 64px ring on one row, a 46px two-line explanation, a 36px
+link. `NoticingTilePlaceholder` was 172px wide and 24px round against a
+tile that is 196px wide; both were wrong and both are fixed.
+
+### THE SYSTEM, IN ONE SCOPED BLOCK
+
+`app/globals.css` gained a Home block scoped to `.mef-home`, which is on
+the Home shell's root div and on no other screen in the app. That scope is
+why the pass could soften `.mef-card` without touching the forty other
+screens that share it.
+
+- **Three radii and nothing else.** 28px a card, 32px the one feature card,
+  16px a tile or control inside a card, fully round a button or a chip.
+  Home carried 14, 16, 24, 28 and 32 before.
+- **No outlines.** `--mef-home-shadow` is a hairline contact shadow plus a
+  wide, very soft drop, so a card sits on the cream rather than floating
+  over it. The app-wide shadow read as a light-gray edge at phone sizes.
+- **One section gap.** `.mef-home-section` replaced mt-8 / mt-10 / mt-14 /
+  mt-20 / pt-3 / pt-6 / pt-8, which were seven answers to three questions.
+- **One label.** `.mef-home-label` replaced a class string that three files
+  each kept their own copy of.
+- **`.mef-home-quiet`** is a section that is not a card: a tonal panel on
+  the cream, no shadow and no edge. It replaced three white boxes and two
+  bottom-border rules.
+- **The page floor is cream.** `#FAFAF8` to `#F7F3EA`
+  (`lib/dashboard/timeOfDayPalette.ts`, which only Home reads). Against an
+  off-white, a white card was white on almost white and only its shadow
+  edge separated it from the page, which is the framing this pass removed.
+
+### FOUR SECOND VOICES REMOVED
+
+A section label over a card whose own first line says the same words is a
+quieter voice repeating a heading. "Trends" over "Energy Trend" is now
+**Energy Trend** once, on the section, with no card round the chart.
+"Your Device" over "Unlock Smarter Coaching" is gone. The Questionnaires
+row printed "4/9" beside its heading AND "4 of 9 complete" underneath: the
+sentence survived, the fraction did not.
+
+### THE BOTTOM BAR
+
+Gold was doing two jobs in a bar 64px tall: the check-in button, which is
+the one action the bar offers, and "you are here", which is not an action.
+The active tab is a forest pill with a 3px forest mark above the icon and
+a semibold forest label; gold is the button alone. Every icon is 20px at
+stroke 1.75, including the active one, which used to thicken to 2.25 and
+so was a different icon from its own inactive self. The border went from
+10% to 6% and the bar sits on cream rather than white.
+
+Raising the labels from 9px to 10px truncated "FOOD LENS" and "PROGRESS"
+at 390px, which is the exact bug this file's own header records fixing
+once before. The room came back from the three paddings stacked between
+the screen edge and the word, not from shrinking the type again, and it
+was confirmed by measuring `scrollWidth` against `clientWidth` on the real
+rendered bar rather than by looking at it.
+
+### WHAT WAS RUN
+
+- 11,203 tests in 588 files, all passing, against a database freshly
+  `supabase db reset`. Two guards were updated with their intent intact
+  and their reasons written down: the committed hero height, and the
+  inline-card assertion that now reads Home's `variant="feature"`.
+- Typecheck clean, lint clean (0 errors, the same 95 pre-existing
+  console-statement warnings in scripts), production build clean.
+- Driven locally in a real browser at 390x844 as a seeded member with 21
+  check-ins, a real score and three coach assignments, and measured at
+  every step rather than eyeballed.
+
 ## Six fixes: the sign-in timeout, the Daily Reset's voice, and four screens (2026-09-13)
 
 ### WHAT THE PRODUCTION WALK FOUND
