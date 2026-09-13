@@ -304,14 +304,23 @@ try {
   // =================================================================
   // 3. THE DAILY RESET IS NO LONGER A BIG CARD ON HOME
   // =================================================================
+  /*
+   * ASK WHAT IT LINKS TO, NOT WHAT IT SAYS. The first version of this
+   * searched <main> for any block over 250x140 whose text matched
+   * /daily reset|check.?in/, and reported three: the Quick Actions row
+   * (which CONTAINS the compact tile), the Assigned to You section, and
+   * the Breathing Pattern Check-In card, none of which is a Daily Reset
+   * card. A check that fires on a word rather than on the thing is a
+   * check that cannot pass. What makes a block "the Daily Reset on Home"
+   * is that it is a big surface whose own destination is /checkin.
+   */
   const dailyReset = await page.evaluate(() => {
     const main = document.querySelector('main');
-    const big = [...main.querySelectorAll('section, a, div')]
+    const big = [...main.querySelectorAll('a[href="/checkin"], a[href^="/checkin?"]')]
       .filter((el) => {
-        const r = el.getBoundingClientRect();
-        if (r.width < 250 || r.height < 140) return false;
         if (el.closest('.mef-home-quick-row')) return false;
-        return /daily reset|check.?in/i.test(el.innerText ?? '');
+        const r = el.getBoundingClientRect();
+        return r.width >= 250 && r.height >= 140;
       })
       .map((el) => {
         const r = el.getBoundingClientRect();
@@ -328,7 +337,7 @@ try {
   check(
     dailyReset.bigBlocks.length === 0,
     'the Daily Reset is not a large card on Home any more',
-    dailyReset.bigBlocks.join(' ; ') || 'no large check-in block in <main>',
+    dailyReset.bigBlocks.join(' ; ') || 'no large /checkin surface in <main> outside the tile row',
   );
   check(
     dailyReset.navHref === '/checkin',
