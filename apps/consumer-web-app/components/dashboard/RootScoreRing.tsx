@@ -30,7 +30,7 @@
 import { RootScoreCountUp } from './RootScoreCountUp';
 
 const SIZE = 64;
-const STROKE = 3;
+const STROKE = 3.5;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
@@ -56,16 +56,19 @@ export function RootScoreRing({ score }: { score: number }) {
        * has to know about.
        */}
       <div
-        className="pointer-events-none absolute -inset-3 rounded-full bg-black/45 blur-xl"
+        className="pointer-events-none absolute -inset-2 rounded-full bg-black/50 blur-md"
         aria-hidden="true"
       />
-      {/* And a crisp disc inside the halo. The blurred halo alone spreads
-          its darkness past the ring and leaves the ring's own interior,
-          where the numeral is, sitting on the photograph. Confirmed on
-          production: a score of 34 over the evening image's sun was very
-          nearly unreadable with the halo alone. */}
+      {/* And a real disc inside the halo, not a wash. Two rounds of this
+          were not enough, both judged on production rather than on a
+          fixture: a blurred halo spreads its darkness past the ring and
+          leaves the ring's own interior, which is exactly where the
+          numeral is, sitting on the brightest pixels either photograph
+          has. A score of 34 over the evening image's sun read as a smudge
+          at 30% and was still soft at 35%. At 55% behind a 3.5px arc the
+          ring reads as a deliberate object, which is what it is. */}
       <div
-        className="pointer-events-none absolute inset-0 rounded-full bg-black/35"
+        className="pointer-events-none absolute inset-0 rounded-full bg-black/55"
         aria-hidden="true"
       />
       <svg
@@ -80,7 +83,7 @@ export function RootScoreRing({ score }: { score: number }) {
           cy={SIZE / 2}
           r={RADIUS}
           fill="none"
-          stroke="rgba(245, 240, 228, 0.25)"
+          stroke="rgba(245, 240, 228, 0.3)"
           strokeWidth={STROKE}
         />
         <circle
@@ -104,7 +107,7 @@ export function RootScoreRing({ score }: { score: number }) {
       <span className="absolute inset-0 flex items-center justify-center">
         <RootScoreCountUp
           value={score}
-          className="font-[family-name:var(--font-cormorant-garamond)] text-[1.5rem] leading-none text-[#FAFAF8]"
+          className="font-[family-name:var(--font-cormorant-garamond)] text-[1.5rem] leading-none text-[#FAFAF8] [text-shadow:0_1px_8px_rgba(0,0,0,0.6)]"
         />
       </span>
     </div>
