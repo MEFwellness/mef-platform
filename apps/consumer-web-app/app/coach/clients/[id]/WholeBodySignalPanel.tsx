@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The coach's MEF Whole-Body Signal Assessment card.
+ * The coach's Rooted Reset Whole-Body Signal Assessment card.
  *
  * THE ORDER IS THE DECISION SUPPORT, and it is the order the brief asks
  * for:

@@ -14,6 +14,17 @@
  * product decision is preserved, not overridden by this restructuring. See
  * getMyBodyAssessmentAssignmentCard below for its own, separate assignment
  * card (Coach-Assign-Only Gating task, 2026-08-04).
+ *
+ * FOUR CARDS DO NOT COME FROM THE REGISTRY AT ALL (2026-09-12). The Health
+ * & Lifestyle Intake, the Rooted Reset Body Systems Survey, the Rooted
+ * Reset Whole-Body Signal Assessment and the Breathing Pattern Check-In are
+ * coach-assign-only experiences with their own tables, their own access
+ * rules and no registry entry, and they now stand in this library locked
+ * rather than absent. Their cards are built by
+ * lib/questionnaires/coachAssignedQuestionnaires.ts from the state each
+ * feature's own accessor already resolves. Nothing about what they offer,
+ * where they are offered or how they are gated changes here: only the shelf
+ * gained a row.
  */
 
 'use server';
@@ -34,11 +45,30 @@ import type { AssessmentDefinition, AssessmentKey } from '@/lib/assessment-regis
 import { getUnifiedAssessmentDefinitionByKey, getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
 import { findInProgressSession } from '@/lib/assessment-runtime';
 import { getMemberVisibility } from '@/lib/visibility';
+import {
+  COACH_ASSIGNED_QUESTIONNAIRES,
+  buildCoachAssignedCatalogCard,
+  type CoachAssignedQuestionnaireKey,
+} from '@/lib/questionnaires/coachAssignedQuestionnaires';
+import { getMyHealthIntake } from '@/lib/health-intake/view';
+import { getMyBodySystemsSurvey } from '@/lib/body-systems/view';
+import { getMyWholeBodySignal } from '@/lib/whole-body-signal/view';
+import { getMyBreathingCheckIn } from '@/lib/breathing-check-in/view';
+import { HLI_KEY } from '@/lib/health-intake/constants';
+import { BODY_SYSTEMS_KEY } from '@/lib/body-systems/constants';
+import { WBS_KEY } from '@/lib/whole-body-signal/constants';
+import { BPC_KEY } from '@/lib/breathing-check-in/constants';
 import { showUnbuiltPlaceholder } from '@/lib/naming/unbuiltPlaceholders';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export type CatalogCard = {
-  key: AssessmentKey;
+  /**
+   * A registry key, or one of the four coach-assign-only questionnaires'
+   * own feature keys. Those four have no registry entry by design (see
+   * lib/questionnaires/coachAssignedQuestionnaires.ts) and are still cards
+   * in the same library, rendered by the same component.
+   */
+  key: AssessmentKey | CoachAssignedQuestionnaireKey;
   title: string;
   description: string;
   estimatedMinutes: number;
@@ -48,6 +78,8 @@ export type CatalogCard = {
   draftProgress: { answered: number; total: number } | null;
   latestCompletedAt: string | null;
   primaryHref: string | null;
+  /** Where "Resume" goes when she is partway through, for an experience whose taker is NOT at `${primaryHref}/take`. Omitted or null keeps the engine's own `/take` child, which is what every registry questionnaire uses. */
+  resumeHref?: string | null;
   resultHref: string | null;
   coachAssignmentReason: string | null;
   /** The assessment_assignments row id, when this card is currently in the 'assigned' section — the Root pop-up chain's one source for the exact display title/route it uses, so the pop-up copy can never name a questionnaire differently than the card/page the member actually lands on (see app/actions/rootPopupMessages.ts). Null otherwise. */
@@ -96,11 +128,30 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
   const supabase = createClient();
   const entries = listAssessmentRegistryEntries().filter((e) => e.key !== 'body-assessment');
 
-  const [factsByKey, engineList, primalPatternItem, onboardingBaseline] = await Promise.all([
+  const [
+    factsByKey,
+    engineList,
+    primalPatternItem,
+    onboardingBaseline,
+    // The four coach-assign-only questionnaires' own states, started here
+    // rather than where their cards are built at the bottom of this
+    // function, so they overlap the registry reads instead of queueing
+    // behind them. Each accessor is memoized per request, so on Home,
+    // where the pop-up chain and the persistent cards ask the same four
+    // questions, this adds no query at all.
+    healthIntake,
+    bodySystems,
+    wholeBodySignal,
+    breathingCheckIn,
+  ] = await Promise.all([
     getMemberAssessmentFacts(supabase, memberId),
     getMyQuestionnaireList(),
     getMyPrimalPatternListItem(),
     fetchBaselineAssessment(supabase, memberId),
+    getMyHealthIntake(),
+    getMyBodySystemsSurvey(),
+    getMyWholeBodySignal(),
+    getMyBreathingCheckIn(),
   ]);
 
   const engineByKey = new Map(engineList.map((item) => [item.questionnaireId, item] as const));
@@ -322,8 +373,33 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
     (card) => visibility.byKey.get(`assessment.${card.key}`)?.visible ?? false
   );
 
+  /**
+   * THE FOUR COACH-ASSIGN-ONLY QUESTIONNAIRES (2026-09-12).
+   *
+   * They stand in the library for every member, and they are appended
+   * AFTER the visibility filter rather than passed through it. That is the
+   * one deliberate difference: the visibility layer answers "has anything
+   * about her revealed this yet", and for these four the answer is a coach
+   * assignment and nothing else, which the card itself already says in
+   * words. A rule that could hide them would put the promise "your coach
+   * will assign these when the time is right" on a shelf that does not
+   * show her what he can send.
+   *
+   * Each state was read at the top of this function from the feature's own
+   * per-request memoized accessor, alongside the registry reads.
+   */
+  const coachAssignedStateByKey: Record<CoachAssignedQuestionnaireKey, Parameters<typeof buildCoachAssignedCatalogCard>[1]> = {
+    [HLI_KEY]: healthIntake,
+    [BODY_SYSTEMS_KEY]: bodySystems,
+    [WBS_KEY]: wholeBodySignal,
+    [BPC_KEY]: breathingCheckIn,
+  };
+  const coachAssignedCards: CatalogCard[] = COACH_ASSIGNED_QUESTIONNAIRES.map((questionnaire) =>
+    buildCoachAssignedCatalogCard(questionnaire, coachAssignedStateByKey[questionnaire.key])
+  );
+
   const catalog: QuestionnaireCatalog = emptyCatalog();
-  for (const card of visibleCards) {
+  for (const card of [...visibleCards, ...coachAssignedCards]) {
     catalog[card.section].push(card);
     if (!card.flags.comingSoon) catalog.totalCount += 1;
   }

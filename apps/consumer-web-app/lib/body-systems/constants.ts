@@ -1,5 +1,5 @@
 /**
- * The MEF Body Systems Survey, in one place: what it is called, what it is
+ * The Rooted Reset Body Systems Survey, in one place: what it is called, what it is
  * addressed by, and how long a coach's assignment is given.
  *
  * The database id is FIXED and must match
@@ -50,5 +50,5 @@ export const BODY_SYSTEMS_CONTENT_VERSION = 1;
  * says is a row in body_systems_copy; these two are how the rest of the
  * app addresses the thing, exactly as STRESS_LOAD_LABEL is.
  */
-export const BODY_SYSTEMS_LABEL = 'MEF Body Systems Survey';
+export const BODY_SYSTEMS_LABEL = 'Rooted Reset Body Systems Survey';
 export const BODY_SYSTEMS_AREA = 'Whole body';

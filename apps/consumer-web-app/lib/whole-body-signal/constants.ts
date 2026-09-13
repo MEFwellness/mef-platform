@@ -1,5 +1,5 @@
 /**
- * The MEF Whole-Body Signal Assessment, in one place: what it is called,
+ * The Rooted Reset Whole-Body Signal Assessment, in one place: what it is called,
  * what it is addressed by, and how long a coach's assignment is given.
  *
  * IT IS A DIFFERENT INSTRUMENT FROM THE TWO IT SITS BESIDE. The MEF Body
@@ -56,7 +56,7 @@ export const WBS_CONTENT_VERSION = 2;
  * ITSELF says is a row in whole_body_signal_copy; these two are how the
  * rest of the app addresses the thing.
  */
-export const WBS_LABEL = 'MEF Whole-Body Signal Assessment';
+export const WBS_LABEL = 'Rooted Reset Whole-Body Signal Assessment';
 export const WBS_AREA = 'Whole body';
 
 /** The literal stored for a Prefer not to answer tap. Scores nothing, leaves every denominator. */

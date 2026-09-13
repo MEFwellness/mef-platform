@@ -40,7 +40,7 @@
 
 import type { RegistryEntrySeverity, RegistryDomain } from '@mef/shared-types-contracts';
 import type { RegistryEntryDraft } from '../registry/types';
-import { BODY_SYSTEMS_SOURCE_FEATURE } from './constants';
+import { BODY_SYSTEMS_LABEL, BODY_SYSTEMS_SOURCE_FEATURE } from './constants';
 import { findingDisplayName } from '../naming/findingNames';
 import type { BodySystemsBand, BodySystemsResults, BodySystemsSection } from './types';
 
@@ -74,7 +74,7 @@ export function sectionCoachContext(input: {
     input.dnaCount > 0
       ? `, ${input.dnaCount} marked as not applying and left out of the total`
       : '';
-  return `MEF Body Systems Survey: ${input.sectionName} at ${input.percent}% (${input.bandLabel}) across ${input.answeredCount} answered ${questions}${skipped}.`;
+  return `${BODY_SYSTEMS_LABEL}: ${input.sectionName} at ${input.percent}% (${input.bandLabel}) across ${input.answeredCount} answered ${questions}${skipped}.`;
 }
 
 /**

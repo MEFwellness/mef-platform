@@ -26,6 +26,7 @@
 
 import type { RegistryEntry, RegistrySourceFeature } from '@mef/shared-types-contracts';
 import type { AssessmentKey } from '../assessment-registry/types';
+import { BODY_SYSTEMS_LABEL } from '../body-systems/constants';
 import {
   suggestAssessmentsFromFindings,
   type FindingBasedSuggestion,
@@ -50,7 +51,7 @@ const SOURCE_FEATURE_LABEL: Record<RegistrySourceFeature, string> = {
   primal_pattern_classification: 'Primal Pattern Diet Type',
   unified_assessment_finding: 'Assessment',
   stress_load_deep_dive_finding: 'Stress & Load Deep-Dive',
-  body_systems_survey_finding: 'MEF Body Systems Survey',
+  body_systems_survey_finding: BODY_SYSTEMS_LABEL,
 };
 
 export type EnrichedRootCauseSignal = {

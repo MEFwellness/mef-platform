@@ -1,5 +1,5 @@
 /**
- * The MEF Whole-Body Signal Assessment's own route.
+ * The Rooted Reset Whole-Body Signal Assessment's own route.
  *
  * ACCESS IS ENFORCED HERE, SERVER SIDE, not merely hidden in the UI. A
  * member her coach has not assigned this to is redirected to Home before

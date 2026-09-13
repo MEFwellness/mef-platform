@@ -169,7 +169,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // auto-dismiss-on-mount group below, exactly like the coach-assigned
   // questionnaire it sits beside in the chain.
   const isStressLoad = message.kind === 'stress_load_assigned';
-  // The MEF Body Systems Survey is deliberately NOT in the auto-dismiss-on-
+  // The Rooted Reset Body Systems Survey is deliberately NOT in the auto-dismiss-on-
   // mount group below either, and for the same reason: it is a coach's
   // direct request, with real "Maybe later" and "Ignore" buttons. Its
   // branch below tests message.kind directly rather than through a named
@@ -501,7 +501,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
-  // The MEF Body Systems Survey. Same invite chrome as the deep-dive
+  // The Rooted Reset Body Systems Survey. Same invite chrome as the deep-dive
   // above: this is Root offering her a thing to open, and the survey
   // itself lives on its own route where there is room for it.
   //
@@ -528,7 +528,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
-  // The MEF Whole-Body Signal Assessment. Same invite chrome as the survey
+  // The Rooted Reset Whole-Body Signal Assessment. Same invite chrome as the survey
   // above it, and a separate branch because it is a separate instrument
   // with its own assignment, its own dismissal key and its own words.
   if (message.kind === 'whole_body_signal_assigned') {

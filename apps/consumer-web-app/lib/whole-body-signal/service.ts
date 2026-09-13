@@ -1,6 +1,6 @@
 /**
  * The one question every surface in this feature asks: what is this
- * member's MEF Whole-Body Signal Assessment state right now.
+ * member's Rooted Reset Whole-Body Signal Assessment state right now.
  *
  * Four answers, and only four: not offered, pending, in progress, or
  * completed.

@@ -1,5 +1,5 @@
 /**
- * A real, signed-in walk of the MEF Whole-Body Signal Assessment, end to
+ * A real, signed-in walk of the Rooted Reset Whole-Body Signal Assessment, end to
  * end, on whichever app the environment points at.
  *
  * WHAT IT DRIVES, in the order the brief asks for it:
@@ -342,7 +342,7 @@ try {
   const blockText = await statusBlock.innerText();
   check(
     'the coach can find it by name in the assign section',
-    /MEF Whole-Body Signal Assessment/i.test(blockText)
+    /Rooted Reset Whole-Body Signal Assessment/i.test(blockText)
   );
 
   /*

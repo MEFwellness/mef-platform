@@ -37,7 +37,7 @@ export const PRODUCT_SURFACES = [
   'weekly_reflection',
   'stress_load_deep_dive',
   'body_systems_survey',
-  // The MEF Whole-Body Signal Assessment, a separate coach assigned
+  // The Rooted Reset Whole-Body Signal Assessment, a separate coach assigned
   // instrument from the survey above it. A surface she opened, and nothing
   // else: no answer and no reading reaches an analytics payload.
   'whole_body_signal',

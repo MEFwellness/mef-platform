@@ -74,12 +74,12 @@ export const MEMBER_ONLY_PREFIXES = [
   // their own dashboard, not inside a member's sitting. Whether she was
   // assigned it is a separate question, enforced inside the route.
   '/stress-load',
-  // The MEF Body Systems Survey (coach assigned only). Listed for the same
+  // The Rooted Reset Body Systems Survey (coach assigned only). Listed for the same
   // reason: a coach or an administrator who taps an old link belongs on
   // their own dashboard, not inside a member's sitting. Whether she was
   // assigned it is a separate question, enforced inside the route.
   '/body-systems',
-  // The MEF Whole-Body Signal Assessment (coach assigned only). Listed for
+  // The Rooted Reset Whole-Body Signal Assessment (coach assigned only). Listed for
   // the same reason: a coach or an administrator who taps an old link
   // belongs on their own dashboard, not inside a member's sitting. Whether
   // she was assigned it is a separate question, enforced inside the route.

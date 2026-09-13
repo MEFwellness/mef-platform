@@ -3,7 +3,7 @@
  * THE SURVEY INTRO CARD MOVES AGAIN, AND IT IS OVER IN UNDER A SECOND.
  * (2026-09-11)
  *
- * Reported from a phone: the "MEF Body Systems Survey" screen, the one
+ * Reported from a phone: the "Rooted Reset Body Systems Survey" screen, the one
  * with the Begin button, read as plain static text. It was, and the reason
  * is worth keeping written down, because nothing was broken. IntroReveal's
  * app-wide standard is to play its reveal ONCE per device and hand out the
@@ -37,7 +37,7 @@ const ROOT = path.resolve(__dirname, '..');
 const read = (p: string) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
 /** The real headline, and the real number of body lines, on that screen. */
-const TITLE = 'MEF Body Systems Survey';
+const TITLE = 'Rooted Reset Body Systems Survey';
 const LINES = 4;
 
 function buttonArrivesAt(pace: 'standard' | 'brisk'): number {

@@ -3,7 +3,7 @@
  *
  * FOUR THINGS WERE REPORTED FROM A PHONE, AND THIS WALKS ALL OF THEM.
  *
- *   THE INTRO CARD MOVES. The "MEF Body Systems Survey" screen read as
+ *   THE INTRO CARD MOVES. The "Rooted Reset Body Systems Survey" screen read as
  *   flat static text. It now replays a brisk reveal on every visit, so
  *   this catches it part way through typing and then whole.
  *   EVERY SECTION BEAT ARRIVES WHOLE. The check, both lines of copy and

@@ -1,3 +1,133 @@
+## Four of them stand on the shelf now, locked, and two have new names (2026-09-12)
+
+The Health & Lifestyle Intake, the Body Systems Survey, the Whole-Body
+Signal Assessment and the Breathing Pattern Check-In were invisible to a
+member her coach had not sent one to. There was no card, no name and no
+sentence: a member could not learn that the intake existed, and a member who
+had finished one had no shelf to find it on again. All four now stand in the
+Wellness Questionnaires library for every member, locked, with the gold
+corner marker and one sentence naming the only thing that opens them.
+
+**AND THE SENTENCE IS THE ONLY TRUE ONE FOR THESE FOUR.** Every other locked
+card in that library says which plan opens it, because for every other card
+that is the answer. No plan reaches these four at any level, so a plan
+sentence on them would be false. Tapping one says **"This one opens once
+your coach assigns it to you. I'll let you know the moment it's ready."**,
+with no plan named and no link to buy, and that second half is a promise the
+app keeps: each of the four already has its own Root knock and its own
+persistent Home card, both written off the assignment row itself.
+
+### THE EXCEPTION IS NARROW, AND IT IS NOT THE OLD FLAG COMING BACK
+
+`requiresAssignment` was deleted on 2026-08-27 because it sat UNDERNEATH the
+plan map and silently subtracted from it: four questionnaires were mapped to
+trial minimum and then held shut by a lock nobody could see in the map, so
+the map written down and the map enforced were two different maps.
+
+Nothing about that has been undone. `calculateLockReason` still reads the
+plan and the registry's own program and prerequisite rules, and nothing
+else. The new `coach_assignment` lock reason is never produced there and is
+never attached to a registry entry. It is produced in exactly one place,
+`lib/questionnaires/coachAssignedQuestionnaires.ts`, for four experiences
+that HAVE no registry entry, no plan mapping and no self-serve route, and
+whose own access modules have said since the day each shipped that an
+assignment is the whole gate. Every other questionnaire's gating is
+byte-for-byte what it was.
+
+### WHAT ACTUALLY DECIDES ACCESS DID NOT CHANGE AT ALL
+
+Each of the four owns the only rule that opens it: an open assignment, else a
+finished sitting, else nothing (`lib/<feature>/access.ts`), re-asked by its
+own route before it renders and by every server action before it writes, on
+top of an insert policy that requires a pending assignment of her own. The
+new module reads the answer those modules already give and turns it into a
+card. It decides nothing, and a direct URL is refused exactly as before.
+
+### THE SHELF GAINED A ROW, AND NOTHING ELSE GAINED ANYTHING
+
+Their cards carry a **null `assignmentId` on purpose.** That field is what
+Home's priority card and the generic `questionnaire_assigned` Root knock
+both filter on, and all four already have their own card and their own
+knock. Handing the same assignment to the generic path as well would show
+her the same thing twice on one screen and knock twice for one assignment. A
+test asserts the null for all three states, so the duplicate cannot be
+reintroduced by someone filling the field in "for completeness".
+
+Two smaller things follow from the four cards being there:
+
+- **The Premium heading stopped naming a plan.** It said "Each of these
+  opens with a plan. Tap one to see which," which became false for four
+  cards underneath it. It now says "Each of these opens in its own way. Tap
+  one to see how," and the card names its own key.
+- **Resume is no longer assumed to live at `/take`.** Every registry
+  questionnaire's taker is a child of its overview route; none of these four
+  has a child at all, their one route hands back the question she stopped on.
+  `CatalogCard.resumeHref` says where a card's own resume is, and a card
+  without one keeps the engine's `/take` child exactly as before.
+
+**The four cards are appended AFTER the visibility filter**, deliberately.
+That layer answers "has anything about her revealed this yet", and for these
+four the answer is a coach assignment and nothing else, which the card says
+in words. A rule that could hide one would put "your coach will assign these
+when the time is right" on a shelf that does not show what he can send.
+
+### THE TWO RENAMES
+
+- "MEF Body Systems Survey" is now **"Rooted Reset Body Systems Survey"**
+- "MEF Whole-Body Signal Assessment" is now **"Rooted Reset Whole-Body
+  Signal Assessment"**
+
+Display name only. Both keys, both fixed definition ids, both routes, every
+table and every stored answer are untouched.
+
+**IT REACHED THE DATABASE AS WELL AS THE CODE**, because these two surveys
+speak from stored rows. Migration 234 renames the two
+`assessment_definitions.display_name` values, the four `body_systems_copy`
+rows and three `whole_body_signal_copy` rows that carried the name (her
+pop-up heading, her Home card title, the title on the opening screen, the
+hint beside her remembered branch), and the eleven `registry_entries`
+coach_context sentences already published from a finished sitting, which is
+the coach's own note about where a number came from. Every statement is a
+`replace()` of the name inside whatever sentence currently holds it, so a
+coach's rewording survives and re-running it is a no-op. A sweep of every
+text and json column in production found exactly twenty rows and this
+migration is all twenty.
+
+**THE CODE NOW HAS ONE NAME PER THING.** Three places had the name typed out
+beside the constant that owns it (the coach's table of contents, the finding
+source label, the Root Map coach note) and all three read
+`BODY_SYSTEMS_LABEL` / `WBS_LABEL` now, so the next rename is one line. A
+guard test walks `app`, `components`, `lib`, `scripts` and `tests` and fails
+on either old name.
+
+### ONE REAL CONSEQUENCE OF A LONGER NAME
+
+The survey's opening screen types its headline, and the brisk pace was tuned
+so the Begin button lands inside one second. Nine more characters pushed it
+to 1,136ms. The numbers moved rather than the promise: 18ms to 15ms a
+character, 120 to 110 to settle, 110 to 95 between lines, which is 970ms.
+The trim is spread across all three so the headline is still typed rather
+than flashed, and the test computes the total from the REAL title, so the
+next rename is caught here rather than on a phone.
+
+### TESTS
+
+`tests/coach-assign-only-questionnaires.test.ts`, 30 cases: the four are
+exactly four, none has a registry entry so no plan level can name one, a
+member with no assignment gets a locked card in Premium with no route on it,
+an assignment opens it, partway through Resume points at the real route,
+finished it stays on the shelf with her results reachable, the
+`assignmentId` is null in all three states, the library appends the four
+after the visibility filter, the lock sentence matches the brief word for
+word and names a coach and never a plan, and the rename is complete in the
+source and display-name only in the migration.
+
+`tests/locked-card-ui-guard.test.ts` was updated rather than worked around.
+It asserted the coach lock sentence was gone because no state in the app
+could make it true. The retired blanket constant stays gone; the assertion
+now says so precisely, and points at the new file for the four cards that do
+have that state.
+
 ## Sending any of them again, and not losing the sitting she finished (2026-09-12)
 
 Two things were missing from the reassignment work that shipped this

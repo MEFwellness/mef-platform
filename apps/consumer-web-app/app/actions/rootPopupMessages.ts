@@ -338,7 +338,7 @@ export type RootPopupMessage =
       primaryHref: string;
     }
   /**
-   * The MEF Body Systems Survey (coach assigned only, migration 220).
+   * The Rooted Reset Body Systems Survey (coach assigned only, migration 220).
    *
    * Its own kind for the same reason the deep-dive above has one: the copy.
    * A coach sending this is Root being asked to walk through her whole body
@@ -360,7 +360,7 @@ export type RootPopupMessage =
       primaryHref: string;
     }
   /**
-   * The MEF Whole-Body Signal Assessment (coach assigned only, migration
+   * The Rooted Reset Whole-Body Signal Assessment (coach assigned only, migration
    * 225).
    *
    * ITS OWN KIND, AND ITS OWN KEY PREFIX, and both are load bearing. It is
@@ -1000,7 +1000,7 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     }
   }
 
-  // The MEF Body Systems Survey, immediately below the Stress & Load
+  // The Rooted Reset Body Systems Survey, immediately below the Stress & Load
   // Deep-Dive and for the identical reasons: a coach's direct action for
   // this member, and finite, because finishing it closes the assignment
   // out so it can never starve anything below it.
@@ -1032,7 +1032,7 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     }
   }
 
-  // The MEF Whole-Body Signal Assessment, immediately below the survey and
+  // The Rooted Reset Whole-Body Signal Assessment, immediately below the survey and
   // for the identical reasons: a coach's direct action for this member, and
   // finite, because finishing it closes the assignment out so it can never
   // starve anything below it.

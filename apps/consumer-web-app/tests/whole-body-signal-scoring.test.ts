@@ -1,5 +1,5 @@
 /**
- * The MEF Whole-Body Signal Assessment's arithmetic, against the content
+ * The Rooted Reset Whole-Body Signal Assessment's arithmetic, against the content
  * the migrations genuinely seed.
  *
  * NOTHING IN THIS FILE TYPES A QUESTION, A WEIGHT OR A CUT OFF. Everything

@@ -1,6 +1,6 @@
 /**
  * The one question every surface in this feature asks: what is this
- * member's MEF Body Systems Survey state right now.
+ * member's Rooted Reset Body Systems Survey state right now.
  *
  * Four answers, and only four:
  *

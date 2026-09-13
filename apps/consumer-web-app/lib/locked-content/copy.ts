@@ -11,8 +11,11 @@
  *
  * Root's own first-person voice (see docs/motion-experience-bible.md §15's
  * voice audit), short, warm, no em dash, no upsell or pressure language,
- * and no promise the app cannot keep: nothing here says she will be
- * notified, because nothing notifies her.
+ * and no promise the app cannot keep. Exactly one sentence here says she
+ * will be told when something opens, COACH_ASSIGNMENT_LOCK_MESSAGE, and it
+ * says it because the four cards that show it really are announced: a Root
+ * knock and a Home card, both written off the assignment row. No plan
+ * sentence may say it, because no plan change announces itself.
  */
 
 import type { LockReason } from '@/lib/assessment-registry/status';
@@ -29,6 +32,25 @@ export const COACH_LOCK_NOTE_TITLE = 'A note from Root';
  * open card has no note. The sentence is removed rather than kept for a
  * state that no longer exists.
  */
+
+/**
+ * THE FOUR THAT ONLY A COACH OPENS (2026-09-12).
+ *
+ * The Health & Lifestyle Intake, the Rooted Reset Body Systems Survey, the
+ * Rooted Reset Whole-Body Signal Assessment and the Breathing Pattern
+ * Check-In are locked for every member on every plan until a coach hands
+ * one over. A plan sentence on those four would be false, so they get
+ * their own, and it is the only one in this file that mentions a coach.
+ *
+ * THE SECOND SENTENCE IS A PROMISE THE APP ACTUALLY KEEPS, which is why it
+ * is allowed here at all. Every one of the four already has its own knock
+ * in the Root pop-up chain (app/actions/rootPopupMessages.ts) and its own
+ * persistent Home card, both driven by the assignment row itself, so a
+ * member really is told the moment her coach sends one. Nothing else in
+ * this file may say she will be told, because nothing else has that.
+ */
+export const COACH_ASSIGNMENT_LOCK_MESSAGE =
+  "This one opens once your coach assigns it to you. I'll let you know the moment it's ready.";
 
 export const MONTHLY_PLAN_LOCK_MESSAGE =
   'This one comes with a Monthly plan. It will be waiting here for you when you are on it.';
@@ -52,6 +74,8 @@ export function lockNoteMessage(reason: LockReason): string {
       return reason.requiredLevel === 'holistic_reset'
         ? PROGRAM_PLAN_LOCK_MESSAGE
         : MONTHLY_PLAN_LOCK_MESSAGE;
+    case 'coach_assignment':
+      return COACH_ASSIGNMENT_LOCK_MESSAGE;
     case 'program_enrollment':
       return PROGRAM_ENROLLMENT_LOCK_MESSAGE;
     case 'program_phase':

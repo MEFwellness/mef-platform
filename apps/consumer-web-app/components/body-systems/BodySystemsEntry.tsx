@@ -1,5 +1,5 @@
 /**
- * The MEF Body Systems Survey's persistent card on Home.
+ * The Rooted Reset Body Systems Survey's persistent card on Home.
  *
  * The pop-up gets one showing per login. This is the permanent, un-timed
  * way in for as long as the assignment is open, exactly as every other

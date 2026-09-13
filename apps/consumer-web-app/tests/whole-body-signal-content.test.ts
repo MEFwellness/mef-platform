@@ -540,11 +540,28 @@ describe('punctuation, over the stored content the source guard cannot see', () 
 });
 
 describe('the catalog row', () => {
-  it('uses the same fixed id in code and in the migration', () => {
+  it('uses the same fixed id and key in code and in the migration', () => {
     const schema = readSql(WBS_SCHEMA_SQL_PATH);
     expect(schema).toContain(WBS_DEFINITION_ID);
     expect(schema).toContain(`'${WBS_KEY}'`);
-    expect(schema).toContain(`'${WBS_LABEL}'`);
+  });
+
+  /**
+   * THE NAME IS READ FROM THE LAST MIGRATION THAT WRITES IT, not from the
+   * one that seeded it (2026-09-12). The assessment was renamed to
+   * "Rooted Reset Whole-Body Signal Assessment" and migration 225's seed
+   * row is now history: the catalog row's CURRENT name is whatever the
+   * latest migration touching it leaves behind. Asserting against that
+   * file is what still fails if a rename lands in code and never reaches
+   * the database, which is the whole job of this check.
+   */
+  it('carries the name the code carries, in the latest migration that names it', () => {
+    const naming = WBS_SQL_PATHS.filter((file) => {
+      const sql = readSql(file);
+      return sql.includes(WBS_DEFINITION_ID) && sql.includes('display_name');
+    });
+    expect(naming.length).toBeGreaterThan(0);
+    expect(readSql(naming[naming.length - 1]!)).toContain(`'${WBS_LABEL}'`);
   });
 
   it('IS NOT THE BODY SYSTEMS SURVEY AND NOT THE LEGACY WHOLE-BODY CHECK-IN', () => {

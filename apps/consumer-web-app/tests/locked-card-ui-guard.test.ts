@@ -56,11 +56,21 @@ describe('locked-card UI actually wires in LockedCardButton + LockedBadge', () =
     expect(fs.existsSync(path.join(ROOT, 'components/locked/CoachLockBadge.tsx'))).toBe(false);
   });
 
-  it('the coach lock sentence is gone from the copy module, not merely unused', () => {
+  /**
+   * THE RETIRED SENTENCE STAYS RETIRED, AND A DIFFERENT ONE EXISTS
+   * (2026-09-12). `COACH_LOCK_NOTE_MESSAGE` was the note shown on EVERY
+   * lock produced by the old coach-assign-only flag, beside cards and
+   * headings saying a plan opened the same thing. It is still deleted.
+   *
+   * `COACH_ASSIGNMENT_LOCK_MESSAGE` is not that constant coming back. It
+   * reaches exactly four cards, the four questionnaires no plan opens at
+   * any level (lib/questionnaires/coachAssignedQuestionnaires.ts), and it
+   * is the only sentence on their cards, so nothing on the screen
+   * contradicts it. tests/coach-assign-only-questionnaires.test.ts is where
+   * its words and its reach are pinned.
+   */
+  it('the retired blanket coach sentence is gone from the copy module, not merely unused', () => {
     const copy = read('lib/locked-content/copy.ts');
-    // The constant is deleted, so nothing can import it. The retired
-    // sentence itself is quoted once, in the comment that records why it
-    // went, which is why this asserts on the export rather than the words.
     expect(copy).not.toContain('export const COACH_LOCK_NOTE_MESSAGE');
     expect(copy).not.toMatch(/lockNoteMessage[\s\S]*COACH_LOCK_NOTE_MESSAGE/);
     // The sheet's title is not about a coach and stays.

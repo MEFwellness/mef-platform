@@ -78,7 +78,7 @@ export const FINDING_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   'stress::stress_load_burden': 'What your life has been asking of you',
   'stress::recovery_capacity': 'What has been giving back to you',
 
-  // --- MEF Body Systems Survey (lib/body-systems/rootMap.ts). Eleven
+  // --- Rooted Reset Body Systems Survey (lib/body-systems/rootMap.ts). Eleven
   //     names, one per section, because the survey never adds its sections
   //     together and there is nothing to publish as a single finding.
   //

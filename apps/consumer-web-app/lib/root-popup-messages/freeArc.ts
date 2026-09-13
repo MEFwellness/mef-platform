@@ -27,7 +27,15 @@ export const FREE_ARC_SEQUENCE: AssessmentKey[] = [
   'readiness-pulse',
 ];
 
-export function freeArcPopupMessageKey(key: AssessmentKey): string {
+/**
+ * Takes a card's key rather than an AssessmentKey, because a CatalogCard's
+ * key is now either a registry key or one of the four coach-assign-only
+ * questionnaires' own feature keys. Only the three keys in
+ * FREE_ARC_SEQUENCE ever reach this in practice, since pickNextFreeArcCard
+ * below is what finds the card, and none of the four is ever in the free
+ * arc or in the Available section it reads.
+ */
+export function freeArcPopupMessageKey(key: CatalogCard['key']): string {
   return `free_arc_available:${key}`;
 }
 

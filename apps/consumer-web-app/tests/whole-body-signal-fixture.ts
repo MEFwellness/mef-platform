@@ -1,5 +1,5 @@
 /**
- * A real fixture of the MEF Whole-Body Signal Assessment's stored content,
+ * A real fixture of the Rooted Reset Whole-Body Signal Assessment's stored content,
  * read OUT OF THE MIGRATIONS rather than retyped.
  *
  * WHY IT PARSES SQL. Every question, weight, band cut off, Zone, pattern

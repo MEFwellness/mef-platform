@@ -139,7 +139,7 @@ export function stressLoadPopupMessageKey(assignmentId: string): string {
 }
 
 /**
- * The MEF Body Systems Survey's own key, scoped to the assignment exactly
+ * The Rooted Reset Body Systems Survey's own key, scoped to the assignment exactly
  * as the Stress & Load Deep-Dive's above is, and with the identical
  * recurring dismissal lifetime. A coach can send this survey again, and
  * each sending is a new assignment row, so each is a genuinely new message
@@ -150,7 +150,7 @@ export function bodySystemsPopupMessageKey(assignmentId: string): string {
 }
 
 /**
- * The MEF Whole-Body Signal Assessment's own key, scoped to the assignment
+ * The Rooted Reset Whole-Body Signal Assessment's own key, scoped to the assignment
  * exactly as the two above are, and with the identical recurring dismissal
  * lifetime.
  *

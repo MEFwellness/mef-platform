@@ -1,5 +1,5 @@
 /**
- * Who the MEF Whole-Body Signal Assessment is for. One rule, and every
+ * Who the Rooted Reset Whole-Body Signal Assessment is for. One rule, and every
  * surface in the feature is on one side of it.
  *
  * THE ASSIGNMENT IS THE WHOLE GATE. A coach assigned it to this member, or

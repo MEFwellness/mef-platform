@@ -139,7 +139,7 @@ type IntroRevealProps = {
    * talking over her. But an intro to a task she opens, considers and
    * comes back to is a different screen, and the once-per-device rule
    * turned it into flat, unmoving text for everybody who had ever opened
-   * it before, which is what the MEF Body Systems Survey's intro was
+   * it before, which is what the Rooted Reset Body Systems Survey's intro was
    * reported as on 2026-09-11. With a brisk pace the replay costs under a
    * second, which is cheap enough to be worth the life it gives the
    * screen.

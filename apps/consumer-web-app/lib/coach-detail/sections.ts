@@ -26,6 +26,17 @@
  */
 
 import { textMatchesSearch } from '../assignments/assignableCatalog';
+/*
+  THE TWO NAMES THAT CHANGED ONCE ALREADY come from the features' own
+  constants rather than from a literal here, so a rename lands on the
+  coach's table of contents, his pinned search, his assignable list and the
+  member's own card in one edit. The other titles below are this page's own
+  section names and belong to nothing else.
+*/
+import { BODY_SYSTEMS_LABEL } from '../body-systems/constants';
+import { WBS_LABEL } from '../whole-body-signal/constants';
+import { BPC_LABEL } from '../breathing-check-in/constants';
+import { HLI_LABEL } from '../health-intake/constants';
 
 /** One card inside a section, as the search knows it. `id` is its real DOM anchor. */
 export type DetailCardEntry = {
@@ -104,9 +115,9 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
       { id: 'detail-card-readiness-pulse', title: 'Readiness Pulse' },
       { id: 'findings-deep-dive-results', title: 'Deep-Dive Results' },
       { id: 'detail-card-stress-load', title: 'Stress and Load Deep-Dive' },
-      { id: 'detail-card-body-systems', title: 'MEF Body Systems Survey' },
-      { id: 'detail-card-whole-body-signal', title: 'MEF Whole-Body Signal Assessment' },
-      { id: 'detail-card-breathing-check-in', title: 'Breathing Pattern Check-In' },
+      { id: 'detail-card-body-systems', title: BODY_SYSTEMS_LABEL },
+      { id: 'detail-card-whole-body-signal', title: WBS_LABEL },
+      { id: 'detail-card-breathing-check-in', title: BPC_LABEL },
       { id: 'detail-card-owning-your-value', title: 'Owning Your Value' },
       { id: 'detail-card-where-your-joy-lives', title: 'Where Your Joy Lives' },
       { id: 'detail-card-the-giving-ledger', title: 'The Giving Ledger' },
@@ -128,7 +139,7 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
     */
     id: 'detail-section-health-context',
     title: 'Health Context',
-    cards: [{ id: 'detail-card-health-intake', title: 'Health & Lifestyle Intake' }],
+    cards: [{ id: 'detail-card-health-intake', title: HLI_LABEL }],
   },
   {
     id: 'detail-section-progress',

@@ -3,7 +3,7 @@
  * is addressed by, and how long a coach's assignment is given.
  *
  * IT IS A SEPARATE INSTRUMENT, and the separation is the whole point of
- * the family it joins. The MEF Body Systems Survey (lib/body-systems/)
+ * the family it joins. The Rooted Reset Body Systems Survey (lib/body-systems/)
  * says which systems are speaking loudly. The MEF Whole-Body Signal
  * Assessment (lib/whole-body-signal/) reads the same body a different way.
  * The Stress & Load Deep-Dive (lib/stress-load/) goes deeper on one

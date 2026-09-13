@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * The MEF Whole-Body Signal Assessment's writes, and the coach's reads.
+ * The Rooted Reset Whole-Body Signal Assessment's writes, and the coach's reads.
  *
  * NOTHING HERE RUNS ON A RENDER. Every function below is called because
  * somebody pressed something: her answer, her Continue, her last tap, a

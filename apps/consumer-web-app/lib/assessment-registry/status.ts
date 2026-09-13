@@ -35,6 +35,26 @@ export type AssessmentStatus =
  */
 export type LockReason =
   | { kind: 'membership'; requiredLevel: MembershipKey }
+  /**
+   * THE ONE DELIBERATE EXCEPTION (2026-09-12). Four questionnaires in the
+   * Wellness Questionnaires library open for nobody until a coach hands
+   * them over: the Health & Lifestyle Intake, the Rooted Reset Body
+   * Systems Survey, the Rooted Reset Whole-Body Signal Assessment and the
+   * Breathing Pattern Check-In. No plan reaches them, at any level, so a
+   * plan sentence on their cards would be false.
+   *
+   * THIS IS NOT THE RETIRED `requiresAssignment` FLAG COMING BACK. That
+   * flag sat underneath the plan map and silently subtracted from it, so
+   * the printed map and the real behaviour disagreed for every
+   * questionnaire it touched. This reason is never produced by
+   * calculateLockReason below, which still reads the plan and nothing
+   * else, and it is never attached to a registry entry. It is produced in
+   * exactly one place, lib/questionnaires/coachAssignedQuestionnaires.ts,
+   * for four experiences that have no registry entry, no plan mapping and
+   * no self-serve route, and whose own access modules have always said
+   * assignment is the whole gate.
+   */
+  | { kind: 'coach_assignment' }
   | { kind: 'program_enrollment' }
   | { kind: 'program_phase'; requiredPhaseKey: string }
   | { kind: 'prerequisite'; missingKeys: AssessmentKey[] };
@@ -188,6 +208,8 @@ export function describeLockReason(reason: LockReason, prerequisiteNames: string
       return reason.requiredLevel === 'holistic_reset'
         ? 'Available with the 24 week program.'
         : 'Available with a Monthly plan.';
+    case 'coach_assignment':
+      return 'Available once your coach assigns it to you.';
     case 'program_enrollment':
       return 'Available once you are enrolled in the Holistic Reset program.';
     case 'program_phase':

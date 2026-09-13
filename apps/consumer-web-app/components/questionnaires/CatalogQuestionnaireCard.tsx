@@ -28,7 +28,12 @@ const SECONDARY_LINK = 'text-sm font-medium text-[#1B3A2D] hover:underline';
 function primaryAction(card: CatalogCard): { label: string; href: string } | null {
   if (card.flags.comingSoon || card.flags.locked || !card.primaryHref) return null;
 
-  if (card.flags.inProgress) return { label: 'Resume', href: `${card.primaryHref}/take` };
+  // RESUME IS NOT ALWAYS AT `/take`. Every registry questionnaire's taker
+  // is a child of its overview route, and the four coach-assign-only ones
+  // have no child at all: their one route hands back the question she
+  // stopped on. A card that knows where its own resume lives says so.
+  if (card.flags.inProgress)
+    return { label: 'Resume', href: card.resumeHref ?? `${card.primaryHref}/take` };
 
   if (card.section === 'completed') {
     return card.resultHref ? { label: 'View Results', href: card.resultHref } : null;

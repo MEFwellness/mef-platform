@@ -1,5 +1,5 @@
 /**
- * A real, signed-in walk of the MEF Body Systems Survey, end to end.
+ * A real, signed-in walk of the Rooted Reset Body Systems Survey, end to end.
  *
  * WHAT IT DRIVES. A coach's assignment arriving, the intro, all eleven
  * sections including the branch question, a Does not apply to me tap, a
@@ -318,7 +318,7 @@ try {
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(4000);
   const bodyText = await page.evaluate(() => document.body.innerText);
-  check('Home offers the survey', /MEF Body Systems Survey/i.test(bodyText));
+  check('Home offers the survey', /Rooted Reset Body Systems Survey/i.test(bodyText));
   const popupShown = bodyText.includes('walk through your whole body with you');
   check('the pop-up carries the approved sentence', popupShown);
   if (!popupShown) {

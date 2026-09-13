@@ -119,8 +119,14 @@ export function QuestionnaireCatalogView({
              unlocks with a Membership plan" over a list that now holds
              both Monthly items and 24 week program items, so the heading
              contradicted the Four Doctors card two inches below it. Each
-             card names its own plan, so the heading stops naming one. */
-          subtitle="Each of these opens with a plan. Tap one to see which."
+             card names its own plan, so the heading stops naming one.
+
+             AND NOT EVERY ONE OF THEM IS A PLAN (2026-09-12). Four of these
+             open for nobody until a coach sends them, so "opens with a
+             plan" became false for four cards on the shelf. The heading
+             names neither key and sends her to the card, which names its
+             own. */
+          subtitle="Each of these opens in its own way. Tap one to see how."
           cards={catalog.premium}
         />
       )}

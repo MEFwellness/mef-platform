@@ -403,7 +403,7 @@ try {
   await page.waitForSelector('text=/whole-body signal/i', { timeout: 120000 });
 
   const cardCount = await page.evaluate(() => {
-    const matches = document.body.innerText.match(/MEF Whole-Body Signal Assessment/gi);
+    const matches = document.body.innerText.match(/Rooted Reset Whole-Body Signal Assessment/gi);
     return matches ? matches.length : 0;
   });
   check(

@@ -138,7 +138,7 @@ const OVERRIDE_BY_CODE: Record<string, DomainAssignment> = {
   stress_load_burden: { primary: 'stress_nervous_system', alsoRelevant: [] },
   recovery_capacity: { primary: 'recovery_energy_regulation', alsoRelevant: [] },
 
-  // The MEF Body Systems Survey, eleven sections filed against the mapping
+  // The Rooted Reset Body Systems Survey, eleven sections filed against the mapping
   // in the approved specification's build notes. Each section is its own
   // dimension and lands on exactly one card, because this survey never
   // blends two systems into one number and its Root Map rows must not

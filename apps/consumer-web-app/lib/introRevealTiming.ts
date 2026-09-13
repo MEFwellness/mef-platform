@@ -33,9 +33,9 @@ export function introRevealFollowUpDelayMs(title: string, lineCount: number): nu
  * (2026-09-11)
  *
  * The standard pace above is written for a welcome: a headline typing at
- * 45ms a character, a 300ms settle, and body lines 400ms apart. For "MEF
- * Body Systems Survey" and four lines of copy that puts the Begin button
- * on screen at about 2.9 seconds, and a member who has opened a survey
+ * 45ms a character, a 300ms settle, and body lines 400ms apart. For the
+ * survey's own headline and four lines of copy that puts the Begin button
+ * on screen well past three seconds, and a member who has opened a survey
  * she has decided to take is not being welcomed, she is being delayed.
  *
  * These are the same three numbers, roughly a third of the length, which
@@ -43,12 +43,24 @@ export function introRevealFollowUpDelayMs(title: string, lineCount: number): nu
  * typed rather than faded, the lines still arrive one after another
  * rather than together, and nothing is ever ahead of a reader.
  *
+ * TRIMMED AGAIN ON 2026-09-12, BECAUSE THE HEADLINE GOT LONGER. The survey
+ * was renamed to "Rooted Reset Body Systems Survey", nine characters more
+ * than the name these numbers were tuned against, and at 18ms a character
+ * that alone pushed the Begin button past 1.1 seconds. The under-a-second
+ * promise is the point of this pace, so the numbers moved rather than the
+ * promise: 18 to 15 a character, 120 to 110 to settle, 110 to 95 between
+ * lines. The trim is spread across all three so the headline is still
+ * typed rather than flashed. tests/survey-intro-reveal.test.tsx computes
+ * the total from the REAL title and fails if it ever crosses a second
+ * again, which is how a future rename gets caught here rather than on a
+ * phone.
+ *
  * Opt in per screen with IntroReveal's `pace="brisk"`. Every existing
  * call site omits it and keeps the standard pace exactly.
  */
-export const INTRO_REVEAL_BRISK_MS_PER_CHAR = 18;
-export const INTRO_REVEAL_BRISK_SETTLE_MS = 120;
-export const INTRO_REVEAL_BRISK_LINE_STEP_MS = 110;
+export const INTRO_REVEAL_BRISK_MS_PER_CHAR = 15;
+export const INTRO_REVEAL_BRISK_SETTLE_MS = 110;
+export const INTRO_REVEAL_BRISK_LINE_STEP_MS = 95;
 
 export type IntroRevealPace = 'standard' | 'brisk';
 

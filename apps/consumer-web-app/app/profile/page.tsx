@@ -42,7 +42,7 @@ export default async function ProfilePage() {
     // switch so the screen renders with the real value already in it and
     // never flickers from off to on after mount.
     getMemberPushState(supabase, user.id),
-    // Which Hormonal Health question set the MEF Body Systems Survey asks
+    // Which Hormonal Health question set the Rooted Reset Body Systems Survey asks
     // her. Null until she has answered its branch question once, and the
     // control below is not drawn at all in that case: a profile offering to
     // change a setting nothing has set yet is Root talking about something

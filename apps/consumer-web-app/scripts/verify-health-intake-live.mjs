@@ -12,7 +12,7 @@
  *     and reopen partway through, the completion, and the three cards;
  *   as the coach again, the Health Context section: the digest, the
  *     follow-up alert and the questions worth exploring;
- *   and finally that the MEF Body Systems Survey and the Stress & Load
+ *   and finally that the Rooted Reset Body Systems Survey and the Stress & Load
  *     Deep-Dive still open and still work.
  *
  * WHERE IT RUNS, from environment variables:
@@ -891,7 +891,7 @@ try {
   // 4. The two instruments this build must not have touched.
   // -------------------------------------------------------------------
   for (const [name, definition, route, marker] of [
-    ['MEF Body Systems Survey', BODY_SYSTEMS, '/body-systems', 'begin'],
+    ['Rooted Reset Body Systems Survey', BODY_SYSTEMS, '/body-systems', 'begin'],
     ['Stress & Load Deep-Dive', STRESS_LOAD, '/stress-load', 'begin'],
   ]) {
     await admin.from('assessment_assignments').insert({

@@ -3,8 +3,8 @@
  * is addressed by, and how long a coach's assignment is given.
  *
  * IT IS A SEPARATE INSTRUMENT, and the separation is the whole point of
- * the family it joins. The MEF Body Systems Survey (lib/body-systems/) says
- * which systems are speaking loudly. The MEF Whole-Body Signal Assessment
+ * the family it joins. The Rooted Reset Body Systems Survey (lib/body-systems/) says
+ * which systems are speaking loudly. The Rooted Reset Whole-Body Signal Assessment
  * (lib/whole-body-signal/) reads the same body a different way. The Health
  * & Lifestyle Intake (lib/health-intake/) is the context all of them are
  * read against. The Stress & Load Deep-Dive (lib/stress-load/) goes deeper
