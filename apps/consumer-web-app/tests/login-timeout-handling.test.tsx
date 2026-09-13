@@ -207,8 +207,24 @@ describe('a failure that is real is admitted in seconds, not in a fifth of a min
     expect(elapsed()).toBeLessThan(TOKEN_WAIT_MS);
   });
 
-  it('adds up to about eleven seconds of waiting, not about sixteen', () => {
+  it('spends far less than two full windows before it admits a failure', () => {
     expect(TOKEN_WAIT_MS + RETRY_TOPUP_WAIT_MS).toBeLessThan(TOKEN_WAIT_MS * 2 - 4_000);
+  });
+
+  /**
+   * WIDENED ON 2026-09-13, and this is the floor, not the value.
+   *
+   * Eight seconds was measured against Cloudflare on a good day. The case
+   * the wait exists for is a slow phone on a slow network reaching the
+   * button before the challenge has finished, and eight was not enough for
+   * her: the submission went out carrying nothing and she was told "we
+   * could not confirm that in time" holding a correct password. Narrowing
+   * these again is the way that failure comes back, so the floor is
+   * asserted rather than assumed.
+   */
+  it('waits long enough for a genuinely slow phone', () => {
+    expect(TOKEN_WAIT_MS).toBeGreaterThanOrEqual(15_000);
+    expect(RETRY_TOPUP_WAIT_MS).toBeGreaterThanOrEqual(4_000);
   });
 
   it('asks for that top-up from the submit path, on the no-token retry only', () => {
@@ -217,6 +233,83 @@ describe('a failure that is real is admitted in seconds, not in a fifth of a min
     // refresh() has genuinely started a challenge from nothing and keeps
     // the full window.
     expect(source).not.toContain('refresh(RETRY_TOPUP_WAIT_MS)');
+  });
+});
+
+/**
+ * THE SECOND KIND OF FAILURE THAT IS NOT AN ANSWER.
+ *
+ * A refused captcha was already retried once, silently, because nothing
+ * was created, checked or decided by it. A 5xx from the account service,
+ * and a request that never completed at all, are the same shape of
+ * non-answer and were not retried: the member was shown "the account
+ * service is having a temporary problem" and had to press the button
+ * herself. She is not the right person to perform that retry.
+ *
+ * EVERY OTHER FAILURE IS STILL AN ANSWER AND IS STILL RETURNED AT ONCE.
+ * A wrong password, an address already registered and a rate limit all
+ * say something true about what was submitted, and running them again
+ * would be asking the same question twice and telling her the same thing
+ * a second later.
+ */
+describe('a service that gave no answer at all', () => {
+  const gateWith = (tokens: (string | null)[]) => {
+    const calls: string[] = [];
+    let index = 0;
+    const source: TurnstileTokenSource = {
+      async getToken() {
+        calls.push('getToken');
+        return tokens[index++] ?? null;
+      },
+      async refresh() {
+        calls.push('refresh');
+        return tokens[index++] ?? null;
+      },
+      reset() {
+        calls.push('reset');
+      },
+    };
+    return { source, calls };
+  };
+
+  it('is tried once more before she is told anything', async () => {
+    const { source } = gateWith(['tok-1', 'tok-2']);
+    let attempts = 0;
+    const result = await submitWithFreshCaptcha(source, async () => {
+      attempts += 1;
+      return attempts === 1 ? { error: 'temporary problem', retryable: true } : {};
+    });
+    expect(attempts).toBe(2);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('is admitted when the second attempt fails the same way', async () => {
+    const { source } = gateWith(['tok-1', 'tok-2']);
+    let attempts = 0;
+    const result = await submitWithFreshCaptcha(source, async () => {
+      attempts += 1;
+      return { error: 'temporary problem', retryable: true };
+    });
+    expect(attempts).toBe(2);
+    expect(result.error).toBe('temporary problem');
+  });
+
+  it('never retries an answer about what she typed', async () => {
+    const { source } = gateWith(['tok-1', 'tok-2']);
+    let attempts = 0;
+    const result = await submitWithFreshCaptcha(source, async () => {
+      attempts += 1;
+      return { error: 'Invalid login credentials' };
+    });
+    expect(attempts).toBe(1);
+    expect(result.error).toBe('Invalid login credentials');
+  });
+
+  it('is marked by the server, never guessed at from the words', () => {
+    const source = read('app/actions/auth.ts');
+    // The two places a non-answer is produced, and only those two.
+    expect(source).toContain('retryable: true');
+    expect(source.match(/retryable: true/g)?.length).toBe(2);
   });
 });
 

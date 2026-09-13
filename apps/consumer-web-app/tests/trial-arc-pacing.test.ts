@@ -37,6 +37,7 @@ import {
 import { decideTrialArcMessage, publicEntryArcHandover, type TrialArcFacts } from '@/lib/trial-arc/engine';
 import {
   TRIAL_ARC_DAY_1,
+  TRIAL_ARC_DAY_1_AFTER_CHECKIN,
   TRIAL_ARC_DAY_2_ON_PACE,
   TRIAL_ARC_TOWARD_CASE,
   TRIAL_ARC_TOWARD_CVS,
@@ -398,6 +399,48 @@ describe('day 1', () => {
     expect(result.message.messageKey).toBe('trial_arc_day:1');
   });
 
+  /**
+   * THE CARD ONLY SAYS "YOU HAVE CHECKED IN" WHEN SHE HAS.
+   *
+   * The arc's pop-up is second in the chain and waits for nothing, so a
+   * member can reach day 1 before filling anything in. The version that
+   * names her check-in is chosen from her own check-in dates, and both
+   * versions are otherwise the same message: same key, same step, same
+   * button, same receipt.
+   */
+  it('names the check-in she has already done, and only then', () => {
+    const before = decide({ checkedInToday: false });
+    const after = decide({ checkedInToday: true });
+    expect(before.speaks && after.speaks).toBe(true);
+    if (!before.speaks || !after.speaks) return;
+
+    expect(before.message.copy).toEqual(TRIAL_ARC_DAY_1);
+    expect(before.message.copy.body).not.toContain('You have checked in');
+
+    expect(after.message.copy).toEqual(TRIAL_ARC_DAY_1_AFTER_CHECKIN);
+    expect(after.message.copy.body).toContain('You have checked in');
+
+    // One message wearing two sentences, not two messages.
+    expect(after.message.messageKey).toBe(before.message.messageKey);
+    expect(after.message.copy.step).toBe(before.message.copy.step);
+    expect(after.message.copy.href).toBe(before.message.copy.href);
+    expect(after.message.copy.ctaLabel).toBe(before.message.copy.ctaLabel);
+    expect(after.message.copy.title).toBe(before.message.copy.title);
+  });
+
+  /**
+   * It used to open "Most of this app is about how you are doing. The
+   * first question is a different one", which contradicted the check-in
+   * she had usually just finished. Neither version calls itself first.
+   */
+  it('never calls itself the first question', () => {
+    for (const copy of [TRIAL_ARC_DAY_1, TRIAL_ARC_DAY_1_AFTER_CHECKIN]) {
+      expect(copy.body.toLowerCase()).not.toContain('the first question');
+      expect(copy.body).toContain('Core Values Snapshot');
+      expect(copy.body).toContain('read against your answers');
+    }
+  });
+
   it('a member who arrived through Where Your Energy Goes gets ONE message, carried by the welcome', () => {
     const result = decide({ hasPublicEntryOrigin: true, publicEntryPatternTitle: 'Running on an empty tank' });
     expect(result.speaks).toBe(true);
@@ -645,6 +688,7 @@ describe('the closer stops every pacing day', () => {
 
 const EVERY_LINE = [
   TRIAL_ARC_DAY_1,
+  TRIAL_ARC_DAY_1_AFTER_CHECKIN,
   TRIAL_ARC_DAY_2_ON_PACE,
   TRIAL_ARC_TOWARD_CVS,
   TRIAL_ARC_TOWARD_LSC,
