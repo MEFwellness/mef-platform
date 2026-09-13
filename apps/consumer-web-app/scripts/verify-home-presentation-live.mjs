@@ -125,16 +125,49 @@ try {
   );
 
   // Is the primary button reachable without scrolling?
-  const ctaTop = await page.evaluate(() => {
-    const main = document.querySelector('main');
-    const card = main?.querySelector('section');
-    const cta = card?.querySelector('a[class*="min-h-\\\\[52px\\\\]"], button[class*="min-h-\\\\[52px\\\\]"]');
-    return cta ? Math.round(cta.getBoundingClientRect().bottom) : null;
+  //
+  // FOUND BY ITS MEASURED SHAPE, NEVER BY A CLASS NAME. The first version
+  // of this looked for the arbitrary Tailwind class the button happens to
+  // carry, reported "no full-width primary found", and was wrong: the
+  // button was there, 292x52 with its bottom edge at 706px. A check that
+  // cannot see the thing it is checking is worse than no check, so this
+  // asks the geometry instead.
+  const cta = await page.evaluate(() => {
+    const card = document.querySelector('main section');
+    if (!card) return null;
+    const cardWidth = card.getBoundingClientRect().width;
+    const controls = [...card.querySelectorAll('a, button')].map((b) => ({
+      text: b.innerText.trim().slice(0, 40),
+      r: b.getBoundingClientRect(),
+    }));
+    const primary = controls.find((c) => c.r.height >= 50 && c.r.width > cardWidth * 0.75);
+    if (!primary) {
+      return {
+        primary: null,
+        saw: controls.map((c) => `${c.text} ${Math.round(c.r.width)}x${Math.round(c.r.height)}`),
+      };
+    }
+    return {
+      primary: {
+        text: primary.text,
+        height: Math.round(primary.r.height),
+        width: Math.round(primary.r.width),
+        bottom: Math.round(primary.r.bottom),
+      },
+      quieterBelow: controls.filter((c) => c.r.top >= primary.r.bottom && c.r.height > 0).length,
+    };
   });
   check(
-    ctaTop !== null && ctaTop < 844,
-    "the day's primary button is above the fold",
-    ctaTop === null ? 'no full-width primary found' : `bottom ${ctaTop}px`
+    !!cta?.primary && cta.primary.bottom < 844,
+    "the day's one primary button is substantial and above the fold",
+    cta?.primary
+      ? `"${cta.primary.text}" ${cta.primary.width}x${cta.primary.height}, bottom ${cta.primary.bottom}px`
+      : `no full-width primary found; saw ${(cta?.saw ?? []).join(', ')}`
+  );
+  check(
+    cta?.quieterBelow === 2,
+    'exactly two quieter actions sit under it, never a third equal pill',
+    cta?.quieterBelow === undefined ? 'n/a' : `${cta.quieterBelow} below`
   );
 
   // =================================================================
@@ -181,6 +214,7 @@ try {
       })),
       goldElements: goldish.length,
       goldWhere: goldish,
+      elementCount: main.querySelectorAll('*').length,
       pageBg: getComputedStyle(document.querySelector('.mef-home')).backgroundImage.slice(0, 90),
     };
   });
@@ -207,10 +241,25 @@ try {
       ? `stray: ${strayLabels.map((l) => `${l.txt} (${l.size})`).join('; ')}`
       : system.labelSizes.join(', ')
   );
+  // GOLD, COUNTED HONESTLY AND SPLIT BY TONE.
+  //
+  // The first version of this counted every descendant that INHERITED a
+  // gold colour as its own gold element and reported 27 for a screen that
+  // has 14. What it counts now is elements that set it, and what it holds
+  // is the rule the design actually states: most of the screen is neutral,
+  // and the BRIGHT gold (#F5B700, which the check-in button owns) is
+  // confined to real progress and to a section's one action. Everything
+  // else that carries gold carries the muted tone.
+  const bright = system.goldWhere.filter((g) => /245, 183, 0/.test(g));
   check(
-    system.goldElements <= 14,
-    'gold is an accent, not a theme',
-    `${system.goldElements} elements set gold in <main>: ${system.goldWhere.join(' | ')}`
+    system.goldElements <= system.elementCount * 0.03,
+    'most of the screen is neutral: gold is on a small fraction of it',
+    `${system.goldElements} of ${system.elementCount} elements in <main>`
+  );
+  check(
+    bright.length <= 7,
+    'the bright gold stays on progress and on a section\'s one action',
+    `${bright.length} bright, ${system.goldElements - bright.length} muted: ${system.goldWhere.join(' | ')}`
   );
   check(/F7F3EA|247, 243, 234/.test(system.pageBg), 'the page floor is the cream', system.pageBg);
 
@@ -244,16 +293,27 @@ try {
       iconStrokes: [...strokes],
       iconSizes: [...sizes],
       activeBg: active ? getComputedStyle(active).backgroundColor : null,
+      // RESOLVED THROUGH A CANVAS, because the string cannot be trusted.
+      // Tailwind v4 serves `bg-[#1B3A2D]/[0.07]` as an oklab() value, so
+      // matching on "rgb(27, 58, 45" reported a failure over a correct
+      // colour, and re-reading it off a probe element gives the same
+      // oklab string back. Painting one pixel and reading it is the only
+      // thing here that answers in real channels.
       ...(() => {
-        if (!active) return { activeIsForest: false, activeResolved: null };
-        const probe = document.createElement('div');
-        probe.style.color = getComputedStyle(active).backgroundColor;
-        document.body.appendChild(probe);
-        const resolved = getComputedStyle(probe).color;
-        probe.remove();
-        const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(resolved);
-        const forest = m ? +m[1] < 90 && +m[2] < 110 && +m[3] < 90 && +m[2] >= +m[1] : false;
-        return { activeIsForest: forest, activeResolved: resolved };
+        if (!active) return { activeIsForest: false, activePixel: null };
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 1;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = getComputedStyle(active).backgroundColor;
+        ctx.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = [...ctx.getImageData(0, 0, 1, 1).data];
+        // A forest tint painted on black: green ahead of red, red ahead of
+        // blue is false for this hue, so what identifies it is g > r and a
+        // low alpha. The reference is #1B3A2D = 27, 58, 45.
+        return {
+          activeIsForest: g > r && g > b && a > 0 && a < 60,
+          activePixel: `rgba(${r}, ${g}, ${b}, ${a}/255)`,
+        };
       })(),
       activeWeight: active ? getComputedStyle(active).fontWeight : null,
       borderColor: getComputedStyle(bar).borderTopColor,
@@ -272,7 +332,7 @@ try {
   check(
     nav.activeIsForest === true,
     'the active tab is forest, so gold is the check-in button alone',
-    `${nav.activeBg} -> ${nav.activeResolved}`
+    `${nav.activeBg} paints ${nav.activePixel}`
   );
 
   // =================================================================

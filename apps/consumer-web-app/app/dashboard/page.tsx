@@ -233,6 +233,10 @@ async function programHeroNode() {
       program={currentProgram.program}
       nextWorkout={currentProgram.nextWorkout}
       isNew={currentProgram.isNew}
+      /* Home's own label treatment, light enough to read on this card's
+         deep green. The card is shared with /movement, which passes
+         nothing and keeps the 12px eyebrow it has always had. */
+      labelClassName="mef-home-label-light"
     />
   );
 }

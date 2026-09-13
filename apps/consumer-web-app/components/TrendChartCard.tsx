@@ -50,6 +50,8 @@ type Props = {
    * range pills or the data changes.
    */
   emptyRangeMessage?: string;
+  /** Passed straight through to TrendChart. See its own note: additive, and only Home passes it. */
+  surfaceRadiusClass?: string;
 };
 
 export function TrendChartCard({
@@ -62,6 +64,7 @@ export function TrendChartCard({
   formatTooltip,
   metricName,
   emptyRangeMessage,
+  surfaceRadiusClass,
 }: Props) {
   const [range, setRange] = useState<TrendRange>('1w');
 
@@ -89,6 +92,7 @@ export function TrendChartCard({
             emptyRangeMessage ??
             `No ${metricName} data yet for the last ${TREND_RANGE_LABELS[range].toLowerCase()}.`
           }
+          {...(surfaceRadiusClass ? { surfaceRadiusClass } : {})}
         />
       </ScrollDrawIn>
     </div>

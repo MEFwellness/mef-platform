@@ -51,11 +51,22 @@ export function AssignedProgramsCard({
   program,
   nextWorkout,
   isNew = false,
+  labelClassName = 'text-xs font-semibold uppercase tracking-[0.18em]',
 }: {
   /** The program she is on, or null. Never a replaced or cancelled one: this card is about now. */
   program: MemberProgramView | null;
   /** Her next session in that program, or null when there is nothing ahead of her. */
   nextWorkout: CoachAssignedWorkout | null;
+  /**
+   * The eyebrow's type, for a screen with its own label system.
+   *
+   * ADDITIVE, AND ONLY HOME PASSES IT (2026-09-13). The default is the
+   * 12px this card has always drawn, which is what /movement still gets.
+   * Home now sets every section label at 11px through one class, and this
+   * card sits between two of them, so its eyebrow was the one line on
+   * that screen at a size nothing else used.
+   */
+  labelClassName?: string;
   /**
    * True while her coach has handed her this program and she has never
    * opened it. Decided from the event stream by
@@ -149,7 +160,7 @@ export function AssignedProgramsCard({
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="flex items-center gap-2 text-[#FAFAF8]/60">
             <Dumbbell className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-xs font-semibold uppercase tracking-[0.18em]">Your program</p>
+            <p className={labelClassName}>Your program</p>
           </div>
           {isNew && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F5B700] px-3 py-1 text-[11px] font-semibold tracking-wide text-[#1B3A2D]">

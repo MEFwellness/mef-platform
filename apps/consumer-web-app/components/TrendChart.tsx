@@ -174,6 +174,16 @@ type Props = {
   formatTooltip: (point: TrendChartPoint) => string;
   ariaLabel: string;
   emptyRangeMessage: string;
+  /**
+   * The radius the chart's own two surfaces take, as a Tailwind class.
+   *
+   * ADDITIVE, AND ONLY HOME PASSES IT (2026-09-13). The default is the
+   * 12px this chart has always drawn, which is what Progress and the
+   * coach view still get. Home standardized on one radius set for every
+   * card and panel on that screen, and these two surfaces were the only
+   * 12px left on it.
+   */
+  surfaceRadiusClass?: string;
 };
 
 export function TrendChart({
@@ -187,6 +197,7 @@ export function TrendChart({
   formatTooltip,
   ariaLabel,
   emptyRangeMessage,
+  surfaceRadiusClass = 'rounded-xl',
 }: Props) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const dateLabelsRef = useRef<HTMLDivElement>(null);
@@ -221,7 +232,9 @@ export function TrendChart({
 
   if (points.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-xl bg-white/40 p-4 text-center">
+      <div
+        className={`flex h-40 items-center justify-center bg-white/40 p-4 text-center ${surfaceRadiusClass}`}
+      >
         <p className="text-sm text-[#1B3A2D]/70">{emptyRangeMessage}</p>
       </div>
     );
@@ -259,7 +272,7 @@ export function TrendChart({
           ))}
         </div>
 
-        <div className="relative h-40 w-full overflow-hidden rounded-xl">
+        <div className={`relative h-40 w-full overflow-hidden ${surfaceRadiusClass}`}>
           <svg
             viewBox="0 0 100 100"
             preserveAspectRatio="none"

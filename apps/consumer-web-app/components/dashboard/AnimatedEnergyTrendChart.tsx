@@ -76,6 +76,10 @@ export function AnimatedEnergyTrendChart({
        * changes it. The default is untouched for every other caller.
        */
       emptyRangeMessage="Your energy line starts with your next Daily Reset."
+      /* Home carries one radius set and this chart's own two surfaces were
+         the only 12px left on that screen. Progress and the coach view
+         pass nothing and keep the 12px they have always had. */
+      surfaceRadiusClass="rounded-2xl"
     />
   );
 }
