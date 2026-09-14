@@ -63,6 +63,24 @@ const MEMBER_SURFACES = [
   'lib/fuel-pattern/meals/payload.ts',
   'lib/fuel-pattern/meals/preferences.ts',
   'lib/fuel-pattern/meals/selection.ts',
+  // Build 4's experiment layer. A third member payload, under the same
+  // rule as the first two, and needing the same proof that the fence is
+  // standing.
+  'app/api/fuel-pattern/experiment/route.ts',
+  'app/food-lens/my-experiment/page.tsx',
+  'app/food-lens/page.tsx',
+  'components/fuel-pattern/experiment/FuelExperimentSection.tsx',
+  'components/fuel-pattern/experiment/InsightCard.tsx',
+  'components/fuel-pattern/experiment/MyExperimentView.tsx',
+  'components/fuel-pattern/experiment/QuickCheckSheet.tsx',
+  'components/fuel-pattern/experiment/useFuelExperiment.ts',
+  'lib/fuel-pattern/experiment/copy.ts',
+  'lib/fuel-pattern/experiment/data.ts',
+  'lib/fuel-pattern/experiment/days.ts',
+  'lib/fuel-pattern/experiment/insights.ts',
+  'lib/fuel-pattern/experiment/memberPayload.ts',
+  'lib/fuel-pattern/experiment/payload.ts',
+  'lib/fuel-pattern/experiment/types.ts',
 ];
 
 /** What a coach reads and a member never does. */
@@ -70,6 +88,7 @@ const COACH_ONLY = [
   'lib/fuel-pattern/coachCopy.ts',
   'lib/fuel-pattern/coachView.ts',
   'lib/fuel-pattern/meals/coachView.ts',
+  'lib/fuel-pattern/experiment/coachView.ts',
   'app/actions/fuelPatternCoach.ts',
 ];
 

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Rooted Reset Fuel Pattern Assessment — the result experience (Build 2).
+ * Rooted Reset Fuel Pattern Assessment — the result experience.
  *
  * =====================================================================
  * THE REVEAL, AND WHY IT IS A STATE MACHINE RATHER THAN A SCROLL.
@@ -50,15 +50,27 @@
  * handed FpaMemberResult and that object has two fields
  * (lib/fuel-pattern/memberResult.ts), so there is nothing here to leak.
  *
- * Her meals (Build 3) sit between the plate and the forward look, and
- * they obey every rule above: every meal the section could ever show
- * came down with the page, a swap is chosen in her browser by the
- * server's own pure picker, and the server is told afterwards over a
- * route handler rather than a Server Action. So the meals section cannot
- * re-render this route and cannot replace the screen she is reading.
+ * Her meals (Build 3) and her 7 Day Fuel Experiment (Build 4) sit
+ * between the plate and the forward look, in that order, and both obey
+ * every rule above. Every meal the meals section could ever show came
+ * down with the page, a swap is chosen in her browser by the server's own
+ * pure picker, and the server is told afterwards over a route handler.
+ * Every check she has logged came down with the page too, so a new one is
+ * folded in and the standing insight recomputed in her browser by the
+ * server's own engine, and the server is told over the same kind of route
+ * handler. Neither section can re-render this route and neither can
+ * replace the screen she is reading.
  *
- * The 7 Day Fuel Experiment is Build 4. Nothing on this screen mentions,
- * promises or hints at it today.
+ * =====================================================================
+ * THE BUTTON AT THE FOOT SAYS WHICH MOMENT THIS IS.
+ * =====================================================================
+ *
+ * Before she has started a run, the page has one thing to offer and the
+ * bottom button is START MY EXPERIMENT, so the offer is not buried in a
+ * section she may not scroll to. Once a run is going or finished, the
+ * offer has been taken and the button is Continue. The two are the same
+ * control in two states rather than two controls, because a page with
+ * both would be asking her to choose between them.
  */
 
 import { useEffect, useState } from 'react';
@@ -77,10 +89,14 @@ import {
   fpaWatchForCopy,
 } from '@/lib/fuel-pattern/copy';
 import { FPA_NO_OBSERVATIONS_LINE } from '@/lib/fuel-pattern/observations';
+import { FPA_EXPERIMENT_START_LABEL } from '@/lib/fuel-pattern/experiment/copy';
+import type { FpaExperimentPayload } from '@/lib/fuel-pattern/experiment/payload';
 import { FPA_PLATE_GUIDE } from '@/lib/fuel-pattern/plate';
 import type { FpaMemberResult } from '@/lib/fuel-pattern/memberResult';
 import type { FpaMealsPayload } from '@/lib/fuel-pattern/meals/payload';
 import { FuelMealsSection } from './meals/FuelMealsSection';
+import { FuelExperimentSection } from './experiment/FuelExperimentSection';
+import { useFuelExperiment } from './experiment/useFuelExperiment';
 import { PLATE_COMPONENT, PlateIllustration } from './PlateIllustration';
 
 /** How long "Assessment complete." holds alone. */
@@ -108,12 +124,33 @@ export function FuelPatternResultView({
    * than drawn empty.
    */
   meals = null,
+  /**
+   * Her live run, her checks and her calendar day, all built on the
+   * server. Null only where the page could not read her experiment rows
+   * at all, in which case the section is absent rather than drawn empty.
+   */
+  experiment = null,
 }: {
   result: FpaMemberResult;
   withReveal: boolean;
   meals?: FpaMealsPayload | null;
+  experiment?: FpaExperimentPayload | null;
 }) {
   const router = useRouter();
+  /*
+    THE RUN LIVES HERE, not inside the section, because the button at the
+    foot of the page reads the same state the section does. Two copies of
+    "has she started" would be two answers to one question, which is the
+    standing one-source-of-truth rule applied to a single screen.
+
+    The hook holds state and callbacks only. It runs nothing on mount,
+    fetches nothing on mount and cannot be null, so calling it above the
+    early return for the first beat is safe and keeps the order of hooks
+    identical on every render.
+  */
+  const experimentState = useFuelExperiment(
+    experiment ?? { todayLocalDate: '', run: null, taggableMeals: [] }
+  );
   const [beat, setBeat] = useState<Beat>(withReveal ? 'complete' : 'full');
 
   useEffect(() => {
@@ -294,33 +331,53 @@ export function FuelPatternResultView({
             </section>
           </RevealOnScroll>
 
-          {/* 6. MEALS BUILT FOR YOUR PATTERN. Build 4's experiment belongs
-              directly below this one, and nothing is drawn for it today,
-              because a placeholder is a promise and the only thing this
-              page may say is what is true right now. */}
+          {/* 6. MEALS BUILT FOR YOUR PATTERN. */}
           {meals && <FuelMealsSection payload={meals} />}
 
-          {/* 7. WHAT ROOTED RESET WILL WATCH FOR. */}
+          {/* 7. YOUR 7-DAY FUEL EXPERIMENT. */}
+          {experiment && (
+            <FuelExperimentSection
+              state={experimentState}
+              taggableMeals={experiment.taggableMeals}
+            />
+          )}
+
+          {/* 8. WHAT ROOTED RESET WILL WATCH FOR, which now names the
+              experiment directly above it. */}
           <RevealOnScroll className="mt-5" delayMs={60}>
             <section className="rounded-[28px] bg-[#1B3A2D] p-6 shadow-[0_18px_44px_-28px_rgba(27,58,45,0.65)] sm:p-7">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#C4A050]">
                 {FPA_SECTION_HEADERS.watchFor}
               </p>
-              <p className="mt-4 text-[15.5px] leading-[1.75] text-[#F5F0E4]">
+              <p className="mt-4 text-[15.5px] leading-[1.75] text-[#F5F0E4]" data-fpa-digits>
                 {fpaWatchForCopy(pattern)}
               </p>
             </section>
           </RevealOnScroll>
 
-          {/* 8. Continue. */}
+          {/* 9. The one button at the foot, in whichever of its two
+              states this moment calls for. */}
           <RevealOnScroll className="mt-5" delayMs={60}>
-            <button
-              type="button"
-              onClick={() => router.push('/dashboard' as Route)}
-              className="mef-focus-ring mef-press block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-            >
-              {FPA_CONTINUE_LABEL}
-            </button>
+            {experiment && !experimentState.run ? (
+              <button
+                type="button"
+                onClick={experimentState.start}
+                disabled={experimentState.busy}
+                data-fpa-bottom-cta
+                className="mef-focus-ring mef-press block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold tracking-[0.08em] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-50"
+              >
+                {FPA_EXPERIMENT_START_LABEL}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard' as Route)}
+                data-fpa-bottom-cta
+                className="mef-focus-ring mef-press block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+              >
+                {FPA_CONTINUE_LABEL}
+              </button>
+            )}
           </RevealOnScroll>
         </>
       )}

@@ -43,6 +43,16 @@ import {
   buildFpaCoachMealReading,
   type FpaCoachMealReading,
 } from '@/lib/fuel-pattern/meals/coachView';
+import {
+  listFpaExperiments,
+  listFpaExperimentChecksForRuns,
+} from '@/lib/fuel-pattern/experiment/data';
+import {
+  buildFpaCoachExperimentReading,
+  FPA_COACH_EXPERIMENT_EMPTY,
+  type FpaCoachExperimentReading,
+} from '@/lib/fuel-pattern/experiment/coachView';
+import { memberTodayLocalDate } from '@/lib/time/memberToday';
 import { listCompletedPrimalPatternAssessments } from '@/lib/primal-pattern/store';
 import { PRIMAL_PATTERN_QUESTIONNAIRE_ID } from '@/lib/primal-pattern/questionnaire';
 import type { PrimalPatternResult } from '@/lib/primal-pattern/types';
@@ -94,6 +104,13 @@ export type CoachFuelPatternPanelState = {
    * sitting happened to be on the screen when she recorded it.
    */
   meals: FpaCoachMealReading;
+  /**
+   * Her 7 Day Fuel Experiment: the run she has going, and every run she
+   * has put away. NOT PER SITTING either, and for the same reason as the
+   * meal block: she has one run at a time and a run outlives the screen
+   * he happens to have open.
+   */
+  experiment: FpaCoachExperimentReading;
 };
 
 const EMPTY_MEALS: FpaCoachMealReading = {
@@ -108,6 +125,7 @@ const EMPTY_PANEL: CoachFuelPatternPanelState = {
   sittings: [],
   primalSittings: [],
   meals: EMPTY_MEALS,
+  experiment: FPA_COACH_EXPERIMENT_EMPTY,
 };
 
 /** The three Primal Pattern outcomes, in the words that questionnaire used. */
@@ -127,13 +145,23 @@ export async function getClientFuelPatternPanelAction(
   if (!(await isCoachOrAdmin(supabase, user.id))) return EMPTY_PANEL;
   if (!(await isMemberVisibleToStaff(supabase, clientId, user.id))) return EMPTY_PANEL;
 
-  const [rows, primal, exclusions, rejections, saves] = await Promise.all([
+  const [rows, primal, exclusions, rejections, saves, runs, memberToday] = await Promise.all([
     listFuelPatternResults(supabase, clientId),
     listCompletedPrimalPatternAssessments(supabase, clientId, PRIMAL_PATTERN_QUESTIONNAIRE_ID),
     listFpaMealExclusions(supabase, clientId),
     listFpaMealRejections(supabase, clientId),
     listFpaMealSaves(supabase, clientId),
+    listFpaExperiments(supabase, clientId),
+    // HER DAY, NOT HIS. Which day of the experiment she is on is a fact
+    // about where she is standing, and a coach in another timezone
+    // reading it from his own would be off by one for half of every day.
+    memberTodayLocalDate(supabase, clientId),
   ]);
+
+  const checksByRun = await listFpaExperimentChecksForRuns(
+    supabase,
+    runs.map((run) => run.id)
+  );
 
   return {
     memberId: clientId,
@@ -152,6 +180,7 @@ export async function getClientFuelPatternPanelAction(
       label: PRIMAL_RESULT_LABEL[row.result],
     })),
     meals: buildFpaCoachMealReading({ exclusions, rejections, saves }),
+    experiment: buildFpaCoachExperimentReading({ runs, checksByRun, todayLocalDate: memberToday }),
   };
 }
 

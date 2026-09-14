@@ -18,14 +18,23 @@
  *   7. Pattern over time, when there is more than one sitting.
  *   8. Her meal preferences: what she has told her meal cards she does
  *      not eat, what she rejected and what she kept.
- *   9. Her Primal Pattern history, untouched, so the nutrition record on
+ *   9. Her 7 Day Fuel Experiment: where the run stands, every check she
+ *      logged, the insight standing over them and the ones that stood
+ *      before it, and every run she has put away.
+ *  10. Her Primal Pattern history, untouched, so the nutrition record on
  *      this page is one record rather than two.
  *
- * THE MEAL BLOCK IS NOT PER SITTING. Everything above it belongs to one
- * reading taken on one day, and the sitting chips at the top switch
- * between them. A standing preference is a fact about her that outlives
- * every retake, so it sits below the sittings rather than inside one, and
- * it does not move when he changes the chip.
+ * THE MEAL BLOCK AND THE EXPERIMENT BLOCK ARE NOT PER SITTING.
+ * Everything above them belongs to one reading taken on one day, and the
+ * sitting chips at the top switch between them. A standing preference is
+ * a fact about her that outlives every retake, and a run of the
+ * experiment is the one thing she has going right now, so both sit below
+ * the sittings rather than inside one and neither moves when he changes
+ * the chip.
+ *
+ * THE EXPERIMENT BLOCK IS WHERE THE ARC CLOSES FOR HIM. The card above
+ * it is a hypothesis: a pattern, a confidence and the answers behind
+ * both. This is what happened when she took it into a real week.
  *
  * IT IS A READING, NEVER A DIAGNOSIS. The discomfort flag is printed with
  * the sentence that says it was never scored and did not move the
@@ -46,6 +55,10 @@ import { formatDisplayDate } from '@/lib/time/displayDate';
 import { FPA_LABEL } from '@/lib/fuel-pattern/constants';
 import type { CoachFuelPatternPanelState } from '@/app/actions/fuelPatternCoach';
 import type { FpaCoachMealReading } from '@/lib/fuel-pattern/meals/coachView';
+import type {
+  FpaCoachExperimentReading,
+  FpaCoachExperimentRun,
+} from '@/lib/fuel-pattern/experiment/coachView';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const SUB_HEADER = 'text-xs font-semibold uppercase tracking-wider text-[#6B7A72]';
@@ -213,7 +226,10 @@ export function FuelPatternPanel({ state }: { state: CoachFuelPatternPanelState 
       {/* 8. Her meal preferences, as she recorded them on her own cards. */}
       <MealPreferencesBlock meals={state.meals} />
 
-      {/* 9. The record that came before, exactly as it was stored. */}
+      {/* 9. Her 7 Day Fuel Experiment, run by run. */}
+      <FuelExperimentBlock experiment={state.experiment} />
+
+      {/* 10. The record that came before, exactly as it was stored. */}
       {state.primalSittings.length > 0 && (
         <div className="mt-6 border-t border-[#1B3A2D]/8 pt-5">
           <p className={SUB_HEADER}>Before this instrument</p>
@@ -360,6 +376,168 @@ function MealPreferencesBlock({ meals }: { meals: FpaCoachMealReading }) {
             )}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * THE FUEL EXPERIMENT.
+ *
+ * READ ONLY, AND IT GRADES NOTHING. There is no adherence figure and no
+ * "she only logged three", because there is no target for either to be
+ * measured against: the run completes on day 7 however many checks it
+ * holds. What he gets is the status, every check in her own three
+ * answers, and the approved lines she actually read.
+ *
+ * ARCHIVED RUNS ARE FOLDED, NOT DROPPED. They are usually the second
+ * question he has, so they open one tap under the current run and carry
+ * the reason each one ended.
+ */
+function FuelExperimentBlock({ experiment }: { experiment: FpaCoachExperimentReading }) {
+  const [showArchived, setShowArchived] = useState(false);
+
+  return (
+    <div className="mt-6 border-t border-[#1B3A2D]/8 pt-5">
+      <p className={SUB_HEADER}>Fuel experiment</p>
+
+      {!experiment.current && experiment.archived.length === 0 ? (
+        <p className="mt-1.5 text-sm text-[#6B7A72]">Not started.</p>
+      ) : (
+        <>
+          {experiment.current ? (
+            <ExperimentRun run={experiment.current} />
+          ) : (
+            <p className="mt-1.5 text-sm text-[#6B7A72]">
+              No experiment running right now.
+            </p>
+          )}
+
+          {experiment.archived.length > 0 && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setShowArchived((open) => !open)}
+                aria-expanded={showArchived}
+                className="mef-focus-ring mef-press flex w-full items-center justify-between gap-3 rounded-2xl bg-[#F3F6F4] px-4 py-3 text-left"
+              >
+                <span className="text-sm font-medium text-[#1B3A2D]">
+                  Earlier runs: {experiment.archived.length}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 text-[#6B7A72] transition-transform ${
+                    showArchived ? 'rotate-180' : ''
+                  }`}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+              </button>
+              {showArchived && (
+                <div className="mt-2 space-y-4">
+                  {experiment.archived.map((run) => (
+                    <ExperimentRun key={run.id} run={run} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+const RUN_STATUS_LABEL: Record<string, string> = {
+  active: 'Running',
+  complete: 'Week complete',
+  archived: 'Put away',
+};
+
+function ExperimentRun({ run }: { run: FpaCoachExperimentRun }) {
+  return (
+    <div className="mt-3 rounded-2xl border border-[#1B3A2D]/8 bg-[#FDFCF8] p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-medium text-[#1B3A2D]">
+          Started {formatDisplayDate(run.startedOn, { month: 'short', day: 'numeric', year: 'numeric' })}
+        </p>
+        <p className="text-xs text-[#6B7A72]">
+          {run.dayLine ?? RUN_STATUS_LABEL[run.status] ?? run.status}
+          {run.acknowledged ? ', she pressed Done' : ''}
+        </p>
+      </div>
+      <p className="mt-0.5 text-xs text-[#6B7A72]">
+        Testing her {run.patternLabel} reading
+        {run.archivedReason ? `. ${run.archivedReason}` : ''}
+      </p>
+
+      {/* The counted claim names the window it counted, always. */}
+      <p className="mt-3 text-sm text-[#3F5B50]">
+        {run.checkCount === 1 ? '1 check logged' : `${run.checkCount} checks logged`} in this run.
+      </p>
+
+      {run.standingInsight && (
+        <div className="mt-3 rounded-xl border border-[#C4A050]/35 bg-[#FDF9EF] p-3">
+          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-[#B89340]">
+            Standing: {run.standingInsight.header}
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">{run.standingInsight.body}</p>
+          <p className="mt-1 text-xs text-[#6B7A72]">
+            Took its place after check {run.standingInsight.afterCheckCount}.
+          </p>
+        </div>
+      )}
+
+      {run.insightHistory.length > 1 && (
+        <div className="mt-3">
+          <p className="text-xs font-medium uppercase tracking-wider text-[#9AA79F]">
+            Insights before it
+          </p>
+          <ul className="mt-1.5 space-y-1.5">
+            {run.insightHistory.slice(0, -1).map((insight, index) => (
+              <li key={`${insight.id}-${index}`} className="text-sm leading-relaxed text-[#3F5B50]">
+                {insight.header}, after check {insight.afterCheckCount}: {insight.body}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="mt-3">
+        <p className="text-xs font-medium uppercase tracking-wider text-[#9AA79F]">
+          Every check
+        </p>
+        {run.checks.length === 0 ? (
+          <p className="mt-1.5 text-sm text-[#6B7A72]">None logged.</p>
+        ) : (
+          <ul className="mt-1.5 divide-y divide-[#1B3A2D]/5">
+            {run.checks.map((check) => (
+              <li key={check.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
+                <span className="text-sm text-[#1B3A2D]">
+                  {formatDisplayDate(check.loggedOn, { month: 'short', day: 'numeric' })}:{' '}
+                  {check.energyLabel}, {check.hungerLabel}, {check.clarityLabel}
+                </span>
+                {(check.mealName ?? check.mealTypeLabel) && (
+                  <span className="shrink-0 text-xs text-[#6B7A72]">
+                    {check.mealName ?? check.mealTypeLabel}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {run.completionSummary && (
+        <div className="mt-3 border-t border-[#1B3A2D]/8 pt-3">
+          <p className="text-xs font-medium uppercase tracking-wider text-[#9AA79F]">
+            What she read at the end of the week
+          </p>
+          {run.completionSummary.map((line) => (
+            <p key={line} className="mt-1.5 text-sm leading-relaxed text-[#3F5B50]">
+              {line}
+            </p>
+          ))}
+        </div>
       )}
     </div>
   );

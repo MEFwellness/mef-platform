@@ -275,12 +275,22 @@ describe('the reveal', () => {
     act(() => {
       root.render(<FuelPatternResultView result={result} withReveal={false} />);
     });
-    const text = container.textContent ?? '';
     for (const word of ['score', 'Score', 'confidence', 'Confidence', 'tendency']) {
-      expect(text, word).not.toContain(word);
+      expect(container.textContent ?? '', word).not.toContain(word);
     }
-    // Every proportion on this page is a word, so a digit anywhere is a
-    // number that escaped.
+    /*
+      EVERY PROPORTION ON THIS PAGE IS A WORD, so a digit anywhere else is
+      a number that escaped. Build 4 added the two places a digit is
+      allowed: the 7 Day Fuel Experiment's own section, and the forward
+      look that now names it. Both are marked data-fpa-digits, they are
+      removed here, and the rest of the page still has to hold none at
+      all. tests/fuel-pattern-result-page.test.tsx proves the marked nodes
+      really do carry the digits, so this is not a way to hide one.
+    */
+    for (const node of Array.from(container.querySelectorAll('[data-fpa-digits]'))) {
+      node.remove();
+    }
+    const text = container.textContent ?? '';
     expect(text, text).not.toMatch(/[0-9]/);
   });
 });

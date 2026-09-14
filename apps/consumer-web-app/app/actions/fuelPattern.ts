@@ -40,6 +40,12 @@ import {
   buildFpaMealsPayload,
   type FpaMealsPayload,
 } from '@/lib/fuel-pattern/meals/memberPayload';
+import {
+  buildFpaExperimentPayload,
+  fpaTaggableMealsFromCards,
+  type FpaExperimentPayload,
+} from '@/lib/fuel-pattern/experiment/memberPayload';
+import { archiveFpaExperimentsFromOtherSittings } from '@/lib/fuel-pattern/experiment/data';
 
 const FPA_ROUTES = {
   overview: FPA_ROUTE,
@@ -132,7 +138,12 @@ export async function submitFpaAnswerAction(
  * reveal hold instead of being replaced by something arriving late.
  */
 export type CompleteFpaResult =
-  | { ok: true; reveal: FpaMemberResult; meals: FpaMealsPayload }
+  | {
+      ok: true;
+      reveal: FpaMemberResult;
+      meals: FpaMealsPayload;
+      experiment: FpaExperimentPayload;
+    }
   | { ok: false; error: string };
 
 export async function completeFpaAssessmentAction(sessionId: string): Promise<CompleteFpaResult> {
@@ -195,16 +206,44 @@ export async function completeFpaAssessmentAction(sessionId: string): Promise<Co
   */
   const reading = stored ?? { pattern: scoring.pattern, responses: scoring.responses };
 
+  /*
+    THE RETAKE RULE, AND THE ONLY WRITE THIS FEATURE MAKES OUTSIDE ITS OWN
+    ROUTE HANDLER.
+
+    A run of the 7 Day Fuel Experiment belongs to the sitting she started
+    it from, and a sitting she has just FINISHED supersedes it: the
+    hypothesis it was testing is no longer the one she holds. So the run
+    is archived, with every check inside it kept and still visible to her
+    coach, and the result page she is about to meet offers a fresh start.
+
+    It is here rather than on the retake BUTTON because a retake she
+    abandons half way through should not cost her a live experiment, and
+    it is keyed on the session rather than on a time so that a second call
+    inside the same second, which a Server Action re-render makes
+    ordinary, finds nothing left to archive. A first sitting archives
+    nothing, because there is nothing to archive.
+
+    This is a Server Action behind the last button of a sitting, not a
+    render. A render never decides anything.
+  */
+  await archiveFpaExperimentsFromOtherSittings(supabase, memberId, sessionId);
+
+  const meals = await buildFpaMealsPayload(supabase, memberId, reading.pattern);
+
   return {
     ok: true,
     reveal: buildFpaMemberResult(reading),
     /*
-      HER MEALS COME BACK WITH HER READING, in the same response, for the
-      same reason everything else on that screen does: the reveal holds
-      only while nothing on it is waiting on something that could arrive
-      late and replace it. Building this payload is a read.
+      HER MEALS AND HER EXPERIMENT COME BACK WITH HER READING, in the same
+      response, for the same reason everything else on that screen does:
+      the reveal holds only while nothing on it is waiting on something
+      that could arrive late and replace it. Building both payloads is a
+      read.
     */
-    meals: await buildFpaMealsPayload(supabase, memberId, reading.pattern),
+    meals,
+    experiment: await buildFpaExperimentPayload(supabase, memberId, {
+      taggableMeals: fpaTaggableMealsFromCards(meals),
+    }),
   };
 }
 
@@ -213,16 +252,25 @@ export async function completeFpaAssessmentAction(sessionId: string): Promise<Co
  * with her meals alongside it. Returns null when the sitting is not hers
  * or has no stored row.
  */
-export async function getMyFpaRevealAction(
-  sessionId: string
-): Promise<{ reveal: FpaMemberResult; meals: FpaMealsPayload } | null> {
+export async function getMyFpaRevealAction(sessionId: string): Promise<{
+  reveal: FpaMemberResult;
+  meals: FpaMealsPayload;
+  experiment: FpaExperimentPayload;
+} | null> {
   const memberId = await requireMemberId();
   if (!memberId) return null;
   const supabase = createClient();
   const row = await findFuelPatternResultBySession(supabase, sessionId);
   if (!row || row.memberId !== memberId) return null;
+  const meals = await buildFpaMealsPayload(supabase, memberId, row.pattern);
   return {
     reveal: buildFpaMemberResult(row),
-    meals: await buildFpaMealsPayload(supabase, memberId, row.pattern),
+    meals,
+    // A READ, EVEN HERE. This is the one request the reveal ever makes,
+    // and it must not start, acknowledge or archive anything: a member
+    // who reloads on her result page has decided nothing by reloading.
+    experiment: await buildFpaExperimentPayload(supabase, memberId, {
+      taggableMeals: fpaTaggableMealsFromCards(meals),
+    }),
   };
 }

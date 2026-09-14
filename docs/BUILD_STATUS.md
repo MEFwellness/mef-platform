@@ -1,3 +1,175 @@
+## Rooted Reset Fuel Pattern Assessment, Build 4 of 4: the 7 Day Fuel Experiment (2026-09-14)
+
+The arc closes. Builds 1 to 3 end with a hypothesis: a reading, a
+starting range, a plate and four meals drawn from all three. This is how
+it gets tested. She starts a run, logs a ten second check after a meal,
+and the app looks for a pattern in what she noticed. **Migration 238.**
+
+### THE CHECK IS THREE TAPS AND THERE IS NO SUBMIT BUTTON
+
+A Save button would make an ordinary check four taps and turn a moment of
+noticing into a small form. So the row is written the instant the third
+required answer lands, the sheet says "Noted. That helps." and closes.
+
+**Which is why the optional meal row is on screen from the first tick.**
+If it appeared after the third tap it would need a second write to attach
+itself to a row that already exists, and a second write is a second thing
+that can fail. Sitting there from the start, below the three questions
+and marked optional, it is genuinely one tap at any point before she
+finishes. A tapped meal brings its OWN meal type with it, enforced on the
+server, because a check that said "lunch" while naming a breakfast would
+file a low energy reading under the wrong part of her day, and that is
+exactly what the meal_type_flag insight reads.
+
+The sheet has no streak, no score, no target and no apology. Several
+checks in a day are ordinary and a day with none is ordinary, so there is
+nothing for either to be measured against.
+
+### THE INSIGHT LIBRARY IS CODE AND THE HISTORY IS NOT STORED AT ALL
+
+Five approved insights, each paired with an evidence rule over her logged
+checks, in `lib/fuel-pattern/experiment/insights.ts`. Code for the reason
+the seventy two meals are code: every word of it is copy a member reads,
+and the guards that keep an em dash or a prescriptive phrase off her
+screen walk source files with the TypeScript compiler and cannot see
+inside a database.
+
+**The standing insight is not stored either, and that is the decision
+worth writing down.** It is replayed from her checks in the order she
+logged them, by a pure function, so there is no "current insight" column
+to drift from the rows it claims to describe and the coach's history and
+her screen are literally the same function over the same rows. Her
+browser recomputes it after a check with the server's own engine, which
+is what keeps a tap off the router.
+
+**One at a time, and it only ever moves upwards.** With nothing standing,
+the highest priority qualifying insight takes the place. With something
+standing, it is replaced only by a HIGHER priority insight that has newly
+qualified. That is not a detail: `holding_well` is the weakest insight in
+the library, and without the rule a calm stretch after three Hungry
+checks would quietly cover up a signal she gave. `meal_type_flag` counts
+only checks where she named the meal, because an untagged low energy
+check is real information about her energy and no information at all
+about which meal.
+
+### IT CANNOT BOUNCE THE PAGE IT SITS ON
+
+Build 2's result screen holds because nothing on it can re-render its own
+route, and Build 3's meals joined it under that rule. The experiment does
+the same, deliberately:
+
+- **Every check she has logged came down with the page**, so a new one is
+  folded in and the standing insight recomputed in her browser rather
+  than fetched.
+- **Every tap is a POST to `app/api/fuel-pattern/experiment/route.ts`**
+  which answers with a few bytes of JSON. No Server Action, no
+  `router.refresh`, no revalidation anywhere in the feature.
+- **Nothing runs on mount.** There is no effect in the hook at all, so a
+  member who opens the page and touches nothing leaves no row behind.
+
+The one write outside that route is the retake archive, and it lives in
+the completion Server Action behind the last button of a sitting.
+
+### THE DAY IS ALWAYS HERS, AND IT ALWAYS COMES FROM THE SERVER
+
+`started_on` and `logged_on` are `date` columns, not timestamps: day 1 is
+the day she pressed the button where she was standing. Every screen is
+handed `todayLocalDate`, resolved on the server from her own timezone
+through `lib/time/memberToday.ts`, and `lib/fuel-pattern/experiment/days.ts`
+subtracts two bare calendar days, so a daylight saving boundary inside
+the week cannot move the counter. The coach panel reads HER day too,
+because a coach in another timezone reading it from his own would be off
+by one for half of every day.
+
+### THE RETAKE RULE, KEYED ON THE SITTING
+
+A run records the sitting it was started from. Finishing a NEW sitting
+archives the run belonging to any other one, with every check kept and
+still visible to the coach, and the new result page offers a fresh start.
+It is keyed on the session rather than on a timestamp so that it is
+idempotent, and it is at the END of a retake rather than at the button so
+that a retake she abandons half way through does not cost her a live
+experiment.
+
+`fuel_experiments` carries a partial unique index on `(member_id) where
+archived_at is null`, so "one live run per member" is a rule the database
+keeps rather than one a read-before-insert hopes for.
+
+### THE DIGIT RULE CHANGED SHAPE RATHER THAN BEING DROPPED
+
+Build 2's result page contains no digit at all, on purpose. A seven day
+experiment cannot say which day she is on in words without being coy, so
+this build marks every node that legitimately carries a number with
+`data-fpa-digits`: the section header, the invitation, the day counter,
+the check count, the hunger question's own header and the forward look
+that now names the experiment. `tests/fuel-pattern-result-page.test.tsx`
+removes those nodes and the prep times, requires no digit anywhere in
+what is left, and separately asserts that every marked node really does
+carry one, so neither set is a hiding place.
+
+### WHERE SHE MEETS IT
+
+The section on the result page, between the meals and the forward look,
+and a My Fuel Experiment tile in the Food Lens grid beside My Meals
+carrying the day she is on. The tile opens `/food-lens/my-experiment`,
+which draws the same four states through the same component and adds the
+list of what she has actually noticed. No new bottom-nav item, for the
+reason My Meals did not get one.
+
+The Priority Card engine, the Daily Check-In, the notification system,
+the take flow, the scoring and the meals system are untouched.
+
+### THE FORWARD LOOK NOW NAMES IT
+
+`fpaWatchForCopy` was written in Build 2 as one shared block for exactly
+this swap, and this is the single change that made it: her starting point
+is still a hypothesis, and the 7 Day Fuel Experiment is now how it gets
+tested.
+
+### THE COACH'S SIDE
+
+A Fuel experiment block at the foot of the Fuel Pattern card, under the
+meal preferences and above the Primal Pattern history. Status and the day
+she is on, every check in her own three answers with its meal tag, the
+standing insight with the check it took its place after, the insights
+that stood before it, the summary she read at the end of the week, and
+every archived run one tap under the live one with the reason each ended.
+Read only, nothing written on render, test accounts excluded through the
+existing `isMemberVisibleToStaff` in the data layer.
+
+**It grades nothing.** There is no adherence figure and no "she only
+logged three", because the run completes on day 7 however many checks it
+holds and there is no target for either to be measured against. A test
+serializes the whole reading and asserts those words are not in it.
+
+### TESTS
+
+Three new files: `fuel-pattern-experiment-insights.test.ts` (22),
+`fuel-pattern-experiment.test.ts` (29),
+`fuel-pattern-quick-check.test.tsx` (14, the real sheet mounted and
+really tapped). Four existing files were updated to describe the new
+truth rather than the old one: the result page test (which now renders
+the page with its experiment on it and proves the order, the two states
+of the bottom button and all four states of the section), the take flow
+test, the content voice guard (which now scans every word of the
+experiment, the five insights included) and the import graph fence (which
+now walks all fourteen new member files and proves none of them can reach
+`lib/fuel-pattern/experiment/coachView.ts`).
+
+Full suite 607 files, 11,574 tests, all passing. Typecheck clean, lint
+clean, production build clean.
+
+### WHAT IS IN THE DATABASE
+
+Migration 238, two tables. `fuel_experiments` (one run: the sitting, the
+pattern it is testing, the start day, the DONE stamp, the archive stamp
+and why) and `fuel_experiment_checks` (three answers, an optional meal
+type and an optional meal id). Both member written, both from the route
+handler behind an explicit tap, both carrying a coach read policy. There
+is no score column and no streak column, because nothing about this is
+graded. Nothing is ever deleted: an archived run keeps every check inside
+it.
+
 ## Rooted Reset Fuel Pattern Assessment, Build 3 of 4: the meal system (2026-09-14)
 
 Her result page now carries meals. Four cards, one per part of the day,

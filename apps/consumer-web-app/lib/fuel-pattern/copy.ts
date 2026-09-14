@@ -14,12 +14,12 @@
  * lib/fuel-pattern/coachCopy.ts so that her screens cannot import them
  * even by accident.
  *
- * BUILD 2 OF 4. This is the full result experience: the reveal, the four
- * supporting sections and the forward look. Meals and the 7 Day Fuel
- * Experiment are Builds 3 and 4; nothing here mentions, promises or
- * gestures at either of them, and FPA_WATCH_FOR_COPY is deliberately one
- * shared block so that handing off into the experiment later is a single
- * change in one place.
+ * ALL FOUR BUILDS ARE IN NOW. This file is the reveal, the four
+ * supporting sections and the forward look. The meals have their own
+ * vocabulary in lib/fuel-pattern/meals/copy.ts and the 7 Day Fuel
+ * Experiment has its own in lib/fuel-pattern/experiment/copy.ts, which is
+ * also the only other member facing file in this instrument allowed to
+ * print a digit.
  */
 
 import type { FuelPattern } from './types';
@@ -132,13 +132,22 @@ export const FPA_RANGE_FOOTNOTE =
   'This is a starting point, not a prescription. It is meant to be refined through your own feedback over time.';
 
 /**
- * THE ONE FORWARD LOOKING BLOCK, AND IT PROMISES NOTHING THAT DOES NOT
- * EXIST. No experiment, no check-in, no meal feedback, because none of
- * those has shipped. When Build 4 does ship, this function is the single
- * place that changes.
+ * THE ONE FORWARD LOOKING BLOCK, AND IT NOW NAMES THE THING THAT TESTS
+ * THE READING.
+ *
+ * Build 2 wrote this as one shared block for exactly this swap: until
+ * Build 4 shipped it promised nothing, because nothing existed, and the
+ * handoff into the experiment was always going to be a single change in
+ * a single place. This is that change. The section above it offers the
+ * 7 Day Fuel Experiment; this one says what it is for.
+ *
+ * IT IS THE ONLY MEMBER FACING SENTENCE OUTSIDE
+ * lib/fuel-pattern/experiment/copy.ts THAT CARRIES A DIGIT, and it
+ * carries one because the experiment has a name and its name has a seven
+ * in it.
  */
 export function fpaWatchForCopy(pattern: FuelPattern): string {
-  return `Your ${FUEL_PATTERN_LABEL[pattern]} starting point is a hypothesis, not a verdict. Over the coming days, notice how your energy holds between meals, how satisfied you feel an hour or two after eating, and how clearly you think through the afternoon. What you notice is exactly the kind of information that refines a starting pattern into one that truly fits you.`;
+  return `Your ${FUEL_PATTERN_LABEL[pattern]} starting point is a hypothesis, not a verdict. Your 7-Day Fuel Experiment is how it gets tested. What you notice after real meals is exactly the kind of information that refines a starting pattern into one that truly fits you.`;
 }
 
 /** The button that ends the page. It returns her to the dashboard and says so. */

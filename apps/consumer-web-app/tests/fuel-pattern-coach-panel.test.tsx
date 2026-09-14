@@ -97,11 +97,15 @@ function render(state: CoachFuelPatternPanelState) {
 /** Nothing recorded on her meal cards. Build 3's block draws one line and no control. */
 const NO_MEALS = { preferences: [], rejections: [], savedCount: 0, saved: [] };
 
+/** She has never started a run. Build 4's block draws one line and no control. */
+const NO_EXPERIMENT = { current: null, archived: [] };
+
 const EMPTY: CoachFuelPatternPanelState = {
   memberId: 'member-1',
   sittings: [],
   primalSittings: [],
   meals: NO_MEALS,
+  experiment: NO_EXPERIMENT,
 };
 
 describe('1. what the coach sees', () => {
@@ -116,6 +120,7 @@ describe('1. what the coach sees', () => {
     sittings: [toSitting('a', '2026-09-12T10:00:00.000Z', responses)],
     primalSittings: [],
     meals: NO_MEALS,
+    experiment: NO_EXPERIMENT,
   };
 
   it('names the instrument, the pattern and the confidence level', () => {
@@ -174,6 +179,7 @@ describe('2. pattern over time, and the record that came before', () => {
       },
     ],
     meals: NO_MEALS,
+    experiment: NO_EXPERIMENT,
   };
 
   it('lists every sitting with its date, pattern and confidence, most recent first', () => {
@@ -226,6 +232,7 @@ describe('3. it is read only, and it is on the page', () => {
       sittings: [toSitting('a', '2026-09-12T10:00:00.000Z', sitting('protein'))],
       primalSittings: [],
       meals: NO_MEALS,
+      experiment: NO_EXPERIMENT,
     };
     render(state);
     // A single sitting draws no chips, so a single sitting draws no button.
@@ -251,5 +258,162 @@ describe('3. it is read only, and it is on the page', () => {
     expect(page).toContain('id="detail-card-fuel-pattern"');
     const sections = fs.readFileSync(path.join(ROOT, 'lib/coach-detail/sections.ts'), 'utf8');
     expect(sections).toContain("{ id: 'detail-card-fuel-pattern', title: FPA_LABEL }");
+  });
+});
+
+/**
+ * BUILD 4: THE FUEL EXPERIMENT BLOCK.
+ *
+ * It is the coach's window into what happened when she took the
+ * hypothesis into a real week, and the two things it must never do are
+ * grade her and lose an archived run.
+ */
+describe('the fuel experiment block', () => {
+  const TODAY = '2026-09-14';
+
+  function coachCheck(partial: { id: string } & Record<string, unknown>) {
+    return {
+      loggedOn: TODAY,
+      energyLabel: 'Steady',
+      hungerLabel: 'Comfortable',
+      clarityLabel: 'Normal',
+      mealTypeLabel: null,
+      mealName: null,
+      ...partial,
+    };
+  }
+
+  function coachRun(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'run-1',
+      patternLabel: 'Protein-Supportive',
+      startedOn: '2026-09-12',
+      status: 'active' as const,
+      dayLine: 'Day 3 of 7',
+      checkCount: 1,
+      checks: [coachCheck({ id: 'c1' })],
+      insightHistory: [],
+      standingInsight: null,
+      completionSummary: null,
+      acknowledged: false,
+      archivedAt: null,
+      archivedReason: null,
+      ...overrides,
+    };
+  }
+
+  function withExperiment(experiment: CoachFuelPatternPanelState['experiment']) {
+    return render({ ...EMPTY, experiment });
+  }
+
+  it('says Not started when she has never begun one', () => {
+    const text = withExperiment({ current: null, archived: [] });
+    expect(text).toContain('Fuel experiment');
+    expect(text).toContain('Not started.');
+  });
+
+  it('shows the day, the count and every check in her own three answers', () => {
+    const text = withExperiment({
+      current: coachRun({
+        checks: [
+          coachCheck({ id: 'c1', energyLabel: 'Low', hungerLabel: 'Hungry', clarityLabel: 'Foggy' }),
+          coachCheck({ id: 'c2', mealName: 'Grilled Chicken Salad with Avocado and Quinoa' }),
+        ],
+        checkCount: 2,
+      }),
+      archived: [],
+    });
+    expect(text).toContain('Day 3 of 7');
+    expect(text).toContain('2 checks logged in this run.');
+    expect(text).toContain('Low, Hungry, Foggy');
+    expect(text).toContain('Grilled Chicken Salad with Avocado and Quinoa');
+    expect(text).toContain('Testing her Protein-Supportive reading');
+  });
+
+  it('shows the standing insight and the ones that stood before it', () => {
+    const text = withExperiment({
+      current: coachRun({
+        checkCount: 6,
+        insightHistory: [
+          {
+            id: 'foggy_pattern',
+            header: 'WE NOTICED SOMETHING',
+            body: 'The earlier one.',
+            afterCheckCount: 3,
+          },
+          {
+            id: 'hungry_soon',
+            header: 'WE NOTICED SOMETHING',
+            body: 'The one standing now.',
+            afterCheckCount: 6,
+          },
+        ],
+        standingInsight: {
+          id: 'hungry_soon',
+          header: 'WE NOTICED SOMETHING',
+          body: 'The one standing now.',
+          afterCheckCount: 6,
+        },
+      }),
+      archived: [],
+    });
+    expect(text).toContain('Standing: WE NOTICED SOMETHING');
+    expect(text).toContain('The one standing now.');
+    expect(text).toContain('Insights before it');
+    expect(text).toContain('The earlier one.');
+  });
+
+  it('shows what she read at the end of a finished week', () => {
+    const text = withExperiment({
+      current: coachRun({
+        status: 'complete',
+        dayLine: null,
+        acknowledged: true,
+        completionSummary: ['You logged 6 checks this week.', 'An insight.', 'A closing line.'],
+      }),
+      archived: [],
+    });
+    expect(text).toContain('Week complete');
+    expect(text).toContain('she pressed Done');
+    expect(text).toContain('What she read at the end of the week');
+    expect(text).toContain('You logged 6 checks this week.');
+  });
+
+  it('keeps an archived run, with the reason it ended, one tap away', () => {
+    const text = withExperiment({
+      current: null,
+      archived: [
+        coachRun({
+          id: 'run-0',
+          status: 'archived',
+          dayLine: null,
+          archivedAt: '2026-09-11T09:00:00.000Z',
+          archivedReason: 'Ended by a retake of the assessment',
+        }),
+      ],
+    });
+    expect(text).toContain('No experiment running right now.');
+    expect(text).toContain('Earlier runs: 1');
+
+    const toggle = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Earlier runs')
+    )!;
+    act(() => {
+      toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    const opened = container.textContent ?? '';
+    expect(opened).toContain('Ended by a retake of the assessment');
+    expect(opened).toContain('Steady, Comfortable, Normal');
+  });
+
+  it('grades nothing anywhere in the block', () => {
+    const text = withExperiment({
+      current: coachRun({ checkCount: 0, checks: [] }),
+      archived: [],
+    }).toLowerCase();
+    for (const word of ['adherence', 'compliance', 'streak', 'only logged', 'should have']) {
+      expect(text, word).not.toContain(word);
+    }
+    expect(text).toContain('none logged.');
   });
 });

@@ -37,6 +37,18 @@ import {
   fpaWatchForCopy,
 } from '../lib/fuel-pattern/copy';
 import { FPA_NO_OBSERVATIONS_LINE, FPA_OBSERVATION_RULES } from '../lib/fuel-pattern/observations';
+import {
+  FPA_EXPERIMENT_ACTIVE_LEAD,
+  FPA_EXPERIMENT_COMPLETED_QUIET,
+  FPA_EXPERIMENT_COMPLETION,
+  FPA_EXPERIMENT_HEADER,
+  FPA_EXPERIMENT_INVITATION,
+  FPA_MY_EXPERIMENT,
+  FPA_QUICK_CHECK,
+  fpaExperimentCheckLine,
+  fpaExperimentCompletionCheckLine,
+} from '../lib/fuel-pattern/experiment/copy';
+import { FPA_INSIGHT_RULES } from '../lib/fuel-pattern/experiment/insights';
 import { FPA_PLATE_GUIDE } from '../lib/fuel-pattern/plate';
 import type { FuelPattern } from '../lib/fuel-pattern/types';
 
@@ -219,6 +231,24 @@ describe('the member facing voice', () => {
       q.description ?? '',
       ...q.options.flatMap((o) => [o.label, o.detail ?? '']),
     ]),
+    // Build 4. Every word of the 7 Day Fuel Experiment goes through the
+    // same voice check as every word above it, including the five
+    // approved insights, because an insight that follows three real meals
+    // is one step from an instruction.
+    FPA_EXPERIMENT_HEADER,
+    FPA_EXPERIMENT_INVITATION,
+    FPA_EXPERIMENT_ACTIVE_LEAD,
+    FPA_EXPERIMENT_COMPLETED_QUIET,
+    ...Object.values(FPA_EXPERIMENT_COMPLETION),
+    ...Object.values(FPA_QUICK_CHECK),
+    ...Object.values(FPA_MY_EXPERIMENT),
+    ...FPA_INSIGHT_RULES.flatMap((rule) => [rule.header, rule.body]),
+    fpaExperimentCheckLine(0),
+    fpaExperimentCheckLine(1),
+    fpaExperimentCheckLine(5),
+    fpaExperimentCompletionCheckLine(0),
+    fpaExperimentCompletionCheckLine(1),
+    fpaExperimentCompletionCheckLine(5),
   ];
 
   it('never says any of the things this instrument is not allowed to say', () => {

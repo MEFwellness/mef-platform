@@ -17,6 +17,7 @@ import {
   Store,
   MessageCircle,
   BookmarkCheck,
+  FlaskConical,
 } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
@@ -34,6 +35,8 @@ import { memberTimezone } from '@/lib/time/memberToday';
 import { formatInTimeZone } from '@/lib/time/displayDate';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { FPA_MY_MEALS_TILE_LABEL } from '@/lib/fuel-pattern/meals/copy';
+import { FPA_MY_EXPERIMENT } from '@/lib/fuel-pattern/experiment/copy';
+import { fpaExperimentTileStatus } from '@/lib/fuel-pattern/experiment/memberPayload';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -102,13 +105,24 @@ export default async function FoodLensPage() {
   const user = await getCachedUser();
   if (!user) redirect('/login');
 
-  const [isCoach, scans, pattern, dailyCoaching, proteinLedgerToday, timeZone] = await Promise.all([
+  const [
+    isCoach,
+    scans,
+    pattern,
+    dailyCoaching,
+    proteinLedgerToday,
+    timeZone,
+    // Her 7 Day Fuel Experiment, as one line. A read: opening Food Lens
+    // starts nothing.
+    experimentStatus,
+  ] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     listMyFoodLensScansAction(),
     getActivePrimalPatternProfileAction(),
     getTodaysCoachingMessageAction(),
     getProteinLedgerTodayAction(),
     memberTimezone(supabase, user.id),
+    fpaExperimentTileStatus(supabase, user.id),
   ]);
 
   const proteinTargetState = proteinLedgerToday?.targetState ?? null;
@@ -262,6 +276,26 @@ export default async function FoodLensPage() {
               aria-hidden="true"
             />
             <p className="text-sm font-medium text-[#1B3A2D]">{FPA_MY_MEALS_TILE_LABEL}</p>
+          </Link>
+          {/* Her 7 Day Fuel Experiment, beside her meals, carrying the one
+              thing a tile can usefully say about it: which day she is on. */}
+          <Link
+            href={'/food-lens/my-experiment' as Route}
+            className={`${CARD} mef-card-lift flex items-start gap-2.5 p-4`}
+          >
+            <FlaskConical
+              className="mt-0.5 h-4 w-4 shrink-0 text-[#9AA79F]"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[#1B3A2D]">
+                {FPA_MY_EXPERIMENT.tileLabel}
+              </p>
+              <p className="mt-0.5 text-xs text-[#6B7A72]" data-fpa-experiment-tile-status>
+                {experimentStatus}
+              </p>
+            </div>
           </Link>
         </div>
 

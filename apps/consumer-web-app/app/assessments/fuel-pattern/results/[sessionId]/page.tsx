@@ -27,6 +27,10 @@ import { getSessionById } from '@/lib/assessment-runtime';
 import { findFuelPatternResultBySession } from '@/lib/fuel-pattern/data';
 import { buildFpaMemberResult } from '@/lib/fuel-pattern/memberResult';
 import { buildFpaMealsPayload } from '@/lib/fuel-pattern/meals/memberPayload';
+import {
+  buildFpaExperimentPayload,
+  fpaTaggableMealsFromCards,
+} from '@/lib/fuel-pattern/experiment/memberPayload';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { BackButton } from '@/components/BackButton';
@@ -57,6 +61,19 @@ export default async function FuelPatternResultsPage({
   if (!stored) redirect(FPA_ROUTE);
 
   const meals = await buildFpaMealsPayload(supabase, user.id, stored.pattern);
+  /*
+    HER EXPERIMENT IS NOT PER SITTING, ON PURPOSE. Everything above it on
+    this page belongs to one reading taken on one day. A run of the 7 Day
+    Fuel Experiment is the one thing she has going right now, and she has
+    one at a time, so it is read for the MEMBER and shown on whichever of
+    her result pages she happens to be standing on. The same decision the
+    coach card made about her standing meal preferences.
+
+    BUILDING IT IS A READ. Opening this page starts nothing.
+  */
+  const experiment = await buildFpaExperimentPayload(supabase, user.id, {
+    taggableMeals: fpaTaggableMealsFromCards(meals),
+  });
 
   return (
     <div className={`${CVS_PAGE_BG} font-[family-name:var(--font-dm-sans)]`}>
@@ -69,6 +86,7 @@ export default async function FuelPatternResultsPage({
           result={buildFpaMemberResult(stored)}
           withReveal={false}
           meals={meals}
+          experiment={experiment}
         />
       </main>
       <MemberBottomNav isCoach={isCoach} />

@@ -44,6 +44,7 @@ import {
   parseFpaOptions,
 } from './FuelPatternQuestionScreen';
 import type { FpaMealsPayload } from '@/lib/fuel-pattern/meals/payload';
+import type { FpaExperimentPayload } from '@/lib/fuel-pattern/experiment/payload';
 import { FuelPatternResultView } from './FuelPatternResultView';
 
 type Beat = 'intro' | 'questions' | 'finishing' | 'reveal';
@@ -71,6 +72,12 @@ type Props = {
    * fetch. Null until a sitting has actually produced a result.
    */
   meals: FpaMealsPayload | null;
+  /**
+   * Her 7 Day Fuel Experiment, built on the server beside her reading and
+   * her meals, for the same reason: the reveal holds only while nothing
+   * on it is waiting on something that could arrive late.
+   */
+  experiment: FpaExperimentPayload | null;
   /** True when the take URL says the reveal has already been played. */
   startAtPattern: boolean;
 };
@@ -82,6 +89,7 @@ export function FuelPatternTaker({
   phase,
   initialResult,
   meals,
+  experiment,
   startAtPattern,
 }: Props) {
   const ordered = useMemo(
@@ -138,6 +146,9 @@ export function FuelPatternTaker({
     both from the one request that page ever makes.
   */
   const [mealPayload, setMealPayload] = useState<FpaMealsPayload | null>(meals);
+  const [experimentPayload, setExperimentPayload] = useState<FpaExperimentPayload | null>(
+    experiment
+  );
   const [error, setError] = useState<string | null>(null);
 
   /*
@@ -170,6 +181,7 @@ export function FuelPatternTaker({
       if (!cancelled && stored) {
         setResult(stored.reveal);
         setMealPayload(stored.meals);
+        setExperimentPayload(stored.experiment);
       }
     })();
     return () => {
@@ -198,6 +210,7 @@ export function FuelPatternTaker({
       }
       setResult(completion.reveal);
       setMealPayload(completion.meals);
+      setExperimentPayload(completion.experiment);
       setBeat('reveal');
     })();
     return () => {
@@ -319,7 +332,12 @@ export function FuelPatternTaker({
       )}
 
       {beat === 'reveal' && result && (
-        <FuelPatternResultView result={result} withReveal={!startAtPattern} meals={mealPayload} />
+        <FuelPatternResultView
+          result={result}
+          withReveal={!startAtPattern}
+          meals={mealPayload}
+          experiment={experimentPayload}
+        />
       )}
 
       {/* Said once, quietly, for a screen reader. Nothing visual moves,

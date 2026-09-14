@@ -8,24 +8,33 @@
  * return value. So the real component is rendered, for all four patterns,
  * and the text a member would actually read is what gets asserted.
  *
- *   1. THE ORDER. Pattern, interpretation, why, range, plate, watch for,
- *      Continue, in that order, top to bottom.
+ *   1. THE ORDER. Pattern, interpretation, why, range, plate, meals,
+ *      experiment, watch for, the button at the foot, in that order, top
+ *      to bottom.
  *   2. WHAT IS ON IT. The right range words and the right plate for each
  *      of the four readings.
- *   3. WHAT IS NEVER ON IT. No score, no confidence, no digit anywhere
- *      EXCEPT a preparation time on a meal card, no em dash, no
- *      prescriptive vocabulary, and no mention of an experiment, because
- *      that one does not exist yet.
+ *   3. WHAT IS NEVER ON IT. No score, no confidence, no digit outside the
+ *      places a digit is allowed, no em dash and no prescriptive
+ *      vocabulary.
  *   4. THE HONEST EMPTY STATE. A sitting whose answers supported fewer
  *      than two lines still draws the section, saying so in words.
+ *   5. THE EXPERIMENT, which is Build 4: the offer, the approved copy,
+ *      the two states of the button at the foot, and the fact that
+ *      nothing above it moved when it arrived.
  *
- * THE PAGE IS RENDERED WITH ITS MEALS ON IT, ALWAYS. Build 3 added a
- * section, and a guard that kept proving things about the page as it was
- * before that section arrived would be a guard that cannot fail. The
- * digit rule is the one that had to change shape rather than be dropped:
- * every prep time carries data-fpa-prep, those nodes are removed before
- * the text is read, and everything that is left still has to hold no
- * digit at all.
+ * THE PAGE IS RENDERED WITH ITS MEALS AND ITS EXPERIMENT ON IT, ALWAYS.
+ * Each build added a section, and a guard that kept proving things about
+ * the page as it was before that section arrived would be a guard that
+ * cannot fail.
+ *
+ * THE DIGIT RULE CHANGED SHAPE TWICE RATHER THAN BEING DROPPED. Build 3
+ * marked every preparation time data-fpa-prep. Build 4 marks every node
+ * that legitimately carries a number data-fpa-digits: the experiment's
+ * header and invitation, the day counter, the check count, the hunger
+ * question's own header and the forward look that now names the
+ * experiment. Both sets are removed before the text is read, everything
+ * left still has to hold no digit at all, and both sets are separately
+ * asserted to really carry digits so that neither is a hiding place.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -44,6 +53,20 @@ import { FPA_NO_OBSERVATIONS_LINE } from '@/lib/fuel-pattern/observations';
 import { FPA_PLATE_GUIDE } from '@/lib/fuel-pattern/plate';
 import type { FuelPattern } from '@/lib/fuel-pattern/types';
 import type { FpaMealsPayload } from '@/lib/fuel-pattern/meals/memberPayload';
+import type { FpaExperimentPayload, FpaExperimentRun } from '@/lib/fuel-pattern/experiment/payload';
+import {
+  FPA_EXPERIMENT_COMPLETION,
+  FPA_EXPERIMENT_DONE_LABEL,
+  FPA_EXPERIMENT_HEADER,
+  FPA_EXPERIMENT_INVITATION,
+  FPA_EXPERIMENT_LOG_LABEL,
+  FPA_EXPERIMENT_RESTART_LABEL,
+  FPA_EXPERIMENT_START_LABEL,
+  fpaExperimentCheckLine,
+  fpaExperimentDayLine,
+} from '@/lib/fuel-pattern/experiment/copy';
+import { FPA_INSIGHT_RULES } from '@/lib/fuel-pattern/experiment/insights';
+import type { FpaExperimentCheck } from '@/lib/fuel-pattern/experiment/types';
 import {
   orderedOwnPool,
   orderedWiderPool,
@@ -105,27 +128,72 @@ afterEach(() => {
   container.remove();
 });
 
-function render(pattern: FuelPattern, observations: string[]) {
+function render(
+  pattern: FuelPattern,
+  observations: string[],
+  experiment: FpaExperimentPayload = NOT_STARTED
+) {
   act(() => {
     root.render(
       <FuelPatternResultView
         result={{ pattern, observations }}
         withReveal={false}
         meals={mealsFor(pattern)}
+        experiment={experiment}
       />
     );
   });
   return container.textContent ?? '';
 }
 
-/** The whole page, minus the one place a number is allowed to be. */
-function renderWithoutPrepTimes(pattern: FuelPattern, observations: string[]): string {
+/** The whole page, minus every place a number is allowed to be. */
+function renderWithoutNumbers(pattern: FuelPattern, observations: string[]): string {
   render(pattern, observations);
-  for (const node of Array.from(container.querySelectorAll('[data-fpa-prep]'))) {
+  for (const node of Array.from(
+    container.querySelectorAll('[data-fpa-prep], [data-fpa-digits]')
+  )) {
     node.remove();
   }
   return container.textContent ?? '';
 }
+
+/** Her calendar day, which on this page always arrives from the server. */
+const TODAY = '2026-09-14';
+
+function check(
+  partial: Partial<FpaExperimentCheck> & { id: string }
+): FpaExperimentCheck {
+  return {
+    loggedOn: TODAY,
+    energy: 'steady',
+    hunger: 'comfortable',
+    clarity: 'normal',
+    mealType: null,
+    mealId: null,
+    createdAt: `${TODAY}T12:00:00.000Z`,
+    ...partial,
+  };
+}
+
+function run(overrides: Partial<FpaExperimentRun> = {}): FpaExperimentRun {
+  return {
+    id: 'run-1',
+    pattern: 'protein_supportive',
+    startedOn: TODAY,
+    dayNumber: 1,
+    status: 'active',
+    acknowledged: false,
+    checks: [],
+    ...overrides,
+  };
+}
+
+function payload(runValue: FpaExperimentRun | null): FpaExperimentPayload {
+  return { todayLocalDate: TODAY, run: runValue, taggableMeals: [] };
+}
+
+/** She has never started one. */
+const NOT_STARTED = payload(null);
 
 /** Her four cards, built by the real picker over the real library. */
 function mealsFor(pattern: FuelPattern): FpaMealsPayload {
@@ -157,7 +225,7 @@ const OBSERVATIONS = [
 ];
 
 describe('1. the order of the page', () => {
-  it('runs pattern, interpretation, why, range, plate, watch for, Continue', () => {
+  it('runs pattern, interpretation, why, range, plate, meals, experiment, watch for', () => {
     const text = render('protein_supportive', OBSERVATIONS);
     const positions = [
       FUEL_PATTERN_LABEL.protein_supportive,
@@ -165,6 +233,8 @@ describe('1. the order of the page', () => {
       FPA_SECTION_HEADERS.why,
       FPA_SECTION_HEADERS.range,
       FPA_SECTION_HEADERS.plate,
+      'MEALS BUILT FOR YOUR PATTERN',
+      FPA_EXPERIMENT_HEADER,
       FPA_SECTION_HEADERS.watchFor,
     ].map((fragment) => {
       const at = text.indexOf(fragment);
@@ -173,12 +243,16 @@ describe('1. the order of the page', () => {
     });
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
 
-    // Continue is still the last thing on the page, and it is still the
-    // only button outside the meal cards.
+    // The button at the foot is still the last thing on the page, and the
+    // only buttons outside the meal cards are the two this section owns:
+    // the one inside it and the one at the foot.
     const buttons = [...container.querySelectorAll('button')];
-    expect(buttons.at(-1)!.textContent).toBe('Continue');
-    const outsideMeals = buttons.filter((button) => !button.closest('[data-fpa-meal-id]'));
-    expect(outsideMeals).toHaveLength(1);
+    expect(buttons.at(-1)!.getAttribute('data-fpa-bottom-cta')).toBe('true');
+    const outside = buttons.filter((button) => !button.closest('[data-fpa-meal-id]'));
+    expect(outside.map((button) => button.textContent)).toEqual([
+      FPA_EXPERIMENT_START_LABEL,
+      FPA_EXPERIMENT_START_LABEL,
+    ]);
   });
 
   it('leads the observations with "You told us:"', () => {
@@ -253,9 +327,9 @@ describe('2. what is on it, per pattern', () => {
 });
 
 describe('3. what is never on it', () => {
-  it('shows no score, no confidence level and no digit outside a prep time', () => {
+  it('shows no score, no confidence level and no digit outside the places one is allowed', () => {
     for (const pattern of PATTERNS) {
-      const text = renderWithoutPrepTimes(pattern, OBSERVATIONS);
+      const text = renderWithoutNumbers(pattern, OBSERVATIONS);
       for (const word of ['score', 'Score', 'confidence', 'Confidence', 'tendency']) {
         expect(text, `${pattern} ${word}`).not.toContain(word);
       }
@@ -274,20 +348,24 @@ describe('3. what is never on it', () => {
     }
   });
 
-  it('never mentions a 7 day experiment, a check-in or meal logging', () => {
+  it('promises nothing that does not exist, and dates nothing it cannot date', () => {
     for (const pattern of PATTERNS) {
       const text = render(pattern, OBSERVATIONS).toLowerCase();
-      for (const word of [
-        'experiment',
-        'check-in',
-        'check in',
-        'coming soon',
-        '7 day',
-        'seven day',
-        'meal plan',
-        'log your meals',
-      ]) {
+      for (const word of ['coming soon', 'meal plan', 'log your meals', 'streak']) {
         expect(text, `${pattern} ${word}`).not.toContain(word);
+      }
+    }
+  });
+
+  it('marks every node that carries a digit, so the strip is not a hiding place', () => {
+    for (const pattern of PATTERNS) {
+      render(pattern, OBSERVATIONS);
+      const marked = Array.from(container.querySelectorAll('[data-fpa-digits]'));
+      // The experiment header, its invitation, and the forward look that
+      // now names it. Every one of them really does carry a number.
+      expect(marked.length, pattern).toBeGreaterThanOrEqual(3);
+      for (const node of marked) {
+        expect(node.textContent, `${pattern} ${node.textContent}`).toMatch(/[0-9]/);
       }
     }
   });
@@ -324,5 +402,127 @@ describe('4. the honest empty state', () => {
     // No lead-in, because there is no list under it to lead into.
     expect(text).not.toContain(FPA_SECTION_HEADERS.whyLeadIn);
     expect(container.querySelectorAll('li').length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * 5. THE 7 DAY FUEL EXPERIMENT, in every state it can be in, rendered
+ * through the real component rather than described.
+ */
+describe('5. the experiment section', () => {
+  it('offers it in the approved words, and puts the offer at the foot too', () => {
+    const text = render('protein_supportive', OBSERVATIONS, NOT_STARTED);
+    expect(text).toContain(FPA_EXPERIMENT_HEADER);
+    expect(text).toContain(FPA_EXPERIMENT_INVITATION);
+    const bottom = container.querySelector('[data-fpa-bottom-cta]')!;
+    expect(bottom.textContent).toBe(FPA_EXPERIMENT_START_LABEL);
+  });
+
+  it('sits between the meals and the forward look, and moves neither of them', () => {
+    const text = render('protein_supportive', OBSERVATIONS, NOT_STARTED);
+    expect(text.indexOf(FPA_EXPERIMENT_HEADER)).toBeGreaterThan(
+      text.indexOf('MEALS BUILT FOR YOUR PATTERN')
+    );
+    expect(text.indexOf(FPA_EXPERIMENT_HEADER)).toBeLessThan(
+      text.indexOf(FPA_SECTION_HEADERS.watchFor)
+    );
+    // Her range, her plate and her meals are word for word what they were
+    // before the section arrived.
+    expect(text).toContain(FPA_RANGE_FOOTNOTE);
+    expect(text).toContain(FPA_PLATE_GUIDE.protein_supportive.addition);
+  });
+
+  it('names the experiment in the forward look, in the approved words', () => {
+    for (const pattern of PATTERNS) {
+      const text = render(pattern, OBSERVATIONS, NOT_STARTED);
+      expect(text, pattern).toContain(fpaWatchForCopy(pattern));
+      expect(text, pattern).toContain('Your 7-Day Fuel Experiment is how it gets tested.');
+    }
+  });
+
+  it('shows the day, the count and the way to log once a run is going', () => {
+    const text = render(
+      'protein_supportive',
+      OBSERVATIONS,
+      payload(run({ checks: [check({ id: 'c1' }), check({ id: 'c2' })] }))
+    );
+    expect(text).toContain(fpaExperimentDayLine(1));
+    expect(text).toContain(fpaExperimentCheckLine(2));
+    expect(text).toContain(FPA_EXPERIMENT_LOG_LABEL);
+    expect(text).not.toContain(FPA_EXPERIMENT_INVITATION);
+    // And the button at the foot has become Continue, because the offer
+    // has been taken.
+    expect(container.querySelector('[data-fpa-bottom-cta]')!.textContent).toBe('Continue');
+  });
+
+  it('shows the standing insight, and only one of them', () => {
+    const hungry = Array.from({ length: 3 }, (_, i) =>
+      check({ id: `h${i}`, hunger: 'hungry' })
+    );
+    const text = render('protein_supportive', OBSERVATIONS, payload(run({ checks: hungry })));
+    const body = FPA_INSIGHT_RULES.find((rule) => rule.id === 'hungry_soon')!.body;
+    expect(text).toContain('WE NOTICED SOMETHING');
+    expect(text).toContain(body);
+    expect(container.querySelectorAll('[data-fpa-insight]')).toHaveLength(1);
+  });
+
+  it('draws the completion state from her real rows once the seventh day has passed', () => {
+    const finished = run({
+      startedOn: '2026-09-01',
+      checks: [check({ id: 'c1' }), check({ id: 'c2' }), check({ id: 'c3' })],
+    });
+    const text = render('protein_supportive', OBSERVATIONS, payload(finished));
+    expect(text).toContain(FPA_EXPERIMENT_COMPLETION.header);
+    expect(text).toContain('You logged 3 checks this week.');
+    expect(text).toContain(FPA_EXPERIMENT_COMPLETION.closingLine);
+    expect(text).toContain(FPA_EXPERIMENT_DONE_LABEL);
+  });
+
+  it('says the approved line for a week where nothing qualified', () => {
+    const finished = run({ startedOn: '2026-09-01', checks: [check({ id: 'c1' })] });
+    const text = render('protein_supportive', OBSERVATIONS, payload(finished));
+    expect(text).toContain(FPA_EXPERIMENT_COMPLETION.noInsightLine);
+  });
+
+  it('collapses to one quiet line and a restart once she has pressed DONE', () => {
+    const done = run({ startedOn: '2026-09-01', acknowledged: true, checks: [] });
+    const text = render('protein_supportive', OBSERVATIONS, payload(done));
+    expect(text).toContain(FPA_EXPERIMENT_RESTART_LABEL);
+    expect(text).not.toContain(FPA_EXPERIMENT_COMPLETION.header);
+    expect(text).not.toContain(FPA_EXPERIMENT_DONE_LABEL);
+  });
+
+  it('never scolds, never scores and never uses a prescriptive word', () => {
+    for (const state of [
+      NOT_STARTED,
+      payload(run({ checks: [check({ id: 'c1', energy: 'low', hunger: 'hungry' })] })),
+      payload(run({ startedOn: '2026-09-01', checks: [] })),
+      payload(run({ startedOn: '2026-09-01', acknowledged: true, checks: [] })),
+    ]) {
+      render('protein_supportive', OBSERVATIONS, state);
+      /*
+        SCOPED TO THIS SECTION, on purpose. "not a prescription" is an
+        approved line in the starting range above it, so a page wide scan
+        would be asserting against a sentence this build never touched.
+      */
+      const text = (
+        container.querySelector('[data-fpa-experiment]')?.textContent ?? ''
+      ).toLowerCase();
+      expect(text.length).toBeGreaterThan(0);
+      for (const word of [
+        'streak',
+        'you missed',
+        'you should',
+        'you must',
+        'required',
+        'optimal',
+        'ideal',
+        'prescription',
+        'diagnos',
+      ]) {
+        expect(text, word).not.toContain(word);
+      }
+      expect(text).not.toContain('\u2014');
+    }
   });
 });

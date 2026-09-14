@@ -27,6 +27,10 @@ import { loadFpaTakeSessionAction } from '@/app/actions/fuelPattern';
 import { findFuelPatternResultBySession } from '@/lib/fuel-pattern/data';
 import { buildFpaMemberResult } from '@/lib/fuel-pattern/memberResult';
 import { buildFpaMealsPayload } from '@/lib/fuel-pattern/meals/memberPayload';
+import {
+  buildFpaExperimentPayload,
+  fpaTaggableMealsFromCards,
+} from '@/lib/fuel-pattern/experiment/memberPayload';
 import { FuelPatternTaker } from '@/components/fuel-pattern/FuelPatternTaker';
 import { CLOSING_PARAM, parseClosingBeat } from '@/lib/assessment-runtime/closing';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
@@ -47,6 +51,13 @@ export default async function TakeFuelPatternPage({
   // does: the reveal holds only while nothing on the screen is waiting
   // on something that could replace it.
   const meals = stored ? await buildFpaMealsPayload(supabase, session.memberId, stored.pattern) : null;
+  // And her experiment beside them, for the same reason, and as a READ:
+  // opening a take URL decides nothing, so it starts nothing.
+  const experiment = stored
+    ? await buildFpaExperimentPayload(supabase, session.memberId, {
+        taggableMeals: fpaTaggableMealsFromCards(meals),
+      })
+    : null;
   // 'close' is the marker this taker writes once the pattern is on the
   // screen, so a reload lands past the pause rather than replaying it.
   const startAtPattern = parseClosingBeat(searchParams?.[CLOSING_PARAM]) === 'close';
@@ -61,6 +72,7 @@ export default async function TakeFuelPatternPage({
           phase={phase}
           initialResult={stored ? buildFpaMemberResult(stored) : null}
           meals={meals}
+          experiment={experiment}
           startAtPattern={startAtPattern}
         />
       </main>
