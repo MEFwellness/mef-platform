@@ -136,6 +136,30 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     commonlyUnlocksNextKeys: [],
   },
 
+  /**
+   * The Rooted Reset Fuel Pattern Assessment (2026-09-13), which replaced
+   * Primal Pattern Diet Type. Same shape of instrument and the same
+   * coaching domain, written in this product's own voice: it describes a
+   * starting pattern, and the answer is "which pattern", never "how bad".
+   * The retired entry below stays because completed Primal Pattern
+   * sittings still exist and this engine still reads them.
+   */
+  'fuel-pattern': {
+    key: 'fuel-pattern',
+    coachingDomains: ['nutrition_metabolic_health'],
+    category: 'classification',
+    primaryObjective: 'Describe a starting fuel pattern from how meals actually land, not a severity score.',
+    whyItExists: 'Useful description for a domain where the output is which pattern, not how bad.',
+    hypothesesInvestigated: [],
+    confidenceContributionDomains: ['nutrition_metabolic_health'],
+    rootModelContribution: {
+      registryDomains: ['nutrition'],
+      shape: 'structured_metric',
+    },
+    reassessmentCadence: { kind: 'member_initiated' },
+    commonlyUnlocksNextKeys: [],
+  },
+
   'primal-pattern-diet-type': {
     key: 'primal-pattern-diet-type',
     coachingDomains: ['nutrition_metabolic_health'],

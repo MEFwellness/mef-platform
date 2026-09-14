@@ -4,9 +4,9 @@
  * /page.tsx). Reads status/facts generically from lib/assessment-registry/*
  * and reads display detail (title, description, draft progress, result
  * links) from each system's own existing, unmodified action
- * (getMyQuestionnaireList for the generic engine, getMyPrimalPatternListItem
- * for Primal Pattern, fetchBaselineAssessment for Onboarding) — nothing
- * here re-implements any system's own question/scoring/storage logic.
+ * (getMyQuestionnaireList for the generic engine, fetchBaselineAssessment
+ * for Onboarding) — nothing here re-implements any system's own question/
+ * scoring/storage logic.
  *
  * Body Assessment is registered in the framework but deliberately excluded
  * here — app/questionnaires/page.tsx (and Home's Questionnaires card) has
@@ -31,10 +31,9 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getMyQuestionnaireList } from './assessments';
-import { getMyPrimalPatternListItem } from './primal-pattern';
 import { fetchBaselineAssessment } from '@/lib/onboarding/baseline';
 import { getMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
-import { listAssessmentRegistryEntries, findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
+import { listMemberFacingAssessments, findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
 import { hasEverCompleted } from '@/lib/assessment-registry/status';
 import {
   categorizeForCatalog,
@@ -126,12 +125,20 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
   if (!memberId) return emptyCatalog();
 
   const supabase = createClient();
-  const entries = listAssessmentRegistryEntries().filter((e) => e.key !== 'body-assessment');
+  /**
+   * listMemberFacingAssessments, not the full registry: a RETIRED
+   * assessment has no card here at all (2026-09-13). Primal Pattern Diet
+   * Type is the first one, replaced by the Rooted Reset Fuel Pattern
+   * Assessment, and the filter is on the registry's own `retired` flag
+   * rather than on its key, so the next retirement needs no change here.
+   * Every row it ever wrote is untouched and a coach still reads all of
+   * it; what it loses is the way in.
+   */
+  const entries = listMemberFacingAssessments().filter((e) => e.key !== 'body-assessment');
 
   const [
     factsByKey,
     engineList,
-    primalPatternItem,
     onboardingBaseline,
     // The four coach-assign-only questionnaires' own states, started here
     // rather than where their cards are built at the bottom of this
@@ -146,7 +153,6 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
   ] = await Promise.all([
     getMemberAssessmentFacts(supabase, memberId),
     getMyQuestionnaireList(),
-    getMyPrimalPatternListItem(),
     fetchBaselineAssessment(supabase, memberId),
     getMyHealthIntake(),
     getMyBodySystemsSurvey(),
@@ -258,28 +264,6 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
         latestCompletedAt: onboardingBaseline?.submittedAt ?? facts.latestCompletedAt,
         primaryHref: onboardingBaseline ? '/profile/reassessments/new' : '/onboarding',
         resultHref: onboardingBaseline ? '/profile/baseline' : null,
-        coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
-        assignmentId: facts.pendingAssignment?.id ?? null,
-      });
-      continue;
-    }
-
-    if (entry.key === 'primal-pattern-diet-type') {
-      if (!primalPatternItem) continue;
-      cards.push({
-        key: entry.key,
-        title: primalPatternItem.title,
-        description: primalPatternItem.listDescription,
-        estimatedMinutes: primalPatternItem.estimatedMinutes,
-        category: entry.category,
-        section,
-        flags,
-        draftProgress: primalPatternItem.draft,
-        latestCompletedAt: facts.latestCompletedAt,
-        primaryHref: `/assessments/${primalPatternItem.questionnaireId}`,
-        resultHref: primalPatternItem.latestCompleted
-          ? `/assessments/${primalPatternItem.questionnaireId}/results/${primalPatternItem.latestCompleted.id}`
-          : null,
         coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
         assignmentId: facts.pendingAssignment?.id ?? null,
       });

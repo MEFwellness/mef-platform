@@ -78,6 +78,7 @@ describe('registry.ts INVESTIGATION_METADATA', () => {
         'chek-hlc1-nutrition-lifestyle',
         'four-doctors',
         'primal-pattern-diet-type',
+        'fuel-pattern',
         'body-assessment',
         'readiness-to-change',
         'short-haq',

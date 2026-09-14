@@ -121,7 +121,7 @@ describe('registry catalog', () => {
     expect(error).toBeNull();
 
     const entries = listAssessmentRegistryEntries();
-    expect(entries).toHaveLength(12);
+    expect(entries).toHaveLength(13);
 
     const dbByKey = new Map((data ?? []).map((row) => [row.key, row.id]));
     expect(dbByKey.size).toBe((data ?? []).length); // no duplicate keys in the DB
@@ -652,13 +652,29 @@ describe('server-side access enforcement (not UI-only)', () => {
     }
   });
 
-  it('blocks Primal Pattern directly by URL on a trial plan (a real pre-existing gap: this route had zero access enforcement at all before the gate)', async () => {
+  it('blocks the Fuel Pattern Assessment directly by URL on a trial plan, because it sits at the Monthly minimum it inherited', async () => {
     await setPlan(memberOneId, 'trial');
+    const client = await signInAs(TEST_USERS.memberOne);
+    const access = await checkAssessmentAccess(client, memberOneId, 'fuel-pattern');
+    expect(access.allowed).toBe(false);
+    if (!access.allowed) {
+      expect(access.reason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
+    }
+  });
+
+  /**
+   * A RETIRED ASSESSMENT IS REFUSED ON EVERY PLAN (2026-09-13), which is a
+   * stronger statement than the plan lock this test used to make about
+   * Primal Pattern: the member below is on the 24 week program, the plan
+   * that used to open it, and she is still refused.
+   */
+  it('blocks Primal Pattern on every plan now, because it is retired rather than gated', async () => {
+    await setPlan(memberOneId, 'program');
     const client = await signInAs(TEST_USERS.memberOne);
     const access = await checkAssessmentAccess(client, memberOneId, 'primal-pattern-diet-type');
     expect(access.allowed).toBe(false);
     if (!access.allowed) {
-      expect(access.reason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
+      expect(access.reason).toEqual({ kind: 'retired' });
     }
   });
 

@@ -18,7 +18,7 @@ import {
 import { UNBUILT_PLACEHOLDER_LABEL, showUnbuiltPlaceholder } from '@/lib/naming/unbuiltPlaceholders';
 
 const ICON: Record<string, typeof Moon> = {
-  'primal-pattern': ClipboardList,
+  'fuel-pattern': ClipboardList,
   stress: Brain,
   sleep: Moon,
   digestion: Leaf,

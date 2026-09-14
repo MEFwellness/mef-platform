@@ -10,12 +10,20 @@
  *   trial            onboarding-health-history, core-values-snapshot,
  *                    life-signal-check, readiness-pulse
  *   Monthly plan     short-haq (Health Check-In),
- *                    primal-pattern-diet-type (Primal Pattern),
+ *                    fuel-pattern (Rooted Reset Fuel Pattern Assessment),
  *                    chek-hlc1-nutrition-lifestyle (Nutrition & Lifestyle),
  *                    readiness-to-change, finding-1-love
  *                    (the last two are Coming Soon, mapped anyway)
  *   24 week program  four-doctors, wbsa (Whole-Body Check-In),
  *                    body-assessment (camera)
+ *
+ * primal-pattern-diet-type held the Monthly slot the Fuel Pattern
+ * Assessment now holds. It is RETIRED rather than deleted (2026-09-13):
+ * its entry, its id, its tables and every row stay, and `retired: true`
+ * is what takes it off every member and coach surface. Its plan mapping
+ * is left exactly as it was, because a plan map row for something nobody
+ * can start decides nothing, and changing it would make the retirement
+ * look like a downgrade in the map rather than a removal.
  *
  * Whole-Body Check-In moved up from Monthly to the 24 week program, and
  * the four questionnaires that used to sit at trial minimum with a
@@ -51,6 +59,14 @@ import { FOUR_DOCTORS_QUESTIONNAIRE } from '../assessments/four-doctors';
 import { FOUR_DOCTORS_COPY } from '../assessments/four-doctors/copy';
 import { SHORT_HAQ_QUESTIONNAIRE } from '../assessments/short-haq';
 import { SHORT_HAQ_COPY } from '../assessments/short-haq/copy';
+import {
+  FPA_DEFINITION_ID,
+  FPA_ESTIMATED_MINUTES,
+  FPA_KEY,
+  FPA_LABEL,
+  FPA_ROUTE,
+  FPA_TAKE_ROUTE,
+} from '../fuel-pattern/constants';
 
 const ONBOARDING: AssessmentDefinition = {
   databaseId: '6b86f205-a75b-452f-b926-4c5dffc29baa',
@@ -102,6 +118,7 @@ const ONBOARDING: AssessmentDefinition = {
   isActive: true,
   implementationStatus: 'live',
   isComingSoon: false,
+  retired: false,
 
   route: '/onboarding',
   takeRoute: '/onboarding',
@@ -170,6 +187,7 @@ const CHEK_HLC1: AssessmentDefinition = {
   isActive: true,
   implementationStatus: 'live',
   isComingSoon: false,
+  retired: false,
 
   route: '/assessments/nutrition-lifestyle',
   takeRoute: '/assessments/nutrition-lifestyle/take',
@@ -230,6 +248,7 @@ const FOUR_DOCTORS: AssessmentDefinition = {
   isActive: true,
   implementationStatus: 'live',
   isComingSoon: false,
+  retired: false,
 
   route: '/assessments/four-doctors',
   takeRoute: '/assessments/four-doctors/take',
@@ -290,6 +309,23 @@ const PRIMAL_PATTERN: AssessmentDefinition = {
   isActive: true,
   implementationStatus: 'live',
   isComingSoon: false,
+
+  /**
+   * RETIRED 2026-09-13, REPLACED BY THE ROOTED RESET FUEL PATTERN
+   * ASSESSMENT.
+   *
+   * `isActive` deliberately stays true and `implementationStatus`
+   * deliberately stays 'live', because both of those already mean
+   * "Coming Soon" to categorizeForCatalog, and a Coming Soon card is an
+   * advertisement for the very thing being removed. What retirement
+   * actually does is in ./types.ts's own note on this field: gone from
+   * the member library, gone from the coach's assignable list, refused at
+   * the server for a new attempt, and every completed row, every answer
+   * and every published finding left exactly where it is. A member's own
+   * past result stays readable at its own address, and a coach keeps
+   * every read he had.
+   */
+  retired: true,
 
   route: '/assessments/primal-pattern-diet-type',
   takeRoute: '/assessments/primal-pattern-diet-type/take',
@@ -355,6 +391,7 @@ const BODY_ASSESSMENT: AssessmentDefinition = {
   isActive: true,
   implementationStatus: 'live',
   isComingSoon: false,
+  retired: false,
 
   route: '/assessment',
   takeRoute: '/assessment/new',
@@ -427,6 +464,7 @@ function comingSoon(config: {
     isActive: false,
     implementationStatus: 'coming_soon',
     isComingSoon: true,
+    retired: false,
 
     route: '/questionnaires',
     takeRoute: null,
@@ -498,6 +536,7 @@ const SHORT_HAQ: AssessmentDefinition = {
   isActive: true,
   implementationStatus: 'live',
   isComingSoon: false,
+  retired: false,
 
   route: '/assessments/short-haq',
   takeRoute: '/assessments/short-haq/take',
@@ -582,6 +621,7 @@ const WBSA: AssessmentDefinition = {
   isActive: true,
   implementationStatus: 'live',
   isComingSoon: false,
+  retired: false,
 
   route: '/assessments/wbsa',
   takeRoute: '/assessments/wbsa/take',
@@ -652,6 +692,7 @@ const CORE_VALUES_SNAPSHOT: AssessmentDefinition = {
   isActive: true,
   implementationStatus: 'live',
   isComingSoon: false,
+  retired: false,
 
   route: '/assessments/core-values-snapshot',
   takeRoute: '/assessments/core-values-snapshot/take',
@@ -724,6 +765,7 @@ const LIFE_SIGNAL_CHECK: AssessmentDefinition = {
   isActive: true,
   implementationStatus: 'live',
   isComingSoon: false,
+  retired: false,
 
   route: '/assessments/life-signal-check',
   takeRoute: '/assessments/life-signal-check/take',
@@ -790,6 +832,7 @@ const READINESS_PULSE: AssessmentDefinition = {
   isActive: true,
   implementationStatus: 'live',
   isComingSoon: false,
+  retired: false,
 
   route: '/assessments/readiness-pulse',
   takeRoute: '/assessments/readiness-pulse/take',
@@ -802,6 +845,84 @@ const READINESS_PULSE: AssessmentDefinition = {
   storageAdapter: 'unified-assessment-runtime-tables',
 
   displayOrder: 0.6,
+  safetyCategory: 'none',
+};
+
+/**
+ * ROOTED RESET FUEL PATTERN ASSESSMENT (2026-09-13, migration 236).
+ *
+ * It inherits Primal Pattern's SLOT and nothing else: monthly tier and
+ * up, same visibility posture, same locked card with the Premium marker
+ * where one applies. Everything underneath is new and clean. Its own key,
+ * its own definition id, its own question keys (fpa_q1 to fpa_q24), its
+ * own results table, and the Unified Adaptive Assessment Runtime rather
+ * than Primal Pattern's own engine, which is not extended by this build
+ * and not touched by it.
+ *
+ * clinicalPriority stays 'low' for the same reason Primal Pattern's did:
+ * this describes a starting pattern, it is not a problem finding
+ * instrument, and it publishes no Universal Registry findings at all.
+ */
+const FUEL_PATTERN: AssessmentDefinition = {
+  databaseId: FPA_DEFINITION_ID,
+  key: FPA_KEY,
+  type: 'classification_questionnaire',
+
+  displayName: FPA_LABEL,
+  shortDescription:
+    'Twenty four questions about how food actually lands for you, producing a starting fuel pattern rather than a prescription.',
+  category: 'nutrition_lifestyle',
+  estimatedMinutes: FPA_ESTIMATED_MINUTES,
+
+  membership: {
+    minLevel: 'membership',
+    allowedLevels: ['membership', 'holistic_reset'],
+  },
+  program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
+  prerequisites: { prerequisiteKeys: [] },
+  relatedAssessmentKeys: ['chek-hlc1-nutrition-lifestyle'],
+  clinicalPriority: 'low',
+  coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: false },
+  retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
+  reassessment: {
+    supportsReassessment: true,
+    stages: [],
+    schedule: 'Unlimited retakes, no cooldown or expiry.',
+  },
+  comparison: {
+    supportsSimpleHistory: true,
+    supportsScoreTrend: false,
+    supportsSideBySideComparison: false,
+    supportsQuestionLevelComparison: false,
+  },
+  resultAccess: {
+    memberCanView: true,
+    requiresCoachPublishToView: false,
+    coachCanView: true,
+    adminCanView: true,
+  },
+
+  currentVersion: 1,
+  versionLockingRequired: false,
+
+  isActive: true,
+  implementationStatus: 'live',
+  isComingSoon: false,
+  retired: false,
+
+  route: FPA_ROUTE,
+  takeRoute: FPA_TAKE_ROUTE,
+  resultRoute: '/assessments/fuel-pattern/results/[sessionId]',
+  componentRef: 'components/fuel-pattern/FuelPatternTaker.tsx',
+  introCopyRef: 'lib/fuel-pattern/copy.ts',
+
+  scoringAdapter: 'fuel-pattern-weight-map',
+  resultAdapter: 'fuel-pattern-results',
+  storageAdapter: 'unified-assessment-runtime-tables',
+
+  // Primal Pattern's own slot in the shelf's order, so the nutrition row
+  // of the library sits exactly where it always sat.
+  displayOrder: 4,
   safetyCategory: 'none',
 };
 
@@ -818,6 +939,7 @@ const ASSESSMENT_REGISTRY: Record<AssessmentKey, AssessmentDefinition> = {
   'core-values-snapshot': CORE_VALUES_SNAPSHOT,
   'life-signal-check': LIFE_SIGNAL_CHECK,
   'readiness-pulse': READINESS_PULSE,
+  'fuel-pattern': FUEL_PATTERN,
 };
 
 export function getAssessmentRegistryEntry(key: AssessmentKey): AssessmentDefinition {
@@ -843,7 +965,24 @@ export function listAssessmentRegistryEntries(): AssessmentDefinition[] {
  * content yet.
  */
 export function listAssignableAssessments(): AssessmentDefinition[] {
-  return listAssessmentRegistryEntries().filter((e) => e.implementationStatus === 'live');
+  return listAssessmentRegistryEntries().filter(
+    (e) => e.implementationStatus === 'live' && !e.retired
+  );
+}
+
+/**
+ * Everything a member may be shown in the Wellness Questionnaires
+ * library. The full list minus anything retired, in one place, so a
+ * retired instrument cannot come back as a card because one surface
+ * enumerated the registry directly.
+ *
+ * Deliberately NOT the same thing as listAssessmentRegistryEntries(),
+ * which stays complete: the facts query, the coach's history, a member's
+ * own past result and the plan map all still need the retired entry to
+ * exist and to be findable by key.
+ */
+export function listMemberFacingAssessments(): AssessmentDefinition[] {
+  return listAssessmentRegistryEntries().filter((e) => !e.retired);
 }
 
 /**

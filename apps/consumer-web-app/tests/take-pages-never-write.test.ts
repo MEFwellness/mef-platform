@@ -98,13 +98,19 @@ describe('the runtime read path writes nothing', () => {
 });
 
 /**
- * Every take route in the app. If a ninth is added, add it here: this list
- * is the point, because the fault this file exists for was a flow that
- * nobody remembered to apply the fix to.
+ * Every take route in the app. If a seventh is added, add it here: this
+ * list is the point, because the fault this file exists for was a flow
+ * that nobody remembered to apply the fix to.
+ *
+ * Primal Pattern Diet Type left this list on 2026-09-13 because it left
+ * the product: its take route is a redirect now, with no session, no
+ * draft and nothing to read. tests/primal-pattern-retired.test.ts is what
+ * holds it to that, and the Rooted Reset Fuel Pattern Assessment took its
+ * place here.
  */
 const TAKE_PAGES = [
   'app/assessments/[questionnaireId]/take/page.tsx',
-  'app/assessments/primal-pattern-diet-type/take/page.tsx',
+  'app/assessments/fuel-pattern/take/page.tsx',
   'app/assessments/wbsa/take/page.tsx',
   'app/assessments/core-values-snapshot/take/page.tsx',
   'app/assessments/life-signal-check/take/page.tsx',
@@ -151,7 +157,7 @@ describe('no take page can reach a function that creates a session', () => {
 describe('starting is a button, and a button posts', () => {
   const OVERVIEW_PAGES = [
     'app/assessments/[questionnaireId]/page.tsx',
-    'app/assessments/primal-pattern-diet-type/page.tsx',
+    'app/assessments/fuel-pattern/page.tsx',
     'app/assessments/wbsa/page.tsx',
     'app/assessments/core-values-snapshot/page.tsx',
     'app/assessments/life-signal-check/page.tsx',

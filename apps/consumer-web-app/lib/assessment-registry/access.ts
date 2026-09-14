@@ -76,6 +76,20 @@ export async function checkAssessmentAccess(
     return { allowed: true };
   }
 
+  /**
+   * A RETIRED INSTRUMENT CANNOT BE STARTED BY ANYBODY (2026-09-13).
+   *
+   * Checked here, after the 'view' branch above, so it refuses the one
+   * thing retirement is about (a NEW attempt) without touching the one
+   * thing retirement must never touch (her own stored history). Checked
+   * BEFORE calculateLockReason and before the pending-assignment
+   * short-circuit inside it, because an assignment row is the one thing
+   * that adds access on top of the plan and a retired instrument must not
+   * be reachable even that way: an assignment written before the
+   * retirement would otherwise still open it.
+   */
+  if (definition.retired) return { allowed: false, reason: { kind: 'retired' } };
+
   const lockReason = calculateLockReason(definition, facts, completedKeysFrom(factsByKey));
   if (!lockReason) return { allowed: true };
   return { allowed: false, reason: lockReason };

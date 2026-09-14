@@ -141,6 +141,7 @@ export const F = {
   assessmentCoreValues: 'assessment.core-values-snapshot',
   assessmentLifeSignal: 'assessment.life-signal-check',
   assessmentReadinessPulse: 'assessment.readiness-pulse',
+  assessmentFuelPattern: 'assessment.fuel-pattern',
 
   // ---- Follow-up question sets, inside the daily check-in ----
   questionsSleep: 'questions.sleep',
@@ -937,19 +938,41 @@ export const VISIBILITY_CATALOG: FeatureDefinition[] = [
     touchedBy: { kind: 'assessment', keys: ['four-doctors'] },
   },
   {
+    /*
+      RETIRED 2026-09-13, REPLACED BY THE FUEL PATTERN ASSESSMENT BELOW.
+      The entry stays so every registered assessment still has exactly one
+      rule and the catalogue cannot grow a hole, and the rule is now the
+      empty list: nothing reveals it, ever. `touchedBy` is removed with
+      it, deliberately, because grandfathering is what would put a
+      retired card back on the shelf of the member most likely to notice,
+      the one who actually took it. The real removal is one level up
+      (lib/assessment-registry/registry.ts, retired: true, read by
+      listMemberFacingAssessments), so this rule is the belt rather than
+      the braces, and her completed sitting is untouched either way.
+    */
     key: F.assessmentPrimalPattern,
     kind: 'assessment',
     surface: 'questionnaires',
     label: 'Primal Pattern Diet Type',
+    whoNeedsThis: 'Nobody. This assessment is retired and the Rooted Reset Fuel Pattern Assessment replaced it.',
+    revealWhen: [],
+    revealSentence: null,
+    touchedBy: { kind: 'none' },
+  },
+  {
+    key: F.assessmentFuelPattern,
+    kind: 'assessment',
+    surface: 'questionnaires',
+    label: 'Rooted Reset Fuel Pattern Assessment',
     whoNeedsThis:
-      'A member working on what she eats. It is a classification, not a problem finder, so it needs a nutrition reason rather than a severity.',
+      'A member working on what she eats. It describes a starting pattern rather than finding a problem, so it needs a nutrition reason rather than a severity. Inherits the rule Primal Pattern Diet Type carried, unchanged, because the audience did not change when the instrument did.',
     revealWhen: [
       { kind: 'coach_assigned' },
       { kind: 'intake_answer', questionKey: INTAKE.primaryConcern, when: { op: 'equals', values: ['digestion', 'weight', 'energy', 'performance'] } },
       { kind: 'finding_tier', domain: 'nutrition_metabolic_health', minTier: 'emerging_pattern' },
     ],
     revealSentence: null,
-    touchedBy: { kind: 'assessment', keys: ['primal-pattern-diet-type'] },
+    touchedBy: { kind: 'assessment', keys: ['fuel-pattern'] },
   },
   {
     key: F.assessmentBody,

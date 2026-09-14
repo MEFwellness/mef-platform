@@ -35,11 +35,23 @@ import type { AssessmentKey } from '../lib/assessment-registry/types';
 
 const memberOneId = TEST_USERS.memberOne.id;
 
-/** The eight clinical items: everything the plan map puts above trial. */
+/**
+ * The eight clinical items: everything the plan map puts above trial that
+ * a member can still start.
+ *
+ * Primal Pattern Diet Type used to be one of them and is retired
+ * (2026-09-13). It is deliberately NOT in this list, because every claim
+ * in this file is about what the plan and an assignment do, and neither
+ * does anything for a retired assessment. Its own rule, including the one
+ * that says an assignment cannot reopen it, is in
+ * tests/primal-pattern-retired.test.ts and in the block at the foot of
+ * this file. The Rooted Reset Fuel Pattern Assessment took its place at
+ * the Monthly minimum.
+ */
 const CLINICAL_KEYS: AssessmentKey[] = [
   'four-doctors',
   'chek-hlc1-nutrition-lifestyle',
-  'primal-pattern-diet-type',
+  'fuel-pattern',
   'wbsa',
   'short-haq',
   'readiness-to-change',
@@ -132,7 +144,7 @@ describe('server-side opening: a 24 week program member, still with zero assignm
 
     for (const key of [
       'short-haq',
-      'primal-pattern-diet-type',
+      'fuel-pattern',
       'chek-hlc1-nutrition-lifestyle',
     ] as AssessmentKey[]) {
       const access = await checkAssessmentAccess(client, memberOneId, key);
@@ -169,6 +181,59 @@ describe('server-side unlocking: an assignment opens one item for one member, be
 
     const after = await checkAssessmentAccess(client, memberOneId, key);
     expect(after.allowed).toBe(true);
+  });
+});
+
+/**
+ * THE ONE THING AN ASSIGNMENT CANNOT DO (2026-09-13). A coach assignment
+ * is the one thing that adds access on top of the plan, and it is the
+ * obvious hole in a retirement: a row written before the retirement, or
+ * by a script, would otherwise still open a replaced instrument. It does
+ * not, and this is where that is proved rather than assumed.
+ */
+describe('a retired assessment is closed to an assignment as well as to a plan', () => {
+  it('refuses Primal Pattern to a program member holding a live assignment for it', async () => {
+    const service = serviceRoleClient();
+    const entry = findAssessmentRegistryEntry('primal-pattern-diet-type')!;
+
+    await service
+      .from('member_subscriptions')
+      .update({ tier: 'program', status: 'active' })
+      .eq('member_id', memberOneId);
+
+    const { error } = await service.from('assessment_assignments').insert({
+      member_id: memberOneId,
+      assessment_definition_id: entry.databaseId,
+      assigned_by: TEST_USERS.coachOne.id,
+      is_required: true,
+      reason: 'Test assignment written before the retirement.',
+    });
+    expect(error).toBeNull();
+
+    const client = await signInAs(TEST_USERS.memberOne);
+    const access = await checkAssessmentAccess(client, memberOneId, 'primal-pattern-diet-type');
+    expect(access.allowed).toBe(false);
+    if (!access.allowed) expect(access.reason).toEqual({ kind: 'retired' });
+  });
+
+  it('still lets her read what she already finished', async () => {
+    const service = serviceRoleClient();
+    const { error } = await service.from('primal_pattern_assessments').insert({
+      member_id: memberOneId,
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      // The table's own completed_fields constraint: a finished sitting
+      // carries a result and no current question.
+      result: 'variable',
+      current_question_number: null,
+    });
+    expect(error).toBeNull();
+
+    const client = await signInAs(TEST_USERS.memberOne);
+    const access = await checkAssessmentAccess(client, memberOneId, 'primal-pattern-diet-type', {
+      intent: 'view',
+    });
+    expect(access.allowed).toBe(true);
   });
 });
 

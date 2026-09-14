@@ -56,6 +56,7 @@ const PLAN_MAP: Record<AssessmentKey, MembershipKey> = {
   'readiness-pulse': 'free_trial',
   'short-haq': 'membership',
   'primal-pattern-diet-type': 'membership',
+  'fuel-pattern': 'membership',
   'chek-hlc1-nutrition-lifestyle': 'membership',
   'readiness-to-change': 'membership',
   'finding-1-love': 'membership',

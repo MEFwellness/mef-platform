@@ -46,7 +46,9 @@ export type AssessmentKey =
   /** Life Signal Check — free-tier Experience 2, also on the Unified Adaptive Assessment Runtime (migration 138). Unlocks only after Core Values Snapshot completes, via prerequisites.prerequisiteKeys below. */
   | 'life-signal-check'
   /** Readiness Pulse — free-tier Experience 3, the final conversation of the free arc, also on the Unified Adaptive Assessment Runtime (migration 141). Unlocks only after Life Signal Check completes. Distinct from the older, unrelated 'readiness-to-change' coming-soon placeholder above (catalog row only, no relation to this experience). */
-  | 'readiness-pulse';
+  | 'readiness-pulse'
+  /** Rooted Reset Fuel Pattern Assessment — 24 questions on the Unified Adaptive Assessment Runtime (migration 236). Its own clean key: it inherits Primal Pattern's slot in the plan map and nothing else, and 'primal-pattern-diet-type' above is retired rather than renamed. */
+  | 'fuel-pattern';
 
 export type AssessmentType =
   /** Structured Q&A, scored, single-select-with-points (the reusable engine's own model). */
@@ -81,7 +83,8 @@ export type ScoringAdapterId =
   | 'primal-pattern-engine'
   | 'onboarding-comparator'
   | 'body-assessment-geometric-screening'
-  | 'unified-runtime-findings';
+  | 'unified-runtime-findings'
+  | 'fuel-pattern-weight-map';
 
 export type ResultAdapterId =
   | 'generic-questionnaire-results'
@@ -92,7 +95,8 @@ export type ResultAdapterId =
   | 'wbsa-system-pattern-results'
   | 'core-values-snapshot-results'
   | 'life-signal-check-results'
-  | 'readiness-pulse-results';
+  | 'readiness-pulse-results'
+  | 'fuel-pattern-results';
 
 export type StorageAdapterId =
   | 'wellness-assessments-tables'
@@ -241,6 +245,26 @@ export type AssessmentDefinition = {
   isActive: boolean;
   implementationStatus: ImplementationStatus;
   isComingSoon: boolean;
+
+  /**
+   * RETIRED IS NOT COMING SOON, AND IT IS NOT A LOCK (2026-09-13).
+   *
+   * A retired assessment is one this product has replaced. It keeps its
+   * registry entry, its database id, its tables and every row any member
+   * ever wrote, because a coach still reads that history and a member's
+   * own past result is her own. What it loses is every way IN: it is
+   * absent from the member's questionnaire library, absent from the
+   * coach's assignable list, and refused at the server for a new attempt.
+   *
+   * It is deliberately NOT expressed as `isActive: false` or as a
+   * Coming Soon status, because both of those already mean something
+   * else: `categorizeForCatalog` turns either into a "Coming Soon" card,
+   * which would advertise a retired instrument on the very shelf it is
+   * being removed from. One flag, read in three places
+   * (listMemberFacingAssessments, listAssignableAssessments,
+   * checkAssessmentAccess), and nothing else consults it.
+   */
+  retired: boolean;
 
   route: string;
   /** Null when the take flow is not a route-driven wizard (n/a for none today). */

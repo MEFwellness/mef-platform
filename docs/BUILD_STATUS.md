@@ -1,3 +1,149 @@
+## Rooted Reset Fuel Pattern Assessment, Build 1 of 4: the assessment core (2026-09-13)
+
+Primal Pattern Diet Type is retired and the Rooted Reset Fuel Pattern
+Assessment stands in its slot: monthly plan and up, same place on the
+shelf, same visibility rule. Twenty four questions, one per screen, on the
+Unified Adaptive Assessment Runtime. This build is the take flow and the
+scoring. The full result page, the meal system and the seven day
+experiment are Builds 2 to 4.
+
+### RETIREMENT IS ONE FLAG, READ IN THREE PLACES
+
+`AssessmentDefinition.retired` is new, and Primal Pattern Diet Type is the
+only entry carrying it. It is deliberately NOT `isActive: false` and not a
+Coming Soon status, because `categorizeForCatalog` turns either of those
+into a Coming Soon card, which would advertise the very thing being
+removed. The flag is read in exactly three places and nowhere else:
+
+- `listMemberFacingAssessments()`, the new sibling of
+  `listAssessmentRegistryEntries()`, which the Questionnaires catalog now
+  reads. A retired assessment has no card.
+- `listAssignableAssessments()`, so a coach cannot send it. An assignment
+  row that already exists still shows on his client detail page, under
+  "No longer offered", with no Assign control, which is machinery the page
+  already had.
+- `checkAssessmentAccess`, which refuses `intent: 'start'` for it on every
+  plan AND with a live assignment in hand. That last part matters: an
+  assignment is the one thing that adds access on top of the plan, so a
+  row written before the retirement would otherwise still open it.
+
+Its visibility rule is now the empty list, and `touchedBy` went with it,
+because grandfathering is what would put the card back for the one member
+most likely to notice, the one who actually took it.
+
+**Nothing of its data is touched.** `primal_pattern_assessments`,
+`primal_pattern_answers`, every completed row and every published finding
+are exactly where they were. Her own stored result is still readable at
+`/assessments/primal-pattern-diet-type/results/[assessmentId]`, and a
+coach keeps every read he had. The overview and take routes are redirects
+to `/questionnaires` rather than deletions, because a bookmark, an old
+push notification and a link in a coach message all still point at them.
+The one database change is the descriptive `is_active` flag on the
+catalog row, so a database side report agrees with the app.
+
+### THE INSTRUMENT (migration 236)
+
+Its own clean internal id throughout: key `fuel-pattern`, definition id
+`30acea0e...`, question keys `fpa_q1` to `fpa_q24`, route
+`/assessments/fuel-pattern`, results table `fuel_pattern_results`. No
+primal_pattern name, table or column is reused or renamed, and the Primal
+Pattern engine is not extended.
+
+**The content is authored once and the migration is generated from it.**
+`lib/fuel-pattern/questionContent.ts` holds the 24 questions, every option
+value, every label and every weight class.
+`scripts/print-fuel-pattern-sql.mjs` prints the migration's VALUES block
+from it, and `tests/fuel-pattern-content.test.ts` regenerates that block
+and asserts the shipped migration still matches character for character.
+This is the failure it exists to catch: an option value edited in one
+place and not the other scores nothing, silently, for every member who
+picks it. The live integration test additionally reads the real rows back
+out of the database and compares them to the authored content.
+
+### THE SCORING
+
+Three internal directions, four outcomes, and the raw scores never reach a
+member. Weights: a protein answer is 2/1/0, a balanced answer 1/2/1, a
+carb answer 0/1/2. An "it varies" answer is zero and counts toward the
+zero weight share. An answer describing neither direction (skips
+breakfast, wants something salty, appetite drops under stress) is zero,
+counts toward the same share, and is stored as a response tendency.
+
+Two things are never scored and never counted in any denominator:
+Question 21's digestive discomfort option, which is a coaching signal, and
+every answer to Question 23, which is contextual only.
+
+Flexible Fuel when the top score leads the second by less than 20 percent
+of itself, or when 40 percent or more of the scored questions were
+answered with a zero weight answer. It is a legitimate result, never an
+error state, and its confidence is read the other way round from a
+directional one: a member who answered decisively and still sits between
+the directions is a CONFIDENT Flexible.
+
+Confidence, directional: High at a lead of 0.35 or more with a zero weight
+share of 0.20 or less; Moderate at 0.20 and 0.35; Low otherwise.
+Flexible: High at a zero share of 0.20 or less with a lead under 0.10;
+Moderate up to 0.40; Low above it.
+
+One question has no balanced answer, and it is not an oversight. Question
+20 asks what stress does to her eating, and there is no middle answer to
+that question. The exception is named in the test rather than papered over
+by weakening the rule for the other twenty two.
+
+### THE TAKE FLOW
+
+One question a screen. This is a **deliberate exception** to the app wide
+two-to-three questions a screen standard the 2026-09-11 pass set, and the
+reason is written at the head of `FuelPatternQuestionScreen.tsx`: several
+of these questions carry five long answers, and stacking two of those on
+one screen turns a considered answer into a scan. Everything else is the
+shared language: the same option rows, the same gold selection state, the
+same tick, the same ripple from the real tap point, the same haptic.
+
+Continue is the step, always. Tapping an answer selects it and nothing
+else. The progress line is one 3px hairline of gold with the position said
+once in small text, no percentage and no celebration. Each question
+arrives on `.mef-screen-enter`, which reduced motion turns into a plain
+fade.
+
+Question 24 is three drawn plates and one plain row. The plates are inline
+SVG in the brand palette, not photographs: a photograph of a meal answers
+the question for her before she has, and a drawing shows proportion and
+nothing else. Each plate is a real button with an accessible name carrying
+its own words, and the legend names each wedge. Photo imagery comes in a
+later build.
+
+Save and resume is the runtime's own. The take route only ever reads, so a
+refresh, a Back-then-Forward, a bookmark or the re-render a Server Action
+carries all write nothing.
+
+### THE INTERIM COMPLETION STATE
+
+Two beats and one button: "Assessment complete", a calm pause, then YOUR
+FUEL PATTERN with the name and one sentence. Reduced motion skips the
+pause. A reload lands past it, because the taker writes the shared closing
+marker once the pattern is on the screen. The results route shows the same
+thing for a member coming back to a finished sitting, reading her STORED
+pattern rather than a recompute, so a later change to the weight map
+cannot rewrite a reading she has already been given. This whole screen is
+replaced in Build 2 and is written to be replaced rather than unpicked.
+
+### TESTS
+
+Five new files: `fuel-pattern-content.test.ts` (22),
+`fuel-pattern-scoring.test.ts` (23),
+`fuel-pattern-runtime-integration.test.ts` (9),
+`fuel-pattern-take-flow.test.tsx` (16),
+`primal-pattern-retired.test.ts` (19). Five existing files were updated to
+describe the new truth rather than the old one:
+`take-pages-never-write`, `plan-gate`, `investigation-engine`,
+`assessment-registry-integration` and `coach-assignment-adds-only`, the
+last of which gained the proof that an assignment cannot reopen a retired
+assessment and that her own finished sitting is still readable.
+
+Full suite 593 files, 11,334 tests, all passing. Typecheck clean, lint
+clean, production build clean.
+
 ## Three polish items: the skeleton, a status that fits, and where the login seconds go (2026-09-13)
 
 Presentation and one measured round trip. No auth logic, no security

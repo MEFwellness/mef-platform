@@ -1,0 +1,215 @@
+/**
+ * apps/consumer-web-app/app/actions/fuelPattern.ts
+ *
+ * The only place a Server or Client Component reaches into the Rooted
+ * Reset Fuel Pattern Assessment. Thin wrappers around the existing
+ * Unified Adaptive Assessment Runtime (lib/assessment-runtime) plus this
+ * instrument's own scoring and results row. Nothing here re-implements a
+ * session, an answer store or a gate, and nothing here extends the Primal
+ * Pattern engine, which this instrument replaces rather than builds on.
+ *
+ * Mirrors app/actions/readinessPulse.ts's own shape: begin and retake are
+ * buttons, the take route only reads, and completion is idempotent.
+ */
+
+'use server';
+
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { getCachedUser } from '@/lib/supabase/currentUser';
+import { localDateStringFor } from '@/lib/time/localDate';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
+import {
+  beginRuntimeAssessment,
+  loadRuntimeTakeSession,
+  type RuntimePhase,
+} from '@/lib/assessment-runtime/entry';
+import {
+  completeSession,
+  persistAnswer,
+  type AnswerValue,
+  type AssessmentSession,
+} from '@/lib/assessment-runtime';
+import { recordTimelineEvent } from '@/lib/timeline/data';
+import { FPA_KEY, FPA_LABEL, FPA_ROUTE, FPA_TAKE_ROUTE } from '@/lib/fuel-pattern/constants';
+import { allFpaQuestionsAnswered, computeFpaScoring } from '@/lib/fuel-pattern/scoring';
+import { saveFuelPatternResult, findFuelPatternResultBySession } from '@/lib/fuel-pattern/data';
+import type { FpaConfidence, FuelPattern } from '@/lib/fuel-pattern/types';
+
+const FPA_ROUTES = {
+  overview: FPA_ROUTE,
+  take: FPA_TAKE_ROUTE,
+  results: (sessionId: string) => `${FPA_ROUTE}/results/${sessionId}`,
+};
+
+async function requireMemberId(): Promise<string | null> {
+  const user = await getCachedUser();
+  return user?.id ?? null;
+}
+
+/**
+ * The Start / Resume button. A Server Action, never a render, because a
+ * render must not insert a row. See lib/assessment-runtime/entry.ts.
+ */
+export async function beginFpaAction(): Promise<void> {
+  const result = await beginRuntimeAssessment(FPA_KEY, FPA_ROUTES);
+  redirect(result.ok ? result.takeHref : result.redirectTo);
+}
+
+/** Take it again. Only ever reached by pressing the labelled retake button on the overview screen. */
+export async function retakeFpaAction(): Promise<void> {
+  const result = await beginRuntimeAssessment(FPA_KEY, FPA_ROUTES, { startRetake: true });
+  redirect(result.ok ? result.takeHref : result.redirectTo);
+}
+
+/**
+ * What the take page reads. Resumes a real draft, keeps a member who just
+ * finished on her reveal, sends a member returning to a finished sitting
+ * to her results, and writes nothing in any of those cases.
+ *
+ * `hasInFlowClosing: true` because this instrument ends inside its own
+ * taker, on the short reveal, not on its results screen.
+ */
+export async function loadFpaTakeSessionAction(): Promise<
+  { ok: true; phase: RuntimePhase; session: AssessmentSession } | { ok: false; redirectTo: string }
+> {
+  const result = await loadRuntimeTakeSession(FPA_KEY, FPA_ROUTES, { hasInFlowClosing: true });
+  return result.ok
+    ? { ok: true, phase: result.phase, session: result.session }
+    : { ok: false, redirectTo: result.redirectTo };
+}
+
+/**
+ * THE GATE, ON THE WRITE PATH TOO. 'view', not 'start': a member who
+ * legitimately began must always be able to finish, and whether she may
+ * BEGIN is decided on the begin path.
+ */
+async function mayWriteFpa(
+  supabase: ReturnType<typeof createClient>,
+  memberId: string
+): Promise<boolean> {
+  const access = await checkAssessmentAccess(supabase, memberId, FPA_KEY, { intent: 'view' });
+  return access.allowed;
+}
+
+export async function submitFpaAnswerAction(
+  sessionId: string,
+  questionId: string,
+  value: AnswerValue
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const memberId = await requireMemberId();
+  if (!memberId) return { ok: false, error: 'Not signed in.' };
+
+  const supabase = createClient();
+  if (!(await mayWriteFpa(supabase, memberId))) {
+    return { ok: false, error: 'This is not open for you right now.' };
+  }
+
+  try {
+    const { session } = await persistAnswer(supabase, sessionId, questionId, value);
+    if (session.memberId !== memberId) return { ok: false, error: 'Assessment not found.' };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to save that answer.' };
+  }
+}
+
+/**
+ * What the reveal and the results screen both read. Deliberately only the
+ * pattern: the three raw scores, the confidence level and every stored
+ * tendency are for the coach view in Build 2, and no member surface is
+ * ever handed them.
+ */
+export type FpaMemberReveal = {
+  pattern: FuelPattern;
+};
+
+export type CompleteFpaResult =
+  | { ok: true; reveal: FpaMemberReveal }
+  | { ok: false; error: string };
+
+export async function completeFpaAssessmentAction(sessionId: string): Promise<CompleteFpaResult> {
+  const memberId = await requireMemberId();
+  if (!memberId) return { ok: false, error: 'Not signed in.' };
+
+  const supabase = createClient();
+  if (!(await mayWriteFpa(supabase, memberId))) {
+    return { ok: false, error: 'This is not open for you right now.' };
+  }
+
+  let session: AssessmentSession;
+  try {
+    const result = await completeSession(supabase, sessionId);
+    session = result.session;
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Something went wrong finishing this assessment.',
+    };
+  }
+
+  if (session.memberId !== memberId) return { ok: false, error: 'Assessment not found.' };
+  if (!allFpaQuestionsAnswered(session.answers)) {
+    return { ok: false, error: 'Not every question was answered yet.' };
+  }
+
+  const scoring = computeFpaScoring(session.answers);
+
+  /*
+    HER READING IS STORED, AND THE STORED ONE IS WHAT SHE IS SHOWN. A
+    second call inside the same second (a Server Action re-renders the
+    route it was called from) finds the row already there and hands it
+    back rather than writing a second one. If the write genuinely fails
+    she is still shown the reading that was just computed, because a
+    storage problem is not a reason to leave a member who answered
+    twenty four questions staring at an error.
+  */
+  const stored = await saveFuelPatternResult(supabase, memberId, sessionId, scoring);
+
+  try {
+    const completedAt = session.completedAt ?? new Date().toISOString();
+    await recordTimelineEvent(supabase, {
+      memberId,
+      eventType: 'assessment_published',
+      localDate: localDateStringFor(completedAt, await memberTimezone(supabase, memberId)),
+      title: `Completed your ${FPA_LABEL}`,
+      sourceFeature: 'unified_assessment_finding',
+      sourceRecordId: sessionId,
+    });
+  } catch (err) {
+    console.error('Fuel Pattern timeline event failed', err);
+  }
+
+  return { ok: true, reveal: { pattern: stored?.pattern ?? scoring.pattern } };
+}
+
+/**
+ * The stored reading for one finished sitting, member facing half only.
+ * Returns null when the sitting is not hers or has no stored row.
+ */
+export async function getMyFpaRevealAction(sessionId: string): Promise<FpaMemberReveal | null> {
+  const memberId = await requireMemberId();
+  if (!memberId) return null;
+  const supabase = createClient();
+  const row = await findFuelPatternResultBySession(supabase, sessionId);
+  if (!row || row.memberId !== memberId) return null;
+  return { pattern: row.pattern };
+}
+
+/**
+ * The whole stored row, for surfaces that are allowed all of it. Nothing
+ * member facing calls this: the coach view in Build 2 is what it is for,
+ * and it is exported now so the storage contract is exercised by tests
+ * rather than written and left unread until then.
+ */
+export async function getFpaResultForSession(
+  sessionId: string
+): Promise<{ pattern: FuelPattern; confidence: FpaConfidence; scores: { protein: number; balanced: number; carb: number } } | null> {
+  const memberId = await requireMemberId();
+  if (!memberId) return null;
+  const supabase = createClient();
+  const row = await findFuelPatternResultBySession(supabase, sessionId);
+  if (!row) return null;
+  return { pattern: row.pattern, confidence: row.confidence, scores: row.scores };
+}

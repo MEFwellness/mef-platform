@@ -67,6 +67,15 @@ export const PROGRAM_PHASE_LOCK_MESSAGE =
 export const PREREQUISITE_LOCK_MESSAGE =
   'There is a step before this one. Finish that first and I will open this for you here.';
 
+/**
+ * A retired assessment has no card on the shelf, so no member reads this
+ * one from a locked card. It exists because the switch below deliberately
+ * has no default branch, and because a direct URL to a retired
+ * assessment's overview still needs a plain sentence rather than silence.
+ */
+export const RETIRED_LOCK_MESSAGE =
+  'This one has been replaced by a newer assessment. Your past results are still here.';
+
 /** The one message for one lock. Every locked card asks this, so no two screens can describe the same lock differently. Deliberately has no default branch: adding a lock reason without giving it a sentence is a type error, not a silent fallback. */
 export function lockNoteMessage(reason: LockReason): string {
   switch (reason.kind) {
@@ -76,6 +85,8 @@ export function lockNoteMessage(reason: LockReason): string {
         : MONTHLY_PLAN_LOCK_MESSAGE;
     case 'coach_assignment':
       return COACH_ASSIGNMENT_LOCK_MESSAGE;
+    case 'retired':
+      return RETIRED_LOCK_MESSAGE;
     case 'program_enrollment':
       return PROGRAM_ENROLLMENT_LOCK_MESSAGE;
     case 'program_phase':

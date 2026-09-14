@@ -19,11 +19,18 @@ export type NextStepCard = {
 
 export const NEXT_STEP_CARDS: NextStepCard[] = [
   {
-    id: 'primal-pattern',
-    title: 'Primal Pattern Diet Type',
-    description: 'A short quiz on how your body tends to respond to different fuel sources.',
+    /*
+      The Rooted Reset Fuel Pattern Assessment replaced Primal Pattern
+      Diet Type here on 2026-09-13. Same card, same slot, the new
+      instrument's own name and route, and a description written in the
+      house voice: it describes a starting pattern rather than claiming
+      anything about how a body responds.
+    */
+    id: 'fuel-pattern',
+    title: 'Rooted Reset Fuel Pattern Assessment',
+    description: 'Twenty four questions about how meals actually land for you, and the fuel pattern they suggest.',
     status: 'available',
-    href: '/assessments/primal-pattern-diet-type',
+    href: '/assessments/fuel-pattern',
   },
   {
     id: 'stress',

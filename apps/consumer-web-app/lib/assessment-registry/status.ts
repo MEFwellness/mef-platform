@@ -55,6 +55,15 @@ export type LockReason =
    * assignment is the whole gate.
    */
   | { kind: 'coach_assignment' }
+  /**
+   * RETIRED (2026-09-13). This product has replaced the instrument, so
+   * nobody starts a new attempt, not even with a coach assignment in
+   * hand. Produced only by lib/assessment-registry/access.ts, never by
+   * calculateLockReason below, which still reads the plan and nothing
+   * else. It is not a lock a member ever reads: a retired assessment has
+   * no card on her shelf to carry the sentence.
+   */
+  | { kind: 'retired' }
   | { kind: 'program_enrollment' }
   | { kind: 'program_phase'; requiredPhaseKey: string }
   | { kind: 'prerequisite'; missingKeys: AssessmentKey[] };
@@ -210,6 +219,11 @@ export function describeLockReason(reason: LockReason, prerequisiteNames: string
         : 'Available with a Monthly plan.';
     case 'coach_assignment':
       return 'Available once your coach assigns it to you.';
+    /* No card carries this one: a retired assessment is absent from the
+       library rather than locked in it. The sentence exists so a direct
+       URL has something plain to say. */
+    case 'retired':
+      return 'This has been replaced by a newer assessment.';
     case 'program_enrollment':
       return 'Available once you are enrolled in the Holistic Reset program.';
     case 'program_phase':
