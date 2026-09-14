@@ -79,6 +79,54 @@ a line of that code was opened.
 23 new tests, 11,640 passing overall, typecheck and lint clean, production
 build clean.
 
+### Live verification, production, 2026-09-14
+
+**21 checks, 21 passing** on `app.mefwellness.com` at 390x844, signed in as
+the standing test member with a minted session, retired afterwards with
+scope `local`. Deployment `mef-platform-b5c24c54l`, target Production,
+aliased to `app.mefwellness.com`.
+
+The order was read off the RENDERED page (each section's own document
+offset after the whole page had been scrolled, so reveal-on-scroll blocks
+were really in the layout), not off the source:
+
+| section | offset |
+| --- | --- |
+| Hero | 0 |
+| Quick Actions | 424 |
+| Your Week with Root | 1083 |
+| **Questionnaires** | **1235** |
+| Energy Trend | 3008 |
+| Your Path | 3378 |
+
+The card: eyebrow "Questionnaires", title "Continue your assessments",
+the supporting line, "8 of 13 complete", a 28px radius, a warm gradient
+surface rather than white, a `rgb(196, 160, 80)` fill at 62 percent of its
+track (8/13 is 61.5), and a 46px CTA pointing at `/questionnaires`.
+
+**The numbers are the library's numbers, checked against the library on
+the same visit:** Home said "8 of 13 complete" and `/questionnaires` said
+"8 of 13 complete".
+
+Tapping View questionnaires landed on `/questionnaires`. A locked
+questionnaire still opened its lock sheet, unchanged ("This one opens once
+your coach assigns it to you"), with 2 locked controls and 4 Premium
+badges on the shelf. No console error and no page error anywhere in the
+walk.
+
+**The quiet line was not exercised live, and the reason is a fact about
+the account, not a gap.** Her library reads Available (0), Assigned (0),
+Completed (8), with no Resume control and no in-progress badge anywhere on
+it, so there is nothing for the line to name and drawing none is the
+correct output. That path is covered by the unit tests instead: an open
+draft wins, an unopened assignment is the fallback, a key already drawn in
+Assigned to You is refused, a locked or coming-soon card is refused, and
+the href it hands back is asserted equal to the one the library screen's
+own card would use.
+
+**State left on production: none.** Nothing was written, started or
+assigned.
+
 ## The sweep counted the folder above the photo (2026-09-14)
 
 Several test accounts were deleted after migration 239 made deleting one
