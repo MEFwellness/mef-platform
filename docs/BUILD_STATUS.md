@@ -117,6 +117,31 @@ asserts no request reaches `challenges.cloudflare.com`, checks the
 wrong-password copy, and confirms the widget and the script are still on
 `/signup`.
 
+**The before number was measured on production before deploying, which is
+the only way the after number means anything.** With the Supabase switch
+already off but the OLD client still deployed, the same rig signed in
+through the same form in **25.6 s and 32.8 s**: the check no longer
+refused her, but the client still sat out the whole Turnstile window
+before submitting. After the deploy, eight runs: **4.4 s fastest, 16.8 s
+slowest, 9.3 s mean**, button press to standing on the dashboard, and a
+focused three-run pass came in at 4.4 to 5.3 s. What is left is this
+app's own dashboard and entry animation, not a third party, and the rig
+proves that separately by recording zero requests to Cloudflare on the
+sign-in path.
+
+7 of 7 live checks passed, including the wrong password reading
+"Incorrect email or password." on the real form. Locally: **608 test
+files, 11,609 tests, all passing**, typecheck clean, eslint 0 errors,
+production build green.
+
+**One thing the rig cannot do, stated rather than glossed.** It cannot
+create an account end to end, because Turnstile correctly declines to
+clear a headless browser and signup still carries the widget. It confirms
+the widget and Cloudflare's script are on the screen and the server path
+is held by `tests/login-without-captcha.test.tsx`; a real account being
+created by a real tap is an owner check. No production account was
+created by this build.
+
 ## Rooted Reset Fuel Pattern Assessment, Build 4 of 4: the 7 Day Fuel Experiment (2026-09-14)
 
 The arc closes. Builds 1 to 3 end with a hypothesis: a reading, a
