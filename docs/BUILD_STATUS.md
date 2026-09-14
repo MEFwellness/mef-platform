@@ -159,6 +159,74 @@ now walks all fourteen new member files and proves none of them can reach
 Full suite 607 files, 11,574 tests, all passing. Typecheck clean, lint
 clean, production build clean.
 
+### LIVE VERIFICATION, PRODUCTION, 2026-09-14
+
+**85 checks, 85 passing**, on `app.mefwellness.com`, driving the real
+member journey and then opening the real coach page.
+`scripts/verify-fuel-pattern-experiment-live.mjs` is the run, and its
+expectations are imported from the copy, the insight library and the day
+math themselves rather than typed a second time.
+
+A full sitting read Protein-Supportive, the experiment section stood
+between the meals and the forward look, the invitation and the new
+forward look were word for word the approved copy, and the button at the
+foot read START MY EXPERIMENT. Pressing it produced Day 1 of 7 without
+leaving the page (the URL never changed, the reveal held), wrote one live
+run against that reading, and turned the button at the foot into
+Continue. The Food Lens tile said Day 1 of 7.
+
+The sheet asked exactly the three questions with the meal row marked
+optional and **no submit button anywhere on it**; closing it without
+answering wrote nothing. Three taps wrote one row with her three answers
+and the part of the day she named, said "Noted. That helps.", closed
+itself, and the count moved at once. A check tagged to a saved library
+meal stored that meal id and took the meal's OWN part of the day.
+
+**The learning loop was driven on the live site.** Three Hungry checks put
+`hungry_soon` on the screen, word for word, as the only insight there.
+Six more Steady and Comfortable checks then made `holding_well` genuinely
+qualify (11 checks, 11 steady or great, 8 comfortable) and **the standing
+insight stayed `hungry_soon`**, which is the priority rule doing exactly
+what it exists for. Reloading her result page confirmed the insight had
+changed her pattern, her starting range, her plate and her four meal
+cards not at all, and that the insight reads the same there as on her own
+screen.
+
+Day 7 was reached by moving the stored `started_on` back eight days for
+the one seeded test account, which is honest because that column is a
+calendar day and the whole feature reads it. The completion state said
+YOUR FIRST WEEK, NOTICED., counted the eleven checks she really logged,
+carried the insight that stood and the approved closing line, and had
+dropped the day counter and LOG A CHECK. DONE stored the stamp and
+collapsed it; RESTART archived the run with reason `restarted`, kept all
+eleven of its checks and opened a fresh Day 1 of 7.
+
+Finishing a retake read Balanced Fuel, archived the run she had going
+with reason `retake`, kept its check, and offered a fresh START MY
+EXPERIMENT both in the section and at the foot. Home and the Daily
+Check-In both still opened and Home says nothing about the experiment,
+because nothing was added there. Zero console and page errors on every
+member screen and on the coach page.
+
+As the coach, inside Assessments and Findings: the Fuel experiment block
+with the live run, its day, her check in her own three answers with its
+Dinner tag, "Earlier runs: 2" opening onto both archived runs with the
+reason each ended, the standing insight and the one before it, and the
+summary she read at the end of her week.
+
+**Two things the run had to learn.** The Daily Check-In is at `/checkin`,
+not `/check-in`, and a rig that navigates to a route that does not exist
+reports a 404 as a product failure. And `innerText` reports text as CSS
+renders it: every sub-header on the coach card carries Tailwind's
+`uppercase`, so two assertions typed in sentence case could never have
+passed however right the card was. Both are fixed in the run, and the
+approved copy is still asserted exactly, because none of it is
+transformed.
+
+Every row the run wrote was deleted in a `finally` and confirmed absent
+by an independent count: both new tables, all four of Build 3's, the
+result rows and the sessions.
+
 ### WHAT IS IN THE DATABASE
 
 Migration 238, two tables. `fuel_experiments` (one run: the sitting, the
