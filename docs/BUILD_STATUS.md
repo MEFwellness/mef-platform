@@ -155,6 +155,112 @@ Full suite 598 files, 11,403 tests, all passing. Typecheck clean, lint
 clean (one pre-existing unused variable in `fuel-pattern-scoring.test.ts`
 fixed on the way past), production build clean.
 
+### LIVE VERIFICATION, PRODUCTION, 2026-09-14
+
+**99 checks, 99 passing**, on `app.mefwellness.com`, driving the real
+member journey three times and then opening the real coach page.
+`scripts/verify-fuel-pattern-results-live.mjs` is the run.
+
+**The expectations are printed from the real engines, not typed twice.**
+`scripts/print-fuel-pattern-expectations.mjs` builds each run's answers,
+scores them, runs the observation engine over them and emits the expected
+pattern, the expected lines with the stored answers that support each one,
+the expected range, the expected plate and the expected coach reading. The
+rig answers with the same rule that file used to choose the options, so a
+question edited in the product is a question edited in the run.
+
+RUN A answered protein leaning, with two response tendencies, one "it
+varies", the digestive discomfort answer and a real vitality answer, and
+read **Protein-Supportive**, High, P 38 / B 19 / C 0. Its four lines, and
+the answers behind each:
+
+- "More substantial meals appear to serve you well." (Q17 Strong, Q18 More
+  substantial meals, Q19 Satisfied and calm, Q22 I need substantial meals
+  to stay steady)
+- "Protein appears to support your satisfaction and staying power between
+  meals." (Q1 Less than 2 hours, Q4 Very satisfied and steady, Q16
+  Protein/fat such as yogurt, eggs, nuts or cheese)
+- "Carbohydrate-heavy meals on their own do not appear to hold you
+  steady." (Q3 Hungry again fairly quickly, Q5 I feel good briefly then
+  crash or get hungry, Q8 Hungry again quickly)
+- "Long gaps between meals appear to work against you." (Q1 Less than 2
+  hours, Q9 I become very hungry, irritable or shaky)
+
+RUN B answered "it varies" throughout and read **Flexible Fuel**, Low, all
+23 scored answers carrying zero weight. Two lines qualified and both were
+shown: "You do not show a strong need for either extreme." and "Your
+responses genuinely vary from day to day, and that is useful information
+in itself."
+
+**The fewer-than-two path did not trigger on that sitting, and by
+construction it cannot.** An all "it varies" sitting satisfies both of the
+share based rules at once, so it always has exactly two lines to show. The
+path is real and is proved in `fuel-pattern-observations.test.ts` and
+rendered in `fuel-pattern-result-page.test.tsx`; a live sitting that
+reaches it has to be a mostly decisive one with a single qualifying line,
+which is not what "all it varies" produces.
+
+RUN C answered balanced leaning but genuinely mixed (stress and higher-fat
+meals both answered the carb way, vitality declined) and read **Balanced
+Fuel**, High, P 21 / B 44 / C 25, with four lines and **not one of them
+shared with RUN A**: no_extreme, carbs_steady, balanced_energy and
+fat_sits_heavy.
+
+Every run additionally proved, on the real screen: the reveal opened on
+"Assessment complete." with her pattern name not yet on it; her pattern
+name then stood alone with the range and the forward look not yet
+rendered; six seconds later the URL and the screen were unchanged, so
+nothing behind the page moved her on; the six sections appeared in the
+brief's order top to bottom; the range and the plate matched the pattern
+in words; exactly one plate was drawn; no raw score, no confidence level,
+no digit and no em dash appeared anywhere; and one Continue returned her
+to the dashboard.
+
+A revisit through "See your results" was sampled every frame from arrival
+to settled: "Assessment complete." appeared in none of them and the
+finished page, with the same observation lines, was there.
+
+As the coach: the card is in Assessments and Findings, names the
+instrument, shows the newest pattern with its confidence and all three raw
+scores, lists all three sittings over time newest first, and switching to
+the oldest by its chip showed the digestive discomfort signal with its
+"Coaching signal only, did not influence the pattern." sentence, both
+response tendencies in plain language, the three ambiguous questions by
+number, and her vitality answer. RUN C's declined answer reads "Preferred
+not to answer".
+
+Zero console and page errors on every member screen and on the coach page.
+
+All 7 existing Primal Pattern sittings were counted before and after and
+are untouched.
+
+**State left on production: none.** All three runs' rows were deleted in a
+`finally` and confirmed absent by an independent query afterwards.
+
+### THE RIG BUG THAT MATTERED, AND THE CHECK IT FORCED
+
+The first run reported 87 of 96, and eight of those nine failures were the
+instrument rather than the app: `innerText` reports the CSS transformed
+text, and every structural heading on the coach card is styled
+`uppercase`, so four case sensitive comparisons failed about headings that
+were plainly on the screen. One counted `main svg` and found two, because
+the Home link has an icon and an icon is not a plate. One read the page
+the instant the URL changed and got the route's loading state.
+
+**The ninth was not a rig bug at all, and no assertion in the run could
+have caught it.** The first full page screenshot showed the hero and the
+observations, then a screen and a half of empty cream where the range, the
+plate and the forward look should have been. Every text assertion had
+passed, because the sections mount at opacity 0 and fade in as they reach
+the viewport, and `innerText` reports the text of an element at opacity 0
+exactly as it reports any other. The page was behaving correctly, the
+scroll simply had not happened, but the point stands: **that whole family
+of assertions could not have failed.** So the run now scrolls the way a
+member scrolls and asks the browser for the effective painted opacity of
+every section, which is the only reading that distinguishes "is in the
+document" from "she can see it". All five sections read 1 on all three
+runs.
+
 ## Rooted Reset Fuel Pattern Assessment, Build 1 of 4: the assessment core (2026-09-13)
 
 Primal Pattern Diet Type is retired and the Rooted Reset Fuel Pattern
