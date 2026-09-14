@@ -33,6 +33,15 @@ production rather than by reading the markup.
 - **An assigned card is 213px on the real page and was reserved at 160.**
   It reserves 212px, with the card's own inner shape (eyebrow, two-line
   title, two lines of body, a button).
+- **The hero body was 18px short, and the hero moved HER GREETING.** The
+  body is bottom-anchored inside a band of committed height, so missing
+  pixels do not leave a gap at the foot: the greeting settled 18px upwards
+  about a second after the page arrived. The cause was the ring column,
+  reserved as the 64px ring alone against a real 89px column (a 66px ring
+  and the "3 pts down" note under it). Reserved at the measured shape now,
+  and the route skeleton composes `HomeHeroBodyPlaceholder` itself rather
+  than restating its measurements. This was the LAST layout shift left on
+  Home: 0.0057, and all of it.
 - **A placeholder for an OBJECT is a surface with bars on it.** A quick
   action tile placeholder is a TILE now: the tile's 14px padding, its
   36px icon chip at the top, its label pushed to the foot the way

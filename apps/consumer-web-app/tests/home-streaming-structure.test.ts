@@ -195,6 +195,26 @@ describe('the order she reads in is the order in the markup', () => {
     expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
+  it('the hero body is reserved at the column the real one measures, change note included', () => {
+    // The hero body is bottom-anchored inside a band of committed height,
+    // so a placeholder that is short does not leave a gap at the foot, it
+    // moves HER GREETING. The ring column was reserved at 64px against a
+    // real 89 (a 66px ring plus its change note), and the greeting settled
+    // 18px upwards about a second after the page arrived: measured on
+    // production, the last layout shift left on Home.
+    const hero = read('components/dashboard/HomeHero.tsx');
+    const at = hero.indexOf('export function HomeHeroBodyPlaceholder');
+    const fn = hero.slice(at, hero.indexOf('\n}\n', at));
+    expect(fn).toContain('h-[66px] w-[66px]');
+    expect(fn).toContain('h-[15px]');
+    expect(fn).toContain('h-[46px]');
+    expect(fn).toContain('h-[38px]');
+    // And the route skeleton uses that one definition rather than a second
+    // copy of those numbers.
+    expect(PLACEHOLDERS).toContain('<HomeHeroBodyPlaceholder hasCheckins />');
+    expect(PLACEHOLDERS).not.toContain('h-[64px]');
+  });
+
   it('a placeholder that stands in for an object has a surface its bars can be seen on', () => {
     // A tile placeholder and an assigned-card placeholder are surfaces
     // with bars on them. One wash for both would make the bars invisible

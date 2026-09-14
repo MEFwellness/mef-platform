@@ -34,6 +34,8 @@
  * whether the page has finished settling.
  */
 
+import { HomeHeroBodyPlaceholder } from './HomeHero';
+
 function Bar({ className }: { className: string }) {
   return <div className={`mef-settling rounded-full ${className}`} />;
 }
@@ -228,16 +230,15 @@ export function HomeShellPlaceholder() {
           <div className="mef-settling-on-photo h-12 w-44 rounded-2xl" />
           <div className="mef-settling-on-photo h-10 w-10 rounded-full" />
         </div>
-        {/* The greeting, then the same blocks HomeHeroBodyPlaceholder
-            reserves, at the same heights. */}
+        {/* The greeting, and then the hero body's OWN placeholder rather
+            than a second copy of its measurements. `mt-auto pt-6` is the
+            real block's own wrapper, so the greeting sits where the
+            greeting sits. `hasCheckins` is the one thing this cannot know
+            (it needs her row count) and the tall state is what a member
+            arriving at Home is overwhelmingly in. */}
         <div className="mt-auto pt-6">
           <div className="mef-settling-on-photo h-10 w-3/4 rounded-full" />
-          <div className="mt-2 flex items-start gap-5">
-            <div className="mef-settling-on-photo mt-1 h-[22px] w-1/2 rounded-full" />
-            <div className="mef-settling-on-photo ml-auto h-[64px] w-[64px] shrink-0 rounded-full" />
-          </div>
-          <div className="mef-settling-on-photo mt-3 h-[46px] w-full max-w-md rounded-2xl" />
-          <div className="mef-settling-on-photo mt-3 h-9 w-56 rounded-full" />
+          <HomeHeroBodyPlaceholder hasCheckins />
         </div>
       </section>
 

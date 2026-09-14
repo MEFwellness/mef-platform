@@ -282,16 +282,33 @@ export function HomeHeroFrame({
  *
  * BLOCK FOR BLOCK, WITH THE REAL BODY'S OWN MEASUREMENTS. Every bar here is
  * the height and the top margin of the element it stands in for in
- * `HomeHeroBody` below: the greeting line is one 22px line at `mt-2`, the
- * ring is the 76px square on the right of that same row, the explanation
- * is three lines of `text-sm leading-relaxed` at `mt-4`, and the link is
- * 20px at `mt-4`. It used to be a rough rhythm of 16px bars, which came to
- * 59px short of the real body and was most of the layout shift on this
- * screen.
+ * `HomeHeroBody` below: the summary line, the ring on the right of that
+ * same row with its change note under it, the explanation held to two
+ * lines, and the link. It used to be a rough rhythm of 16px bars, which
+ * came to 59px short of the real body and was most of the layout shift on
+ * this screen.
  *
  * Two lines for the explanation because the real one is held to two
  * (`line-clamp-2` below), so this is not an estimate of it any more: it is
  * the same number of lines the body can ever draw.
+ *
+ * AND THE RING'S CHANGE NOTE IS PART OF THAT COLUMN (2026-09-13). The
+ * placeholder reserved the ring alone, 64px, against a real column of 89
+ * (a 66px ring, then "3 pts down" under it). The body is bottom-anchored
+ * inside a band of committed height, so eighteen missing pixels did not
+ * leave a gap at the foot, they moved HER GREETING: measured on
+ * production, the greeting settled 18px upwards about a second after the
+ * page arrived, which was the last layout shift left on Home (0.0057 of
+ * it, and all of it). Every number below was read off the real rendered
+ * hero at 390px.
+ *
+ * THE ONE THING IT CANNOT KNOW is which of the body's two variable lines
+ * she gets: the change note needs a previous score, and the "still
+ * building your baseline" line appears only while her confidence level is
+ * building. What is reserved is the established shape, which is also
+ * within two pixels of the building one, because a member who has no
+ * change note to show is usually the same member who has the baseline
+ * line instead, and those two are the same size.
  */
 export function HomeHeroBodyPlaceholder({ hasCheckins }: { hasCheckins: boolean }) {
   if (!hasCheckins) {
@@ -303,15 +320,22 @@ export function HomeHeroBodyPlaceholder({ hasCheckins }: { hasCheckins: boolean 
   }
 
   return (
-    <div data-settling="true" aria-hidden="true" className="mt-2">
+    // 1px, not 8: the real body's first row starts immediately under the
+    // greeting's own line box.
+    <div data-settling="true" aria-hidden="true" className="mt-px">
       <div className="flex items-start gap-5">
-        <div className="min-w-0 flex-1 pt-1">
-          <div className="mef-settling-on-photo h-[22px] w-3/4 rounded-full" />
+        <div className="min-w-0 flex-1 pt-2">
+          <div className="mef-settling-on-photo h-[21px] w-3/4 rounded-full" />
         </div>
-        <div className="mef-settling-on-photo h-[64px] w-[64px] shrink-0 rounded-full" />
+        {/* The ring, and the change note that sits under it. 66 + 8 + 15
+            is the 89px column the real one measures. */}
+        <div className="shrink-0">
+          <div className="mef-settling-on-photo h-[66px] w-[66px] rounded-full" />
+          <div className="mef-settling-on-photo mx-auto mt-2 h-[15px] w-[68px] rounded-full" />
+        </div>
       </div>
       <div className="mef-settling-on-photo mt-3 h-[46px] w-full max-w-md rounded-2xl" />
-      <div className="mef-settling-on-photo mt-3 h-9 w-56 rounded-full" />
+      <div className="mef-settling-on-photo mt-3 h-[38px] w-56 rounded-full" />
     </div>
   );
 }
