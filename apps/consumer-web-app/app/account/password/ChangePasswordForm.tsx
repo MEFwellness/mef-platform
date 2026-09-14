@@ -8,9 +8,6 @@ import { checkPasswordStrength, passwordsMatch } from '@/lib/auth/validation';
 import { getFriendlyAuthError } from '@/lib/auth/errors';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { PasswordStrengthHint } from '@/components/auth/PasswordStrengthHint';
-import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
-import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
-import { submitWithFreshCaptcha } from '@/lib/turnstile/submit';
 
 interface FieldErrors {
   currentPassword?: string | undefined;
@@ -28,11 +25,11 @@ export function ChangePasswordForm() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const submittingRef = useRef(false);
-  // This screen is behind a session, but the way it proves you know your
-  // current password is a real sign-in attempt, and sign-in is one of the
-  // endpoints Supabase protects with a captcha. See changePassword() in
-  // app/actions/auth.ts. Dormant with no site key set.
-  const turnstileRef = useRef<TurnstileHandle | null>(null);
+  // No bot check on this screen. It carried one only because the way it
+  // proves you know your current password is a real sign-in call, and
+  // Supabase's project-wide captcha switch covered that endpoint. The
+  // switch is off (lib/turnstile/verify.ts), and nobody without a valid
+  // session can reach this form in the first place.
 
   function confirmPasswordError(pw: string, confirm: string): string | undefined {
     if (!confirm) return undefined;
@@ -65,17 +62,7 @@ export function ChangePasswordForm() {
 
     submittingRef.current = true;
     setSubmitting(true);
-    // Fresh at the moment of submitting, one silent second try if the check
-    // refuses it anyway, and the spent single-use token replaced afterwards
-    // whatever the outcome: this form stays mounted on success too (it
-    // swaps to a confirmation with a "Change it again" button). A refused
-    // check never reached the password verification, so the retry is not a
-    // second failed attempt against her account. See lib/turnstile/submit.ts.
-    const result = await submitWithFreshCaptcha(turnstileRef.current, async (token) => {
-      if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
-      else formData.delete(CAPTCHA_TOKEN_FIELD);
-      return await changePassword(formData);
-    });
+    const result = await changePassword(formData);
 
     if (result?.error && result.field) {
       // A wrong current password belongs on the field the member has to fix,
@@ -194,8 +181,6 @@ export function ChangePasswordForm() {
           }));
         }}
       />
-
-      <TurnstileGate ref={turnstileRef} />
 
       {formError && (
         <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">

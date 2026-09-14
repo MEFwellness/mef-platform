@@ -27,25 +27,17 @@
  * inside the handler, on the tap. Nothing else about the ceremony changed.
  */
 
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, useState } from 'react';
 import { isPasskeySupported } from '@/lib/passkey/support';
 import { getFriendlyPasskeyError, isPasskeyCancelled } from '@/lib/passkey/errors';
 import { completePasskeyLogin } from '@/app/actions/auth';
-import type { TurnstileHandle } from '@/components/auth/TurnstileGate';
 
 export function PasskeyLoginButton({
   redirectedFrom,
   onError,
-  turnstile,
 }: {
   redirectedFrom: string | null;
   onError: (message: string | null) => void;
-  /**
-   * The login form's own bot-check widget, borrowed rather than duplicated.
-   * Optional, and null on every deployment with no site key configured, in
-   * which case the passkey call below is byte-identical to what it was.
-   */
-  turnstile?: RefObject<TurnstileHandle | null>;
 }) {
   const [supported, setSupported] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -69,17 +61,12 @@ export function PasskeyLoginButton({
     try {
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
-      // THE ONE FORM THAT DOES NOT AUTO-RETRY A REFUSED CHECK, and the
-      // reason is the ceremony rather than the check. Everywhere else the
-      // silent second attempt in lib/turnstile/submit.ts is invisible;
-      // here it would put Face ID in front of her a second time for a
-      // failure that is not hers. getToken() now guarantees the token is
-      // fresh at the moment it is read, which is the half of the fix that
-      // applies, and a genuine refusal is told to her once.
-      const token = await turnstile?.current?.getToken();
-      const { data, error } = await supabase.auth.signInWithPasskey(
-        token ? { options: { captchaToken: token } } : undefined
-      );
+      // No bot check, for the same reason the password form next to this
+      // one no longer has one: this is a sign-in, it creates nothing and
+      // sends nothing, and gating a Face ID ceremony on a third party's
+      // round trip is how a correct credential ends up refused. See
+      // lib/turnstile/verify.ts.
+      const { data, error } = await supabase.auth.signInWithPasskey();
       if (error) {
         // A cancelled/timed-out ceremony is not a member-facing error —
         // land back on normal login calmly, no error drama.
@@ -99,10 +86,6 @@ export function PasskeyLoginButton({
     } catch {
       onError('Face ID sign-in did not go through. Please try again or use your password.');
     } finally {
-      // Single-use token spent, whatever the outcome. Reaching here means
-      // the member is still on this screen and may try again, either with
-      // Face ID or with the password form that shares this same widget.
-      turnstile?.current?.reset();
       setBusy(false);
     }
   };

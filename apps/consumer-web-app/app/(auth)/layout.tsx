@@ -1,18 +1,15 @@
 import type { ReactNode } from 'react';
 import { RootedResetLockup } from '@/components/brand/RootedResetLockup';
-import { TurnstilePreload } from '@/components/auth/TurnstilePreload';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] px-5 py-12 font-[family-name:var(--font-dm-sans)]">
-      {/* The bot check's script starts downloading while this page is
-          still being parsed, instead of after the app has hydrated. Every
-          screen under this layout carries a widget, and the two seconds
-          that used to be spent before the challenge could even begin were
-          two seconds of the member's submit budget. See
-          components/auth/TurnstilePreload.tsx for the measurement. */}
-      <TurnstilePreload />
-
+      {/* NO BOT-CHECK PRELOAD HERE, and that is the point. It used to sit
+          in this layout, which meant /login downloaded 60 kB of Cloudflare
+          on a screen that no longer has a widget on it. The preload moved
+          down into the three screens that still carry one (signup, verify,
+          reset-password), so signing in fetches nothing from a third party
+          at all. See lib/turnstile/verify.ts. */}
       <main className="w-full max-w-sm">
         {/* Was this exact markup inline. Extracted so the public entry
             experience shows the same lockup rather than a third copy of

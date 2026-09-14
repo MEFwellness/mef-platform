@@ -44,8 +44,17 @@ export function isTurnstileConfigured(): boolean {
 /**
  * What a member is told when the check could not be completed. Deliberately
  * says nothing about Cloudflare, tokens, captchas or bots: it names the
- * outcome ("we could not confirm that") and the remedy ("try again"), which
- * is all a real person can act on. Never replaced by a raw error string.
+ * outcome and the remedy, which is all a real person can act on. Never
+ * replaced by a raw error string.
+ *
+ * IT NO LONGER SAYS "IN TIME", AND THAT IS NOT A WORDING PREFERENCE. The
+ * old sentence was "We could not confirm that in time. Please try again."
+ * and its most common reader by far was a member holding a correct password
+ * on the login screen, because sign-in was gated on a third party finishing
+ * a round trip. Sign-in no longer carries the check at all
+ * (lib/turnstile/verify.ts), so the only screens that can produce this are
+ * the three that create an account or send mail, and on those it is a
+ * refusal rather than a timeout. The sentence now says that.
  */
 export const TURNSTILE_UNVERIFIED_MESSAGE =
-  'We could not confirm that in time. Please try again.';
+  'We could not complete the security check. Please try again.';

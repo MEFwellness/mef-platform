@@ -1,6 +1,14 @@
 /**
  * Bot and spam protection on the auth screens (Cloudflare Turnstile).
  *
+ * REVISED 2026-09-14, AND THE REVISION IS THE POINT. Supabase's captcha
+ * setting is one project-wide switch, so protecting signup also protected
+ * SIGN-IN, and sign-in is where it kept refusing members who had typed a
+ * correct password. The switch is off now and the check runs in
+ * lib/turnstile/verify.ts instead, on the three anonymous endpoints that
+ * create an account or send mail. tests/login-without-captcha.test.tsx
+ * holds the sign-in half. This file holds the rest.
+ *
  * This ships dormant, so the property that actually matters is not "the
  * token is sent" but "nothing changes until a site key exists". Both are
  * asserted here, and the important ones are asserted against real output
@@ -13,10 +21,9 @@
  *    stubbed fetch, so "dormant means byte-identical" is a comparison of
  *    two real request bodies rather than a claim about an options object.
  *
- * There is also a sweep, with no exceptions list, over every form that
- * calls one of the Supabase endpoints a captcha protects. A new auth form
- * that forgets the widget fails this suite instead of failing live the
- * moment the dashboard switch is flipped.
+ * There is also a sweep, with no exceptions list, over every form whose
+ * submission creates an account or sends mail. A new one of those that
+ * forgets the widget fails this suite instead of failing live.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -205,18 +212,21 @@ describe('what reaches Supabase', () => {
     expect(JSON.stringify(withHelper)).toBe(JSON.stringify(asItWasBefore));
   });
 
-  it('carries the token on sign-in when one exists', async () => {
+  it('carries NOTHING on sign-in, however much the app is holding', async () => {
+    // The one endpoint that must never grow a token again. Four fixes were
+    // spent trying to make one arrive here in time; the fifth took the
+    // requirement away. See tests/login-without-captcha.test.tsx.
     const body = await capturedRequestBody((c) =>
-      c.auth.signInWithPassword({
-        email: 'someone@example.test',
-        password: 'whatever',
-        options: captchaOptions('tok-signin'),
-      })
+      c.auth.signInWithPassword({ email: 'someone@example.test', password: 'whatever' })
     );
-    expect(body).toMatchObject({ gotrue_meta_security: { captcha_token: 'tok-signin' } });
+    expect(JSON.stringify(body)).not.toContain('captcha');
   });
 
-  it('carries the token on signup, alongside everything signup already sent', async () => {
+  it('sends no token to Supabase on signup either, because Supabase stopped checking', async () => {
+    // The token is spent against Cloudflare in lib/turnstile/verify.ts,
+    // before this call is made at all. Forwarding it here as well would be
+    // re-arming the project-wide switch by accident the day somebody turns
+    // it back on.
     const body = await capturedRequestBody((c) =>
       c.auth.signUp({
         email: 'someone@example.test',
@@ -224,37 +234,31 @@ describe('what reaches Supabase', () => {
         options: {
           emailRedirectTo: 'https://app.mefwellness.com/api/auth/callback',
           data: { timezone: 'America/New_York' },
-          ...captchaOptions('tok-signup'),
         },
       })
     );
-    expect(body).toMatchObject({ gotrue_meta_security: { captcha_token: 'tok-signup' } });
-    // The token is added to signup, it does not displace anything.
+    expect(JSON.stringify(body)).not.toContain('captcha');
+    // ...and everything signup always sent is untouched.
     expect(body).toMatchObject({ data: { timezone: 'America/New_York' } });
   });
 
-  it('carries the token on the password reset request', async () => {
+  it('the helper is still correct for anybody who does pass a token', async () => {
+    // captchaOptions() is no longer called by any action, but it is the
+    // one definition of "how a token would ride", and the dormant-mode
+    // guarantees above are stated in terms of it.
     const body = await capturedRequestBody((c) =>
-      c.auth.resetPasswordForEmail('someone@example.test', {
-        ...captchaOptions('tok-recover'),
-        redirectTo: 'https://app.mefwellness.com/api/auth/recovery',
+      c.auth.signInWithPassword({
+        email: 'someone@example.test',
+        password: 'whatever',
+        options: captchaOptions('tok-if-ever-needed'),
       })
     );
-    expect(body).toMatchObject({ gotrue_meta_security: { captcha_token: 'tok-recover' } });
+    expect(body).toMatchObject({ gotrue_meta_security: { captcha_token: 'tok-if-ever-needed' } });
   });
 
-  it('carries the token on the verification email resend', async () => {
-    const body = await capturedRequestBody((c) =>
-      c.auth.resend({
-        type: 'signup',
-        email: 'someone@example.test',
-        options: {
-          emailRedirectTo: 'https://app.mefwellness.com/api/auth/callback',
-          ...captchaOptions('tok-resend'),
-        },
-      })
-    );
-    expect(body).toMatchObject({ gotrue_meta_security: { captcha_token: 'tok-resend' } });
+  it('no auth action forwards a token to Supabase any more', () => {
+    const source = fs.readFileSync(path.join(ROOT, 'app/actions/auth.ts'), 'utf8');
+    expect(source).not.toContain('captchaOptions(');
   });
 });
 
@@ -311,18 +315,28 @@ describe('the refusal message', () => {
 // ---------------------------------------------------------------------------
 
 /**
- * Every screen whose submission reaches one of the Supabase endpoints a
- * captcha protects (signup, password sign-in, password recovery, email
- * resend, passkey sign-in). Deliberately a hand-written list of the files
- * rather than a grep for the action names: the point is that adding a new
- * auth screen should require thinking about this, and a list is the thing
- * that makes forgetting visible.
+ * Every screen whose submission creates an account or sends mail to an
+ * address a stranger typed. Deliberately a hand-written list of the files
+ * rather than a grep: the point is that adding a new anonymous auth screen
+ * should require thinking about this, and a list is the thing that makes
+ * forgetting visible.
+ *
+ * SIGN-IN IS NOT ON IT, AND NEITHER IS CHANGE PASSWORD. Sign-in creates
+ * nothing and sends nothing, and change-password needs a live session
+ * before it can be reached at all. They were on this list only because
+ * Supabase's single project-wide switch covered the endpoint they share,
+ * and being on it is what made correct passwords fail. See
+ * tests/login-without-captcha.test.tsx.
  */
 const PROTECTED_FORMS = [
-  'app/(auth)/login/page.tsx',
   'app/(auth)/signup/page.tsx',
   'app/(auth)/reset-password/ResetPasswordForm.tsx',
   'app/(auth)/verify/page.tsx',
+];
+
+/** And these must NOT carry one. */
+const UNPROTECTED_FORMS = [
+  'app/(auth)/login/page.tsx',
   'app/account/password/ChangePasswordForm.tsx',
 ];
 
@@ -344,16 +358,19 @@ describe('every captcha-protected form', () => {
     });
   }
 
-  it('the change-password screen is included, because verifying the current password is a sign-in', () => {
-    const source = fs.readFileSync(
-      path.join(ROOT, 'app/actions/auth.ts'),
-      'utf8'
-    );
-    // The proof this is not decoration: changePassword() forwards the token
-    // to signInWithPassword, not to updateUser (which takes no token).
+  for (const file of UNPROTECTED_FORMS) {
+    it(`${file} carries no widget, and must not grow one`, () => {
+      const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+      expect(source).not.toContain('<TurnstileGate');
+      expect(source).not.toContain('submitWithFreshCaptcha(');
+    });
+  }
+
+  it('change-password no longer forwards a token to the sign-in call it makes', () => {
+    const source = fs.readFileSync(path.join(ROOT, 'app/actions/auth.ts'), 'utf8');
     const changePassword = source.slice(source.indexOf('export async function changePassword'));
-    expect(changePassword).toContain('options: captchaOptions(captchaToken)');
-    expect(changePassword).not.toContain('updateUser({ password, captchaToken');
+    expect(changePassword).not.toContain('captchaOptions');
+    expect(changePassword).not.toContain('captchaToken');
   });
 });
 
@@ -362,7 +379,14 @@ describe('every captcha-protected form', () => {
 // ---------------------------------------------------------------------------
 
 describe('secret key containment', () => {
-  it('no source file reads a Turnstile secret key', () => {
+  it('exactly one module reads the Turnstile secret key', () => {
+    // It used to be none: the secret lived only in the Supabase dashboard.
+    // The dashboard switch had to be turned off (it covered sign-in, which
+    // is the bug), so this app verifies tokens itself now and therefore
+    // needs the secret. One module reads it, from the environment, and it
+    // is a server module: nothing under components/ and nothing carrying
+    // 'use client' may ever touch it, because a NEXT_PUBLIC-style leak of
+    // THIS key would let anybody mint verdicts.
     const offenders: string[] = [];
     const walk = (dir: string) => {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -375,7 +399,7 @@ describe('secret key containment', () => {
         }
         if (!/\.(ts|tsx|mjs|js)$/.test(entry.name)) continue;
         const text = fs.readFileSync(full, 'utf8');
-        if (/TURNSTILE_SECRET|TURNSTILE_SECRET_KEY/.test(text)) {
+        if (/process\.env\.TURNSTILE_SECRET_KEY/.test(text)) {
           offenders.push(path.relative(ROOT, full));
         }
       }
@@ -383,6 +407,44 @@ describe('secret key containment', () => {
     walk(path.join(ROOT, 'lib'));
     walk(path.join(ROOT, 'app'));
     walk(path.join(ROOT, 'components'));
-    expect(offenders).toEqual([]);
+    expect(offenders).toEqual(['lib/turnstile/verify.ts']);
+  });
+
+  it('that module is never pulled into a browser bundle', () => {
+    const verify = fs.readFileSync(path.join(ROOT, 'lib/turnstile/verify.ts'), 'utf8');
+    expect(verify).not.toContain("'use client'");
+    // Reached only from Server Actions, which is what keeps the secret on
+    // the server. A client component importing it would ship it.
+    const importers: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === 'node_modules' || entry.name === '.next') continue;
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!/\.(ts|tsx)$/.test(entry.name)) continue;
+        const text = fs.readFileSync(full, 'utf8');
+        // A real import, not a file that merely names it in a comment.
+        const imports = /from\s+['"](?:@\/lib\/turnstile\/verify|\.\/verify|\.\.\/turnstile\/verify)['"]/.test(
+          text
+        );
+        if (!imports) continue;
+        if (/^\s*['"]use client['"]/m.test(text)) importers.push(path.relative(ROOT, full));
+      }
+    };
+    walk(path.join(ROOT, 'lib'));
+    walk(path.join(ROOT, 'app'));
+    walk(path.join(ROOT, 'components'));
+    expect(importers).toEqual([]);
+  });
+
+  it('no source file carries a secret key literal', () => {
+    const verify = fs.readFileSync(path.join(ROOT, 'lib/turnstile/verify.ts'), 'utf8');
+    // Cloudflare secret keys are '0x4AAA...' shaped, same as site keys.
+    // The site key is public and appears in tests; a secret must only ever
+    // arrive through the environment.
+    expect(verify).not.toMatch(/secret\s*=\s*['"]0x/);
   });
 });

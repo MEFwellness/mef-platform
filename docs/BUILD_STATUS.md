@@ -1,3 +1,122 @@
+## Sign-in has no bot check, and the check moved to where it was needed (2026-09-14)
+
+The fifth fix for one bug, and the first one that did not try to make
+Cloudflare faster. Members with correct passwords kept reading "We could
+not confirm that in time. Please try again." on the login screen. Four
+previous fixes all narrowed the window between opening the page and
+holding a usable token: preloading the script during parse, re-arming the
+token on `visibilitychange`, retrying once with a genuinely fresh token,
+topping up instead of restarting the challenge. Every one of them helped
+and none of them could work, because **a sign-in gated on a third party
+finishing a round trip fails whenever that round trip is slow**, and on a
+phone on a weak connection it is slow.
+
+So the gate is gone rather than tuned. Tap Log in and the password goes to
+Supabase. **No migration.**
+
+### IT HAD TWO HALVES AND ONLY BOTH OF THEM IS A FIX
+
+**The client half.** `/login` renders no widget, imports nothing from
+`lib/turnstile/`, and loads nothing from `challenges.cloudflare.com`. The
+preload tag moved out of `app/(auth)/layout.tsx`, which had been handing
+60 kB of Cloudflare to the one screen that no longer needs it, and down
+into the three screens that still carry a widget. Face ID sign-in dropped
+its token too, for the same reason: it is a sign-in.
+
+**The Supabase half, which is why the first four fixes could not have
+worked.** Supabase's captcha setting is ONE project-wide switch. GoTrue
+applies it to every protected endpoint, so protecting `/signup` was also
+protecting `/token`, and there is no per-endpoint control. Confirmed
+directly against production before changing anything: an anonymous sign-in
+carrying no token came back `captcha_failed: "captcha protection: request
+disallowed (no captcha_token found)"`, and so did a signup. One switch,
+both endpoints. **The switch is now off** (`auth.captcha.enabled = false`,
+pushed with `supabase config push` from a config declaring that one
+property and nothing else, so the other 21 remote settings were left
+untouched).
+
+### SO THE CHECK MOVED INTO THIS APP, ON THE THREE ENDPOINTS THAT NEED IT
+
+`lib/turnstile/verify.ts` asks Cloudflare's own siteverify API whether a
+token is genuine, and `humanCheckFailure()` in `app/actions/auth.ts` runs
+it BEFORE Supabase is touched, so a refused check creates nothing and
+sends nothing. Three call sites, and they are exactly the anonymous
+endpoints that make this app create a row or send mail:
+
+    signUp()                    creates an account, sends mail
+    requestPasswordReset()      sends mail to any address typed
+    resendVerificationEmail()   sends mail to any address typed
+
+**Sign-in and change-password are deliberately not on that list.** Sign-in
+creates nothing and sends nothing. Change-password cannot be reached
+without a live session; it only ever carried a token because the way it
+proves you know your current password is a real `signInWithPassword` call,
+which the project-wide switch covered.
+
+**A refusal is still retried once, silently.** The server returns an error
+string containing the word "captcha", which is what `isCaptchaError()`
+matches, which is what makes `lib/turnstile/submit.ts` run the submission
+one more time with a genuinely new token before anybody reads anything and
+what makes `lib/auth/errors.ts` substitute calm copy. Cloudflare failing to
+ANSWER is not a refusal: it comes back `unreachable` and `retryable: true`,
+which is the third place in `auth.ts` that can produce a non-answer.
+
+### ONE THING IS STILL OUTSTANDING AND IT IS ONE ENVIRONMENT VARIABLE
+
+`lib/turnstile/verify.ts` needs the Turnstile **secret** key to verify
+anything. That key has only ever lived in the Supabase dashboard, and
+Supabase does not hand it back through its API, so it could not be copied
+across from here. **Until `TURNSTILE_SECRET_KEY` is set in Vercel, signup,
+password reset and verification resend run without a bot check** and lean
+on Supabase's per-IP rate limits, its 30-emails-per-hour ceiling and
+mandatory email confirmation. The code refuses to fail closed on a missing
+key on purpose: a signup form that turns every real member away because an
+env var is absent is a worse outage than the spam it prevents. It logs a
+warning once per process so it cannot quietly become permanent.
+
+To close it: Cloudflare dashboard, Turnstile, this site's widget, copy the
+Secret Key, then `vercel env add TURNSTILE_SECRET_KEY production` and
+redeploy. Nothing else changes; the verification switches itself on.
+
+### WHAT STOPS A PASSWORD BEING GROUND AT THE FORM NOW
+
+Supabase's own per-IP rate limiting on `/token`, which runs on their
+server and cannot be edited from a browser. That is the protection, and it
+was read off the live project rather than assumed: **sign-ins and signups
+30 per 5 minutes per IP, token refresh 150, emails 30 per hour.** All at
+Supabase's defaults, all active, none of them touched by this build.
+`lib/auth/loginThrottle.ts` is the other half and is a courtesy rather
+than a defence: five wrong answers in a row earn a visible 15 second
+pause, then 30, then 60 and no longer, with the button disabled and the
+submit refused rather than only dimmed. **Only a wrong email or password
+advances it.** A 5xx, a dropped connection or a rate limit Supabase
+already imposed is the service having a bad minute, and making her sit out
+a cooldown for that would be punishing her for something that was never
+hers.
+
+### THE COPY
+
+"We could not confirm that in time. Please try again." is gone from the
+app entirely. It now reads "We could not complete the security check.
+Please try again." and it can only be produced by the three screens that
+create an account or send mail, where it is a refusal rather than a
+timeout. A wrong password says "Incorrect email or password." and has
+since before this build; the reason nobody ever saw it is that the bot
+check refused the request before Supabase ever looked at the password.
+
+### THE LIVE RIG CAN DRIVE THE REAL FORM NOW, FOR THE FIRST TIME
+
+Every previous live check had to mint a session with the service-role key
+and skip the login form, because Turnstile correctly refuses to clear a
+headless browser and the form could not be submitted without a token. That
+was the same mechanism refusing real members, so removing it removed the
+rig's blindfold.
+`scripts/verify-login-without-captcha-live.mjs` signs in eight times in a
+row, each in a fresh browser context, records how long each one takes,
+asserts no request reaches `challenges.cloudflare.com`, checks the
+wrong-password copy, and confirms the widget and the script are still on
+`/signup`.
+
 ## Rooted Reset Fuel Pattern Assessment, Build 4 of 4: the 7 Day Fuel Experiment (2026-09-14)
 
 The arc closes. Builds 1 to 3 end with a hypothesis: a reading, a

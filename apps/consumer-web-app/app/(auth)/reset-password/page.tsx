@@ -1,4 +1,5 @@
 import { ResetPasswordForm } from './ResetPasswordForm';
+import { TurnstilePreload } from '@/components/auth/TurnstilePreload';
 
 /**
  * Server wrapper so `?reason=expired` can be read without pulling
@@ -12,5 +13,14 @@ export default function ResetPasswordPage({
 }: {
   searchParams?: { reason?: string };
 }) {
-  return <ResetPasswordForm expiredLink={searchParams?.reason === 'expired'} />;
+  return (
+    <>
+      {/* Asking for a reset link sends mail to whatever address is typed,
+          so this screen keeps its bot check and therefore keeps the head
+          start that check needs. It sat in app/(auth)/layout.tsx until
+          /login stopped carrying a widget. */}
+      <TurnstilePreload />
+      <ResetPasswordForm expiredLink={searchParams?.reason === 'expired'} />
+    </>
+  );
 }

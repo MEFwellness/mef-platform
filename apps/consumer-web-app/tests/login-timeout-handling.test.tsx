@@ -307,9 +307,14 @@ describe('a service that gave no answer at all', () => {
 
   it('is marked by the server, never guessed at from the words', () => {
     const source = read('app/actions/auth.ts');
-    // The two places a non-answer is produced, and only those two.
+    // The three places a non-answer is produced, and only those three:
+    // nothing reached Supabase (toActionError), Supabase answered 5xx
+    // (toResult), and Cloudflare did not answer the bot check at all
+    // (humanCheckFailure, added 2026-09-14 when the check moved off
+    // Supabase into lib/turnstile/verify.ts). Every one of them is the
+    // service failing to answer, never an answer about what she typed.
     expect(source).toContain('retryable: true');
-    expect(source.match(/retryable: true/g)?.length).toBe(2);
+    expect(source.match(/retryable: true/g)?.length).toBe(3);
   });
 });
 
@@ -343,10 +348,16 @@ describe('the challenge starts before the app hydrates', () => {
     expect(html).toBe('');
   });
 
-  it('is on every screen that carries a widget', () => {
-    expect(read('app/(auth)/layout.tsx')).toContain('<TurnstilePreload />');
-    // The one signed-in form with a bot check on it.
-    expect(read('app/account/password/page.tsx')).toContain('<TurnstilePreload />');
+  it('is on every screen that carries a widget, and on no screen that does not', () => {
+    // It used to sit in the shared auth layout, which meant /login pulled
+    // 60 kB of Cloudflare for a check it no longer runs. It moved down to
+    // the three screens that still have a widget. See
+    // tests/login-without-captcha.test.tsx.
+    expect(read('app/(auth)/signup/layout.tsx')).toContain('<TurnstilePreload />');
+    expect(read('app/(auth)/verify/layout.tsx')).toContain('<TurnstilePreload />');
+    expect(read('app/(auth)/reset-password/page.tsx')).toContain('<TurnstilePreload />');
+    expect(read('app/(auth)/layout.tsx')).not.toContain('<TurnstilePreload />');
+    expect(read('app/account/password/page.tsx')).not.toContain('<TurnstilePreload />');
   });
 
   it('asks for the same URL the widget waits on, from one definition', () => {
