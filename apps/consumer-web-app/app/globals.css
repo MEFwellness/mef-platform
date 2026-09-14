@@ -2405,6 +2405,27 @@
   animation: mef-settling 1900ms var(--mef-ease-ambient) infinite;
 }
 
+/*
+ * THE SURFACE A PLACEHOLDER'S OWN CONTENTS SIT ON (2026-09-13).
+ *
+ * A placeholder for an OBJECT (a quick-action tile, an assigned card) is
+ * not one bar, it is a surface with bars on it, and the two cannot be the
+ * same wash or the bars are invisible against the box holding them. This
+ * is the quieter of the two: the palette's warm cream at the weight a
+ * skeleton can carry, with the same hairline the real objects are drawn
+ * with, so a settling row reads as tiles arriving rather than as holes.
+ *
+ * DELIBERATELY STILL. Only the bars inside it breathe; a surface that
+ * pulsed as well would be two rhythms in one object, which is the
+ * shimmer-and-flash treatment this page has never used. It therefore
+ * needs no reduced-motion override of its own, and the bars it holds are
+ * covered by the one below.
+ */
+.mef-settling-surface {
+  background-color: rgba(27, 58, 45, 0.035);
+  border: 1px solid rgba(27, 58, 45, 0.06);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mef-settling,
   .mef-settling-on-photo {

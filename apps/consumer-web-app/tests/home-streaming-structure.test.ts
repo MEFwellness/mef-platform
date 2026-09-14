@@ -39,14 +39,29 @@ describe('the shell waits for one thing', () => {
     expect(awaits).toEqual(['await requireHomeFrame(']);
   });
 
-  it('the frame is three round trips and a role check, not a data gather', () => {
+  it('the frame is her session, one wave, and a role check, not a data gather', () => {
     // Whatever else moves into lib/home/frame.ts later, it must stay this
     // small: everything in it is in front of her greeting.
     const tables = FRAME.match(/\.from\('(\w+)'\)/g) ?? [];
     expect(tables).toEqual(["from('daily_checkins_current')"].map((t) => `.${t}`));
     expect(FRAME).toContain('memberProfileCore(supabase, user.id)');
     expect(FRAME).toContain("hasActiveRole(supabase, user.id, 'coach')");
-    expect(FRAME).toContain('getDailyPriority(supabase, user.id, localDate)');
+    expect(FRAME).toContain('getDailyPrioritiesOn(supabase, user.id, candidateLocalDates())');
+  });
+
+  it('nothing in the frame waits on anything else in it (login/Home speed, 2026-09-13)', () => {
+    // The priority row used to be read AFTER the wave, because it is keyed
+    // by her own calendar day and the day needs the timezone the wave was
+    // fetching: 211ms against 131ms, measured on production, paid on every
+    // open of Home. It is asked for by candidate day inside the wave now,
+    // so the frame is her session and then one round trip. Two awaits, and
+    // the second of them is the wave.
+    const at = FRAME.indexOf('export const getHomeFrame');
+    const body = FRAME.slice(at, FRAME.indexOf('\n});', at));
+    const awaits = body.match(/await /g) ?? [];
+    expect(awaits, 'a third await in the frame is a third round trip in front of her greeting').toHaveLength(2);
+    expect(body).toContain('await getCachedUser()');
+    expect(body).toContain('await Promise.all([');
   });
 
   it('her greeting is rendered by the shell, not by a boundary below it', () => {
@@ -115,18 +130,82 @@ describe('the order she reads in is the order in the markup', () => {
     // its own computed width. A placeholder that reserves two whole tiles
     // against a row that draws two and a slice grows sideways under her
     // thumb the moment it resolves.
-    const at = PLACEHOLDERS.indexOf('export function QuickActionsPlaceholder');
+    //
+    // The row's placeholder draws three of ONE tile placeholder since
+    // 2026-09-13, rather than three inline rectangles, so the tile's
+    // anatomy (its padding, its icon chip, its label and its one status
+    // line) is stated once. Both halves are checked: the row draws three,
+    // and the tile it draws carries the fraction and the height.
+    const rowAt = PLACEHOLDERS.indexOf('export function QuickActionsPlaceholder');
+    expect(rowAt).toBeGreaterThan(-1);
+    const row = PLACEHOLDERS.slice(rowAt, PLACEHOLDERS.indexOf('\n}\n', rowAt));
+    expect(row.match(/<QuickTilePlaceholder \/>/g)).toHaveLength(3);
+
+    const tileAt = PLACEHOLDERS.indexOf('function QuickTilePlaceholder');
+    expect(tileAt).toBeGreaterThan(-1);
+    const tile = PLACEHOLDERS.slice(tileAt, PLACEHOLDERS.indexOf('\n}\n', tileAt));
+    expect(tile.match(/basis-\[calc\(\(100%-1\.5rem\)\/2\.2\)\]/g)).toHaveLength(1);
+    // THE TILE'S FLOOR AND THE ROW'S MEASURED HEIGHT ARE TWO NUMBERS.
+    // `.mef-home-quick-tile` sets a 124px min-height; the rendered row is
+    // 126px at every phone width, because the longest label in it wraps to
+    // two lines and carries the tile past that floor. Reserving the floor
+    // dropped the whole page six pixels when the row resolved (measured on
+    // production: 0.019 of Home's 0.030 layout shift, its largest single
+    // movement), so the placeholder reserves the measured height and the
+    // floor is what it is checked against.
+    expect(tile).toContain('h-[126px]');
+    const css = read('app/globals.css');
+    expect(css).toMatch(/\.mef-home-quick-tile \{[^}]*min-height: 124px;/s);
+    const reservedHeight = Number(tile.match(/h-\[(\d+)px\]/)![1]);
+    const tileFloor = Number(css.match(/\.mef-home-quick-tile \{[^}]*min-height: (\d+)px;/s)![1]);
+    expect(reservedHeight).toBeGreaterThanOrEqual(tileFloor);
+    expect(reservedHeight - tileFloor, 'a placeholder more than a label-line above the floor is reserving a row that is not there').toBeLessThanOrEqual(17);
+    // And the row's own padding-bottom, which is part of the band's height
+    // whether or not anything is scrolling in it yet.
+    expect(row).toContain('pb-1');
+    expect(css).toMatch(/\.mef-home-quick-row \{[^}]*padding-bottom: 0\.25rem;/s);
+    // And the tile's own anatomy, which is what stops the row reading as
+    // three grey slabs: the tile's padding, its icon chip, and the label
+    // pushed to the tile's foot exactly as `margin-top: auto` pushes the
+    // real one.
+    expect(tile).toContain('p-[0.875rem]');
+    expect(tile).toContain('h-9 w-9 rounded-[12px]');
+    expect(tile).toContain('mt-auto');
+  });
+
+  it('the route skeleton is assembled from the regions own placeholders, not a second copy of them', () => {
+    // Two copies of one layout is two chances to disagree: the route
+    // skeleton reserved one thing, the shell that replaced it a moment
+    // later reserved another, and the page moved between them.
+    const at = PLACEHOLDERS.indexOf('export function HomeShellPlaceholder');
     expect(at).toBeGreaterThan(-1);
-    const fn = PLACEHOLDERS.slice(at, PLACEHOLDERS.indexOf('\n}\n', at));
-    expect(fn.match(/basis-\[calc\(\(100%-1\.5rem\)\/2\.2\)\]/g)).toHaveLength(3);
-    // 124px since the tiles gained a tone, a 36px icon chip and the room
-    // to carry both (final structural pass, 2026-09-13). The placeholder
-    // and `.mef-home-quick-tile`'s own min-height are the same number or
-    // the row grows under her thumb the moment it resolves.
-    expect(fn).toContain('h-[124px]');
-    expect(read('app/globals.css')).toMatch(
-      /\.mef-home-quick-tile \{[^}]*min-height: 124px;/s,
+    const shell = PLACEHOLDERS.slice(at);
+    for (const part of [
+      '<QuickActionsPlaceholder />',
+      '<DayFramePlaceholder />',
+      '<PriorityPlaceholder expectCard />',
+      '<StreamPlaceholder />',
+    ]) {
+      expect(shell, `the route skeleton does not compose ${part}`).toContain(part);
+    }
+    // In the same order <main> draws them.
+    const order = ['QuickActionsPlaceholder /', 'DayFramePlaceholder /', 'PriorityPlaceholder expectCard', 'StreamPlaceholder /'].map(
+      (needle) => shell.indexOf(needle),
     );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it('a placeholder that stands in for an object has a surface its bars can be seen on', () => {
+    // A tile placeholder and an assigned-card placeholder are surfaces
+    // with bars on them. One wash for both would make the bars invisible
+    // against the box holding them.
+    expect(PLACEHOLDERS).toContain('mef-settling-surface');
+    const css = read('app/globals.css');
+    expect(css).toContain('.mef-settling-surface {');
+    // Deliberately still: only the bars inside it breathe, so there is one
+    // rhythm per object rather than two.
+    const block = css.slice(css.indexOf('.mef-settling-surface {'));
+    expect(block.slice(0, block.indexOf('}'))).not.toContain('animation');
   });
 });
 

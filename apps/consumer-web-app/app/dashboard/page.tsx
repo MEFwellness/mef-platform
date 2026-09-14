@@ -236,11 +236,27 @@ const SECTION = 'mef-home-section';
 const WEEKLY_REVIEW_ANCHOR_ID = 'your-week-with-root';
 const WEEKLY_REVIEW_ANCHOR_HREF = `/dashboard#${WEEKLY_REVIEW_ANCHOR_ID}`;
 
+/**
+ * A QUICK ACTION'S STATUS IS AS SHORT AS THE TILE IS NARROW (2026-09-13).
+ *
+ * This line is read inside a tile that is 116px wide at 320px, which
+ * leaves 86px for the text, and it is the only line in the row that grows
+ * with a number. "Completed 26 days ago" needed both of the two lines the
+ * hint is allowed and still left nothing in reserve: one more word, one
+ * larger system font, one longer gap since her last assessment, and the
+ * clamp starts hiding a true sentence.
+ *
+ * So it is shortened at the source rather than given more room. "Done 26d
+ * ago" says the same thing on ONE line at every supported width, which is
+ * also the calmer object: a thumb-sized tile is a glance, not a sentence.
+ * Nothing else changed about it, including which tile carries it and on
+ * what condition.
+ */
 function formatCompletedStatus(completedAt: string): string {
   const days = Math.floor((Date.now() - new Date(completedAt).getTime()) / (24 * 60 * 60 * 1000));
-  if (days <= 0) return 'Completed today';
-  if (days === 1) return 'Completed yesterday';
-  return `Completed ${days} days ago`;
+  if (days <= 0) return 'Done today';
+  if (days === 1) return 'Done yesterday';
+  return `Done ${days}d ago`;
 }
 
 /**
@@ -1403,7 +1419,7 @@ async function QuickActionsRegion() {
           {
             icon: 'case' as const,
             label: 'Case',
-            hint: 'What Root has found',
+            hint: 'What Root found',
             href: '/case',
             tone: 'cream' as const,
           },

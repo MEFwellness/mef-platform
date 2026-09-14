@@ -1,3 +1,142 @@
+## Three polish items: the skeleton, a status that fits, and where the login seconds go (2026-09-13)
+
+Presentation and one measured round trip. No auth logic, no security
+behaviour, no permission, no gate, no bot check and no session handling
+changed. Nothing from the Home redesign's motion, glow, layout or
+hierarchy was touched.
+
+### HOME'S SKELETON IS HOME'S SHAPE NOW, MEASURED RATHER THAN ESTIMATED
+
+The route skeleton (`app/dashboard/loading.tsx`) was already Home-shaped
+rather than the app's generic three-card `PageSkeleton`. Two things were
+wrong underneath that, and both were found by measuring the real page on
+production rather than by reading the markup.
+
+- **The route skeleton was a SECOND COPY of two of the region
+  placeholders**, so it reserved one thing and the streaming shell that
+  replaced it a moment later reserved another. `HomeShellPlaceholder` now
+  composes `QuickActionsPlaceholder`, `DayFramePlaceholder`,
+  `PriorityPlaceholder` and `StreamPlaceholder` themselves, in the markup
+  order `<main>` draws them, so that swap cannot move the page. It draws
+  four bands where it used to draw two, which is why the page height it
+  reserves is now close to the page that arrives.
+- **The Quick Actions row was reserved at its floor, not its height.**
+  `.mef-home-quick-tile` has a 124px min-height; the rendered row is
+  126px, because the longest label in it ("Your Week with Root") wraps to
+  two lines and carries the tile past that floor, and the row has its own
+  4px foot. So the whole page dropped six pixels the moment the row
+  resolved. Measured on production, that one swap was 0.019 of Home's
+  0.030 layout shift, the largest single movement on the screen. The
+  placeholder reserves 126px and the 4px foot now, and the test asserts
+  the reserved height against the CSS floor rather than repeating a
+  number.
+- **An assigned card is 213px on the real page and was reserved at 160.**
+  It reserves 212px, with the card's own inner shape (eyebrow, two-line
+  title, two lines of body, a button).
+- **A placeholder for an OBJECT is a surface with bars on it.** A quick
+  action tile placeholder is a TILE now: the tile's 14px padding, its
+  36px icon chip at the top, its label pushed to the foot the way
+  `margin-top: auto` pushes the real one, and its one status line. One
+  new class carries the cream ground they sit on
+  (`.mef-settling-surface`), deliberately still, so only the bars inside
+  it breathe and an object has one rhythm rather than two.
+- **Nothing shimmers and nothing spins.** The only movement anywhere in
+  this file is opacity between 0.6 and 0.85, and
+  `prefers-reduced-motion: reduce` removes even that.
+- The program card stays deliberately short, because it is the one block
+  whose real height genuinely varies (a member with no program has none
+  at all) and over-reserving a block that may not render is a bigger jump
+  than under-reserving one that does.
+
+### A QUICK ACTION STATUS IS SHORT ENOUGH THAT THE CLAMP NEVER FIRES
+
+"Completed 26 days ago" needed both of the two lines a tile hint is
+allowed, at 320px and at 390px alike, and had nothing in reserve: one
+longer gap since her last assessment, one larger system font, and the
+clamp starts hiding a true sentence. Measured first, on the real rendered
+row at 320, 360 and 390px, and reported as it was found: the shipped
+clamp was holding, so nothing was cut off on production that day. It was
+one word away from being.
+
+- `Done today`, `Done yesterday`, `Done 26d ago`. One line at every
+  supported width.
+- `What Root has found` became `What Root found`, the other status that
+  needed two lines at 320px.
+- The other six are unchanged, because they already fit: Logged today,
+  Check in, Scan a meal, See your week, View trends, Your movement.
+- The pill was not widened, the layout did not change, and no em dash was
+  introduced.
+- `tests/quick-actions-grid.test.ts` now audits EVERY status the row can
+  show, as an exact list against a character budget derived from the 86px
+  of text a 320px tile has, so a new status has to be added to the audit
+  deliberately and measured while it is.
+
+### WHERE THE LOGIN SECONDS ACTUALLY GO, MEASURED ON PRODUCTION
+
+Three new measuring scripts, all read-only:
+`scripts/measure-login-journey-live.mjs` (the account service and every
+post-login round trip, timed one at a time and in both wave shapes),
+`scripts/measure-home-arrival-live.mjs` (when each band of Home lands and
+whether anything moves) and `scripts/verify-home-skeleton-live.mjs` (the
+skeleton's own geometry against the settled page's).
+
+The finding: **the post-login queries are no longer where the time is.**
+
+- Every Supabase round trip from a warm client is about 100ms. The
+  routing reads cost 253ms as two waves and 141ms as one, so the round
+  the previous fix removed was real and there is no second one like it
+  left: what remains is one wave of reads plus the `session_started`
+  analytics row, which needs the timezone that wave is fetching. That is
+  two waves and it cannot be one without giving up the row.
+- The bot check's own script is requested 228ms after the login page
+  starts and is in hand at 1.5s on a throttled phone profile. Cloudflare
+  then issues the token while she types, so by the time she taps the
+  button a fresh token is normally already held and that segment costs
+  her nothing. How long Cloudflare itself takes cannot be measured from
+  automation, by design, and is outside this app either way.
+- The account service refuses a scripted password grant at the captcha in
+  99ms, which is the floor of that segment and not its total: a real
+  login also pays Cloudflare's server-side verification and the password
+  hash comparison, neither of which a script can reach.
+- **The dominant term is the branded Reset entry splash.** Confirmed
+  directly on production by arriving at Home carrying the one-shot
+  `mef_entry_login` cookie `signIn()` sets: the full-screen overlay is up
+  from 624ms to 4761ms, so Home is behind it for 4.1 seconds. Home itself
+  is ready long before that (greeting at 0.83s, fully settled at 2.61s on
+  a throttled profile), which means the app is waiting on the animation
+  rather than the other way round. It is a deliberate 3.6s choreography
+  plus its name wait and exit fade (`lib/entry-animation/timing.ts`),
+  1.15s under reduced motion, and it is a product decision rather than a
+  defect, so it was measured and reported rather than changed.
+
+### THE ONE ROUND TRIP THAT WAS SAFELY REMOVABLE
+
+`lib/home/frame.ts` is what every first paint of Home waits on, and it
+made three round trips where two would do: the priority row is keyed by
+her own calendar day, the day needs the timezone, and the timezone
+arrives in the wave above, so the read could not start until that wave
+had finished. Whatever her timezone turns out to be, her own date is one
+of three days either side of the UTC one, so
+`getDailyPrioritiesOn` asks for all three inside the same wave and the
+exact day is picked out once the timezone lands. Measured on production:
+211ms against 131ms. Same row, same decision, on every open of Home and
+not only after a login.
+
+### WHAT WAS LEFT ALONE, AND WHY
+
+- **The splash.** See above. Shortening a brand moment is the owner's
+  call.
+- **The entry animation's bridge** still draws the generic `PageSkeleton`
+  if the destination has not arrived by the time the choreography ends.
+  It is the one generic loading state left on the way into Home, and it
+  is measured to be nearly unreachable: Home commits in well under a
+  second and the bridge cannot start before 4.1s.
+- **The page's own `getUser()`**, which repeats the one middleware just
+  made (about 100ms). Removing it means trusting a header instead of
+  re-verifying the session, which is auth behaviour.
+- **The `session_started` analytics row**, which the redirect waits about
+  100ms for. Not waiting means losing rows on a serverless function.
+
 ## Home, the final structural pass (2026-09-13)
 
 Presentation and placement. No data fetch changed, no gate changed, no

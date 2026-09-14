@@ -48,6 +48,37 @@ function fromRow(row: Row): DailyPriorityRecord {
   };
 }
 
+/**
+ * The stored rows for a small set of candidate calendar days, newest
+ * first.
+ *
+ * WHY A WINDOW RATHER THAN A DAY (login/Home speed, 2026-09-13).
+ * `getDailyPriority` below needs the member's own calendar day, which
+ * needs her timezone, which is a round trip; so asking for her priority
+ * row cost a SECOND round trip that could not start until the first had
+ * come back. Whatever her timezone turns out to be, her own date is one of
+ * three days either side of the UTC one, so lib/home/frame.ts asks for all
+ * three in the same wave as the profile and picks the exact day once the
+ * timezone has arrived. Same row, same decision, one round trip earlier.
+ *
+ * Reads only, and the same safe empty value on failure as every other
+ * reader here.
+ */
+export async function getDailyPrioritiesOn(
+  supabase: SupabaseClient,
+  memberId: string,
+  localDates: string[]
+): Promise<DailyPriorityRecord[]> {
+  const { data, error } = await supabase
+    .from('member_daily_priorities')
+    .select(COLUMNS)
+    .eq('member_id', memberId)
+    .in('local_date', localDates);
+
+  if (error || !data) return [];
+  return (data as Row[]).map(fromRow);
+}
+
 /** Today's stored priority row, or null if Root has not recorded one yet today. */
 export async function getDailyPriority(
   supabase: SupabaseClient,

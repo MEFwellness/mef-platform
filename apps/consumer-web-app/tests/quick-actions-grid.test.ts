@@ -175,7 +175,7 @@ describe('Quick Actions: a compact row of doors she already has', () => {
   it('the Case tile still borrows no completion fraction from the questionnaire count (C2)', () => {
     expect(DASHBOARD_PAGE).not.toContain('caseStatus');
     expect(DASHBOARD_PAGE).toContain("label: 'Case',");
-    expect(DASHBOARD_PAGE).toContain("hint: 'What Root has found',");
+    expect(DASHBOARD_PAGE).toContain("hint: 'What Root found',");
   });
 
   it('every tile carries a tone, no two neighbours share one, and there are only five tones', () => {
@@ -232,6 +232,78 @@ describe('Quick Actions: a compact row of doors she already has', () => {
     // the utility actually reaching a className, not the string anywhere.
     expect(GRID).not.toMatch(/className=[^>]*\btruncate\b/);
     expect(GRID).not.toContain('ChevronRight');
+  });
+
+  /**
+   * AND THE STATUS IS SHORT ENOUGH NOT TO NEED BOTH OF THOSE LINES
+   * (2026-09-13).
+   *
+   * The clamp is the safety net, not the plan. A tile is 116px wide at
+   * 320px, which leaves 86px of text, and every status the row can show
+   * has to fit that on one line or two SHORT ones, with room left for a
+   * larger system font. This measures every string that can reach the row
+   * against the narrowest supported width rather than trusting the clamp
+   * to hide the overflow.
+   *
+   * 11px DM Sans averages a little under 5.5px a character, so 86px is
+   * roughly sixteen characters a line and thirty-two for the two lines a
+   * hint is allowed. The budget below is deliberately under that.
+   */
+  it('every status a tile can show fits the narrowest tile without needing the clamp', () => {
+    const region = DASHBOARD_PAGE.slice(
+      DASHBOARD_PAGE.indexOf('async function QuickActionsRegion()'),
+      DASHBOARD_PAGE.indexOf('async function TodayZone()'),
+    );
+    // The hint EXPRESSION of every tile, whichever shape it takes (a plain
+    // value, a ternary's two halves, or the fallback after a real status's
+    // `??`), and then the quoted strings inside it. Stopping at the comma
+    // keeps a one-line tile's own href and tone out of the audit; no hint
+    // contains a comma, which is the property that makes that safe.
+    const fixed = [...region.matchAll(/hint: ([^,\n]*)/g)].flatMap((m) =>
+      [...m[1]!.matchAll(/'([^']+)'/g)].map((q) => q[1]!),
+    );
+    // The one status built from a number, in all three of its shapes.
+    const formatterAt = DASHBOARD_PAGE.indexOf('function formatCompletedStatus');
+    const formatter = DASHBOARD_PAGE.slice(formatterAt, DASHBOARD_PAGE.indexOf('\n}', formatterAt));
+    const computed = [...formatter.matchAll(/return [`']([^`']+)[`']/g)].map((m) =>
+      m[1]!.replace('${days}', '999'),
+    );
+
+    const every = [...fixed, ...computed];
+    // A check that cannot fail is worse than none: these are the exact
+    // strings the row can show today, so a new one has to be added here
+    // deliberately and measured while it is.
+    expect(every.sort()).toEqual(
+      [
+        'Check in',
+        'Done 999d ago',
+        'Done today',
+        'Done yesterday',
+        'Logged today',
+        'Scan a meal',
+        'See your week',
+        'View trends',
+        'What Root found',
+        'Your movement',
+      ].sort(),
+    );
+
+    // 11px DM Sans averages a little under 5.5px a character, and a tile
+    // is 116px wide at 320px, which leaves 86px of text: roughly sixteen
+    // characters a line, thirty-two across the two lines a hint is
+    // allowed. Both budgets below are deliberately inside that, so a
+    // larger system font still fits.
+    for (const status of every) {
+      const longestWord = status.split(' ').reduce((a, b) => (b.length > a.length ? b : a));
+      expect(longestWord.length, `"${status}" has a word too long for an 86px line`).toBeLessThanOrEqual(16);
+      expect(status.length, `"${status}" is too long for the two lines a tile hint has`).toBeLessThanOrEqual(26);
+    }
+
+    // And the specific regression: the status that grows with a number is
+    // the compact form, not the sentence that needed both lines and had
+    // nothing in reserve. The word itself still names the function and its
+    // argument; what must be gone is the sentence it used to RETURN.
+    expect(formatter).not.toMatch(/return [`']Completed/);
   });
 
   it('Flag a Concern is still not in this row, and is still in the app', () => {

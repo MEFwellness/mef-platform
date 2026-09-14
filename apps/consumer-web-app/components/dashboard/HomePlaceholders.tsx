@@ -5,15 +5,29 @@
  * brand-green wash that breathes rather than spins (`.mef-settling`,
  * app/globals.css, which carries its own prefers-reduced-motion override).
  * A screen that streams in four pieces must still read as one screen
- * settling, not as four separate things loading.
+ * settling, not as four separate things loading. Nothing shimmers, nothing
+ * sweeps and nothing spins: the only movement is opacity, between 0.6 and
+ * 0.85, and reduced motion removes even that.
  *
  * THEY HOLD THE SHAPE THEY ARE STANDING IN FOR. The point of a placeholder
  * on this page is not decoration, it is that nothing moves when the real
  * thing lands: the priority placeholder is a card of the card's height, the
- * day-frame placeholder is two rows of the rows' height. `PriorityPlaceholder`
- * takes `expectCard` from lib/home/frame.ts, which reads today's stored
- * priority row, so a member who has already finished hers gets the small
- * pointer's shape reserved and not a card's.
+ * day-frame placeholder is the section's own heading and card at the
+ * heights they were measured at on production, and a quick-action tile
+ * placeholder is a TILE, with the tile's padding, the tile's icon chip and
+ * the tile's two lines of text, rather than a rectangle of the tile's size.
+ * `PriorityPlaceholder` takes `expectCard` from lib/home/frame.ts, which
+ * reads today's stored priority row, so a member who has already finished
+ * hers gets the small pointer's shape reserved and not a card's.
+ *
+ * THE ROUTE SKELETON IS ASSEMBLED FROM THE SAME PARTS (2026-09-13).
+ * `HomeShellPlaceholder` used to restate the Quick Actions row and the
+ * assigned block in its own markup, which is two copies of one layout and
+ * therefore two chances to disagree: the route skeleton would reserve one
+ * thing and the shell that replaced it a moment later would reserve
+ * another, and the page moved between them. It now composes the very
+ * components the regions use, so the swap from the route skeleton into the
+ * streaming shell is by construction a no-op on layout.
  *
  * Every one is `aria-hidden` and marked `data-settling`, so a screen reader
  * is never read a row of empty boxes and a verification run can ask the DOM
@@ -62,48 +76,103 @@ export function PriorityPlaceholder({ expectCard }: { expectCard: boolean }) {
 }
 
 /**
- * QUICK ACTIONS, the compact row under the hero.
+ * ONE QUICK ACTION TILE, AS A TILE (2026-09-13).
+ *
+ * It was a flat rectangle of the tile's height, which reserved the right
+ * space and told her nothing: a row of three grey slabs where a row of
+ * five coloured doors was about to be. This is the tile's own anatomy at
+ * the tile's own measurements, on the palette's quietest cream surface
+ * (`.mef-settling-surface`) rather than in the bar wash, so the row reads
+ * as tiles arriving rather than as holes being filled:
+ *
+ *   the 14px padding the tile carries (`padding: 0.875rem`)
+ *   the 36px icon chip at 12px radius, top left, where the icon lands
+ *   the label, pushed to the foot of the tile the way `margin-top: auto`
+ *   pushes the real one
+ *   the one short status line under it
+ *
+ * THE HEIGHT IS THE ROW'S MEASURED HEIGHT, NOT THE TILE'S FLOOR.
+ * `.mef-home-quick-tile` sets a 124px min-height, and the rendered row is
+ * 126px at every phone width, because the longest label in it ("Your Week
+ * with Root") wraps to two lines and carries the tile past its own floor.
+ * Reserving the floor made the whole page drop six pixels the moment the
+ * row resolved (four of them the row's own `padding-bottom`, two the
+ * tile): measured on production, that one swap was 0.019 of Home's 0.030
+ * layout shift, the largest single movement on the screen. So the number
+ * here is the measured one and the floor is what it is checked against.
+ *
+ * The widths are the same `calc((100% - 1.5rem) / 2.2)` fraction the real
+ * tile carries, which is what keeps the fifth-of-a-third peek.
+ */
+function QuickTilePlaceholder() {
+  return (
+    <div className="mef-settling-surface flex h-[126px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] flex-col rounded-[18px] p-[0.875rem]">
+      {/* The icon chip. */}
+      <div className="mef-settling h-9 w-9 rounded-[12px]" />
+      {/* The label sits at the foot of the tile, exactly as the real one does. */}
+      <Bar className="mt-auto h-4 w-3/4" />
+      {/* And its one status line under it. */}
+      <Bar className="mt-[3px] h-3 w-1/2" />
+    </div>
+  );
+}
+
+/**
+ * QUICK ACTIONS, the compact row under the hero and the first thing in
+ * <main>.
  *
  * It reserves the row's real geometry rather than a generic band: the
  * 11px section label, the 16px gap under it, and two whole tiles plus a
  * fifth of a third at the tile's own committed height. The fractional
  * third is the point — if the placeholder reserved two tiles and the real
  * row draws two and a slice, the row grows sideways under her thumb.
- *
- * The widths are the same `calc((100% - 1.5rem) / 2.2)` the real tile
- * carries (`.mef-home-quick-tile`, app/globals.css), written here as the
- * one place a settling block is allowed to restate a layout value,
- * because a placeholder that does not match is worse than none.
  */
 export function QuickActionsPlaceholder() {
   return (
     <div data-settling="true" aria-hidden="true" className="pt-6">
       <Bar className="h-3 w-28" />
-      <div className="mt-4 flex gap-3 overflow-hidden">
-        <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
-        <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
-        <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
+      {/* `pb-1` is `.mef-home-quick-row`'s own padding-bottom, which is
+          part of the band's height whether or not anything is scrolling
+          in it yet. */}
+      <div className="mt-4 flex gap-3 overflow-hidden pb-1">
+        <QuickTilePlaceholder />
+        <QuickTilePlaceholder />
+        <QuickTilePlaceholder />
       </div>
     </div>
   );
 }
 
 /**
- * What is assigned to her, her program, the weekly review, the invites and
- * the Today zone.
+ * ASSIGNED TO YOU and her program: the two blocks the day frame opens
+ * with, in the order it draws them since the editorial pass (2026-09-13).
  *
- * Two blocks, in the order the region draws them since the editorial pass
- * (2026-09-13): an assigned card at its own medium height and 24px radius
- * first, the program's 32px feature card under it. Quick Actions left this
- * boundary for one of its own, so the label-plus-two-pills shape this used
- * to reserve went with it.
+ * MEASURED, NOT ESTIMATED (2026-09-13). Both heights were read off the
+ * real rendered page at 390px rather than guessed: an assigned card is
+ * 213px there, and it used to be reserved at 160, so the page dropped
+ * fifty pixels the moment a coach's request landed. The card's inner
+ * shape is reserved too (eyebrow, two-line title, a line of body, a
+ * button), which is what makes the swap a change of colour rather than a
+ * change of size.
+ *
+ * THE PROGRAM CARD STAYS DELIBERATELY SHORT. It is the one block on this
+ * page whose real height genuinely varies (a member with no program has
+ * none at all), and over-reserving a block that may not render is a
+ * bigger jump than under-reserving one that does.
  */
 export function DayFramePlaceholder() {
   return (
     <div data-settling="true" aria-hidden="true">
       <div className="mef-home-section">
         <Bar className="h-3 w-32" />
-        <div className="mef-settling mt-5 h-40 rounded-[24px]" />
+        <div className="mef-settling-surface mt-4 h-[212px] rounded-[24px] p-[1.375rem]">
+          <Bar className="h-3 w-24" />
+          <Bar className="mt-4 h-5 w-full" />
+          <Bar className="mt-2 h-5 w-2/3" />
+          <Bar className="mt-4 h-3 w-full" />
+          <Bar className="mt-2 h-3 w-4/5" />
+          <Bar className="mt-5 h-9 w-36" />
+        </div>
       </div>
       <div className="mef-settling mef-home-section h-48 rounded-[32px]" />
     </div>
@@ -133,8 +202,16 @@ export function StreamPlaceholder() {
  * So this is Home's own shape. The band is the hero's height in the brand's
  * deep green rather than the photo (which one is right depends on her
  * clock, and her clock is exactly what has not been read yet), and below it
- * are the same placeholders the regions use. The swap into the real Home is
- * then a photo arriving inside a box that is already the right size.
+ * are THE SAME placeholder components the regions themselves use, in the
+ * same order, so the moment the real shell arrives with its own
+ * placeholders in place, not one pixel of the page moves.
+ *
+ * The one thing it cannot know is whether the day's chosen action is still
+ * outstanding, which is what decides between a card and a one-line pointer
+ * (`expectPriorityCard`, lib/home/frame.ts, read from today's stored row).
+ * The card is reserved, because that is the state a member who is arriving
+ * at Home is overwhelmingly in, and the slot sits below the program card,
+ * well past the first screenful either way.
  */
 export function HomeShellPlaceholder() {
   return (
@@ -165,19 +242,13 @@ export function HomeShellPlaceholder() {
       </section>
 
       <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        {/* Quick Actions leads <main>, so it leads the route skeleton too. */}
-        <div className="pt-6">
-          <Bar className="h-3 w-28" />
-          <div className="mt-4 flex gap-3 overflow-hidden">
-            <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
-            <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
-            <div className="mef-settling h-[124px] shrink-0 basis-[calc((100%-1.5rem)/2.2)] rounded-[18px]" />
-          </div>
-        </div>
-        <div className="mef-home-section">
-          <Bar className="h-3 w-32" />
-          <div className="mef-settling mt-5 h-40 rounded-[24px]" />
-        </div>
+        {/* The four regions of <main>, in the markup order the page itself
+            draws them (tests/home-streaming-structure.test.ts holds that
+            order), each standing in for itself. */}
+        <QuickActionsPlaceholder />
+        <DayFramePlaceholder />
+        <PriorityPlaceholder expectCard />
+        <StreamPlaceholder />
       </main>
     </div>
   );

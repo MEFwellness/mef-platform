@@ -14,11 +14,22 @@
  * has a budget: **who she is, what her clock says, and enough to draw the
  * hero at its real height.** Nothing that a card wants goes in here.
  *
- * Three round trips, two of them in parallel:
- *   1. her session (request-memoized, shared with every action on the page)
- *   2. her `profiles` row, name and timezone together (memberProfileCore)
- *   3. whether she has ever logged a day, as a count, no rows
- * plus the coach-role RPC the bottom navigation needs to draw itself.
+ * Two round trips, the second of them four questions asked at once:
+ *   1. her session
+ *   2. her `profiles` row (name and timezone together, memberProfileCore),
+ *      whether she has ever logged a day as a count with no rows, the
+ *      coach-role RPC the bottom navigation needs to draw itself, and
+ *      today's stored priority row
+ *
+ * IT USED TO BE THREE (login/Home speed, 2026-09-13). The priority row is
+ * keyed by her own calendar day, which needs her timezone, which arrives
+ * with the profile, so asking for it was a round trip that could not start
+ * until the wave above it had finished: measured on production, 211ms for
+ * the frame against 131ms for the same reads with nothing waiting on
+ * anything. Whatever her timezone turns out to be, her own date is one of
+ * three days either side of the UTC one, so all three are asked for in the
+ * one wave and the exact day is picked out once the timezone is in hand.
+ * Same row, same decision, one round trip sooner, on every open of Home.
  *
  * WHY THE CHECK-IN COUNT IS IN HERE AND THE SCORE IS NOT. The hero is two
  * different heights: a short band before her first check-in, and a tall one
@@ -40,7 +51,7 @@ import { nowInTimezone, toLocalDateString } from '@/lib/time/localDate';
 import { timeContextInTimezone, type TimeContext } from '@/lib/feed/timeContext';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { getDailyPriority } from '@/lib/priority/data';
+import { getDailyPrioritiesOn } from '@/lib/priority/data';
 
 export type HomeFrame = {
   memberId: string;
@@ -69,12 +80,32 @@ export type HomeFrame = {
   expectPriorityCard: boolean;
 };
 
+/**
+ * The three calendar days her own date can be, before her timezone is
+ * known: the UTC day and the one either side of it. Every IANA zone is
+ * within a day of UTC in both directions, so her real local date is
+ * always one of these three, and the exact one is picked out above the
+ * moment the profile's timezone lands.
+ *
+ * The zone is named, as every date in this app must be. Nothing here is
+ * treated as "today": these are the keys of a lookup, and the day that
+ * IS today is `localDate`, resolved from her own zone.
+ */
+function candidateLocalDates(): string[] {
+  const utcNow = nowInTimezone('UTC');
+  return [-1, 0, 1].map((dayOffset) => {
+    const shifted = new Date(utcNow);
+    shifted.setUTCDate(shifted.getUTCDate() + dayOffset);
+    return toLocalDateString(shifted);
+  });
+}
+
 export const getHomeFrame = requestCache(async (): Promise<HomeFrame | null> => {
   const supabase = getRequestClient();
   const user = await getCachedUser();
   if (!user) return null;
 
-  const [profile, loggedDayCount, isCoach] = await Promise.all([
+  const [profile, loggedDayCount, isCoach, priorityCandidates] = await Promise.all([
     memberProfileCore(supabase, user.id),
     // A count, not the rows: the trend chart's thirty days are a different
     // question and belong to the boundary that draws the chart.
@@ -83,17 +114,22 @@ export const getHomeFrame = requestCache(async (): Promise<HomeFrame | null> => 
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id),
     hasActiveRole(supabase, user.id, 'coach'),
+    // Deliberately the plain reader and not `getMyStoredPriority`: that one
+    // is request-memoized, and memoizing a "no row yet" answer here would
+    // hand the same null to every later reader in this request, after the
+    // engine had claimed a real row a moment afterwards.
+    //
+    // Asked for the three candidate days rather than for her own, because
+    // her own needs the timezone that is arriving in this same wave. See
+    // getDailyPrioritiesOn.
+    getDailyPrioritiesOn(supabase, user.id, candidateLocalDates()),
   ]);
 
   const timezone = profile.timezone ?? FALLBACK_TIMEZONE;
   const nowInTz = nowInTimezone(timezone);
   const localDate = toLocalDateString(nowInTz);
 
-  // Deliberately the plain reader and not `getMyStoredPriority`: that one is
-  // request-memoized, and memoizing a "no row yet" answer here would hand
-  // the same null to every later reader in this request, after the engine
-  // had claimed a real row a moment afterwards.
-  const storedPriority = await getDailyPriority(supabase, user.id, localDate);
+  const storedPriority = priorityCandidates.find((row) => row.localDate === localDate) ?? null;
 
   return {
     memberId: user.id,
