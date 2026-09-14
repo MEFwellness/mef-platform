@@ -1,3 +1,106 @@
+## The sweep counted the folder above the photo (2026-09-14)
+
+Several test accounts were deleted after migration 239 made deleting one
+possible. Storage has no foreign key to `auth.users`, so uploaded files
+never block a deletion and are never taken by one. The sweep is what
+collects them.
+
+**The sweep removed nothing, because there was nothing to remove.**
+
+| | |
+| --- | --- |
+| live accounts | 10 |
+| objects scanned | 25 |
+| orphaned | **0** |
+| removed | **0** |
+| left alone, not account-keyed | 3 (`exercise-media/open-license/`) |
+
+Every one of the 25 files sits under the id of an account that still
+exists. Whoever was deleted had uploaded nothing.
+
+### THE SWEEP WAS COUNTING THE WRONG THING, AND IT SAID SO IN THE COUNT
+
+The walk stopped after ONE folder level. These buckets nest THREE deep,
+and `lib/food-lens/storage.ts` says so in its own header:
+
+    {member_id}/{scan_id}/{capture_id}.{ext}
+
+So what the script collected and called an object was the middle
+`{member_id}/{scan_id}` FOLDER. It reported 1 and 24, and
+`storage.objects` holds 1 and 24, so the number was right. It was right
+by accident: every scan folder on production holds exactly one photo, so
+a count of folders and a count of files are the same number today.
+
+**The consequence is not cosmetic.** A folder key names no object, and
+the Storage API answers a remove of a key that does not exist with
+SUCCESS and an empty list. Had one of those deleted accounts owned a
+photo, the script would have printed `removed 12` and removed nothing,
+and the sweep would have been reported as done.
+
+Fixed: the walk recurses to whatever depth it finds and counts only an
+entry carrying an `id`; `list` is paged; a removal is checked against
+what the API says it actually removed and a short count throws; a depth
+limit stops a pathological bucket; the totals line reads SCANNED /
+ORPHANED / REMOVED. Six tests cover it, and four of the six fail against
+the old walk.
+
+### THE INTEGRITY CHECK, AND THE 25,639 THAT WAS NOT A PROBLEM
+
+The first sweep of "every uuid column in public" returned 25,639 rows not
+matching `auth.users`, which is meaningless: it had counted primary keys
+and every `exercise_id`, `session_id` and `assessment_id` in the schema.
+Classified properly, the 612 uuid columns are:
+
+| group | columns | dangling rows |
+| --- | --- | --- |
+| A, foreign key to `auth.users` | 225 | **0** |
+| B, foreign key to another table | 171 | not user references |
+| C, the table's own primary key | 204 | not user references |
+| D, no constraint at all | 12 | see below |
+
+All 233 foreign keys to `auth.users` are VALID, none `NOT VALID`, so the
+14,943 rows under them are proven, not assumed.
+
+Of the 12 unconstrained columns, six hold values, and all six are
+`source_record_id` / `source_id`: polymorphic pointers to a SOURCE ROW,
+each with a companion column naming the table
+(`daily_checkins`, `unified_assessment_sessions`, `conversation_messages`).
+**None of them is ever a user id, not even a live one: 0 of 506.** Each of
+those six tables carries its own `member_id` with a cascading foreign key,
+so ownership is enforced where it belongs.
+
+**Zero rows anywhere point at an account that no longer exists.**
+
+And the other direction, which matters just as much after a sweep: every
+row that names a stored file still has its file. 20 of 20 food-lens
+captures, 1 of 1 body-assessment capture.
+
+### Live verification, production, 2026-09-14
+
+**37 checks, 37 passing** on `app.mefwellness.com`, signed in as the
+standing test member with a minted session, retired afterwards with scope
+`local`.
+
+Home (`/dashboard`), Daily Reset (`/checkin`), Progress and Today each
+returned 200, held the session, rendered real content, showed no error
+screen and logged no console or page error. Her 7 stored photos all
+download real bytes, and all three of her meal scans were opened on the
+real site with the photo read back through `naturalWidth`, drawing at
+1280x1280. An `<img>` that 404s is still in the DOM and still `complete`,
+so presence was never the test.
+
+Two route names were guessed before they were read, and both were wrong:
+Home is `/dashboard`, not `/home`, and the Daily Reset is `/checkin`, not
+`/check-in`. `components/BottomNav.tsx` is where they are written down.
+
+A first pass at "do her images render" checked `/food-lens`,
+`/food-lens/history` and `/today` and found ZERO images on all three, then
+passed. A check that cannot fail is worse than none; the real check opens
+the individual scan.
+
+**State left on production: none.** Nothing was deleted, modified or
+uploaded. No account was touched.
+
 ## Forty-one references said no action, and that is why no account could be deleted (2026-09-14)
 
 Authentication > Users > Delete returned **"Failed to delete user:
