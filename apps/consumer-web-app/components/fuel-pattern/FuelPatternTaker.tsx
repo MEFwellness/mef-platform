@@ -20,7 +20,7 @@
  * milestones.
  */
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import type { UnifiedAssessmentQuestion } from '@mef/shared-types-contracts';
 import type { SessionAnswers } from '@/lib/assessment-runtime/types';
@@ -83,6 +83,34 @@ export function FuelPatternTaker({
     return index === -1 ? Math.max(ordered.length - 1, 0) : index;
   }, [ordered, initialAnswers]);
 
+  /*
+    ONE SAVE IN FLIGHT AT A TIME, AND THE FINISH WAITS FOR THE LAST OF
+    THEM (found on production, 2026-09-13).
+
+    Every answer is saved the moment she taps it, which is right: she
+    should never wait for a round trip before reading the next question.
+    What was wrong was firing those saves CONCURRENTLY. A Server Action
+    dispatched while another is still in flight makes the browser abort
+    the one already running, and an aborted request that had not yet
+    committed is an answer that is simply gone. Driving the real site
+    caught it: eight questions answered, seven rows stored, and the only
+    visible sign was that resuming put her back on a question she had
+    already answered. Worse, the same hole reaches the end of the
+    assessment, where the server correctly refuses to finish a sitting
+    with a question it has no answer for, so she would have answered all
+    twenty four and been told she had not.
+
+    So the saves are chained rather than raced. Each one waits for the
+    previous to finish, which means there is never a second request for
+    the queue to interrupt, and the screen is not held up by any of it.
+    A failed save is retried once, because a single lost answer is worth
+    one more attempt before she is told anything. And finishing waits for
+    the chain to drain, which is the only moment in the flow where
+    waiting is the right thing to do: the whole sitting depends on it.
+  */
+  const saveChain = useRef<Promise<void>>(Promise.resolve());
+  const [savesInFlight, setSavesInFlight] = useState(0);
+
   const [answers, setAnswers] = useState<SessionAnswers>(initialAnswers);
   const [beat, setBeat] = useState<Beat>(() => {
     if (phase === 'closing') return 'reveal';
@@ -93,7 +121,6 @@ export function FuelPatternTaker({
   const [index, setIndex] = useState(firstUnanswered);
   const [pattern, setPattern] = useState<FuelPattern | null>(initialPattern);
   const [error, setError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
 
   /*
     THE MARKER IS RE-ASSERTED AFTER EVERY RENDER, WITH NO DEPENDENCY
@@ -126,6 +153,14 @@ export function FuelPatternTaker({
     if (beat !== 'finishing') return undefined;
     let cancelled = false;
     (async () => {
+      // Every answer she gave has to be ON THE SERVER before the server is
+      // asked to finish, which is why the chain is awaited here and only
+      // here. Awaited twice: the second await catches a save that was
+      // still being queued when the first one resolved.
+      await saveChain.current;
+      await saveChain.current;
+      if (cancelled) return;
+
       const result = await completeFpaAssessmentAction(sessionId);
       if (cancelled) return;
       if (!result.ok) {
@@ -145,14 +180,27 @@ export function FuelPatternTaker({
   const answeredCount = ordered.filter((q) => answers[q.question_key] !== undefined).length;
   const total = ordered.length || FPA_QUESTION_COUNT;
 
-  function saveAnswer(question: UnifiedAssessmentQuestion, value: string) {
-    setAnswers((prev) => ({ ...prev, [question.question_key]: value }));
-    setError(null);
-    startTransition(async () => {
-      const result = await submitFpaAnswerAction(sessionId, question.id, value);
-      if (!result.ok) setError(result.error);
-    });
-  }
+  const saveAnswer = useCallback(
+    (question: UnifiedAssessmentQuestion, value: string) => {
+      setAnswers((prev) => ({ ...prev, [question.question_key]: value }));
+      setError(null);
+      setSavesInFlight((n) => n + 1);
+
+      saveChain.current = saveChain.current
+        .then(async () => {
+          let result = await submitFpaAnswerAction(sessionId, question.id, value);
+          if (!result.ok) result = await submitFpaAnswerAction(sessionId, question.id, value);
+          if (!result.ok) setError(result.error);
+        })
+        .catch(() => {
+          setError('That answer did not save. Tap it again.');
+        })
+        .finally(() => {
+          setSavesInFlight((n) => Math.max(0, n - 1));
+        });
+    },
+    [sessionId]
+  );
 
   return (
     <div>
@@ -244,6 +292,12 @@ export function FuelPatternTaker({
       {beat === 'reveal' && pattern && (
         <FuelPatternReveal pattern={pattern} startAtPattern={startAtPattern} />
       )}
+
+      {/* Said once, quietly, for a screen reader. Nothing visual moves,
+          because she is already reading the next question. */}
+      <span className="sr-only" role="status">
+        {savesInFlight > 0 ? 'Saving your answer' : ''}
+      </span>
     </div>
   );
 }

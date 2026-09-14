@@ -270,3 +270,43 @@ describe('the taker itself, at the source', () => {
     expect(taker).not.toMatch(/\d+%\s*(complete|done)/i);
   });
 });
+
+/**
+ * ONE SAVE IN FLIGHT AT A TIME.
+ *
+ * Found by driving production: eight questions answered, seven rows
+ * stored. A Server Action dispatched while another is still in flight
+ * makes the browser abort the one already running, and an aborted request
+ * that had not yet committed is an answer that is gone. The only visible
+ * sign was a resume putting her back on a question she had answered, and
+ * at the end of the assessment the same hole becomes a member who
+ * answered all twenty four being told she had not.
+ *
+ * Asserted at the source, because the defect is about the SHAPE of the
+ * dispatch rather than about anything a rendered screen shows.
+ */
+describe('answers are saved one at a time, and the finish waits for them', () => {
+  const taker = read('components/fuel-pattern/FuelPatternTaker.tsx');
+
+  it('chains each save onto the one before it rather than firing them concurrently', () => {
+    expect(taker).toContain('saveChain');
+    expect(taker).toContain('saveChain.current = saveChain.current');
+  });
+
+  it('never dispatches a save inside a transition, which is what made them interrupt each other', () => {
+    expect(taker).not.toContain('useTransition');
+    expect(taker).not.toContain('startTransition');
+  });
+
+  it('retries a failed save once before telling her anything', () => {
+    expect(taker).toMatch(/if \(!result\.ok\) result = await submitFpaAnswerAction/);
+  });
+
+  it('waits for the chain to drain before asking the server to finish', () => {
+    const finishing = taker.slice(taker.indexOf("if (beat !== 'finishing')"));
+    const awaitIndex = finishing.indexOf('await saveChain.current');
+    const completeIndex = finishing.indexOf('completeFpaAssessmentAction');
+    expect(awaitIndex).toBeGreaterThan(-1);
+    expect(awaitIndex).toBeLessThan(completeIndex);
+  });
+});

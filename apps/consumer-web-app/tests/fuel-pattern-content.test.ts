@@ -57,7 +57,7 @@ describe('Fuel Pattern content and the migration agree', () => {
   });
 
   it('files every question under a real section', () => {
-    const titles = new Set(FPA_SECTIONS.map((s) => s.title));
+    const titles = new Set<string>(FPA_SECTIONS.map((s) => s.title));
     for (const question of FPA_QUESTIONS) {
       expect(titles.has(question.section), question.key).toBe(true);
     }
