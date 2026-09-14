@@ -154,6 +154,55 @@ every coach module here has one, and
 `tests/fuel-pattern-member-payload.test.ts` now walks the meal modules too
 and proves no member surface can reach it.
 
+### LIVE VERIFICATION, PRODUCTION, 2026-09-14
+
+**54 checks, 54 passing**, on `app.mefwellness.com`, driving the real
+member journey and then opening the real coach page.
+`scripts/verify-fuel-pattern-meals-live.mjs` is the run, and its
+expectations are read from the library and the picker themselves rather
+than typed a second time, so a content edit is an edit to what the run
+expects.
+
+A full sitting read Protein-Supportive and produced four cards, in
+position between the plate and the forward look, one per part of the day,
+all four from her own set, each with its own why-it-fits copy, each with a
+preparation time and no other number. Two of the four carried a committed
+photograph and both loaded (`complete: true`, `naturalWidth: 1200`, a
+relative address); the other two drew the plate.
+
+Show me another on lunch produced all six lunches of her pattern with no
+repeat, started the six again on the seventh tap, and moved nothing in the
+other three slots. Marking a yogurt breakfast with No dairy swapped the
+card at once and took dairy off all four cards in the same moment; it held
+through a reload and through twenty further taps across every slot.
+Marking a dinner "I do not like this food" kept it out of ten more taps.
+
+Two saves appeared in My Meals grouped by part of the day, with no Show me
+another on them; unsaving one removed it and it stayed gone after a
+reload. A retake read Balanced Fuel, every card came from the new set, the
+No dairy preference still held, and the meal saved under the old pattern
+was still in her collection carrying its "From your Protein-Supportive
+pattern" label.
+
+As the coach, inside Assessments and Findings: Meal preferences, the No
+dairy standing preference, both declined meals with the reason she gave
+for each, "Saved meals: 1", and the name behind it on expand. Zero console
+and page errors on every member screen and on the coach page.
+
+**Two things the run had to learn about its own screenshots**, both
+written into it: a full page screenshot of a reveal page is a picture of
+nothing, because everything below the hero starts at opacity zero until it
+is scrolled to; and a lazy image four screens below the fold has correctly
+not loaded yet, so asking before the scroll reports a failure about a card
+behaving exactly as intended. Both checks now run after the scroll, which
+is also when a member actually meets them.
+
+Every row the run wrote was deleted in a `finally` and confirmed absent by
+an independent count: all four new tables, the result rows and the
+sessions. **The standing preferences are the rows this build adds that
+outlive a session, so they are the ones most easily left behind, and they
+are deleted by name every time.**
+
 ### WHAT IS IN THE DATABASE
 
 Migration 237, four tables, all member written and all written from a
