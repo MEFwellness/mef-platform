@@ -18,13 +18,17 @@
  *   domInteractive    the document is parsed
  *   cf script start   when the browser first ASKS for Cloudflare's api.js
  *   cf script end     when it has it
- *   challenge live    when Cloudflare's own iframe is in the container,
- *                     which is the first moment a token can be solved
+ *   widget mounted    when Cloudflare's own element and its response
+ *                     field are in the container: the moment the app has
+ *                     done all it can and the challenge is Cloudflare's
+ *                     to run. This is the number this app owns.
+ *   visible challenge when Cloudflare decides to show the member
+ *                     something, which in this mode is usually never
  *
  * A token itself is deliberately not the pass mark: Turnstile correctly
  * refuses to clear a headless browser silently, so no automated run will
  * ever be handed one, and CLAUDE.md says never to report that as a
- * failure. "Challenge live" is the part this app controls.
+ * failure. "Widget mounted" is the part this app controls.
  *
  * Read only. It navigates and it watches. It submits nothing and it
  * writes nothing.
@@ -49,19 +53,60 @@ const PROBE = () => {
     if (t[k] === undefined) t[k] = Math.round(performance.now());
   };
   mark('probeInstalled');
-  // The challenge is genuinely live the moment Cloudflare's own iframe is
-  // in the document. Watching the DOM rather than wrapping turnstile.render
-  // avoids racing the app's own call to it.
-  const seen = () =>
-    document.querySelector('iframe[src*="challenges.cloudflare.com"]') !== null;
-  const observer = new MutationObserver(() => {
-    if (seen()) {
-      mark('challengeLive');
-      observer.disconnect();
+  /*
+   * WHAT "LIVE" CAN HONESTLY MEAN HERE (rewritten 2026-09-13).
+   *
+   * This probe used to wait for Cloudflare's own iframe in the light DOM
+   * and report CHALLENGE LIVE = NEVER on every run, on a login page whose
+   * challenge was demonstrably running: the whole
+   * `cdn-cgi/challenge-platform` exchange was in the network log. In the
+   * mode this app uses, Cloudflare renders no iframe at all unless it
+   * decides to show the member something, so the thing being waited for
+   * usually does not exist. A check that can only fail is worse than none.
+   *
+   * So two marks, and the difference between them is the whole point:
+   *
+   *   widgetMounted   Cloudflare's own element and its
+   *                   `cf-turnstile-response` field are in the container,
+   *                   which is the moment the app has done everything it
+   *                   can and the challenge is Cloudflare's to run. THIS
+   *                   is the number this app owns.
+   *   visibleChallenge  an iframe, in the light DOM or inside an open
+   *                   shadow root, which only appears when Cloudflare
+   *                   decides to ask the member something.
+   *
+   * A TOKEN IS DELIBERATELY NOT MEASURED. Turnstile refuses to clear an
+   * automated browser, so no run will ever be handed one, and CLAUDE.md
+   * says never to report that as a failure. Confirmed again on this
+   * deployment: `turnstile.getResponse()` stays undefined for as long as a
+   * headless run watches it.
+   */
+  const findFrame = (root, depth) => {
+    if (!root || depth > 4) return null;
+    const direct = root.querySelector?.('iframe[src*="challenges.cloudflare.com"]');
+    if (direct) return direct;
+    for (const el of root.querySelectorAll?.('*') ?? []) {
+      if (el.shadowRoot) {
+        const inner = findFrame(el.shadowRoot, depth + 1);
+        if (inner) return inner;
+      }
     }
-  });
+    return null;
+  };
+  const look = () => {
+    const container = document.querySelector('[data-testid="turnstile-gate"]');
+    if (container?.querySelector('input[name="cf-turnstile-response"]')) mark('widgetMounted');
+    if (findFrame(document, 0)) mark('visibleChallenge');
+  };
+  // A poll, not only a MutationObserver: a shadow root's own contents never
+  // surface through an observer on the host document.
+  const poll = setInterval(() => {
+    look();
+    if (performance.now() > 25000) clearInterval(poll);
+  }, 100);
+  const observer = new MutationObserver(look);
   const start = () => {
-    if (seen()) return mark('challengeLive');
+    look();
     observer.observe(document.documentElement, { childList: true, subtree: true });
   };
   if (document.documentElement) start();
@@ -97,7 +142,7 @@ async function run() {
 
   await page.goto(`${BASE}${PATH}`, { waitUntil: 'commit', timeout: 60000 });
   await page
-    .waitForFunction(() => window.__mef && window.__mef.challengeLive !== undefined, null, {
+    .waitForFunction(() => window.__mef && window.__mef.widgetMounted !== undefined, null, {
       timeout: 25000,
     })
     .catch(() => {});
@@ -129,7 +174,8 @@ for (let i = 1; i <= RUNS; i++) {
   console.log(
     `run ${i}  ttfb=${r.ttfb}ms  domInteractive=${r.domInteractive}ms  ` +
       `cfScript=${r.cfScriptStart ?? '-'}..${r.cfScriptEnd ?? '-'}ms  ` +
-      `CHALLENGE LIVE=${r.challengeLive ?? 'NEVER'}ms`
+      `WIDGET MOUNTED=${r.widgetMounted ?? 'NEVER'}ms  ` +
+      `visibleChallenge=${r.visibleChallenge ?? 'none (Cloudflare asked nothing)'}`
   );
 }
 
@@ -140,8 +186,11 @@ function stat(key) {
 }
 console.log(`\ncf script requested : ${stat('cfScriptStart')}`);
 console.log(`cf script in hand   : ${stat('cfScriptEnd')}`);
-console.log(`challenge live      : ${stat('challengeLive')}`);
+console.log(`widget mounted      : ${stat('widgetMounted')}`);
+console.log(`visible challenge   : ${stat('visibleChallenge')}`);
 console.log(
-  `\nThe app waits TOKEN_WAIT_MS from her tap. A challenge that only goes live at N ms has already\n` +
-    `spent N ms of a real member's patience before she can even reach the button.`
+  `\nThe app waits TOKEN_WAIT_MS from her tap. Every millisecond before the widget is mounted is a\n` +
+    `millisecond of that budget spent before Cloudflare can even begin, which is the part this app owns.\n` +
+    `How long Cloudflare then takes, and whether it clears at all, is not measurable from automation:\n` +
+    `Turnstile refuses an automated browser by design (CLAUDE.md), so a token is never expected here.`
 );

@@ -131,6 +131,45 @@ exact day is picked out once the timezone lands. Measured on production:
 211ms against 131ms. Same row, same decision, on every open of Home and
 not only after a login.
 
+### WHAT THE LIVE RUN MEASURED, AFTER DEPLOYING
+
+Production, mobile widths, a minted one-time session, the throttled phone
+profile where it says so.
+
+- **Home's own layout shift is 0.** Four throttled loads at 390px, CLS 0 in
+  all four, against 0.0073 to 0.0104 with two shifts before the pass. The
+  0.0194 that still appears in the skeleton run belongs to the TODAY
+  screen, which is where that run starts: /today measured on its own is
+  0.0194, twice, and is a separate thing to fix.
+- **The skeleton and the settled page are the same size.** The Quick
+  Actions band is 182px in both states, and the block under it starts at
+  638px in both, over three runs, where the band used to be 176 then 182
+  and the block moved 6px.
+- **No status is cut off at 320, 360 or 390px**, for two different members,
+  and every one of them is now ONE line rather than two.
+- **Home's arrival on a throttled phone**: greeting 0.52 to 0.65s, the
+  Quick Actions tiles 1.11 to 1.56s, settled 2.29 to 2.66s. The same
+  stopwatch that ran before the pass, unthrottled, reads heading 0.64 to
+  1.88s against 1.09 to 2.77s, and settled 3.46 to 5.52s against 6.66 to
+  7.18s; production variance on that one is wide, so the frame's own 80ms
+  is the part that is actually attributable.
+- **The post-login arrival, with the real one-shot cookie set**: the
+  branded splash covers the screen from 0.45s to 4.16s, while underneath it
+  the greeting is up at 0.64s, the tiles at 1.58s and the whole page is
+  settled at 2.16s. Home is ready about two seconds before the splash lets
+  go of it.
+- **The row still works**: it swipes at 320, 360 and 390px, the last tile
+  is fully reachable at the end of the row, tapping Daily Reset opens the
+  check-in, and coming back lands on Home with all six tiles and the
+  greeting.
+- **A login form submission is still not scriptable**, by design, so the
+  one number nobody can measure from automation is how long Cloudflare
+  itself takes. What the app owns was measured instead:
+  `scripts/measure-login-token-live.mjs` was reporting "CHALLENGE LIVE =
+  NEVER" on every run because it waited for an iframe that this widget mode
+  never renders. It reports WIDGET MOUNTED now, which is the moment the app
+  has done all it can: 1.76 to 2.02s on a throttled phone.
+
 ### WHAT WAS LEFT ALONE, AND WHY
 
 - **The splash.** See above. Shortening a brand moment is the owner's
