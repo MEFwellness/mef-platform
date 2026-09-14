@@ -1,3 +1,142 @@
+## Forty-one references said no action, and that is why no account could be deleted (2026-09-14)
+
+Authentication > Users > Delete returned **"Failed to delete user:
+Database error deleting user"**. That sentence is what GoTrue prints
+whenever `delete from auth.users` trips anything at all in the public
+schema, and it carries no detail, so the first job was to make it say
+something. Measured against production before a line was written:
+
+| references to auth.users | before | after |
+| --- | --- | --- |
+| `on delete cascade` | 166 | 168 |
+| `on delete set null` | 26 | 65 |
+| `on delete no action`, meaning REFUSE | **41** | **0** |
+
+Fourteen of those 41 actually held rows, and **every account but five was
+undeletable**. Migration 239.
+
+### THE TWO REASONS, AND THEY ARE DIFFERENT REASONS
+
+**Members were blocked by one row each.**
+`coach_client_assignments.client_id` said `no action`, so any member who
+has ever been assigned a coach could not be deleted. That is the standing
+test accounts, 8weeks2fab, and one real member.
+
+**Coaches and admins were blocked by their own signatures.** A dozen
+attribution columns (`assigned_by`, `coach_id`, `changed_by`,
+`approved_by`, `granted_by`) pointed back at whoever made a change, so
+`oakomah66@gmail.com`, `info@mefwellness.com` and `test.coach` were each
+held by rows belonging to other people.
+
+### ONE RULE, APPLIED ONCE, EVERYWHERE
+
+> A reference that says **whose row this is** cascades. A reference that
+> says **who touched this row** goes null.
+
+Exactly two references are of the first kind, and they are the two ends of
+the same relationship: `coach_client_assignments.client_id` and
+`.coach_id`. An assignment is the relationship between two accounts and
+cannot outlive either of them, so deleting a coach unassigns that coach's
+clients. That is the honest outcome; the alternative is a row pointing at
+nobody.
+
+Everything else is a signature, and **twenty of those columns were
+`not null`**, which is the whole trick: a column that must always name
+somebody is a column that can always refuse a deletion. The `not null` is
+dropped and the reference set to `set null`. Nothing in this app ever
+writes one of them as null, so a null there means exactly one thing, that
+the account was deleted afterwards.
+
+**What deliberately survives a deletion, having lost only the name:** the
+body systems, whole-body signal, coach-assign-copy and driver-probe
+revision logs; every movement program and program version; coaches'
+prescriptions, assigned workouts, phase reviews and exercise metadata; the
+role grants themselves; and a member's own reset-plan history, which a
+coach signed but which is hers.
+
+**What deliberately goes:** the coach-client assignment, from either end.
+
+### TWO THINGS A CONSTRAINT LISTING WOULD NOT HAVE SHOWN
+
+**1. The same contradiction migration 209 fixed was still live.**
+`movement_program_versions` carried
+`check (status <> 'approved' or (approved_at is not null and approved_by is not null))`.
+Setting `approved_by` null when that account goes leaves `approved_at`
+where it is, which is exactly the half-and-half state the check forbids,
+so the delete would have failed a second way after the first was fixed.
+The check now asks only for the time: an approved version records **when**
+it was approved, and whether the approver still holds an account here is a
+separate fact it cannot guarantee. All 17 approved rows still name their
+approver.
+
+**2. Fixing `coach_client_assignments` created a new blocker.** That table
+joins the cascade set for the first time in this migration, and
+`assessment_attempts.coach_assignment_id` pointed at it with `no action`.
+Those attempts belong to **other members**, who are not being deleted, so
+a coach's deletion would have been refused by them. It is `set null` now:
+the attempt is hers and stays, and simply stops naming a coaching
+arrangement that no longer exists.
+
+### THE PHOTOS, AND WHY NO TRIGGER CLEARS THEM
+
+`storage.objects` carries **no foreign key to auth.users**, so uploaded
+posture captures and food photos never blocked a deletion. They were
+silently orphaned instead.
+
+A trigger on `auth.users` was written and then deleted, because it cannot
+work and must not be made to. `storage.objects` carries a `BEFORE DELETE`
+trigger of its own, `protect_objects_delete`, on production and locally
+alike:
+
+    Direct deletion from storage tables is not allowed.
+    Use the Storage API instead.
+
+That guard is right. The row is an index and the bytes live in the storage
+backend, so deleting the row alone strands a file nothing can name, which
+is a worse orphan than the one we started with.
+
+`apps/consumer-web-app/scripts/sweep-orphaned-storage-objects.mjs` uses
+the Storage API, which removes the row and the bytes together. It decides
+from the data, never from a list: an object in either private bucket whose
+leading path segment is not the id of a live account belongs to nobody.
+Report-only by default, `--apply` to act, idempotent. **Run on production:
+25 objects, zero orphaned.**
+
+### Verification
+
+**Local.** `tests/account-deletion-integration.test.ts` calls the same
+admin endpoint the dashboard's Delete button calls, on accounts it creates
+itself, and never touches a fixture. Two cases: a member with a coach goes
+and leaves nothing; a coach goes and the member's row that carried their
+name survives with `changed_by` null. **Proved by reverting the fix** on
+the local database, where the member case fails with GoTrue's own 500.
+
+Whole suite **609 files, 11,611 tests, all passing**. Typecheck clean,
+lint clean (0 errors), production build clean.
+
+**Production, `app.mefwellness.com`, 19/19 checks.**
+`scripts/verify-account-deletion-live.mjs` is the run. It created ONE
+throwaway account, held a real session as it, opened Home, the Daily
+Reset, Today and Progress, gave it a coach (the exact row that caused the
+bug), wrote a check-in, and then deleted it through the admin API. The
+delete **succeeded with no database error**, the account was gone from
+Authentication > Users, and every table it owned rows in came back zero.
+Then the standing test member signed in and walked Home, the Daily Reset,
+Progress and Today with **no console or page error on any screen**.
+
+Asked generically afterwards, across **all 233 references to auth.users**:
+zero rows anywhere pointing at an account that does not exist. 14 accounts
+before, 14 after, five coach-client assignments before and after. **No
+existing account was touched.**
+
+### A trap the first live run walked into
+
+It reported six failures and every one was the instrument. The script
+asked for `/home` and `/check-in`. The real routes are **`/dashboard`** and
+**`/checkin`**, so it got honest 404s and read them as a broken app. The
+route names are in `components/nav/QuietLink.tsx`; read them there rather
+than guessing from the tab labels.
+
 ## Sign-in has no bot check, and the check moved to where it was needed (2026-09-14)
 
 The fifth fix for one bug, and the first one that did not try to make
