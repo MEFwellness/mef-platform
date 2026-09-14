@@ -44,7 +44,8 @@ export type RevisionEntry = {
   changeType: 'created' | 'updated' | 'retired' | 'restored';
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
-  changedBy: string;
+  /** Null once that account has been deleted (migration 239). */
+  changedBy: string | null;
   changedByName: string;
   changedAt: string;
 };

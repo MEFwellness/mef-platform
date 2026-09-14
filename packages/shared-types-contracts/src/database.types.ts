@@ -55,7 +55,8 @@ export interface CoachClientAssignment {
   id: string;
   coach_id: string;
   client_id: string;
-  assigned_by: string;
+  /** Null once the account that made the assignment has been deleted (migration 239). */
+  assigned_by: string | null;
   status: 'active' | 'revoked' | 'completed';
   start_date: string;
   end_date: string | null;

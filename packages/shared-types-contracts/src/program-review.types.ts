@@ -32,7 +32,8 @@ export type ProgramReviewStatus = 'open' | 'drafted' | 'approved' | 'discarded';
 export interface ProgramPhaseReview {
   id: string;
   member_id: string;
-  coach_id: string;
+  /** Null once the coach who ran the review has been deleted (migration 239). */
+  coach_id: string | null;
 
   program_group_key: string;
   program_name: string;

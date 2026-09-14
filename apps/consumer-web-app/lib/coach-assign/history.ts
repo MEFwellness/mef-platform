@@ -51,7 +51,8 @@ export type AssignmentHistorySource = {
   /** When the coach sent it. */
   createdAt: string;
   /** Who sent it. auth.users.id, never a name: a name is looked up under RLS by the caller. */
-  assignedBy: string;
+  /** Null once the account that sent it has been deleted (migration 239). */
+  assignedBy: string | null;
   /** When migration 144's trigger closed it out. Null on anything not completed. */
   completedAt: string | null;
 };
@@ -179,10 +180,11 @@ export function buildAssignmentHistory(input: {
     read the sentence still says the useful half, that somebody else sent
     it, in the stored words rather than in a guess at a name.
   */
+  const lastAssignedBy = lastAssigned?.assignedBy ?? null;
   const author = lastAssigned
-    ? lastAssigned.assignedBy === input.viewerId
+    ? lastAssignedBy && lastAssignedBy === input.viewerId
       ? coachAssignCopy(copy, 'assign.by_you')
-      : (input.assignerNames[lastAssigned.assignedBy] ??
+      : ((lastAssignedBy ? input.assignerNames[lastAssignedBy] : undefined) ??
         coachAssignCopy(copy, 'assign.by_unknown'))
     : null;
 

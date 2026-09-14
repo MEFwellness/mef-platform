@@ -211,7 +211,7 @@ export async function listRevisions(supabase: SupabaseClient, questionKey: strin
     change_type: RevisionEntry['changeType'];
     before: Record<string, unknown> | null;
     after: Record<string, unknown> | null;
-    changed_by: string;
+    changed_by: string | null;
     changed_at: string;
   };
   const rows = data as RevisionRow[];
@@ -220,7 +220,12 @@ export async function listRevisions(supabase: SupabaseClient, questionKey: strin
   // changed_by) for PostgREST to auto-embed — looked up separately and
   // merged here, same "fetch ids, fetch names, merge in JS" pattern
   // app/admin/AdminPanel.tsx already uses for coach/client display names.
-  const changedByIds = [...new Set(rows.map((row) => row.changed_by))];
+  // changed_by goes null when that account is deleted (migration 239), and
+  // a null in this list would both break the `.in` filter and throw on the
+  // `.slice` below, so it never enters it.
+  const changedByIds = [...new Set(rows.map((row) => row.changed_by))].filter(
+    (id): id is string => typeof id === 'string' && id.length > 0
+  );
   const namesById = new Map<string, string>();
   if (changedByIds.length > 0) {
     const { data: profileRows } = await supabase
@@ -239,7 +244,9 @@ export async function listRevisions(supabase: SupabaseClient, questionKey: strin
     before: row.before,
     after: row.after,
     changedBy: row.changed_by,
-    changedByName: namesById.get(row.changed_by) ?? row.changed_by.slice(0, 8),
+    changedByName: row.changed_by
+      ? (namesById.get(row.changed_by) ?? row.changed_by.slice(0, 8))
+      : 'A deleted account',
     changedAt: row.changed_at,
   }));
 }

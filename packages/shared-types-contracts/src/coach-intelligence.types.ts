@@ -102,7 +102,8 @@ export interface AssessmentReportExercise {
   category: string | null;
   sort_order: number;
 
-  added_by: string;
+  /** Null once the coach who added it has been deleted (migration 239). */
+  added_by: string | null;
   created_at: string;
 }
 
