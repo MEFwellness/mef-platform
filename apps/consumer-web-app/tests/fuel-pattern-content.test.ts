@@ -26,11 +26,26 @@ import {
 } from '../lib/fuel-pattern/constants';
 import { PLATE_SHAPES } from '../components/fuel-pattern/PlateIllustration';
 import {
+  FPA_CONTINUE_LABEL,
   FPA_INTRO_COPY,
+  FPA_RANGE_FOOTNOTE,
   FPA_REVEAL_COPY,
+  FPA_SECTION_HEADERS,
+  FPA_STARTING_RANGE,
+  FUEL_PATTERN_INTERPRETATION,
   FUEL_PATTERN_LABEL,
-  FUEL_PATTERN_SENTENCE,
+  fpaWatchForCopy,
 } from '../lib/fuel-pattern/copy';
+import { FPA_NO_OBSERVATIONS_LINE, FPA_OBSERVATION_RULES } from '../lib/fuel-pattern/observations';
+import { FPA_PLATE_GUIDE } from '../lib/fuel-pattern/plate';
+import type { FuelPattern } from '../lib/fuel-pattern/types';
+
+const PATTERNS: FuelPattern[] = [
+  'protein_supportive',
+  'balanced_fuel',
+  'carb_supportive',
+  'flexible_fuel',
+];
 
 const MIGRATION = path.resolve(
   __dirname,
@@ -184,8 +199,21 @@ describe('the member facing voice', () => {
     ...FPA_INTRO_COPY.lines,
     FPA_INTRO_COPY.button,
     ...Object.values(FUEL_PATTERN_LABEL),
-    ...Object.values(FUEL_PATTERN_SENTENCE),
+    ...Object.values(FUEL_PATTERN_INTERPRETATION),
     ...Object.values(FPA_REVEAL_COPY),
+    ...Object.values(FPA_SECTION_HEADERS),
+    FPA_RANGE_FOOTNOTE,
+    FPA_CONTINUE_LABEL,
+    FPA_NO_OBSERVATIONS_LINE,
+    ...FPA_OBSERVATION_RULES.map((rule) => rule.text),
+    ...PATTERNS.flatMap((pattern) => [
+      fpaWatchForCopy(pattern),
+      FPA_STARTING_RANGE[pattern].extraLine ?? '',
+      ...FPA_STARTING_RANGE[pattern].rows.flatMap((row) => [row.nutrient, row.level]),
+      FPA_PLATE_GUIDE[pattern].addition,
+      FPA_PLATE_GUIDE[pattern].caption ?? '',
+      ...FPA_PLATE_GUIDE[pattern].segments.flatMap((s) => [s.label, s.proportion]),
+    ]),
     ...FPA_QUESTIONS.flatMap((q) => [
       q.prompt,
       q.description ?? '',
@@ -213,23 +241,23 @@ describe('the member facing voice', () => {
     }
   });
 
-  it('starts every pattern sentence from her responses, and hedges the claim', () => {
-    for (const sentence of Object.values(FUEL_PATTERN_SENTENCE)) {
-      expect(sentence.startsWith('Your responses suggest'), sentence).toBe(true);
-      expect(sentence, sentence).toContain('may');
+  it('starts every interpretation from her responses rather than from a claim about her', () => {
+    for (const sentence of Object.values(FUEL_PATTERN_INTERPRETATION)) {
+      expect(sentence.startsWith('Your responses suggest that'), sentence).toBe(true);
     }
   });
 
   it('calls Flexible Fuel a result rather than a shortfall', () => {
-    const sentence = FUEL_PATTERN_SENTENCE.flexible_fuel;
+    const sentence = FUEL_PATTERN_INTERPRETATION.flexible_fuel;
     for (const word of ['unclear', 'inconclusive', 'not enough', 'incomplete', 'failed', 'unable']) {
       expect(sentence.toLowerCase(), word).not.toContain(word);
     }
   });
 
-  it('says the reveal is a starting point and can change', () => {
-    expect(FPA_REVEAL_COPY.footnote).toContain('starting pattern');
-    expect(FPA_REVEAL_COPY.footnote).toContain('can change');
+  it('says the starting range is a starting point and will be refined', () => {
+    expect(FPA_RANGE_FOOTNOTE).toContain('starting point');
+    expect(FPA_RANGE_FOOTNOTE).toContain('not a prescription');
+    expect(FPA_RANGE_FOOTNOTE).toContain('refined');
   });
 
   it('never puts an em dash in any of it', () => {

@@ -13,9 +13,10 @@
  * this sitting renders the very same taker, in its reveal phase, instead
  * of redirecting to the results screen, so the re-render a Server Action
  * carries lands on the reveal she is reading rather than navigating out
- * of it. Her stored pattern is read here from her own result row, so a
- * reload mid-reveal has everything the reveal needs without asking the
- * browser to remember anything. See lib/assessment-runtime/closing.ts.
+ * of it. Her whole member facing reading is built here from her own
+ * result row, so a reload mid-reveal has everything the result page needs
+ * before it mounts and never has to fetch anything once she is reading
+ * it. See lib/assessment-runtime/closing.ts.
  */
 
 import type { Route } from 'next';
@@ -24,6 +25,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
 import { loadFpaTakeSessionAction } from '@/app/actions/fuelPattern';
 import { findFuelPatternResultBySession } from '@/lib/fuel-pattern/data';
+import { buildFpaMemberResult } from '@/lib/fuel-pattern/memberResult';
 import { FuelPatternTaker } from '@/components/fuel-pattern/FuelPatternTaker';
 import { CLOSING_PARAM, parseClosingBeat } from '@/lib/assessment-runtime/closing';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
@@ -52,7 +54,7 @@ export default async function TakeFuelPatternPage({
           questions={questions}
           initialAnswers={session.answers}
           phase={phase}
-          initialPattern={stored?.pattern ?? null}
+          initialResult={stored ? buildFpaMemberResult(stored) : null}
           startAtPattern={startAtPattern}
         />
       </main>

@@ -3,7 +3,9 @@
 /**
  * Rooted Reset Fuel Pattern Assessment — the take flow.
  *
- * Intro, then twenty four questions one at a time, then a short reveal.
+ * Intro, then twenty four questions one at a time, then her result
+ * experience (components/fuel-pattern/FuelPatternResultView.tsx), which
+ * opens on the reveal and holds.
  * The runtime underneath is the shared one (lib/assessment-runtime): this
  * component holds a beat and an index, and every answer is saved the
  * moment she taps it, so closing the tab and coming back lands her on the
@@ -32,7 +34,7 @@ import {
 } from '@/app/actions/fuelPattern';
 import { FPA_PLATE_QUESTION_KEY, FPA_QUESTION_COUNT } from '@/lib/fuel-pattern/constants';
 import { FPA_INTRO_COPY } from '@/lib/fuel-pattern/copy';
-import type { FuelPattern } from '@/lib/fuel-pattern/types';
+import type { FpaMemberResult } from '@/lib/fuel-pattern/memberResult';
 import { IntroReveal } from '@/components/IntroReveal';
 import { ExperienceHomeLink } from '@/components/ExperienceHomeLink';
 import { ROOT_FINISHING_LABEL } from '@/lib/reveal/copy';
@@ -41,16 +43,17 @@ import {
   FuelPatternQuestionScreen,
   parseFpaOptions,
 } from './FuelPatternQuestionScreen';
-import { FuelPatternReveal } from './FuelPatternReveal';
+import { FuelPatternResultView } from './FuelPatternResultView';
 
 type Beat = 'intro' | 'questions' | 'finishing' | 'reveal';
 
 /**
  * The taker's own marker in the take URL. The shared closing vocabulary
  * has four beats for the experiences that end on a four beat closing;
- * this instrument's reveal is two beats and only the second one is a
- * PLACE, so it writes the last of them and reads it back to mean "the
- * pause has already been had".
+ * this instrument ends on a result page whose reveal is played once, so
+ * it writes the last of them and reads it back to mean "the reveal has
+ * already been played", which is what sends a reload straight to the
+ * finished page.
  */
 const REVEAL_MARKER = 'close';
 
@@ -59,9 +62,9 @@ type Props = {
   questions: UnifiedAssessmentQuestion[];
   initialAnswers: SessionAnswers;
   phase: RuntimePhase;
-  /** Her stored pattern, when the server already found this sitting finished. */
-  initialPattern: FuelPattern | null;
-  /** True when the take URL says she is already past the pause. */
+  /** Her stored reading, when the server already found this sitting finished. */
+  initialResult: FpaMemberResult | null;
+  /** True when the take URL says the reveal has already been played. */
   startAtPattern: boolean;
 };
 
@@ -70,7 +73,7 @@ export function FuelPatternTaker({
   questions,
   initialAnswers,
   phase,
-  initialPattern,
+  initialResult,
   startAtPattern,
 }: Props) {
   const ordered = useMemo(
@@ -119,7 +122,7 @@ export function FuelPatternTaker({
     return Object.keys(initialAnswers).length > 0 ? 'questions' : 'intro';
   });
   const [index, setIndex] = useState(firstUnanswered);
-  const [pattern, setPattern] = useState<FuelPattern | null>(initialPattern);
+  const [result, setResult] = useState<FpaMemberResult | null>(initialResult);
   const [error, setError] = useState<string | null>(null);
 
   /*
@@ -131,23 +134,30 @@ export function FuelPatternTaker({
     already says this.
   */
   useEffect(() => {
-    if (beat === 'reveal' && pattern) markClosingBeat(REVEAL_MARKER);
+    if (beat === 'reveal' && result) markClosingBeat(REVEAL_MARKER);
   });
 
-  // A member who reloads on the reveal arrives with no pattern in hand,
-  // because the server hands one down only when it found the row. Ask for
-  // it rather than showing her nothing.
+  /*
+    A member who reloads on the reveal arrives with no reading in hand,
+    because the server hands one down only when it found the row. Ask for
+    it rather than showing her nothing.
+
+    THIS IS THE ONLY REQUEST THE RESULT EXPERIENCE EVER WAITS ON, and it
+    runs BEFORE that experience is on the screen: once a reading is in
+    state the effect does nothing on every later render, so nothing
+    arriving late can replace a page she is already reading.
+  */
   useEffect(() => {
-    if (beat !== 'reveal' || pattern) return undefined;
+    if (beat !== 'reveal' || result) return undefined;
     let cancelled = false;
     (async () => {
-      const reveal = await getMyFpaRevealAction(sessionId);
-      if (!cancelled && reveal) setPattern(reveal.pattern);
+      const stored = await getMyFpaRevealAction(sessionId);
+      if (!cancelled && stored) setResult(stored);
     })();
     return () => {
       cancelled = true;
     };
-  }, [beat, pattern, sessionId]);
+  }, [beat, result, sessionId]);
 
   useEffect(() => {
     if (beat !== 'finishing') return undefined;
@@ -161,14 +171,14 @@ export function FuelPatternTaker({
       await saveChain.current;
       if (cancelled) return;
 
-      const result = await completeFpaAssessmentAction(sessionId);
+      const completion = await completeFpaAssessmentAction(sessionId);
       if (cancelled) return;
-      if (!result.ok) {
-        setError(result.error);
+      if (!completion.ok) {
+        setError(completion.error);
         setBeat('questions');
         return;
       }
-      setPattern(result.reveal.pattern);
+      setResult(completion.reveal);
       setBeat('reveal');
     })();
     return () => {
@@ -289,8 +299,8 @@ export function FuelPatternTaker({
         </div>
       )}
 
-      {beat === 'reveal' && pattern && (
-        <FuelPatternReveal pattern={pattern} startAtPattern={startAtPattern} />
+      {beat === 'reveal' && result && (
+        <FuelPatternResultView result={result} withReveal={!startAtPattern} />
       )}
 
       {/* Said once, quietly, for a screen reader. Nothing visual moves,

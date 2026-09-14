@@ -16,8 +16,11 @@
  *     real button with an accessible name carrying its own words, so a
  *     member using a screen reader hears the proportion described rather
  *     than hearing nothing at all.
- *   THE REVEAL HOLDS, THEN LANDS. "Assessment complete" first, her
- *     pattern after a pause, and under reduced motion no pause at all.
+ *   THE REVEAL HOLDS, THEN LANDS. "Assessment complete." first, her
+ *     pattern after a pause, the interpretation and the rest of the page
+ *     after that, and under reduced motion no pause at all. The full
+ *     result page has its own file
+ *     (tests/fuel-pattern-result-page.test.tsx).
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -33,12 +36,14 @@ vi.mock('next/navigation', () => ({
 const { FuelPatternQuestionScreen, parseFpaOptions } = await import(
   '@/components/fuel-pattern/FuelPatternQuestionScreen'
 );
-const { FuelPatternReveal } = await import('@/components/fuel-pattern/FuelPatternReveal');
+const { FuelPatternResultView } = await import(
+  '@/components/fuel-pattern/FuelPatternResultView'
+);
 const { FPA_QUESTIONS } = await import('@/lib/fuel-pattern/questionContent');
 const { FPA_PLATE_QUESTION_KEY, FPA_VITALITY_QUESTION_KEY } = await import(
   '@/lib/fuel-pattern/constants'
 );
-const { FPA_REVEAL_COPY, FUEL_PATTERN_LABEL, FUEL_PATTERN_SENTENCE } = await import(
+const { FPA_REVEAL_COPY, FUEL_PATTERN_LABEL, FUEL_PATTERN_INTERPRETATION } = await import(
   '@/lib/fuel-pattern/copy'
 );
 
@@ -189,58 +194,94 @@ describe('the plate question', () => {
 });
 
 describe('the reveal', () => {
-  it('holds on "Assessment complete" before the pattern arrives', () => {
+  /** The result page reveals its sections on scroll, which jsdom has no observer for. */
+  function stubIntersectionObserver() {
+    class Stub {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    }
+    Object.defineProperty(window, 'IntersectionObserver', {
+      writable: true,
+      configurable: true,
+      value: Stub,
+    });
+  }
+
+  const result = { pattern: 'protein_supportive' as const, observations: ['A line she told us.'] };
+
+  beforeEach(() => {
+    stubIntersectionObserver();
+  });
+
+  it('holds on "Assessment complete." before the pattern arrives', () => {
     act(() => {
-      root.render(<FuelPatternReveal pattern="protein_supportive" />);
+      root.render(<FuelPatternResultView result={result} withReveal />);
     });
     expect(container.textContent).toContain(FPA_REVEAL_COPY.completeHeadline);
     expect(container.textContent).not.toContain(FUEL_PATTERN_LABEL.protein_supportive);
   });
 
-  it('lands on the pattern with one sentence and one Continue', async () => {
+  it('lands on the pattern name before the interpretation and the rest of the page', async () => {
     vi.useFakeTimers();
     act(() => {
-      root.render(<FuelPatternReveal pattern="flexible_fuel" />);
+      root.render(
+        <FuelPatternResultView
+          result={{ pattern: 'flexible_fuel', observations: [] }}
+          withReveal
+        />
+      );
     });
     await act(async () => {
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(2300);
     });
+    // Beat two: the eyebrow and the name, and nothing from the page below.
     expect(container.textContent).toContain(FPA_REVEAL_COPY.patternEyebrow);
     expect(container.textContent).toContain(FUEL_PATTERN_LABEL.flexible_fuel);
-    expect(container.textContent).toContain(FUEL_PATTERN_SENTENCE.flexible_fuel);
-    expect(container.querySelectorAll('button')).toHaveLength(1);
+    expect(container.textContent).not.toContain('YOUR STARTING RANGE');
+
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(container.textContent).toContain(FUEL_PATTERN_INTERPRETATION.flexible_fuel);
+    expect(container.textContent).toContain('YOUR STARTING RANGE');
     vi.useRealTimers();
   });
 
-  it('skips the pause entirely under reduced motion', async () => {
+  it('skips every pause entirely under reduced motion', async () => {
     setReducedMotion(true);
     vi.useFakeTimers();
     act(() => {
-      root.render(<FuelPatternReveal pattern="balanced_fuel" />);
+      root.render(<FuelPatternResultView result={result} withReveal />);
     });
     await act(async () => {
       vi.advanceTimersByTime(0);
     });
-    expect(container.textContent).toContain(FUEL_PATTERN_LABEL.balanced_fuel);
+    expect(container.textContent).toContain(FUEL_PATTERN_LABEL.protein_supportive);
+    expect(container.textContent).toContain('YOUR STARTING RANGE');
     vi.useRealTimers();
   });
 
-  it('opens straight on the pattern when a reload landed her back on it', () => {
+  it('opens straight on the finished page when she is revisiting a stored reading', () => {
     act(() => {
-      root.render(<FuelPatternReveal pattern="carb_supportive" startAtPattern />);
+      root.render(<FuelPatternResultView result={result} withReveal={false} />);
     });
-    expect(container.textContent).toContain(FUEL_PATTERN_LABEL.carb_supportive);
+    expect(container.textContent).toContain(FUEL_PATTERN_LABEL.protein_supportive);
+    expect(container.textContent).toContain('YOUR STARTING RANGE');
     expect(container.textContent).not.toContain(FPA_REVEAL_COPY.completeHeadline);
   });
 
-  it('shows her no raw score, no confidence level and no tendency', () => {
+  it('shows her no raw score, no confidence level and no number of any kind', () => {
     act(() => {
-      root.render(<FuelPatternReveal pattern="protein_supportive" startAtPattern />);
+      root.render(<FuelPatternResultView result={result} withReveal={false} />);
     });
     const text = container.textContent ?? '';
-    for (const word of ['score', 'Score', 'confidence', 'Confidence', 'High', 'Moderate', 'Low']) {
+    for (const word of ['score', 'Score', 'confidence', 'Confidence', 'tendency']) {
       expect(text, word).not.toContain(word);
     }
+    // Every proportion on this page is a word, so a digit anywhere is a
+    // number that escaped.
+    expect(text, text).not.toMatch(/[0-9]/);
   });
 });
 

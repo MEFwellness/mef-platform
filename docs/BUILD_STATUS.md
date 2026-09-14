@@ -1,3 +1,160 @@
+## Rooted Reset Fuel Pattern Assessment, Build 2 of 4: the results experience (2026-09-14)
+
+The interim completion screen from Build 1 is gone and the full result
+experience stands in its place: the reveal, the seven part result page and
+the coach's own card. The take flow and the scoring are untouched. Meals
+(Build 3) and the 7 Day Fuel Experiment (Build 4) are NOT in this build,
+and nothing on any screen mentions, promises or gestures at either of
+them.
+
+**No migration.** Migration 236 already created `fuel_pattern_results` with
+the coach read policy this build needed, so there was nothing to add.
+
+### THE REVEAL, AND WHY IT HOLDS
+
+Three beats: "Assessment complete." alone, a calm pause, her pattern name
+in display type as the focal point of the screen, then a gold hairline and
+the one sentence that interprets it. The supporting sections arrive as she
+scrolls, through the app's own `RevealOnScroll`. Reduced motion gets the
+finished page with no pause and no movement.
+
+The bug class this had to avoid is the one that skipped premium closings
+elsewhere: a screen that reads correctly and is then replaced when a
+background call re-renders the route underneath it. Three properties stop
+it, and all three are deliberate:
+
+- **Everything the screen draws is already in its props.** The whole member
+  payload is built on the server before the component mounts, so there is
+  no fetch, no Server Action and no router call anywhere in
+  `FuelPatternResultView.tsx`. It cannot be waiting on something that could
+  replace it.
+- **The beat is client state.** A parent re-render does not reset it.
+- **The only way out is the button at the foot of the page.**
+
+A member returning through "See your results" gets the finished page
+instantly, with no reveal at all.
+
+### THE PAGE, IN ONE ORDER
+
+Pattern name, one sentence interpretation, why this pattern fits you, your
+starting range, your starting plate, what Rooted Reset will watch for,
+Continue. Meals and the experiment belong between the plate and the watch
+for section, and the insertion point is a comment there rather than an
+empty card, because a placeholder is a promise.
+
+Tonal variation carries the hierarchy: cream hero, sage why, cream range,
+warm plate, deep forest watch for, so each section is legible as its own
+moment without a decorative line anywhere.
+
+### THE OBSERVATION ENGINE
+
+"Why this pattern fits you" is the part of this build that could most
+easily have been dishonest. A fixed list per pattern would be identical for
+every Protein-Supportive member, so most of its lines would be luck rather
+than evidence. So `lib/fuel-pattern/observations.ts` holds twelve approved
+lines, each paired with an evidence rule over her stored answers. A line
+qualifies only when its rule is met, qualifying lines are ranked by how
+many answers support them with ties broken by the order they are written
+in, and the top three are shown, four when a fourth qualifies.
+
+Two things are worth writing down:
+
+- **Contradiction is checked, not assumed away.** Most opposing pairs read
+  opposite classes of the SAME question and so cannot both fire.
+  `substantial_meals` and `lighter_meals` genuinely can, because they read
+  overlapping but different question sets, so `CONFLICTING_PAIRS` names it
+  and the weaker of the two is dropped.
+- **Fewer than two qualifying lines is its own state**, not a gap to pad.
+  The section still draws and says that her responses did not point
+  strongly in one direction and that Rooted Reset treats that as honest
+  information.
+
+The classes the rules read are the scoring engine's own authored weight
+classes, so a rule here and a score there cannot be looking at different
+things.
+
+### NO NUMBER REACHES HER SCREEN
+
+The starting range is words only: Higher, Lighter, Moderate, A little
+higher. The plate's proportions are words too: half the plate, a quarter, a
+third, a small portion, the remainder. The standing rule is that a
+proportion written AS A NUMBER makes the section carry the small label
+STARTING EXPERIMENT; it is satisfied here by the stronger route, which is
+that there is no number to label. That is deliberate rather than lazy: the
+word "experiment" is the name of what Build 4 ships, and a label carrying
+it today would read as a reference to a feature that does not exist.
+`tests/fuel-pattern-result-page.test.tsx` asserts the whole rendered page
+contains no digit at all, for all four patterns.
+
+Healthy fat is drawn as an addition rather than as a wedge, because that is
+what it is on all four plates ("+ healthy fat"). Giving it a slice would
+have meant shrinking the three real proportions to make room for it.
+
+### THE FENCE BETWEEN HER SCREEN AND HIS
+
+Her stored row carries three raw scores, a confidence level, two
+denominators, every tendency code, the digestive discomfort flag and her
+vitality answer. None of it is hers to read, and "no component prints it"
+is an intention rather than a fact. So:
+
+- Every member surface is fed by ONE object, `FpaMemberResult`, which has
+  exactly two fields. A component cannot print a score it was never handed,
+  and a new column on the row does not arrive on her screen by itself.
+- The coach vocabulary lives in its own modules
+  (`lib/fuel-pattern/coachCopy.ts`, `coachView.ts`,
+  `app/actions/fuelPatternCoach.ts`), which is the same split the Breathing
+  Pattern Check-In made for the same reason: her taker imports the submit
+  action, so anything in its module is on her import graph.
+- `tests/fuel-pattern-member-payload.test.ts` walks the real import graph
+  from every member surface and proves none of them can reach any coach
+  module, and walks it from the coach panel to prove the guard is not
+  vacuous.
+
+### THE COACH CARD
+
+`app/coach/clients/[id]/FuelPatternPanel.tsx`, in the Snapshots group of
+Assessments and Findings, following the Weekly Reflection and Stress and
+Load panels. Pattern and confidence, all three raw scores with the count of
+zero weight answers naming its own denominator, the digestive discomfort
+signal (printed with the sentence that says it was never scored and did not
+move the pattern), her response tendencies in plain language, every
+question where the instrument got no reading, her vitality answer exactly
+as she gave it, and pattern over time when there is more than one sitting.
+
+It is read only. There is no Assign control, because this assessment is not
+coach assigned: it opens on the monthly plan and she starts it herself.
+Nothing in the module that feeds it inserts, updates, deletes or
+revalidates, and the test asserts that.
+
+**Where the old and the new sit together.** No coach surface showed
+historical Primal Pattern results in a readable form: the only trace was a
+one line registry metric. Rather than inventing a second nutrition card,
+her retired Primal Pattern sittings are listed at the foot of this one,
+under "Before this instrument", exactly as they were stored. They are not
+re-scored and not mapped onto a fuel pattern, because the two instruments
+asked different questions and converting one into the other would invent a
+reading she was never given.
+
+Test accounts are excluded in the data layer through
+`isMemberVisibleToStaff`, which is scoped to "not on your caseload", so the
+paired test member coaching loop keeps working.
+
+### TESTS
+
+Five new files: `fuel-pattern-observations.test.ts` (20),
+`fuel-pattern-member-payload.test.ts` (6),
+`fuel-pattern-result-page.test.tsx` (11),
+`fuel-pattern-coach-view.test.ts` (14),
+`fuel-pattern-coach-panel.test.tsx` (13). Two Build 1 files were updated to
+describe the new truth rather than the old one: `fuel-pattern-content`
+(which now scans every string on the result page for the forbidden
+vocabulary and the em dash) and `fuel-pattern-take-flow` (whose reveal
+tests now drive the real result view through all three beats).
+
+Full suite 598 files, 11,403 tests, all passing. Typecheck clean, lint
+clean (one pre-existing unused variable in `fuel-pattern-scoring.test.ts`
+fixed on the way past), production build clean.
+
 ## Rooted Reset Fuel Pattern Assessment, Build 1 of 4: the assessment core (2026-09-13)
 
 Primal Pattern Diet Type is retired and the Rooted Reset Fuel Pattern

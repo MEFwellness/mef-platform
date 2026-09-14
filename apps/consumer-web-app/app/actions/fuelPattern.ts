@@ -35,7 +35,7 @@ import { recordTimelineEvent } from '@/lib/timeline/data';
 import { FPA_KEY, FPA_LABEL, FPA_ROUTE, FPA_TAKE_ROUTE } from '@/lib/fuel-pattern/constants';
 import { allFpaQuestionsAnswered, computeFpaScoring } from '@/lib/fuel-pattern/scoring';
 import { saveFuelPatternResult, findFuelPatternResultBySession } from '@/lib/fuel-pattern/data';
-import type { FpaConfidence, FuelPattern } from '@/lib/fuel-pattern/types';
+import { buildFpaMemberResult, type FpaMemberResult } from '@/lib/fuel-pattern/memberResult';
 
 const FPA_ROUTES = {
   overview: FPA_ROUTE,
@@ -116,17 +116,19 @@ export async function submitFpaAnswerAction(
 }
 
 /**
- * What the reveal and the results screen both read. Deliberately only the
- * pattern: the three raw scores, the confidence level and every stored
- * tendency are for the coach view in Build 2, and no member surface is
- * ever handed them.
+ * What the reveal and the results screen both read, and the ONLY thing
+ * either of them is handed. The three raw scores, the confidence level,
+ * every stored tendency, the digestive discomfort flag and her vitality
+ * answer are the coach's, and they are fenced out by construction: the
+ * payload is built by lib/fuel-pattern/memberResult.ts, which has two
+ * fields and no way to grow a third by accident.
+ *
+ * IT IS COMPLETE BEFORE HER SCREEN MOUNTS. The result experience makes no
+ * request of its own once it is on the screen, which is what lets the
+ * reveal hold instead of being replaced by something arriving late.
  */
-export type FpaMemberReveal = {
-  pattern: FuelPattern;
-};
-
 export type CompleteFpaResult =
-  | { ok: true; reveal: FpaMemberReveal }
+  | { ok: true; reveal: FpaMemberResult }
   | { ok: false; error: string };
 
 export async function completeFpaAssessmentAction(sessionId: string): Promise<CompleteFpaResult> {
@@ -181,35 +183,29 @@ export async function completeFpaAssessmentAction(sessionId: string): Promise<Co
     console.error('Fuel Pattern timeline event failed', err);
   }
 
-  return { ok: true, reveal: { pattern: stored?.pattern ?? scoring.pattern } };
+  /*
+    HER OBSERVATIONS COME FROM THE ANSWERS AS THEY WERE STORED, not from
+    the scoring object in hand, whenever the row was written: the two are
+    the same today, and reading the row is what keeps them the same on
+    every later visit to this sitting.
+  */
+  return {
+    ok: true,
+    reveal: buildFpaMemberResult(
+      stored ?? { pattern: scoring.pattern, responses: scoring.responses }
+    ),
+  };
 }
 
 /**
  * The stored reading for one finished sitting, member facing half only.
  * Returns null when the sitting is not hers or has no stored row.
  */
-export async function getMyFpaRevealAction(sessionId: string): Promise<FpaMemberReveal | null> {
+export async function getMyFpaRevealAction(sessionId: string): Promise<FpaMemberResult | null> {
   const memberId = await requireMemberId();
   if (!memberId) return null;
   const supabase = createClient();
   const row = await findFuelPatternResultBySession(supabase, sessionId);
   if (!row || row.memberId !== memberId) return null;
-  return { pattern: row.pattern };
-}
-
-/**
- * The whole stored row, for surfaces that are allowed all of it. Nothing
- * member facing calls this: the coach view in Build 2 is what it is for,
- * and it is exported now so the storage contract is exercised by tests
- * rather than written and left unread until then.
- */
-export async function getFpaResultForSession(
-  sessionId: string
-): Promise<{ pattern: FuelPattern; confidence: FpaConfidence; scores: { protein: number; balanced: number; carb: number } } | null> {
-  const memberId = await requireMemberId();
-  if (!memberId) return null;
-  const supabase = createClient();
-  const row = await findFuelPatternResultBySession(supabase, sessionId);
-  if (!row) return null;
-  return { pattern: row.pattern, confidence: row.confidence, scores: row.scores };
+  return buildFpaMemberResult(row);
 }

@@ -37,6 +37,7 @@ import { BODY_SYSTEMS_LABEL } from '../body-systems/constants';
 import { WBS_LABEL } from '../whole-body-signal/constants';
 import { BPC_LABEL } from '../breathing-check-in/constants';
 import { HLI_LABEL } from '../health-intake/constants';
+import { FPA_LABEL } from '../fuel-pattern/constants';
 
 /** One card inside a section, as the search knows it. `id` is its real DOM anchor. */
 export type DetailCardEntry = {
@@ -113,6 +114,7 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
       { id: 'detail-card-core-values', title: 'Core Values Snapshot' },
       { id: 'detail-card-life-signal', title: 'Life Signal Check' },
       { id: 'detail-card-readiness-pulse', title: 'Readiness Pulse' },
+      { id: 'detail-card-fuel-pattern', title: FPA_LABEL },
       { id: 'findings-deep-dive-results', title: 'Deep-Dive Results' },
       { id: 'detail-card-stress-load', title: 'Stress and Load Deep-Dive' },
       { id: 'detail-card-body-systems', title: BODY_SYSTEMS_LABEL },

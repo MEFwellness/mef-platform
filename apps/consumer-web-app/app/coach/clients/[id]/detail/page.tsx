@@ -159,6 +159,8 @@ import { WbsaPanel } from '../WbsaPanel';
 import { CoreValuesSnapshotPanel } from '../CoreValuesSnapshotPanel';
 import { LifeSignalCheckPanel } from '../LifeSignalCheckPanel';
 import { ReadinessPulsePanel } from '../ReadinessPulsePanel';
+import { FuelPatternPanel } from '../FuelPatternPanel';
+import { getClientFuelPatternPanelAction } from '@/app/actions/fuelPatternCoach';
 import { PersonalResetPlanPanel } from '../PersonalResetPlanPanel';
 import { WeeklyReflectionPanel } from '../WeeklyReflectionPanel';
 import { StressLoadPanel } from '../StressLoadPanel';
@@ -299,6 +301,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     cvsSessions,
     lscSessions,
     rplSessions,
+    fuelPatternPanel,
     resetPlanView,
     weeklyReflections,
     weeklyReflectionAccess,
@@ -352,6 +355,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientCvsSessionsAction(profile.id),
     getClientLscSessionsAction(profile.id),
     getClientRplSessionsAction(profile.id),
+    getClientFuelPatternPanelAction(profile.id),
     getClientResetPlanAction(profile.id),
     getClientWeeklyReflectionsAction(profile.id),
     getClientWeeklyReflectionAccessAction(profile.id),
@@ -857,6 +861,18 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
                   conversation of the free arc. */}
               <div id="detail-card-readiness-pulse" className="scroll-mt-24">
                 <ReadinessPulsePanel clientId={profile.id} sessions={rplSessions} />
+              </div>
+
+              {/*
+                Rooted Reset Fuel Pattern Assessment — monthly plan and up,
+                started by her rather than sent by him, which is why it has
+                no row in the Assessment Status block above and no Assign
+                control of its own. It carries her retired Primal Pattern
+                sittings at its foot, so the nutrition record on this page
+                is one record rather than two.
+              */}
+              <div id="detail-card-fuel-pattern" className="scroll-mt-24">
+                <FuelPatternPanel state={fuelPatternPanel} />
               </div>
             </FindingsGroup>
 

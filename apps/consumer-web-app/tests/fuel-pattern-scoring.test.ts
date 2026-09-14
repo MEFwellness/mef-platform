@@ -254,7 +254,8 @@ describe('completeness', () => {
   it('is not finished until all twenty four have an answer, the vitality one included', () => {
     const answers = answerAll('protein');
     expect(allFpaQuestionsAnswered(answers)).toBe(true);
-    const { [FPA_VITALITY_QUESTION_KEY]: _skipped, ...missingVitality } = answers;
+    const missingVitality = { ...answers };
+    delete missingVitality[FPA_VITALITY_QUESTION_KEY];
     expect(allFpaQuestionsAnswered(missingVitality)).toBe(false);
   });
 

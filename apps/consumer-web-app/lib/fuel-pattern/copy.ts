@@ -1,20 +1,28 @@
 /**
- * Rooted Reset Fuel Pattern Assessment — everything a member reads.
+ * Rooted Reset Fuel Pattern Assessment — everything a MEMBER reads.
  *
  * THE VOICE. Observational, never prescriptive. "Your responses suggest",
- * "may", "a starting pattern". Never "your metabolism", never "your body
- * requires", never "you must eat", never "your biological type". Nothing
- * on any of these screens diagnoses anything, and no em dash appears
- * anywhere in this file.
+ * "may", "appears", "a starting point". Never "your metabolism", never
+ * "your body requires", never "you must eat", never "your perfect
+ * macros", never "your biological type". Nothing on any of these screens
+ * diagnoses a metabolic, hormonal, blood sugar, digestive or endocrine
+ * condition or a food intolerance, and no em dash appears anywhere in
+ * this file.
  *
- * THIS IS BUILD 1. The reveal below is deliberately short: one line that
- * the assessment is complete, a pause, then the pattern name and one
- * sentence. The full result page, the meal system and the 7 day
- * experiment are later builds, and everything here is written so it can
- * be replaced wholesale rather than unpicked.
+ * WHAT IS NOT HERE. No score, no confidence level, no tendency code, no
+ * internal number of any kind. Those are the coach's, and they live in
+ * lib/fuel-pattern/coachCopy.ts so that her screens cannot import them
+ * even by accident.
+ *
+ * BUILD 2 OF 4. This is the full result experience: the reveal, the four
+ * supporting sections and the forward look. Meals and the 7 Day Fuel
+ * Experiment are Builds 3 and 4; nothing here mentions, promises or
+ * gestures at either of them, and FPA_WATCH_FOR_COPY is deliberately one
+ * shared block so that handing off into the experiment later is a single
+ * change in one place.
  */
 
-import type { FpaConfidence, FuelPattern } from './types';
+import type { FuelPattern } from './types';
 
 export const FPA_INTRO_COPY = {
   eyebrow: 'Nutrition',
@@ -27,7 +35,7 @@ export const FPA_INTRO_COPY = {
   button: "Let's begin",
 } as const;
 
-/** The name of each outcome, exactly as a member reads it. */
+/** The name of each outcome, exactly as a member reads it. One name per thing, everywhere. */
 export const FUEL_PATTERN_LABEL: Record<FuelPattern, string> = {
   protein_supportive: 'Protein-Supportive',
   balanced_fuel: 'Balanced Fuel',
@@ -36,59 +44,102 @@ export const FUEL_PATTERN_LABEL: Record<FuelPattern, string> = {
 };
 
 /**
- * One supporting sentence per pattern. Each one starts from her responses
- * and stops there: it describes what the answers point at, and it does
- * not instruct, prescribe or explain a mechanism.
+ * THE ONE SENTENCE UNDER HER PATTERN NAME, approved copy, used verbatim.
+ * It is the second thing on the result page and it is the only sentence
+ * that interprets the whole reading, so it is stated once here and read
+ * from here by the reveal and by the stored results page alike.
  */
-export const FUEL_PATTERN_SENTENCE: Record<FuelPattern, string> = {
+export const FUEL_PATTERN_INTERPRETATION: Record<FuelPattern, string> = {
   protein_supportive:
-    'Your responses suggest you may feel steadiest when meals are built around protein, with vegetables and some healthy fat alongside.',
+    'Your responses suggest that you currently feel best when meals are built around protein, with vegetables and healthy fat doing much of the supporting work.',
   balanced_fuel:
-    'Your responses suggest you may feel steadiest when meals hold protein, carbohydrate and fat together in roughly even measure.',
+    'Your responses suggest that you currently feel best with a fairly even mix of protein, carbohydrate and healthy fats.',
   carb_supportive:
-    'Your responses suggest you may feel steadiest when meals lean toward whole-food carbohydrate, with protein and fat in supporting roles.',
+    'Your responses suggest that you currently feel best when whole-food carbohydrates carry a little more of the load, with protein and healthy fat alongside.',
   flexible_fuel:
-    'Your responses suggest no single direction stands out yet, which often means a range of meals may work for you rather than one narrow shape.',
+    'Your responses suggest that your body responds well to more than one way of eating, which gives you a genuinely flexible starting point.',
 };
 
-/** The label a coach reads beside the confidence level. Never shown to a member in Build 1. */
-export const FPA_CONFIDENCE_LABEL: Record<FpaConfidence, string> = {
-  high: 'High',
-  moderate: 'Moderate',
-  low: 'Low',
-};
-
+/** The reveal, beat by beat. */
 export const FPA_REVEAL_COPY = {
-  completeHeadline: 'Assessment complete',
-  completeLine: 'Thank you for answering honestly.',
+  completeHeadline: 'Assessment complete.',
   patternEyebrow: 'YOUR FUEL PATTERN',
-  footnote: 'This is a starting pattern based on your responses, and it can change as you learn more about yourself.',
-  button: 'Continue',
 } as const;
 
-/** Response tendencies, in words, for the coach view in Build 2. Nothing here reaches a member screen today. */
-export const FPA_TENDENCY_LABEL: Record<string, string> = {
-  salty_crunchy_craving: 'Reaches for something salty or crunchy when very hungry',
-  skips_breakfast: 'Usually does not eat breakfast',
-  no_post_exercise_appetite: 'No particular appetite after exercise',
-  afternoon_dip_regardless: 'An afternoon dip that arrives whatever lunch was',
-  snacks_rarely_satisfy: 'Snacks rarely satisfy',
-  highly_variable_appetite: 'Appetite varies a lot day to day',
-  meal_size_changes_through_day: 'Preferred meal size changes through the day',
-  appetite_decreases_under_stress: 'Appetite decreases under stress',
-  eating_unpredictable_under_stress: 'Eating becomes unpredictable under stress',
-  energy_changes_regardless_of_food: 'Energy changes considerably whatever the food',
+/** The headers on the result page, in the order the page prints them. */
+export const FPA_SECTION_HEADERS = {
+  why: 'WHY THIS PATTERN FITS YOU',
+  whyLeadIn: 'You told us:',
+  range: 'YOUR STARTING RANGE',
+  plate: 'YOUR STARTING PLATE',
+  watchFor: 'WHAT ROOTED RESET WILL WATCH FOR',
+} as const;
+
+/**
+ * HER STARTING RANGE, IN WORDS AND ONLY IN WORDS. No percentage, no gram
+ * target, no calorie figure and no number of any kind: a number here
+ * would read as a prescription, and this is a place to start from and
+ * notice, not a plan to comply with. The words IDEAL, MACROS, REQUIRES
+ * and MUST appear nowhere in this block, and
+ * tests/fuel-pattern-result-copy.test.ts is what keeps them out.
+ *
+ * `extraLine` exists for exactly one pattern. Flexible Fuel gets the same
+ * three moderate rows as Balanced Fuel, so without it her range would say
+ * nothing about the one thing that actually distinguishes her reading.
+ */
+export type FpaRangeRow = { nutrient: string; level: string };
+
+export const FPA_STARTING_RANGE: Record<
+  FuelPattern,
+  { rows: FpaRangeRow[]; extraLine: string | null }
+> = {
+  protein_supportive: {
+    rows: [
+      { nutrient: 'Protein', level: 'Higher' },
+      { nutrient: 'Carbohydrate', level: 'Lighter' },
+      { nutrient: 'Healthy Fat', level: 'Moderate' },
+    ],
+    extraLine: null,
+  },
+  balanced_fuel: {
+    rows: [
+      { nutrient: 'Protein', level: 'Moderate' },
+      { nutrient: 'Carbohydrate', level: 'Moderate' },
+      { nutrient: 'Healthy Fat', level: 'Moderate' },
+    ],
+    extraLine: null,
+  },
+  carb_supportive: {
+    rows: [
+      { nutrient: 'Protein', level: 'Moderate' },
+      { nutrient: 'Carbohydrate', level: 'A little higher' },
+      { nutrient: 'Healthy Fat', level: 'Lighter' },
+    ],
+    extraLine: null,
+  },
+  flexible_fuel: {
+    rows: [
+      { nutrient: 'Protein', level: 'Moderate' },
+      { nutrient: 'Carbohydrate', level: 'Moderate' },
+      { nutrient: 'Healthy Fat', level: 'Moderate' },
+    ],
+    extraLine: 'Your flexibility means you can adjust these freely and notice what feels best.',
+  },
 };
 
-export const FPA_DIGESTIVE_DISCOMFORT_NOTE =
-  'Reported frequent digestive discomfort after usual meals, whatever the meal was.';
+/** The quiet line under the starting range. */
+export const FPA_RANGE_FOOTNOTE =
+  'This is a starting point, not a prescription. It is meant to be refined through your own feedback over time.';
 
-/** Her Question 23 answers, in words, for the coach view. Contextual only, never scored, never interpreted. */
-export const FPA_VITALITY_LABEL: Record<string, string> = {
-  strong_consistent: 'Strong and consistent',
-  generally_good: 'Generally good',
-  comes_and_goes: 'Comes and goes',
-  noticeably_lower: 'Noticeably lower than usual',
-  very_low: 'Very low lately',
-  prefer_not_to_answer: 'Preferred not to answer',
-};
+/**
+ * THE ONE FORWARD LOOKING BLOCK, AND IT PROMISES NOTHING THAT DOES NOT
+ * EXIST. No experiment, no check-in, no meal feedback, because none of
+ * those has shipped. When Build 4 does ship, this function is the single
+ * place that changes.
+ */
+export function fpaWatchForCopy(pattern: FuelPattern): string {
+  return `Your ${FUEL_PATTERN_LABEL[pattern]} starting point is a hypothesis, not a verdict. Over the coming days, notice how your energy holds between meals, how satisfied you feel an hour or two after eating, and how clearly you think through the afternoon. What you notice is exactly the kind of information that refines a starting pattern into one that truly fits you.`;
+}
+
+/** The button that ends the page. It returns her to the dashboard and says so. */
+export const FPA_CONTINUE_LABEL = 'Continue';

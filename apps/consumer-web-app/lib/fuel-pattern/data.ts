@@ -111,6 +111,30 @@ export async function findLatestFuelPatternResult(
 }
 
 /**
+ * Every finished sitting for one member, newest first.
+ *
+ * THE COACH PANEL'S ONE READ, and the RLS on the table
+ * (coach_read_assigned_fuel_pattern_results, migration 236) is what
+ * actually decides whether this coach may see them: a client he is not
+ * assigned to simply returns no rows rather than an error.
+ */
+export async function listFuelPatternResults(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<FuelPatternResultRow[]> {
+  const { data, error } = await supabase
+    .from('fuel_pattern_results')
+    .select(COLUMNS)
+    .eq('member_id', memberId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('listFuelPatternResults failed', error);
+    return [];
+  }
+  return (data ?? []).map((raw) => toRow(raw as RawRow));
+}
+
+/**
  * Store the reading for one finished sitting, or hand back the one that
  * is already there. Never throws on the duplicate case, because the
  * duplicate case is a member tapping once.
