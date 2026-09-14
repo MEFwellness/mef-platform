@@ -1,3 +1,171 @@
+## Rooted Reset Fuel Pattern Assessment, Build 3 of 4: the meal system (2026-09-14)
+
+Her result page now carries meals. Four cards, one per part of the day,
+drawn from her own pattern, each of which she can keep, swap or decline.
+What she declines is remembered, and what she keeps lives in a collection
+of her own. **Migration 237.** The 7 Day Fuel Experiment is Build 4 and
+nothing on any screen mentions, promises or gestures at it.
+
+### THE SEVENTY TWO MEALS ARE CODE, NOT ROWS
+
+Three patterns by four meal types by six, in
+`lib/fuel-pattern/meals/library.ts`, as a typed constant. Flexible Fuel
+reads the Balanced Fuel set with one shared sentence appended, because
+authoring a fourth set would have meant writing meals nobody could tell
+apart from the balanced ones.
+
+They are code because every word of them is copy a member reads, and the
+guards that keep an em dash, a prescriptive phrase or a stray digit off
+her screen walk source files with the TypeScript compiler and cannot see
+inside a database. Stored coaching content has already been the one place
+a banned character survived a sweep. It also makes a correction a content
+only edit, which is what a coach reviewing the library after the fact
+actually wants.
+
+`tests/fuel-pattern-meal-library.test.ts` asserts the rules the meals were
+written to rather than trusting them: inside every set of six, at least
+two vegetarian, two dairy free, two egg free, four pork free, and fish in
+no more than two. It also asserts the flags agree with the allergens, so a
+meal cannot be marked free of something it contains.
+
+**One rule exists only so the rotation engine can keep its promise: every
+set of six holds at least one meal carrying all five flags at once.**
+Without it, a member who is vegetarian and avoids dairy and eggs could
+empty a slot, and both remaining options would be bad ones.
+
+### WHAT SHE CAN DO TO A CARD, AND WHAT EACH ONE MEANS
+
+The card OFFERS something, so it carries the three actions an offer can
+honestly carry: Save, Show me another, and I do not eat this. There is no
+Done and no I made this, because nothing in the app records a meal being
+cooked and a button claiming otherwise would write a row nothing supports.
+
+Two kinds of no, and they behave differently:
+
+- **A rejection is one meal.** Permanent, whatever reason she gave and
+  whether or not she gave one. The card swaps the instant she taps, and
+  the rejection is recorded with reason null before the sheet even opens,
+  so closing the sheet leaves a complete record rather than a half one.
+- **A standing exclusion is a class of food.** From the moment she records
+  one, every meal carrying that food is gone from every slot, on this
+  screen and every later one, through a retake and through a change of
+  pattern. Recording No dairy on a breakfast card re-checks the other
+  three in the same tick, because saying "dairy is off your cards from
+  here" and leaving one two cards down the same screen would be false.
+
+An allergy is a standing exclusion with a different label on it. It
+excludes exactly as hard and is expressed through allergen tags. **The
+allergy step exists because one button could not be honest:** "Allergy" on
+a meal carrying dairy and nuts does not say which. The sheet shows that
+meal's own allergens, all already on, and she turns off the ones that are
+fine. One tap gets the safe answer, a second gets the precise one, and
+closing it there records the rejection and nothing standing, because a
+guess is worse than a gap. The route enforces that an allergy can only
+ever name an allergen genuinely in the meal she declined.
+
+Nothing in this feature is medical. It decides which cards to draw.
+
+### THE ROTATION, AND THE ONE RULE THAT GIVES WAY
+
+Same meal type, same pattern, never a rejected meal, never a meal an
+exclusion covers, and all six before any repeat. When those four leave
+nothing, only the fourth relaxes: the slot starts the six again rather
+than reaching for something she declined. If her exclusions empty her own
+set even so, the slot widens to the same meal type in the nearest
+neighbouring set, still under her rules, and the card says so. If that is
+empty too, the slot draws an honest line instead of a meal.
+
+### IT CANNOT BOUNCE THE PAGE IT SITS ON
+
+Build 2's result screen holds because everything it draws is already in
+its props: no fetch, no Server Action, no router call. The meals section
+joins that screen and obeys the same rule, deliberately:
+
+- **Every meal it could ever show came down with the page.** Her six per
+  slot and the neighbouring sets are all in the payload.
+- **The picker is the server's own picker.** `pickSlotMeal` is pure, and
+  her browser calls the same function the server called, so a card chosen
+  without a round trip is the card the server would have chosen.
+- **The server is told afterwards, over a route handler.**
+  `app/api/fuel-pattern/meals/route.ts` answers with a few bytes of JSON,
+  sent with `keepalive`, rather than a re-rendered route.
+- **Nothing is written on mount.** The first four cards are chosen
+  deterministically from rows that already exist, so opening the page and
+  choosing nothing leaves no trace.
+
+Her meals travel with her reading in the same response, from the
+completion action and from the one request a reload on the reveal makes,
+so the two can never be on screen out of step.
+
+### A BUILD FAILURE WORTH WRITING DOWN
+
+My Meals is a client component and it imported `fpaWhyItFits` from
+`memberPayload.ts`, which reaches the meal data layer and, through
+`lib/food-products/data.ts`, `node:crypto`. Next refused to build it. A
+type import would have been erased; a function is a value and values are
+bundled. The pure half now lives in `lib/fuel-pattern/meals/payload.ts`
+and `tests/fuel-pattern-meal-guards.test.ts` keeps a later edit from
+putting it back.
+
+### THE IMAGES: FORTY PHOTOGRAPHS AND THIRTY TWO DRAWN PLATES
+
+Sourced from Wikimedia Commons, throttled, and **every candidate was
+looked at before it was used**, which is the thing the exercise library's
+own sourcing run could not do (`docs/BUILD_STATUS.md`: a thirty to forty
+per cent false positive rate from text matching alone). Openverse was
+tried first and stopped answering this machine entirely after one burst.
+Twelve contact sheets of six meals by six candidates were reviewed by eye;
+forty matches were honest and thirty two were not, and the thirty two are
+listed in the report and in the manifest.
+
+Nothing is hotlinked. Every accepted photograph is committed under
+`public/images/fuel-meals`, cropped to the card's own ratio, four
+megabytes for all forty. `docs/fuel-meal-image-manifest.json` records the
+source page, the creator and the licence per image, and accounts for all
+seventy two meals rather than only the ones with a photograph.
+
+**There is no grey box at any point, for any meal.** The card draws the
+brand plate FIRST and always, built from that meal's own three range
+words in the same language Question 24 used, and the photograph fades in
+over it. One treatment covers the moment before the photo arrives, a meal
+with no honest match, and a photo that fails to load.
+
+### MY MEALS
+
+`/food-lens/my-meals`, reached from the foot of her meal cards and from a
+tile in the Food Lens grid, which is where her food collections already
+live. No new bottom-nav item: a fifth tab on every screen in the app is an
+advertisement, and this is a collection. The same card minus the two
+things a collection cannot do, grouped by part of the day. A retake never
+unsaves anything, and a meal kept under a reading she no longer holds
+carries a quiet label saying which.
+
+### THE COACH'S SIDE
+
+A Meal Preferences block at the foot of the Fuel Pattern card: her
+standing preferences with allergies marked and drawn apart, every meal she
+declined with the reason or a plain "No reason given", and a saved count
+that opens into names. **It is not per sitting, on purpose.** Everything
+above it belongs to one reading taken on one day; a standing preference is
+a fact about her that outlives every retake.
+
+`lib/fuel-pattern/meals/coachView.ts` is its own module for the reason
+every coach module here has one, and
+`tests/fuel-pattern-member-payload.test.ts` now walks the meal modules too
+and proves no member surface can reach it.
+
+### WHAT IS IN THE DATABASE
+
+Migration 237, four tables, all member written and all written from a
+route handler behind an explicit tap: `fuel_meal_exclusions`,
+`fuel_meal_rejections`, `fuel_meal_saves` and `fuel_meal_slot_state`. The
+first three carry a coach read policy; the slot state does not, because
+there is nothing in it for him to read. Meal ids are text rather than
+foreign keys, since the library is code, and every read resolves them
+through a function that returns null instead of throwing.
+`tests/fuel-pattern-meal-guards.test.ts` asserts the check constraints
+name exactly the lists the code knows about.
+
 ## Rooted Reset Fuel Pattern Assessment, Build 2 of 4: the results experience (2026-09-14)
 
 The interim completion screen from Build 1 is gone and the full result

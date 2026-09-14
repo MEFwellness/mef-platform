@@ -36,6 +36,10 @@ import { FPA_KEY, FPA_LABEL, FPA_ROUTE, FPA_TAKE_ROUTE } from '@/lib/fuel-patter
 import { allFpaQuestionsAnswered, computeFpaScoring } from '@/lib/fuel-pattern/scoring';
 import { saveFuelPatternResult, findFuelPatternResultBySession } from '@/lib/fuel-pattern/data';
 import { buildFpaMemberResult, type FpaMemberResult } from '@/lib/fuel-pattern/memberResult';
+import {
+  buildFpaMealsPayload,
+  type FpaMealsPayload,
+} from '@/lib/fuel-pattern/meals/memberPayload';
 
 const FPA_ROUTES = {
   overview: FPA_ROUTE,
@@ -128,7 +132,7 @@ export async function submitFpaAnswerAction(
  * reveal hold instead of being replaced by something arriving late.
  */
 export type CompleteFpaResult =
-  | { ok: true; reveal: FpaMemberResult }
+  | { ok: true; reveal: FpaMemberResult; meals: FpaMealsPayload }
   | { ok: false; error: string };
 
 export async function completeFpaAssessmentAction(sessionId: string): Promise<CompleteFpaResult> {
@@ -189,23 +193,36 @@ export async function completeFpaAssessmentAction(sessionId: string): Promise<Co
     the same today, and reading the row is what keeps them the same on
     every later visit to this sitting.
   */
+  const reading = stored ?? { pattern: scoring.pattern, responses: scoring.responses };
+
   return {
     ok: true,
-    reveal: buildFpaMemberResult(
-      stored ?? { pattern: scoring.pattern, responses: scoring.responses }
-    ),
+    reveal: buildFpaMemberResult(reading),
+    /*
+      HER MEALS COME BACK WITH HER READING, in the same response, for the
+      same reason everything else on that screen does: the reveal holds
+      only while nothing on it is waiting on something that could arrive
+      late and replace it. Building this payload is a read.
+    */
+    meals: await buildFpaMealsPayload(supabase, memberId, reading.pattern),
   };
 }
 
 /**
- * The stored reading for one finished sitting, member facing half only.
- * Returns null when the sitting is not hers or has no stored row.
+ * The stored reading for one finished sitting, member facing half only,
+ * with her meals alongside it. Returns null when the sitting is not hers
+ * or has no stored row.
  */
-export async function getMyFpaRevealAction(sessionId: string): Promise<FpaMemberResult | null> {
+export async function getMyFpaRevealAction(
+  sessionId: string
+): Promise<{ reveal: FpaMemberResult; meals: FpaMealsPayload } | null> {
   const memberId = await requireMemberId();
   if (!memberId) return null;
   const supabase = createClient();
   const row = await findFuelPatternResultBySession(supabase, sessionId);
   if (!row || row.memberId !== memberId) return null;
-  return buildFpaMemberResult(row);
+  return {
+    reveal: buildFpaMemberResult(row),
+    meals: await buildFpaMealsPayload(supabase, memberId, row.pattern),
+  };
 }

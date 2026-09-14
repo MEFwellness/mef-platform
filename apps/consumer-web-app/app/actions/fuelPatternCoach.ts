@@ -34,6 +34,15 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { isMemberVisibleToStaff } from '@/lib/staff/testAccounts';
 import { listFuelPatternResults } from '@/lib/fuel-pattern/data';
 import { buildFpaCoachReading, type FpaCoachReading } from '@/lib/fuel-pattern/coachView';
+import {
+  listFpaMealExclusions,
+  listFpaMealRejections,
+  listFpaMealSaves,
+} from '@/lib/fuel-pattern/meals/data';
+import {
+  buildFpaCoachMealReading,
+  type FpaCoachMealReading,
+} from '@/lib/fuel-pattern/meals/coachView';
 import { listCompletedPrimalPatternAssessments } from '@/lib/primal-pattern/store';
 import { PRIMAL_PATTERN_QUESTIONNAIRE_ID } from '@/lib/primal-pattern/questionnaire';
 import type { PrimalPatternResult } from '@/lib/primal-pattern/types';
@@ -75,12 +84,30 @@ export type CoachFuelPatternPanelState = {
   sittings: CoachFpaSitting[];
   /** Every finished Primal Pattern sitting, newest first. Read only. */
   primalSittings: CoachPrimalSitting[];
+  /**
+   * What she has told her meal cards she does not eat, what she rejected
+   * and what she kept.
+   *
+   * NOT PER SITTING, ON PURPOSE. A sitting is a reading taken on a day. A
+   * standing preference is a fact about her that outlives every retake,
+   * so it is read once for the member rather than attached to whichever
+   * sitting happened to be on the screen when she recorded it.
+   */
+  meals: FpaCoachMealReading;
+};
+
+const EMPTY_MEALS: FpaCoachMealReading = {
+  preferences: [],
+  rejections: [],
+  savedCount: 0,
+  saved: [],
 };
 
 const EMPTY_PANEL: CoachFuelPatternPanelState = {
   memberId: null,
   sittings: [],
   primalSittings: [],
+  meals: EMPTY_MEALS,
 };
 
 /** The three Primal Pattern outcomes, in the words that questionnaire used. */
@@ -100,9 +127,12 @@ export async function getClientFuelPatternPanelAction(
   if (!(await isCoachOrAdmin(supabase, user.id))) return EMPTY_PANEL;
   if (!(await isMemberVisibleToStaff(supabase, clientId, user.id))) return EMPTY_PANEL;
 
-  const [rows, primal] = await Promise.all([
+  const [rows, primal, exclusions, rejections, saves] = await Promise.all([
     listFuelPatternResults(supabase, clientId),
     listCompletedPrimalPatternAssessments(supabase, clientId, PRIMAL_PATTERN_QUESTIONNAIRE_ID),
+    listFpaMealExclusions(supabase, clientId),
+    listFpaMealRejections(supabase, clientId),
+    listFpaMealSaves(supabase, clientId),
   ]);
 
   return {
@@ -121,6 +151,7 @@ export async function getClientFuelPatternPanelAction(
       result: row.result,
       label: PRIMAL_RESULT_LABEL[row.result],
     })),
+    meals: buildFpaCoachMealReading({ exclusions, rejections, saves }),
   };
 }
 

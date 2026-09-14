@@ -47,12 +47,29 @@ const MEMBER_SURFACES = [
   'lib/fuel-pattern/plate.ts',
   'lib/fuel-pattern/memberResult.ts',
   'lib/fuel-pattern/observations.ts',
+  // Build 3's meal layer. It is a second member payload rather than a
+  // third field on the first one, so it needs the same fence and the
+  // same proof that the fence is standing.
+  'app/api/fuel-pattern/meals/route.ts',
+  'app/food-lens/my-meals/page.tsx',
+  'components/fuel-pattern/meals/FuelMealsSection.tsx',
+  'components/fuel-pattern/meals/MealCard.tsx',
+  'components/fuel-pattern/meals/MealImage.tsx',
+  'components/fuel-pattern/meals/MealReasonSheet.tsx',
+  'components/fuel-pattern/meals/SavedMealsView.tsx',
+  'lib/fuel-pattern/meals/copy.ts',
+  'lib/fuel-pattern/meals/library.ts',
+  'lib/fuel-pattern/meals/memberPayload.ts',
+  'lib/fuel-pattern/meals/payload.ts',
+  'lib/fuel-pattern/meals/preferences.ts',
+  'lib/fuel-pattern/meals/selection.ts',
 ];
 
 /** What a coach reads and a member never does. */
 const COACH_ONLY = [
   'lib/fuel-pattern/coachCopy.ts',
   'lib/fuel-pattern/coachView.ts',
+  'lib/fuel-pattern/meals/coachView.ts',
   'app/actions/fuelPatternCoach.ts',
 ];
 

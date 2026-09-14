@@ -1,0 +1,640 @@
+{
+  "about": "Every image on a Rooted Reset Fuel Pattern meal card, and where it came from. Photographs are downloaded and committed under apps/consumer-web-app/public/images/fuel-meals, never hotlinked. A meal with no honest open-license photograph is listed here as an illustration and its card draws the brand plate built from the meal own range words.",
+  "generatedBy": "apps/consumer-web-app/scripts/fuel-meal-images/apply-picks.mjs",
+  "photographs": 40,
+  "illustrations": 32,
+  "entries": [
+    {
+      "mealId": "ps-breakfast-1",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-breakfast-2",
+      "image": "ps-breakfast-2.jpg",
+      "source": "wikimedia",
+      "title": "File:Villandry, Fitzrovia, London (5955503465).jpg",
+      "creator": "Ewan Munro from London, UK",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Villandry,_Fitzrovia,_London_(5955503465).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Villandry%2C_Fitzrovia%2C_London_%285955503465%29.jpg/960px-Villandry%2C_Fitzrovia%2C_London_%285955503465%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "ps-breakfast-3",
+      "image": "ps-breakfast-3.jpg",
+      "source": "wikimedia",
+      "title": "File:Flickr - cyclonebill - Græsk yoghurt med honning og valnødder.jpg",
+      "creator": "cyclonebill",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Flickr_-_cyclonebill_-_Gr%C3%A6sk_yoghurt_med_honning_og_valn%C3%B8dder.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8a/Flickr_-_cyclonebill_-_Gr%C3%A6sk_yoghurt_med_honning_og_valn%C3%B8dder.jpg/960px-Flickr_-_cyclonebill_-_Gr%C3%A6sk_yoghurt_med_honning_og_valn%C3%B8dder.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "ps-breakfast-4",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-breakfast-5",
+      "image": "ps-breakfast-5.jpg",
+      "source": "wikimedia",
+      "title": "File:Homemade Rice Bowl.jpg",
+      "creator": "ParentingPatch",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Homemade_Rice_Bowl.jpg",
+      "fileUrl": "https://upload.wikimedia.org/wikipedia/commons/2/25/Homemade_Rice_Bowl.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+    },
+    {
+      "mealId": "ps-breakfast-6",
+      "image": "ps-breakfast-6.jpg",
+      "source": "wikimedia",
+      "title": "File:Wagyu rump steak and eggs - Jones the Grocer, Chadstone.jpg",
+      "creator": "Alpha from Melbourne, Australia",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Wagyu_rump_steak_and_eggs_-_Jones_the_Grocer,_Chadstone.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/31/Wagyu_rump_steak_and_eggs_-_Jones_the_Grocer%2C_Chadstone.jpg/960px-Wagyu_rump_steak_and_eggs_-_Jones_the_Grocer%2C_Chadstone.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "ps-lunch-1",
+      "image": "ps-lunch-1.jpg",
+      "source": "wikimedia",
+      "title": "File:Eclectic Cafe - Brunch (50339854377).jpg",
+      "creator": "miheco",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Eclectic_Cafe_-_Brunch_(50339854377).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/66/Eclectic_Cafe_-_Brunch_%2850339854377%29.jpg/960px-Eclectic_Cafe_-_Brunch_%2850339854377%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "ps-lunch-2",
+      "image": "ps-lunch-2.jpg",
+      "source": "wikimedia",
+      "title": "File:Insalata di Fagioli e Tonno – Bohnensalat mit Thunfisch (7327273414).jpg",
+      "creator": "Katrin Gilger",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Insalata_di_Fagioli_e_Tonno_%E2%80%93_Bohnensalat_mit_Thunfisch_(7327273414).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/11/Insalata_di_Fagioli_e_Tonno_%E2%80%93_Bohnensalat_mit_Thunfisch_%287327273414%29.jpg/960px-Insalata_di_Fagioli_e_Tonno_%E2%80%93_Bohnensalat_mit_Thunfisch_%287327273414%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "ps-lunch-3",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-lunch-4",
+      "image": "ps-lunch-4.jpg",
+      "source": "wikimedia",
+      "title": "File:Beef and broccoli stir fry.jpg",
+      "creator": "Joy",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Beef_and_broccoli_stir_fry.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Beef_and_broccoli_stir_fry.jpg/960px-Beef_and_broccoli_stir_fry.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "ps-lunch-5",
+      "image": "ps-lunch-5.jpg",
+      "source": "wikimedia",
+      "title": "File:Liat Portal for Foodie Disorder - Israeli avocado salad dinner.jpg",
+      "creator": "HaJunkiyada",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Liat_Portal_for_Foodie_Disorder_-_Israeli_avocado_salad_dinner.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f1/Liat_Portal_for_Foodie_Disorder_-_Israeli_avocado_salad_dinner.jpg/960px-Liat_Portal_for_Foodie_Disorder_-_Israeli_avocado_salad_dinner.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "ps-lunch-6",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-dinner-1",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-dinner-2",
+      "image": "ps-dinner-2.jpg",
+      "source": "wikimedia",
+      "title": "File:Սաղմոն ու մակարոն.JPG",
+      "creator": "Chaojoker",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:%D5%8D%D5%A1%D5%B2%D5%B4%D5%B8%D5%B6_%D5%B8%D6%82_%D5%B4%D5%A1%D5%AF%D5%A1%D6%80%D5%B8%D5%B6.JPG",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/de/%D5%8D%D5%A1%D5%B2%D5%B4%D5%B8%D5%B6_%D5%B8%D6%82_%D5%B4%D5%A1%D5%AF%D5%A1%D6%80%D5%B8%D5%B6.JPG/960px-%D5%8D%D5%A1%D5%B2%D5%B4%D5%B8%D5%B6_%D5%B8%D6%82_%D5%B4%D5%A1%D5%AF%D5%A1%D6%80%D5%B8%D5%B6.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "ps-dinner-3",
+      "image": "ps-dinner-3.jpg",
+      "source": "wikimedia",
+      "title": "File:Spinach-Chickpea Curry (3117324894).jpg",
+      "creator": "Kari Sullivan from Austin, TX",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Spinach-Chickpea_Curry_(3117324894).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4f/Spinach-Chickpea_Curry_%283117324894%29.jpg/960px-Spinach-Chickpea_Curry_%283117324894%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "ps-dinner-4",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-dinner-5",
+      "image": "ps-dinner-5.jpg",
+      "source": "wikimedia",
+      "title": "File:Yam and egg.jpg",
+      "creator": "Fine acer",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Yam_and_egg.jpg",
+      "fileUrl": "https://upload.wikimedia.org/wikipedia/commons/6/65/Yam_and_egg.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+    },
+    {
+      "mealId": "ps-dinner-6",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-snack-1",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-snack-2",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-snack-3",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-snack-4",
+      "image": "ps-snack-4.jpg",
+      "source": "wikimedia",
+      "title": "File:Leblebi.jpg",
+      "creator": "Physicistjedi",
+      "license": "Public domain",
+      "licenseUrl": null,
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Leblebi.jpg",
+      "fileUrl": "https://upload.wikimedia.org/wikipedia/commons/4/40/Leblebi.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+    },
+    {
+      "mealId": "ps-snack-5",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "ps-snack-6",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "bf-breakfast-1",
+      "image": "bf-breakfast-1.jpg",
+      "source": "wikimedia",
+      "title": "File:Porridge with berries.JPG",
+      "creator": "Maryjeanne.li",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Porridge_with_berries.JPG",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/26/Porridge_with_berries.JPG/960px-Porridge_with_berries.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-breakfast-2",
+      "image": "bf-breakfast-2.jpg",
+      "source": "wikimedia",
+      "title": "File:Avocado toast with eggs (28508171495).jpg",
+      "creator": "Luca Nebuloni from Milan, Italy",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Avocado_toast_with_eggs_(28508171495).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bd/Avocado_toast_with_eggs_%2828508171495%29.jpg/960px-Avocado_toast_with_eggs_%2828508171495%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-breakfast-3",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "bf-breakfast-4",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "bf-breakfast-5",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "bf-breakfast-6",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "bf-lunch-1",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "bf-lunch-2",
+      "image": "bf-lunch-2.jpg",
+      "source": "wikimedia",
+      "title": "File:Tuna olive and avocado sandwich.jpg",
+      "creator": "Richard Masoner",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Tuna_olive_and_avocado_sandwich.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6d/Tuna_olive_and_avocado_sandwich.jpg/960px-Tuna_olive_and_avocado_sandwich.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-lunch-3",
+      "image": "bf-lunch-3.jpg",
+      "source": "wikimedia",
+      "title": "File:Vegan French lentil soup with salad, bread and tea.jpg",
+      "creator": "Max Kiesler from San Francisco, USA",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Vegan_French_lentil_soup_with_salad,_bread_and_tea.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/29/Vegan_French_lentil_soup_with_salad%2C_bread_and_tea.jpg/960px-Vegan_French_lentil_soup_with_salad%2C_bread_and_tea.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-lunch-4",
+      "image": "bf-lunch-4.jpg",
+      "source": "wikimedia",
+      "title": "File:Smoked chicken and avocado wrap.jpg",
+      "creator": "Takeaway",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Smoked_chicken_and_avocado_wrap.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Smoked_chicken_and_avocado_wrap.jpg/960px-Smoked_chicken_and_avocado_wrap.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-lunch-5",
+      "image": "bf-lunch-5.jpg",
+      "source": "wikimedia",
+      "title": "File:Greece Food Horiatiki.JPG",
+      "creator": "User:Jpatokal",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Greece_Food_Horiatiki.JPG",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/Greece_Food_Horiatiki.JPG/960px-Greece_Food_Horiatiki.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-lunch-6",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "bf-dinner-1",
+      "image": "bf-dinner-1.jpg",
+      "source": "wikimedia",
+      "title": "File:Pollo estilo Cordon Bleu.jpg",
+      "creator": "PapiPijuan",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Pollo_estilo_Cordon_Bleu.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5a/Pollo_estilo_Cordon_Bleu.jpg/960px-Pollo_estilo_Cordon_Bleu.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-dinner-2",
+      "image": "bf-dinner-2.jpg",
+      "source": "wikimedia",
+      "title": "File:Healthy Entree (8514368701).jpg",
+      "creator": "Prayitno / Thank you for (12 millions +) view from Los Angeles, USA",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Healthy_Entree_(8514368701).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/80/Healthy_Entree_%288514368701%29.jpg/960px-Healthy_Entree_%288514368701%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-dinner-3",
+      "image": "bf-dinner-3.jpg",
+      "source": "wikimedia",
+      "title": "File:Rajma, kidney beans, served with chawal, rice.jpg",
+      "creator": "rovingI",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Rajma,_kidney_beans,_served_with_chawal,_rice.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fd/Rajma%2C_kidney_beans%2C_served_with_chawal%2C_rice.jpg/960px-Rajma%2C_kidney_beans%2C_served_with_chawal%2C_rice.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-dinner-4",
+      "image": "bf-dinner-4.jpg",
+      "source": "wikimedia",
+      "title": "File:Le Couscous marocain.JPG",
+      "creator": "Moncif Ait Ahmed",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Le_Couscous_marocain.JPG",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/75/Le_Couscous_marocain.JPG/960px-Le_Couscous_marocain.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-dinner-5",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "bf-dinner-6",
+      "image": "bf-dinner-6.jpg",
+      "source": "wikimedia",
+      "title": "File:A plate including a roasted pork chop, smashed potatoes and acorn squash from J. Alexander's in Boca Raton, Florida.jpg",
+      "creator": "Gatorfan252525",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:A_plate_including_a_roasted_pork_chop,_smashed_potatoes_and_acorn_squash_from_J._Alexander%27s_in_Boca_Raton,_Florida.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/A_plate_including_a_roasted_pork_chop%2C_smashed_potatoes_and_acorn_squash_from_J._Alexander%27s_in_Boca_Raton%2C_Florida.jpg/960px-A_plate_including_a_roasted_pork_chop%2C_smashed_potatoes_and_acorn_squash_from_J._Alexander%27s_in_Boca_Raton%2C_Florida.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-snack-1",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "bf-snack-2",
+      "image": "bf-snack-2.jpg",
+      "source": "wikimedia",
+      "title": "File:Greek yoghurt with honey.jpg",
+      "creator": "ProjectManhattan",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Greek_yoghurt_with_honey.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f9/Greek_yoghurt_with_honey.jpg/960px-Greek_yoghurt_with_honey.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-snack-3",
+      "image": "bf-snack-3.jpg",
+      "source": "wikimedia",
+      "title": "File:Fromager D'Affinois.jpg",
+      "creator": "Eugene Peretz from Northampton, MA, USA",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Fromager_D%27Affinois.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/Fromager_D%27Affinois.jpg/960px-Fromager_D%27Affinois.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-snack-4",
+      "image": "bf-snack-4.jpg",
+      "source": "wikimedia",
+      "title": "File:Ezme-Hummus-Haydari.jpg",
+      "creator": "E4024",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Ezme-Hummus-Haydari.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5a/Ezme-Hummus-Haydari.jpg/960px-Ezme-Hummus-Haydari.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-snack-5",
+      "image": "bf-snack-5.jpg",
+      "source": "wikimedia",
+      "title": "File:Boiled Egg with Soldiers (5514568964).jpg",
+      "creator": "Yortw from Auckland, New Zealand",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Boiled_Egg_with_Soldiers_(5514568964).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/02/Boiled_Egg_with_Soldiers_%285514568964%29.jpg/960px-Boiled_Egg_with_Soldiers_%285514568964%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "bf-snack-6",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-breakfast-1",
+      "image": "cs-breakfast-1.jpg",
+      "source": "wikimedia",
+      "title": "File:Banana Oatmeal Breakfast Bowl (44302857265).jpg",
+      "creator": "Ella Olsson from Stockholm, Sweden",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Banana_Oatmeal_Breakfast_Bowl_(44302857265).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/Banana_Oatmeal_Breakfast_Bowl_%2844302857265%29.jpg/960px-Banana_Oatmeal_Breakfast_Bowl_%2844302857265%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-breakfast-2",
+      "image": "cs-breakfast-2.jpg",
+      "source": "wikimedia",
+      "title": "File:Lantana, Fitzrovia, London (3392177714).jpg",
+      "creator": "Ewan Munro from London, UK",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Lantana,_Fitzrovia,_London_(3392177714).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/Lantana%2C_Fitzrovia%2C_London_%283392177714%29.jpg/960px-Lantana%2C_Fitzrovia%2C_London_%283392177714%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-breakfast-3",
+      "image": "cs-breakfast-3.jpg",
+      "source": "wikimedia",
+      "title": "File:Yogurt, fruit, granola bowl (34999358091).jpg",
+      "creator": "T.Tseng",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Yogurt,_fruit,_granola_bowl_(34999358091).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6c/Yogurt%2C_fruit%2C_granola_bowl_%2834999358091%29.jpg/960px-Yogurt%2C_fruit%2C_granola_bowl_%2834999358091%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-breakfast-4",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-breakfast-5",
+      "image": "cs-breakfast-5.jpg",
+      "source": "wikimedia",
+      "title": "File:Risgrynsgröt.jpg",
+      "creator": "Caesar",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Risgrynsgr%C3%B6t.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/49/Risgrynsgr%C3%B6t.jpg/960px-Risgrynsgr%C3%B6t.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-breakfast-6",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-lunch-1",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-lunch-2",
+      "image": "cs-lunch-2.jpg",
+      "source": "wikimedia",
+      "title": "File:2019-05-04 20 10 55 A burrito bowl from Chipotle in the Franklin Farm section of Oak Hill, Fairfax County, Virginia.jpg",
+      "creator": "Famartin",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:2019-05-04_20_10_55_A_burrito_bowl_from_Chipotle_in_the_Franklin_Farm_section_of_Oak_Hill,_Fairfax_County,_Virginia.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/2019-05-04_20_10_55_A_burrito_bowl_from_Chipotle_in_the_Franklin_Farm_section_of_Oak_Hill%2C_Fairfax_County%2C_Virginia.jpg/960px-2019-05-04_20_10_55_A_burrito_bowl_from_Chipotle_in_the_Franklin_Farm_section_of_Oak_Hill%2C_Fairfax_County%2C_Virginia.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-lunch-3",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-lunch-4",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-lunch-5",
+      "image": "cs-lunch-5.jpg",
+      "source": "wikimedia",
+      "title": "File:Rissalat med asparges, røget laks, rød peber, majs, forårsløg, sukkerærter og chipotle (4500826958).jpg",
+      "creator": "cyclonebill from Copenhagen, Denmark",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Rissalat_med_asparges,_r%C3%B8get_laks,_r%C3%B8d_peber,_majs,_for%C3%A5rsl%C3%B8g,_sukker%C3%A6rter_og_chipotle_(4500826958).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d5/Rissalat_med_asparges%2C_r%C3%B8get_laks%2C_r%C3%B8d_peber%2C_majs%2C_for%C3%A5rsl%C3%B8g%2C_sukker%C3%A6rter_og_chipotle_%284500826958%29.jpg/960px-Rissalat_med_asparges%2C_r%C3%B8get_laks%2C_r%C3%B8d_peber%2C_majs%2C_for%C3%A5rsl%C3%B8g%2C_sukker%C3%A6rter_og_chipotle_%284500826958%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-lunch-6",
+      "image": "cs-lunch-6.jpg",
+      "source": "wikimedia",
+      "title": "File:Red Chard, Mushrooms & Barley (11808201736).jpg",
+      "creator": "Cajsa Lilliehook from Portland",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Red_Chard,_Mushrooms_%26_Barley_(11808201736).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6e/Red_Chard%2C_Mushrooms_%26_Barley_%2811808201736%29.jpg/960px-Red_Chard%2C_Mushrooms_%26_Barley_%2811808201736%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-dinner-1",
+      "image": "cs-dinner-1.jpg",
+      "source": "wikimedia",
+      "title": "File:Fried chicken with vegetables and rice.jpg",
+      "creator": "Wilfredor",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Fried_chicken_with_vegetables_and_rice.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/83/Fried_chicken_with_vegetables_and_rice.jpg/960px-Fried_chicken_with_vegetables_and_rice.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-dinner-2",
+      "image": "cs-dinner-2.jpg",
+      "source": "wikimedia",
+      "title": "File:Liat Portal for Foodie Disorder - Homemade salmon with snow peas.jpg",
+      "creator": "HaJunkiyada",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Liat_Portal_for_Foodie_Disorder_-_Homemade_salmon_with_snow_peas.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/Liat_Portal_for_Foodie_Disorder_-_Homemade_salmon_with_snow_peas.jpg/960px-Liat_Portal_for_Foodie_Disorder_-_Homemade_salmon_with_snow_peas.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-dinner-3",
+      "image": "cs-dinner-3.jpg",
+      "source": "wikimedia",
+      "title": "File:Spaghetti Bolognese Lokal K.jpg",
+      "creator": "Superbass",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Spaghetti_Bolognese_Lokal_K.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/11/Spaghetti_Bolognese_Lokal_K.jpg/960px-Spaghetti_Bolognese_Lokal_K.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-dinner-4",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-dinner-5",
+      "image": "cs-dinner-5.jpg",
+      "source": "wikimedia",
+      "title": "File:Fried Yellow Noodles with Prawn (4448803400).jpg",
+      "creator": "Andy Mitchell from Glasgow, UK",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Fried_Yellow_Noodles_with_Prawn_(4448803400).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Fried_Yellow_Noodles_with_Prawn_%284448803400%29.jpg/960px-Fried_Yellow_Noodles_with_Prawn_%284448803400%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-dinner-6",
+      "image": "cs-dinner-6.jpg",
+      "source": "wikimedia",
+      "title": "File:Roast pork, potatoes, red cabbage, 2011 (01).jpg",
+      "creator": "Jens Rost (Comrade King)",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Roast_pork,_potatoes,_red_cabbage,_2011_(01).jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bf/Roast_pork%2C_potatoes%2C_red_cabbage%2C_2011_%2801%29.jpg/960px-Roast_pork%2C_potatoes%2C_red_cabbage%2C_2011_%2801%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-snack-1",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-snack-2",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-snack-3",
+      "image": "cs-snack-3.jpg",
+      "source": "wikimedia",
+      "title": "File:Granola and yogurt - Bubbles + Brunch 2018 - Sarah Stierch 02.jpg",
+      "creator": "Missvain",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "pageUrl": "https://commons.wikimedia.org/wiki/File:Granola_and_yogurt_-_Bubbles_%2B_Brunch_2018_-_Sarah_Stierch_02.jpg",
+      "fileUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/37/Granola_and_yogurt_-_Bubbles_%2B_Brunch_2018_-_Sarah_Stierch_02.jpg/960px-Granola_and_yogurt_-_Bubbles_%2B_Brunch_2018_-_Sarah_Stierch_02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    },
+    {
+      "mealId": "cs-snack-4",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-snack-5",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    },
+    {
+      "mealId": "cs-snack-6",
+      "image": null,
+      "source": "illustration",
+      "note": "No honest open-license photograph of this meal was found. The card draws the brand plate illustration built from the meal own range words."
+    }
+  ]
+}

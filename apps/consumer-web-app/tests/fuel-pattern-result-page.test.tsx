@@ -12,11 +12,20 @@
  *      Continue, in that order, top to bottom.
  *   2. WHAT IS ON IT. The right range words and the right plate for each
  *      of the four readings.
- *   3. WHAT IS NEVER ON IT. No score, no confidence, no digit anywhere,
- *      no em dash, no prescriptive vocabulary, and no mention of a meal
- *      system or an experiment, because neither exists yet.
+ *   3. WHAT IS NEVER ON IT. No score, no confidence, no digit anywhere
+ *      EXCEPT a preparation time on a meal card, no em dash, no
+ *      prescriptive vocabulary, and no mention of an experiment, because
+ *      that one does not exist yet.
  *   4. THE HONEST EMPTY STATE. A sitting whose answers supported fewer
  *      than two lines still draws the section, saying so in words.
+ *
+ * THE PAGE IS RENDERED WITH ITS MEALS ON IT, ALWAYS. Build 3 added a
+ * section, and a guard that kept proving things about the page as it was
+ * before that section arrived would be a guard that cannot fail. The
+ * digit rule is the one that had to change shape rather than be dropped:
+ * every prep time carries data-fpa-prep, those nodes are removed before
+ * the text is read, and everything that is left still has to hold no
+ * digit at all.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -34,6 +43,13 @@ import {
 import { FPA_NO_OBSERVATIONS_LINE } from '@/lib/fuel-pattern/observations';
 import { FPA_PLATE_GUIDE } from '@/lib/fuel-pattern/plate';
 import type { FuelPattern } from '@/lib/fuel-pattern/types';
+import type { FpaMealsPayload } from '@/lib/fuel-pattern/meals/memberPayload';
+import {
+  orderedOwnPool,
+  orderedWiderPool,
+  pickSlotMeal,
+} from '@/lib/fuel-pattern/meals/selection';
+import { FPA_MEAL_TYPES } from '@/lib/fuel-pattern/meals/types';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
@@ -91,9 +107,47 @@ afterEach(() => {
 
 function render(pattern: FuelPattern, observations: string[]) {
   act(() => {
-    root.render(<FuelPatternResultView result={{ pattern, observations }} withReveal={false} />);
+    root.render(
+      <FuelPatternResultView
+        result={{ pattern, observations }}
+        withReveal={false}
+        meals={mealsFor(pattern)}
+      />
+    );
   });
   return container.textContent ?? '';
+}
+
+/** The whole page, minus the one place a number is allowed to be. */
+function renderWithoutPrepTimes(pattern: FuelPattern, observations: string[]): string {
+  render(pattern, observations);
+  for (const node of Array.from(container.querySelectorAll('[data-fpa-prep]'))) {
+    node.remove();
+  }
+  return container.textContent ?? '';
+}
+
+/** Her four cards, built by the real picker over the real library. */
+function mealsFor(pattern: FuelPattern): FpaMealsPayload {
+  const slots = FPA_MEAL_TYPES.map((type) => {
+    const ownPool = orderedOwnPool(pattern, type, 'member-under-test');
+    const widerPool = orderedWiderPool(pattern, type);
+    const pick = pickSlotMeal({
+      ownPool,
+      widerPool,
+      filter: { rejectedMealIds: [], exclusions: [] },
+      advance: false,
+    });
+    return {
+      type,
+      ownPool,
+      widerPool,
+      state: pick.state,
+      mealId: pick.meal?.id ?? null,
+      widened: pick.widened,
+    };
+  });
+  return { pattern, slots, rejectedMealIds: [], exclusions: [], savedMealIds: [] };
 }
 
 const OBSERVATIONS = [
@@ -119,9 +173,12 @@ describe('1. the order of the page', () => {
     });
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
 
+    // Continue is still the last thing on the page, and it is still the
+    // only button outside the meal cards.
     const buttons = [...container.querySelectorAll('button')];
-    expect(buttons).toHaveLength(1);
-    expect(buttons[0]!.textContent).toBe('Continue');
+    expect(buttons.at(-1)!.textContent).toBe('Continue');
+    const outsideMeals = buttons.filter((button) => !button.closest('[data-fpa-meal-id]'));
+    expect(outsideMeals).toHaveLength(1);
   });
 
   it('leads the observations with "You told us:"', () => {
@@ -167,8 +224,13 @@ describe('2. what is on it, per pattern', () => {
         expect(text, `${pattern} ${segment.proportion}`).toContain(segment.proportion);
       }
       expect(text, pattern).toContain(guide.addition);
-      // One drawn plate, and its wedges add up to the whole plate.
-      expect(container.querySelectorAll('svg'), pattern).toHaveLength(1);
+      // One drawn plate in the starting plate section, and its wedges add
+      // up to the whole plate. Meal cards draw plates of their own, which
+      // is why this counts inside the section rather than on the page.
+      expect(
+        container.querySelectorAll('[data-fpa-starting-plate] svg'),
+        pattern
+      ).toHaveLength(1);
       const total = guide.shape.reduce((sum, slice) => sum + slice.share, 0);
       expect(total, pattern).toBeCloseTo(1, 6);
     }
@@ -191,9 +253,9 @@ describe('2. what is on it, per pattern', () => {
 });
 
 describe('3. what is never on it', () => {
-  it('shows no score, no confidence level and no digit anywhere', () => {
+  it('shows no score, no confidence level and no digit outside a prep time', () => {
     for (const pattern of PATTERNS) {
-      const text = render(pattern, OBSERVATIONS);
+      const text = renderWithoutPrepTimes(pattern, OBSERVATIONS);
       for (const word of ['score', 'Score', 'confidence', 'Confidence', 'tendency']) {
         expect(text, `${pattern} ${word}`).not.toContain(word);
       }
@@ -201,7 +263,18 @@ describe('3. what is never on it', () => {
     }
   });
 
-  it('never mentions a meal system, a 7 day experiment, a check-in or meal feedback', () => {
+  it('puts a digit in the prep times and nowhere else, so the guard is not vacuous', () => {
+    for (const pattern of PATTERNS) {
+      render(pattern, OBSERVATIONS);
+      const prepTimes = Array.from(container.querySelectorAll('[data-fpa-prep]'));
+      expect(prepTimes.length, pattern).toBe(4);
+      for (const node of prepTimes) {
+        expect(node.textContent, pattern).toMatch(/^[0-9]+ min$/);
+      }
+    }
+  });
+
+  it('never mentions a 7 day experiment, a check-in or meal logging', () => {
     for (const pattern of PATTERNS) {
       const text = render(pattern, OBSERVATIONS).toLowerCase();
       for (const word of [

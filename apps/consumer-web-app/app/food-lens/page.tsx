@@ -16,6 +16,7 @@ import {
   Refrigerator,
   Store,
   MessageCircle,
+  BookmarkCheck,
 } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
@@ -32,6 +33,7 @@ import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 import { memberTimezone } from '@/lib/time/memberToday';
 import { formatInTimeZone } from '@/lib/time/displayDate';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { FPA_MY_MEALS_TILE_LABEL } from '@/lib/fuel-pattern/meals/copy';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -246,6 +248,20 @@ export default async function FoodLensPage() {
           >
             <Store className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-medium text-[#1B3A2D]">Eating out</p>
+          </Link>
+          {/* Her Fuel Pattern meal collection. It lives here rather than in
+              the bottom bar, because a fifth tab on every screen in the app
+              is an advertisement and this is a collection. */}
+          <Link
+            href={'/food-lens/my-meals' as Route}
+            className={`${CARD} mef-card-lift flex items-center gap-2.5 p-4`}
+          >
+            <BookmarkCheck
+              className="h-4 w-4 text-[#9AA79F]"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            <p className="text-sm font-medium text-[#1B3A2D]">{FPA_MY_MEALS_TILE_LABEL}</p>
           </Link>
         </div>
 

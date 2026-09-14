@@ -13,7 +13,12 @@
  *
  * NOTHING HERE IS HANDED A SCORE. The page passes the member payload built
  * by lib/fuel-pattern/memberResult.ts, which carries her pattern and her
- * observation lines and nothing else.
+ * observation lines and nothing else, plus the meal payload built by
+ * lib/fuel-pattern/meals/memberPayload.ts, which is under the same rule.
+ *
+ * BUILDING THE MEAL PAYLOAD IS A READ. It resolves her four cards from
+ * rows that already exist and writes nothing, so opening this page and
+ * touching nothing leaves no trace. A render never decides anything.
  */
 
 import { redirect } from 'next/navigation';
@@ -21,6 +26,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSessionById } from '@/lib/assessment-runtime';
 import { findFuelPatternResultBySession } from '@/lib/fuel-pattern/data';
 import { buildFpaMemberResult } from '@/lib/fuel-pattern/memberResult';
+import { buildFpaMealsPayload } from '@/lib/fuel-pattern/meals/memberPayload';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { BackButton } from '@/components/BackButton';
@@ -50,6 +56,8 @@ export default async function FuelPatternResultsPage({
   const stored = await findFuelPatternResultBySession(supabase, params.sessionId);
   if (!stored) redirect(FPA_ROUTE);
 
+  const meals = await buildFpaMealsPayload(supabase, user.id, stored.pattern);
+
   return (
     <div className={`${CVS_PAGE_BG} font-[family-name:var(--font-dm-sans)]`}>
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
@@ -57,7 +65,11 @@ export default async function FuelPatternResultsPage({
         <h1 className="sr-only">Your Rooted Reset Fuel Pattern</h1>
         {/* withReveal={false}: she is not finishing anything, she is reading
             something she already finished. */}
-        <FuelPatternResultView result={buildFpaMemberResult(stored)} withReveal={false} />
+        <FuelPatternResultView
+          result={buildFpaMemberResult(stored)}
+          withReveal={false}
+          meals={meals}
+        />
       </main>
       <MemberBottomNav isCoach={isCoach} />
     </div>

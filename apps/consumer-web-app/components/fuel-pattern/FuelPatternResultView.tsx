@@ -50,10 +50,15 @@
  * handed FpaMemberResult and that object has two fields
  * (lib/fuel-pattern/memberResult.ts), so there is nothing here to leak.
  *
- * Meals and the 7 Day Fuel Experiment are Builds 3 and 4. The insertion
- * point for both is marked below, between the plate and the forward
- * look, and nothing on this screen mentions, promises or hints at either
- * of them today.
+ * Her meals (Build 3) sit between the plate and the forward look, and
+ * they obey every rule above: every meal the section could ever show
+ * came down with the page, a swap is chosen in her browser by the
+ * server's own pure picker, and the server is told afterwards over a
+ * route handler rather than a Server Action. So the meals section cannot
+ * re-render this route and cannot replace the screen she is reading.
+ *
+ * The 7 Day Fuel Experiment is Build 4. Nothing on this screen mentions,
+ * promises or hints at it today.
  */
 
 import { useEffect, useState } from 'react';
@@ -74,6 +79,8 @@ import {
 import { FPA_NO_OBSERVATIONS_LINE } from '@/lib/fuel-pattern/observations';
 import { FPA_PLATE_GUIDE } from '@/lib/fuel-pattern/plate';
 import type { FpaMemberResult } from '@/lib/fuel-pattern/memberResult';
+import type { FpaMealsPayload } from '@/lib/fuel-pattern/meals/payload';
+import { FuelMealsSection } from './meals/FuelMealsSection';
 import { PLATE_COMPONENT, PlateIllustration } from './PlateIllustration';
 
 /** How long "Assessment complete." holds alone. */
@@ -94,9 +101,17 @@ export function FuelPatternResultView({
    * result has already had the reveal and gets the finished page.
    */
   withReveal,
+  /**
+   * Her four meal cards and every candidate that could replace them,
+   * built on the server. Null only where the page could not read her
+   * meal rows at all, in which case the section is simply absent rather
+   * than drawn empty.
+   */
+  meals = null,
 }: {
   result: FpaMemberResult;
   withReveal: boolean;
+  meals?: FpaMealsPayload | null;
 }) {
   const router = useRouter();
   const [beat, setBeat] = useState<Beat>(withReveal ? 'complete' : 'full');
@@ -237,7 +252,10 @@ export function FuelPatternResultView({
                   STARTING EXPERIMENT label. */}
               <p className={SECTION_HEADER}>{FPA_SECTION_HEADERS.plate}</p>
 
-              <div className="mt-5 flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-7">
+              <div
+                data-fpa-starting-plate
+                className="mt-5 flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-7"
+              >
                 <PlateIllustration shape={plate.shape} size={168} />
                 <ul className="w-full space-y-3">
                   {plate.segments.map((segment) => (
@@ -276,16 +294,13 @@ export function FuelPatternResultView({
             </section>
           </RevealOnScroll>
 
-          {/*
-            THE INSERTION POINT FOR BUILDS 3 AND 4, and it is a comment
-            rather than an empty card on purpose. Her meals (Build 3) and
-            the 7 Day Fuel Experiment (Build 4) belong here, between the
-            plate and the forward look. Nothing is drawn for them today,
-            because a placeholder is a promise, and the only thing this
-            page may say is what is true right now.
-          */}
+          {/* 6. MEALS BUILT FOR YOUR PATTERN. Build 4's experiment belongs
+              directly below this one, and nothing is drawn for it today,
+              because a placeholder is a promise and the only thing this
+              page may say is what is true right now. */}
+          {meals && <FuelMealsSection payload={meals} />}
 
-          {/* 6. WHAT ROOTED RESET WILL WATCH FOR. */}
+          {/* 7. WHAT ROOTED RESET WILL WATCH FOR. */}
           <RevealOnScroll className="mt-5" delayMs={60}>
             <section className="rounded-[28px] bg-[#1B3A2D] p-6 shadow-[0_18px_44px_-28px_rgba(27,58,45,0.65)] sm:p-7">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#C4A050]">
@@ -297,7 +312,7 @@ export function FuelPatternResultView({
             </section>
           </RevealOnScroll>
 
-          {/* 7. Continue. */}
+          {/* 8. Continue. */}
           <RevealOnScroll className="mt-5" delayMs={60}>
             <button
               type="button"

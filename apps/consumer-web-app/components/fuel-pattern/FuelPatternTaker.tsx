@@ -43,6 +43,7 @@ import {
   FuelPatternQuestionScreen,
   parseFpaOptions,
 } from './FuelPatternQuestionScreen';
+import type { FpaMealsPayload } from '@/lib/fuel-pattern/meals/payload';
 import { FuelPatternResultView } from './FuelPatternResultView';
 
 type Beat = 'intro' | 'questions' | 'finishing' | 'reveal';
@@ -64,6 +65,12 @@ type Props = {
   phase: RuntimePhase;
   /** Her stored reading, when the server already found this sitting finished. */
   initialResult: FpaMemberResult | null;
+  /**
+   * Her meal cards, built on the server alongside her reading, so the
+   * reveal has everything it needs before it mounts and never waits on a
+   * fetch. Null until a sitting has actually produced a result.
+   */
+  meals: FpaMealsPayload | null;
   /** True when the take URL says the reveal has already been played. */
   startAtPattern: boolean;
 };
@@ -74,6 +81,7 @@ export function FuelPatternTaker({
   initialAnswers,
   phase,
   initialResult,
+  meals,
   startAtPattern,
 }: Props) {
   const ordered = useMemo(
@@ -123,6 +131,13 @@ export function FuelPatternTaker({
   });
   const [index, setIndex] = useState(firstUnanswered);
   const [result, setResult] = useState<FpaMemberResult | null>(initialResult);
+  /*
+    Her meals travel with her reading, always, so the two can never be on
+    the screen out of step with one another. A sitting that has just been
+    finished gets both from the completion; a reload on the reveal gets
+    both from the one request that page ever makes.
+  */
+  const [mealPayload, setMealPayload] = useState<FpaMealsPayload | null>(meals);
   const [error, setError] = useState<string | null>(null);
 
   /*
@@ -152,7 +167,10 @@ export function FuelPatternTaker({
     let cancelled = false;
     (async () => {
       const stored = await getMyFpaRevealAction(sessionId);
-      if (!cancelled && stored) setResult(stored);
+      if (!cancelled && stored) {
+        setResult(stored.reveal);
+        setMealPayload(stored.meals);
+      }
     })();
     return () => {
       cancelled = true;
@@ -179,6 +197,7 @@ export function FuelPatternTaker({
         return;
       }
       setResult(completion.reveal);
+      setMealPayload(completion.meals);
       setBeat('reveal');
     })();
     return () => {
@@ -300,7 +319,7 @@ export function FuelPatternTaker({
       )}
 
       {beat === 'reveal' && result && (
-        <FuelPatternResultView result={result} withReveal={!startAtPattern} />
+        <FuelPatternResultView result={result} withReveal={!startAtPattern} meals={mealPayload} />
       )}
 
       {/* Said once, quietly, for a screen reader. Nothing visual moves,

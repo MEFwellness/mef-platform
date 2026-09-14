@@ -94,10 +94,14 @@ function render(state: CoachFuelPatternPanelState) {
   return container.textContent ?? '';
 }
 
+/** Nothing recorded on her meal cards. Build 3's block draws one line and no control. */
+const NO_MEALS = { preferences: [], rejections: [], savedCount: 0, saved: [] };
+
 const EMPTY: CoachFuelPatternPanelState = {
   memberId: 'member-1',
   sittings: [],
   primalSittings: [],
+  meals: NO_MEALS,
 };
 
 describe('1. what the coach sees', () => {
@@ -111,6 +115,7 @@ describe('1. what the coach sees', () => {
     memberId: 'member-1',
     sittings: [toSitting('a', '2026-09-12T10:00:00.000Z', responses)],
     primalSittings: [],
+    meals: NO_MEALS,
   };
 
   it('names the instrument, the pattern and the confidence level', () => {
@@ -168,6 +173,7 @@ describe('2. pattern over time, and the record that came before', () => {
         label: 'Polar Diet Type',
       },
     ],
+    meals: NO_MEALS,
   };
 
   it('lists every sitting with its date, pattern and confidence, most recent first', () => {
@@ -219,6 +225,7 @@ describe('3. it is read only, and it is on the page', () => {
       memberId: 'member-1',
       sittings: [toSitting('a', '2026-09-12T10:00:00.000Z', sitting('protein'))],
       primalSittings: [],
+      meals: NO_MEALS,
     };
     render(state);
     // A single sitting draws no chips, so a single sitting draws no button.
