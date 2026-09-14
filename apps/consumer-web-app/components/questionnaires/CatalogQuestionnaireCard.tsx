@@ -20,33 +20,15 @@ import { Card } from '@/components/layout';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
 import { LockedBadge } from '@/components/locked/LockedBadge';
 import { UNBUILT_PLACEHOLDER_LABEL, showUnbuiltPlaceholder } from '@/lib/naming/unbuiltPlaceholders';
+/* WHERE THIS CARD GOES IS NOT DECIDED HERE ANY MORE. Home's
+   Questionnaires card surfaces the questionnaire she is partway through
+   and has to offer the identical door, so the rule moved to
+   lib/questionnaires/catalogCardAction.ts and both screens read it. */
+import { catalogCardPrimaryAction } from '@/lib/questionnaires/catalogCardAction';
 
 const PRIMARY_BUTTON =
   'block w-full rounded-2xl bg-[#1B3A2D] px-5 py-3 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]';
 const SECONDARY_LINK = 'text-sm font-medium text-[#1B3A2D] hover:underline';
-
-function primaryAction(card: CatalogCard): { label: string; href: string } | null {
-  if (card.flags.comingSoon || card.flags.locked || !card.primaryHref) return null;
-
-  // RESUME IS NOT ALWAYS AT `/take`. Every registry questionnaire's taker
-  // is a child of its overview route, and the four coach-assign-only ones
-  // have no child at all: their one route hands back the question she
-  // stopped on. A card that knows where its own resume lives says so.
-  if (card.flags.inProgress)
-    return { label: 'Resume', href: card.resumeHref ?? `${card.primaryHref}/take` };
-
-  if (card.section === 'completed') {
-    return card.resultHref ? { label: 'View Results', href: card.resultHref } : null;
-  }
-
-  // Not yet due — nothing to start until the schedule fires.
-  if (card.flags.scheduledAt && !card.flags.reassessmentDueAt) return null;
-
-  return {
-    label: card.flags.reassessmentDueAt ? 'Start Reassessment' : 'Start',
-    href: card.primaryHref,
-  };
-}
 
 /**
  * ONE LOCK, ONE TREATMENT (2026-08-27). A coach-assignment lock used to
@@ -58,7 +40,7 @@ function primaryAction(card: CatalogCard): { label: string; href: string } | nul
  * plan link living inside that note when the lock is one she can act on.
  * `isLocked` is what the card branches on.
  */
-function CardBody({ card, action, isLocked }: { card: CatalogCard; action: ReturnType<typeof primaryAction>; isLocked: boolean }) {
+function CardBody({ card, action, isLocked }: { card: CatalogCard; action: ReturnType<typeof catalogCardPrimaryAction>; isLocked: boolean }) {
   return (
     <>
       <div className="flex items-start justify-between gap-3">
@@ -169,7 +151,7 @@ function CardBody({ card, action, isLocked }: { card: CatalogCard; action: Retur
 }
 
 export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
-  const action = primaryAction(card);
+  const action = catalogCardPrimaryAction(card);
   const isLocked = card.flags.locked;
 
   if (isLocked) {

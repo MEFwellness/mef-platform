@@ -154,6 +154,7 @@ import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
 import { lockNoteMessage, lockOffersPlanLink } from '@/lib/locked-content/copy';
 import { AssignedProgramsCard } from '@/components/AssignedProgramsCard';
 import { QuestionnairesHomeCard } from '@/components/questionnaires/QuestionnairesHomeCard';
+import { pickHomeNextQuestionnaire } from '@/lib/questionnaires/homeNextQuestionnaire';
 import {
   AssignedInviteCards,
   FreeArcInviteCards,
@@ -1227,6 +1228,44 @@ async function DayFrameRegion() {
       )}
 
       {/* ==================================================== */}
+      {/* QUESTIONNAIRES, directly under Your Week with Root      */}
+      {/* (2026-09-14). It was the flattest row on the page, in   */}
+      {/* the Your Path zone at the very bottom, which is where   */}
+      {/* a member goes to look back rather than to keep going.   */}
+      {/* Thirteen questionnaires are the substance of what Root  */}
+      {/* knows about her, so they sit in the half of the screen  */}
+      {/* she acts on, under the weekly panel and above           */}
+      {/* everything that used to follow it. Nothing else moved.  */}
+      {/*                                                         */}
+      {/* THE SAME GATE, THE SAME NUMBERS, THE SAME ROUTE. The    */}
+      {/* card still renders only when `home.questionnaires_card`  */}
+      {/* reveals it, its two numbers are still                   */}
+      {/* getMyQuestionnaireCatalog()'s own completedCount and    */}
+      {/* totalCount, and it still opens /questionnaires. The     */}
+      {/* catalog it reads is the SAME memoized object this       */}
+      {/* boundary already awaits for Assigned to You, so the     */}
+      {/* move costs no read at all.                              */}
+      {/*                                                         */}
+      {/* THE QUIET LINE NAMES NOTHING ALREADY DRAWN ABOVE. The   */}
+      {/* selector is handed the keys of the cards Assigned to    */}
+      {/* You is rendering on this same pass, and refuses them,   */}
+      {/* so this card can never be a second CTA for a request    */}
+      {/* that already has a full deep-green card of its own.     */}
+      {/* ==================================================== */}
+      {shows(F.homeQuestionnairesCard) && (
+        <div className={SECTION}>
+          <QuestionnairesHomeCard
+            completedCount={catalog.completedCount}
+            totalCount={catalog.totalCount}
+            nextItem={pickHomeNextQuestionnaire(
+              catalog,
+              new Set(assignedQuestionnaires.map((card) => card.key))
+            )}
+          />
+        </div>
+      )}
+
+      {/* ==================================================== */}
       {/* The free-arc invite — the next unstarted conversation   */}
       {/* (Core Values Snapshot / Life Signal Check / Readiness   */}
       {/* Pulse, FIX 5, 2026-08-03). Deliberately NOT gated on    */}
@@ -1651,20 +1690,24 @@ async function StreamRegion() {
 }
 
 /**
- * Your Path — Guided Posture & Movement Assessment (image-backed card),
- * Questionnaires (plain row + progress bar), Personalized Insights (white
- * card, or nothing yet). Movement goes first and Questionnaires
- * last-if-Comprehensive-is-absent on purpose: Comprehensive (white) is
- * conditional and can be null, and a zone that ends on an image-backed
- * card butts that treatment against whatever comes next. With Movement
- * first, this zone always ends on Comprehensive (white) or Questionnaires
- * (row), never image-backed, regardless of which cards are present.
+ * Your Path — Guided Posture & Movement Assessment (image-backed card) and
+ * the Comprehensive baseline (white card, or nothing yet). Movement goes
+ * first on purpose: Comprehensive is conditional and can be null, and a
+ * zone that ends on an image-backed card butts that treatment against
+ * whatever comes next.
+ *
+ * QUESTIONNAIRES LEFT THIS ZONE (2026-09-14). It was the third card here,
+ * a plain row with a progress bar, at the very bottom of a page a member
+ * reaches by scrolling past everything she is actually doing. It is a
+ * card directly under Your Week with Root now, in the day frame above.
+ * Nothing about what it shows, who sees it or where it goes changed; only
+ * where it sits. The two cards left here keep the order they had.
  *
  * THE ZONE IT SITS BESIDE CHANGED (editorial pass, 2026-09-13) and the
  * rule survived it intact. It used to come immediately before the
  * image-backed Noticing carousel; it now comes after that carousel and
  * after the Energy Trend, at the bottom of the page with Your Device
- * under it. Nothing inside it moved.
+ * under it.
  *
  * VISIBILITY LAYER: no locked card ever renders here now. The Movement
  * Assessment used to appear for every member with a "Locked" treatment,
@@ -1674,7 +1717,7 @@ async function StreamRegion() {
  * check behind the route itself.
  */
 async function YourPathZone() {
-  const [visibility, bodyAssessments, bodyAssessmentAccess, catalog, baseline, programHero] =
+  const [visibility, bodyAssessments, bodyAssessmentAccess, baseline, programHero] =
     await Promise.all([
       getMemberVisibility(),
       homeBodyAssessments(),
@@ -1686,17 +1729,15 @@ async function YourPathZone() {
       // history or a pending assignment (never hides progress), so this is
       // safe to call unconditionally.
       homeBodyAssessmentAccess(),
-      homeQuestionnaireCatalog(),
       homeBaselineAssessment(),
       programHeroNode(),
     ]);
   const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
 
-  if (
-    !shows(F.homeMovementAssessmentCard) &&
-    !shows(F.homeQuestionnairesCard) &&
-    !shows(F.homeComprehensiveCard)
-  ) {
+  /* The questionnaire catalog is NOT read here any more: the card that
+     used it moved up into the day frame, which was already awaiting the
+     same memoized object. */
+  if (!shows(F.homeMovementAssessmentCard) && !shows(F.homeComprehensiveCard)) {
     return null;
   }
 
@@ -1730,12 +1771,6 @@ async function YourPathZone() {
                 ? '/membership'
                 : undefined
             }
-          />
-        )}
-        {shows(F.homeQuestionnairesCard) && (
-          <QuestionnairesHomeCard
-            completedCount={catalog.completedCount}
-            totalCount={catalog.totalCount}
           />
         )}
         {shows(F.homeComprehensiveCard) && (

@@ -1,3 +1,84 @@
+## The questionnaires moved up, and stopped being a row (2026-09-14)
+
+Thirteen questionnaires are the substance of what Root knows about a
+member, and they were the flattest object on Home: a single line
+("Questionnaires", "8 of 13 complete", a chevron) in the Your Path zone at
+the very bottom of the page, below the Energy Trend, reachable only by
+scrolling past everything she is actually doing.
+
+**It is a card now, and it sits directly under Your Week with Root.**
+
+Placement and presentation only. Not one gate, count, route, assignment
+rule, lock or score changed.
+
+| | before | after |
+| --- | --- | --- |
+| where | Your Path zone, page bottom | directly under Your Week with Root |
+| shape | a row with a 3px forest line | a 28px card, warm surface, gold progress line |
+| what it says | the count | eyebrow, title, why it matters, the count, a CTA, and the one thing she left open |
+| reads it costs | a second `homeQuestionnaireCatalog()` call site | the day frame's existing one |
+
+### THE NUMBERS ARE STILL THE LIBRARY'S OWN NUMBERS
+
+`completedCount` and `totalCount` are handed straight through from
+`getMyQuestionnaireCatalog()`, the identical pair `/questionnaires` prints
+under its own heading, in the identical sentence. Nothing on Home counts
+anything, and the guard for that is in the tests: the page must contain
+`completedCount={catalog.completedCount}` and nothing else.
+
+The card moved INTO the day frame, which was already awaiting that
+memoized catalog for Assigned to You, and out of the Your Path zone, which
+was making the second call site for it. So the page now has exactly one
+`homeQuestionnaireCatalog()` in it, and the move cost no read at all.
+
+### THE QUIET LINE, AND THE REQUEST IT REFUSES TO MAKE TWICE
+
+The card names the one questionnaire she is closest to finishing, under a
+hairline, below the CTA, as a line rather than a button.
+
+An open draft first, then a coach assignment she has not opened. It is
+chosen by `lib/questionnaires/homeNextQuestionnaire.ts` from the catalog
+rows already fetched, and it opens whatever door the library screen's own
+card for that item opens, because that rule was lifted out of
+`CatalogQuestionnaireCard` into `lib/questionnaires/catalogCardAction.ts`
+and both screens now read the one copy. Resume is not always at `/take`,
+and two copies of that fact is how two screens end up offering one
+questionnaire two different doors.
+
+**It never names what Assigned to You is already drawing.** The selector
+is handed the keys of the cards that section is rendering on the same pass
+and refuses them, so this card can never become a second CTA for a request
+that already has a full deep-green card and a button of its own. When
+everything open is already up there, the card carries no second line.
+
+An untouched free-tier questionnaire nobody is waiting on gets no line
+either: that is what the library screen is for.
+
+### THE CARD STEPS DOWN FROM WHAT IS ABOVE IT
+
+Your Week with Root is a saturated cream panel with a deep drop; today's
+priority is a feature card. This one takes the page's ordinary 28px rung,
+a near-white warm surface with one soft sage bloom, the page's own
+hairline and diffused lift, and an OUTLINED pill for its CTA rather than
+the filled forest button the assigned cards carry. Gold appears exactly
+once on it, as the 3px progress line, which grows in once on arrival and
+never loops. Reduced motion gets the final width with no growth.
+
+Copy branches on the truth: at 13 of 13 the title reads "Your assessments
+are complete" rather than inviting her to continue something finished.
+
+### What did not move
+
+Assigned to You, the program card, Your Week with Root, the free-arc
+invite, Today, the Priority Card, the Noticing carousel, the Energy Trend,
+Your Path (Movement and Comprehensive, in their existing order) and Your
+Device are all exactly where they were, in the order they were in. Locked
+questionnaires, the lock sheet and the Premium markers are untouched: not
+a line of that code was opened.
+
+23 new tests, 11,640 passing overall, typecheck and lint clean, production
+build clean.
+
 ## The sweep counted the folder above the photo (2026-09-14)
 
 Several test accounts were deleted after migration 239 made deleting one

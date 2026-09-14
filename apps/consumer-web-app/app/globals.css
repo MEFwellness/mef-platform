@@ -2233,6 +2233,59 @@
       padding-top: 3rem;
     }
   }
+
+  /*
+   * =================================================================
+   * THE QUESTIONNAIRES CARD (2026-09-14).
+   * =================================================================
+   *
+   * It sits directly under Your Week with Root, which is a saturated
+   * cream panel with a deep drop shadow, so this one has to be visibly
+   * LIGHTER than the thing above it or the two read as one block of
+   * cream. It takes the page's ordinary 28px card rung and the page's
+   * own hairline and diffused lift (`.mef-home .mef-card`), and adds
+   * only what keeps it from being a white rectangle: a barely-there
+   * warm wash down the surface and one soft sage bloom in the top
+   * right corner. No second border, no gradient with a visible edge.
+   *
+   * GOLD APPEARS ONCE, AS A 3PX LINE. The progress bar is the only gold
+   * on this card, which is the whole reason it reads as a measurement
+   * worth glancing at rather than as decoration. The track under it is
+   * forest at 8 percent, the same track every other measurement on this
+   * screen uses.
+   *
+   * The bar's fill grows from nothing on arrival, once, and never
+   * loops: a number presenting itself, the same posture as the Root
+   * Score ring. Reduced motion gets the final width with no growth.
+   */
+  .mef-questionnaires-card {
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 90% at 100% 0%, rgba(122, 155, 133, 0.13) 0%, rgba(122, 155, 133, 0) 62%),
+      linear-gradient(180deg, #fffdf7 0%, #fdfbf5 46%, #faf7ee 100%);
+  }
+
+  .mef-questionnaires-bar {
+    transform-origin: left center;
+    animation: mef-questionnaires-bar var(--mef-duration-cinematic) var(--mef-ease-draw) both;
+  }
+
+  @keyframes mef-questionnaires-bar {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mef-questionnaires-bar {
+      animation: none;
+      transform: none;
+    }
+  }
 }
 
 /*
