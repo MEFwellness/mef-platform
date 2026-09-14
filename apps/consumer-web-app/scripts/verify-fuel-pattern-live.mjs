@@ -43,7 +43,9 @@ import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-s
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const MEMBER_EMAIL = process.env.TEST_MEMBER_EMAIL;
 const PLAN = JSON.parse(readFileSync(process.env.FPA_PLAN_FILE, 'utf8'));
-const SHOTS = process.env.SHOTS_DIR ?? './live-shots-fuel-pattern';
+/* Under .verify/, which .gitignore already covers wherever a run puts it:
+   these are pictures of a real member's screens and are never committed. */
+const SHOTS = process.env.SHOTS_DIR ?? './scripts/.verify/fuel-pattern';
 
 const results = [];
 const check = (name, passed, detail = '') => {
@@ -121,6 +123,26 @@ async function waitForAnswersStored(service, memberId, definitionId, wanted, tim
   return seen;
 }
 
+/**
+ * GO THERE, AND BE SURE YOU ARRIVED.
+ *
+ * The first navigation of a run can race the freshly installed session
+ * cookie and land on the login screen instead. Reading the page anyway is
+ * how a check that cannot fail gets written: "the library names Primal
+ * Pattern nowhere" passes trivially against a login form. So every
+ * navigation this run makes asserts where it actually landed, and retries
+ * once or twice before giving up.
+ */
+async function goTo(page, path, { attempts = 3 } = {}) {
+  for (let i = 0; i < attempts; i++) {
+    await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    if (new URL(page.url()).pathname === path) return true;
+    await page.waitForTimeout(1200);
+  }
+  return false;
+}
+
 /** The one prompt on the screen right now. */
 async function currentPrompt(page) {
   const heading = page.locator('main h2').first();
@@ -195,8 +217,8 @@ async function main() {
       const page = await context.newPage();
       watch(page, errors);
 
-      await page.goto(`${BASE}/questionnaires`, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle').catch(() => {});
+      const onShelf = await goTo(page, '/questionnaires');
+      check('the signed in member reaches her Questionnaires library', onShelf, page.url());
       const shelf = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
       check('the Questionnaires library names Primal Pattern nowhere', !/primal/i.test(shelf));
       await page.screenshot({ path: `${SHOTS}/01-library.png`, fullPage: true });
@@ -233,8 +255,8 @@ async function main() {
       let page = await context.newPage();
       watch(page, errors);
 
-      await page.goto(`${BASE}/assessments/fuel-pattern`, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle').catch(() => {});
+      const onOverview = await goTo(page, '/assessments/fuel-pattern');
+      check(`${label}: the overview is reachable as the signed in member`, onOverview, page.url());
       const overview = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
       check(
         `${label}: the overview names the assessment and its length`,
@@ -265,8 +287,7 @@ async function main() {
           await page.close();
           page = await context.newPage();
           watch(page, errors);
-          await page.goto(`${BASE}/assessments/fuel-pattern`, { waitUntil: 'domcontentloaded' });
-          await page.waitForLoadState('networkidle').catch(() => {});
+          await goTo(page, '/assessments/fuel-pattern');
           const resumeText = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
           check(
             `${label}: a brand new page offers Resume and says how far she got`,

@@ -141,8 +141,89 @@ describe the new truth rather than the old one:
 last of which gained the proof that an assignment cannot reopen a retired
 assessment and that her own finished sitting is still readable.
 
-Full suite 593 files, 11,334 tests, all passing. Typecheck clean, lint
+Full suite 593 files, 11,338 tests, all passing. Typecheck clean, lint
 clean, production build clean.
+
+### ONE REAL BUG, FOUND BY DRIVING THE REAL SITE
+
+**Eight questions answered, seven rows stored.** Every answer is saved the
+moment she taps it, which is right: she should never wait for a round trip
+before reading the next question. What was wrong was firing those saves
+CONCURRENTLY. A Server Action dispatched while another is still in flight
+makes the browser abort the one already running (`net::ERR_ABORTED`,
+captured on production), and an aborted request that had not yet committed
+is an answer that is simply gone.
+
+The only visible sign was a resume putting her back on a question she had
+already answered. The serious half is at the other end: the server
+correctly refuses to finish a sitting with a question it has no answer
+for, so a member who answered all twenty four would have pressed "See your
+fuel pattern" and been told she had not finished.
+
+The saves are chained now rather than raced, so there is never a second
+request for the queue to interrupt, and the screen is not held up by any
+of it. A failed save is retried once. Finishing awaits the chain, which is
+the one moment in the flow where waiting is the right thing to do. Four
+regression assertions in `fuel-pattern-take-flow.test.tsx`.
+
+No source test could have found this. It is a property of how two real
+requests overlap on a real network.
+
+### LIVE VERIFICATION, PRODUCTION, 2026-09-13
+
+**51 checks, 51 passing**, on `app.mefwellness.com`, driving the real member
+journey twice. `scripts/verify-fuel-pattern-live.mjs` is the run, and it
+reads the 24 questions from the authored content rather than from a second
+hand-typed copy.
+
+Both runs cover: exactly one question on the screen for all 24 screens, in
+the authored order; Continue refused until the question has an answer and
+offered after; a tap never advancing the screen by itself; the progress
+line saying where she is on every screen; the reveal opening on "Assessment
+complete" and landing on her pattern; no raw score and no confidence level
+anywhere she can read; and one Continue returning her to the dashboard.
+
+RUN A answered protein leaning and read **Protein-Supportive**, high
+confidence, P 44 / B 22 / C 0. It is also where the two unscored questions
+were proved on the live site: the stored row carries the digestive
+discomfort flag, her vitality answer as she gave it, 22 scored questions
+rather than 23, and zero zero-weight answers, which is the discomfort
+option leaving the denominator entirely rather than counting as a zero.
+Mid-sitting the tab was genuinely CLOSED and a brand new page put her back
+on the first question she had not answered, with "8 of 24 questions
+answered" on the card.
+
+RUN B answered "it varies" throughout and read **Flexible Fuel**, with
+every one of its 23 scored answers carrying zero weight.
+
+Primal Pattern's retirement was checked from the outside: the library names
+it nowhere, both old URLs land on the library, and opening them created no
+row. All 7 existing Primal Pattern sittings were counted before and after
+and are untouched.
+
+Zero console and page errors on every screen either run saw.
+
+**State left on production: none.** Both runs' rows were deleted in a
+`finally` and confirmed absent by an independent query afterwards: no
+session, no answers, no result row, no attempt row and no timeline event.
+
+### THREE RIG BUGS WORTH WRITING DOWN
+
+The first three runs reported failures that were the instrument, not the
+app, and each one is a standing trap:
+
+- **`locator.isVisible()` answers about this instant and ignores a
+  timeout.** Asking it while the completion was still in flight reported a
+  FAIL the app was about to pass, on both sittings. `waitFor` genuinely
+  waits.
+- **A rig that closes the tab must wait on the SERVER, not the clock.**
+  The first run's "resume" failure was real and became the bug above, but
+  the rig still needed to poll the stored answer count rather than sleep,
+  or it would keep reporting a race it had caused itself.
+- **The first navigation of a run can race the freshly installed session
+  cookie and land on login.** "The library names Primal Pattern nowhere"
+  passes trivially against a login form, which is a check that cannot
+  fail. Every navigation asserts where it actually landed now.
 
 ## Three polish items: the skeleton, a status that fits, and where the login seconds go (2026-09-13)
 
