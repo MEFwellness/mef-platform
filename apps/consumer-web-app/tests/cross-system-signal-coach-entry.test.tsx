@@ -478,9 +478,12 @@ describe('this whole feature is coach only, structurally', () => {
 
   it('no member route or member component imports anything from this feature', () => {
     // Every file under app/ and components/ that is not under a coach or
-    // admin path. The two server action files that DO import the ingestion
-    // service are named, because a completion is where a signal is
-    // captured and they import the engine rather than the coach surface.
+    // admin path. Two kinds of file are named below. The five completion
+    // points import the ingestion engine rather than the coach surface,
+    // because a completion is where a signal is captured. The two coach
+    // action files live under app/actions/ by this codebase's convention
+    // and establish a coach or an administrator before they read or write
+    // anything, which the case above this one proves for the first of them.
     const hits = execSync(
       "grep -rl 'cross-system-signals\\|crossSystemSignals' app components || true",
       { cwd: ROOT, encoding: 'utf8' }
@@ -496,12 +499,42 @@ describe('this whole feature is coach only, structurally', () => {
       'app/actions/checkin.ts',
       'app/actions/body-assessment.ts',
       'app/actions/crossSystemSignals.ts',
+      // The Relationship Library's own actions (Prompt 2). Coach only, and
+      // guarded the same way: tests/cross-system-relationship-editor.test.tsx
+      // asserts every exported function in it establishes a coach first.
+      'app/actions/crossSystemRelationships.ts',
+      // The Relationship Library editor's components. They live under
+      // components/ rather than under app/coach/ because three screens
+      // share them, and the case below proves nothing outside app/coach
+      // and app/admin imports the folder.
+      'components/coach-relationships/RelationshipEditor.tsx',
+      'components/coach-relationships/RelationshipLibraryPanel.tsx',
+      'components/coach-relationships/RelationshipVersionHistory.tsx',
     ];
     for (const hit of hits) {
       const isCoachSurface = hit.startsWith('app/coach/') || hit.startsWith('app/admin/');
       expect(
         isCoachSurface || ALLOWED_MEMBER_SIDE.includes(hit),
         `${hit} reaches the Signal Library from outside a coach surface`
+      ).toBe(true);
+    }
+  });
+
+  it('nothing outside a coach or admin route imports the relationship editor', () => {
+    const importers = execSync(
+      "grep -rl 'coach-relationships\\|cross-system-relationships' app components || true",
+      { cwd: ROOT, encoding: 'utf8' }
+    )
+      .split('\n')
+      .filter(Boolean);
+    expect(importers.length).toBeGreaterThan(0);
+    for (const hit of importers) {
+      expect(
+        hit.startsWith('app/coach/') ||
+          hit.startsWith('app/admin/') ||
+          hit.startsWith('components/coach-relationships/') ||
+          hit === 'app/actions/crossSystemRelationships.ts',
+        `${hit} reaches the Relationship Library from outside a coach surface`
       ).toBe(true);
     }
   });

@@ -1,3 +1,153 @@
+## The Whole-Body Cross-System Correlation Engine, Prompt 2 of 3: the editable Relationship Library (2026-09-15)
+
+The definitions only, and the editor she writes them in. Five tables, a
+version trail, and a coach screen at `/coach/relationships` where a
+whole-body pattern can be created, edited, duplicated, turned on and off
+and read back version by version, with no code and no deploy.
+
+**No matching engine is in this build and no pattern card is either.**
+Nothing here reads a member's signals, scores anything or decides that a
+member is showing a pattern. That is Prompt 3. A test asserts it by
+searching this feature's own source for `cross_system_signals`,
+`listSignalsForMember` and `member_id` and failing if any of them appears.
+
+### THE LIBRARY SHIPS EMPTY, AND THAT IS THE WHOLE POINT
+
+Migration 244 seeds **exactly one row**. It is inactive, it carries
+`is_example`, and the first word of its name is "Example". Its only job is
+to show the shape of the form: one primary input, one related input, two
+supporting inputs, a floor, two strength levels and two coaching
+considerations. Deleting it leaves the feature working and the library
+empty, which is the state it is meant to be in before she starts writing.
+
+**Nothing in this app invents, generates, infers or suggests a
+relationship.** There is no generator, no seed set and no suggestion
+anywhere in the feature, and no service role connection either: every row
+is written through her own session, so every row has an author. The empty
+state on the screen says so in words rather than offering to fill itself.
+
+### NOTHING IS HARD CODED TO A PAIRING
+
+There is no hip column and no kidney column. A relationship is a list of
+**components**, and each one points at one of three vocabularies the Signal
+Library already holds: a standardized signal name, a category (which is
+what this feature calls a body system), or a body area. Each sits in one of
+three roles: **primary**, **related** or **support**.
+
+That one shape covers every combination the brief named, and a test drives
+all six through the resolver with no special case: joint to system, muscle
+to system, skin to digestion, stress to a physical symptom, many systems
+onto one symptom, and one system onto many symptoms. A second test reads
+every column name out of the migration and fails if one is named after a
+body part or a system.
+
+### WHAT A RELATIONSHIP CARRIES
+
+| | |
+| --- | --- |
+| identity | a pattern key that survives a rename, active or inactive, which version is current |
+| observed inputs | any number of components, in three roles, each with an optional side, a value or a floor that counts as support, and a questionnaire reference and its exact wording |
+| pattern composition | the minimum supporting signals before it may surface, and any number of strength levels, each with its own thresholds |
+| possible association | the coach only explanation text |
+| coaching considerations | an ordered list, one line each |
+| evidence | her own methodology notes, private, drawn nowhere outside the editor |
+
+`ref_label` is copied in beside `ref_key` at save time rather than joined
+at read time, the same discipline a stored signal uses. A category renamed
+next year must not silently rewrite a definition, and a signal name retired
+next year must not delete a row out of the middle of one.
+
+**Emerging and Stronger are rows, not a ladder in the code.** They are what
+a new pattern starts with; she may rename them, move their thresholds,
+delete one or add a third.
+
+### AN EDIT IS A NEW VERSION, AND THE DATABASE SAYS SO
+
+Four of the five tables carry **no update policy at all**, so a version
+cannot be rewritten even by a hand made request. Saving an edit appends the
+next version, writes its children, and moves the head record's pointer
+**last**, so a child write that fails leaves the head pointing at the last
+whole version rather than at a half written one. A test proves that by
+making one table refuse every insert.
+
+The next version number is read from the stored head rather than sent by
+the client, so two tabs open on one pattern cannot both write version 4.
+
+The version history view shows, per version, the date, her own one line
+reason, and **what actually moved**, computed by comparing each version
+with the one below it rather than stored as a second account of the same
+fact. Every version stays readable in full, which is what lets a Prompt 3
+match record the version it read and have that wording still be there.
+
+### THE PICKERS ARE THE SIGNAL LIBRARY'S OWN LISTS
+
+Categories, body areas and standardized signal names all come from
+`loadSignalLibrary`, the same call the five ingestion adapters and the Add
+Signal tool make. There is no second vocabulary for relationships and there
+must never be one. All three pickers are visible at once rather than behind
+a "what kind of input" step, the same way Add Signal puts its search field
+beside its taps.
+
+A name the library has never held can be added **inline**, through the same
+insert only door Add Signal uses (`ensureSignalName`, migration 240's coach
+insert policy). Composing a name that already exists leaves the reviewed
+row alone rather than re-filing it under a new category.
+
+### THE SERVER DECIDES EVERYTHING THE FORM COULD HAVE LIED ABOUT
+
+The client posts keys. Every label, the version number, the pattern key and
+the active flag are resolved on the server, so a hand built request cannot
+write an input labelled one thing and pointing at another, and cannot name
+a signal, a category or a body area that does not exist. A key with no row
+is a **refused draft**, not a component labelled with its own slug.
+
+A new pattern is saved **inactive whatever the form thought**, because a
+definition she has just typed has not been decided on yet.
+
+### LANGUAGE, AND THE LINT THAT HOLDS IT
+
+`lib/cross-system-relationships/language.ts` holds the approved vocabulary
+(possible association, whole-body pattern, cross-system pattern, supporting
+signals, worth exploring, coaching consideration, observed together, may be
+relevant) and the banned list, word bounded and with inflections: cause,
+disease, diagnosis, organ dysfunction, confirms, indicates that you have,
+this symptom comes from, your organ is causing this.
+
+`tests/cross-system-relationship-copy.test.ts` walks the feature's twelve
+source files with the real TypeScript compiler, so it inspects string and
+JSX text nodes and never a comment, and it reads the seeded example rows
+out of the SQL too, which no source guard can see. Both are held to zero.
+It also proves the rule does not misfire: "because", the bare word "organ",
+"increase" and ordinary association copy all pass.
+
+**The editor warns, it does not refuse.** She is the author of every word
+in her own library and may have a reason to quote a phrase, so the form
+names the phrase it found and what this feature writes instead. The shipped
+copy, which she did not write, is what is held to zero.
+
+Two things the list file itself is exempt from, on purpose: it IS the
+banned list, so every banned phrase appears in it as data, and the warning
+it builds quotes the phrase back because a warning that would not name the
+words is not a warning.
+
+### COACH ONLY, AND THE FENCE IS THE SAME ONE
+
+Not one of the five tables carries a member select policy, so a member
+session asking for a row gets none. Every policy is gated on an active
+`coach` or `platform_administrator` role, and the guard test parses every
+one and fails if a clause mentions `member_id` at all. The Prompt 1 import
+guard was extended rather than duplicated: nothing outside `app/coach/`,
+`app/admin/` and the feature's own folder may import it.
+
+### Checks
+
+11,873 tests passing across 617 files, 117 of them new across three new
+files. Lint clean at 0 errors. Typecheck clean. Production build clean,
+`/coach/relationships` at 11.2 kB.
+
+Migrations 243 and 244 applied to production. The ledger is unbroken: 244
+rows locally and 244 remotely, and the two match.
+
 ## The Whole-Body Cross-System Correlation Engine, Prompt 1 of 3: the shared Signal Library (2026-09-15)
 
 The foundation only. A central store of standardized signals, five
