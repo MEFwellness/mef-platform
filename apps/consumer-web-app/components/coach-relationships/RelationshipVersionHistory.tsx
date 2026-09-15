@@ -135,6 +135,13 @@ export function RelationshipVersionHistory({ history }: { history: RelationshipV
                 year: 'numeric',
                 hour: 'numeric',
                 minute: '2-digit',
+                // THE ZONE IS PRINTED, not just pinned. formatDisplayDate is
+                // UTC, which is the right zone for a staff surface reading a
+                // record's own timestamp, and a bare date hides that. A
+                // version trail carries a TIME, and a time four hours off her
+                // own clock with nothing naming the zone is a time she will
+                // read wrong.
+                timeZoneName: 'short',
               })}
             </p>
           </div>
@@ -142,7 +149,7 @@ export function RelationshipVersionHistory({ history }: { history: RelationshipV
 
           {version.changeSummary ? (
             <p className="mt-2 text-[13px] italic text-[#3E5C46]">
-              Her note: {version.changeSummary}
+              Note: {version.changeSummary}
             </p>
           ) : null}
 
