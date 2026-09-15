@@ -148,6 +148,78 @@ files. Lint clean at 0 errors. Typecheck clean. Production build clean,
 Migrations 243 and 244 applied to production. The ledger is unbroken: 244
 rows locally and 244 remotely, and the two match.
 
+### Live verification, production, 2026-09-15
+
+Correct repo (`MEFwellness/mef-platform`), branch `main`, Vercel project
+`mef-platform`, target Production, and `app.mefwellness.com` confirmed
+aliased to the deployment carrying this work before anything was checked.
+`apps/consumer-web-app/scripts/verify-relationship-library-live.mjs` is the
+run, and **17 of 17 checks passed**.
+
+**THE LIBRARY REALLY IS EMPTY.** One relationship on production, flagged
+`is_example`, inactive, and its version 1 reads "Example: hip area signals
+observed alongside kidney and bladder signals". On the screen at 390x844
+that row wears an EXAMPLE chip and an INACTIVE chip side by side.
+
+**THE PICKERS ARE PROMPT 1'S OWN VOCABULARY, compared against the
+database rather than eyeballed.** 20 categories and 23 body areas in
+`cross_system_signal_categories` and `cross_system_body_areas`; 20 and 23
+options on the page, name for name. The list's body system filter matches
+the same 20. The signal search was driven with two real standardized names
+out of the 159 on production, "Hip clicking" and "Frequent urination", and
+both came back as matches and were added.
+
+**A TEST PATTERN WAS CREATED, EDITED, READ BACK AND REMOVED, through the
+real form.** Named "TEST DATA, safe to delete." in its first words, so
+anybody reading the production table while the run was in flight knew what
+it was.
+
+| step | what production said |
+| --- | --- |
+| create | stored, `is_active` false, version 1 |
+| its inputs | primary body_area Hip, related category Kidney/Bladder, support signal Hip clicking, support signal Frequent urination, **every label resolved on the server** |
+| edit | version 2 written, v1 still reads floor 2, v2 reads floor 3, head points at v2 |
+| version history | Version 2 and Version 1 both listed, "Minimum supporting signals: 2 to 3", her own note, and "Created: the first version of this pattern" against v1 |
+| activate, deactivate | true then false, **still at version 2**, so a toggle writes no version |
+| delete | 1 relationship left, it is the example, 0 orphan versions |
+
+**Production is clean.** Nothing this run wrote is left on it.
+
+No console error and no page error anywhere in the coach walk, and no em
+dash on the page.
+
+**THE MEMBER SIDE: NOTHING LEAKED.** Checked twice, at two layers.
+
+At the DATABASE, with a real minted session: a member session and an
+anonymous session each read **0 rows from all five tables**. At the SCREEN,
+ten member routes walked signed in as the standing test member, with every
+response body the browser received, HTML, JSON and RSC flight data alike,
+scanned for `cross_system_relationship`, `crossSystemRelationships`,
+`Relationship Library`, `Possible Association`, `Coaching Considerations`,
+`coach-relationships`, `pattern_key`, `min_supporting_signals` and the test
+pattern's own name. **Zero hits**, and zero console errors in the member
+walk. A member asking for `/coach/relationships` by URL lands on
+`/dashboard`.
+
+Screenshots went to `apps/consumer-web-app/scripts/.verify/relationships/`,
+which is gitignored. Nothing from this run is committed.
+
+### TWO THINGS THE LIVE SCREEN CORRECTED
+
+Read off production rather than out of the source, and both are in a
+follow-up commit.
+
+**"Her note" was telling her about somebody else.** It was the label above
+the coach's own one line reason for an edit, on a screen only she reads and
+usually about a line she typed. It reads "Note" now.
+
+**A timestamp was pinned to UTC without saying so.** The version trail
+prints a time as well as a date, and `formatDisplayDate` is UTC, which is
+the right zone for a staff surface reading a record's own timestamp. On the
+live page that rendered "10:09 PM" beside an edit made at 6:09 in the
+evening with nothing naming the clock. The option carries `timeZoneName`
+now, so the zone is printed rather than merely pinned.
+
 ## The Whole-Body Cross-System Correlation Engine, Prompt 1 of 3: the shared Signal Library (2026-09-15)
 
 The foundation only. A central store of standardized signals, five
