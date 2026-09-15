@@ -1,3 +1,69 @@
+## The Questionnaires card on Home went deep forest (2026-09-15)
+
+Colour only. The Questionnaires card on Home, the one directly under Your
+Week with Root, now sits on the brand deep forest green `#1B3A2D` instead
+of the near-white warm surface it wore since 2026-09-14, and every
+foreground on it flips to brand cream `#F5F0E4`.
+
+**Nothing else about the card moved.** Same 28px rung, same padding, same
+gaps, same icon, same copy, same `/questionnaires` destination, same quiet
+line, same counts from the same `getMyQuestionnaireCatalog()` pair. Two
+files, and every changed line is a colour token.
+
+### WHAT IT IS NOT
+
+It is NOT a tab. The request named "the Questionnaires tab" and there is
+no such control in the member app: `components/BottomNav.tsx` holds three
+items, Home, Check-In and Today, and Questionnaires has not been one of
+them since the 2026-09-13 pass cut the bar from five doors to three. Three
+member-facing things could have been meant and the card was confirmed as
+the intended one before anything was edited. The other two were left
+exactly as they were:
+
+| candidate | where | left alone |
+| --- | --- | --- |
+| Questionnaires row | `/progress`, Explore zone | yes, still white with a gray label |
+| filter chips | `/questionnaires` | yes, and the active chip was ALREADY `#1B3A2D` |
+
+### THE TYPE LEVELS ARE REDEFINED UNDER THE CARD, NOT AT THEIR SOURCE
+
+`.mef-home-label`, `.mef-home-title` and `.mef-home-body` are shared by
+every other section on Home and those are all still on light surfaces, so
+the cream versions live under `.mef-questionnaires-card` in `globals.css`
+and reach nothing else. `.mef-questionnaires-card` has exactly one caller.
+
+The alpha steps are the light card's own steps carried over, so the
+hierarchy reads as it did: the eyebrow sits under the title, the
+supporting line under both.
+
+| element | on the green | contrast |
+| --- | --- | --- |
+| title | `#F5F0E4` | 10.9:1 |
+| body, count, arrow | cream at 72 and 70 percent | 6.5:1 |
+| eyebrow, quiet-line label | cream at 62 and 60 percent | 5.2:1 and 5.0:1 |
+| gold progress bar | `#C4A050`, UNCHANGED | 5.0:1 |
+
+Gold still appears exactly once on the card. Its track could not stay
+forest at 8 percent, because forest on forest is nothing, so the track is
+the one measurement track on Home that is cream at 18 instead.
+
+The keyboard focus ring needed no change: it is gold `#F5B700` at
+`globals.css:703` and reads on the green already.
+
+### Checks
+
+11,640 tests passing across 611 files, including the 23 that guard this
+card. Lint clean at 0 errors. Production build clean, and the compiled
+bundle was read back to confirm the green surface, the three scoped cream
+type rules and every cream utility the component asks for.
+
+**Typecheck fails, and it failed before this change.** Nine errors, all in
+`tests/home-questionnaires-card.test.tsx`, all of them questionnaire key
+string literals that no longer satisfy the key union. Counted on a clean
+checkout of `main` and again with this change: nine both times, same file,
+same lines. Not touched here, because this task was colour only, but it is
+real and it is sitting on `main`.
+
 ## The questionnaires moved up, and stopped being a row (2026-09-14)
 
 Thirteen questionnaires are the substance of what Root knows about a

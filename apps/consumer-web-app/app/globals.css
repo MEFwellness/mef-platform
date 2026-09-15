@@ -2240,19 +2240,22 @@
    * =================================================================
    *
    * It sits directly under Your Week with Root, which is a saturated
-   * cream panel with a deep drop shadow, so this one has to be visibly
-   * LIGHTER than the thing above it or the two read as one block of
-   * cream. It takes the page's ordinary 28px card rung and the page's
-   * own hairline and diffused lift (`.mef-home .mef-card`), and adds
-   * only what keeps it from being a white rectangle: a barely-there
-   * warm wash down the surface and one soft sage bloom in the top
-   * right corner. No second border, no gradient with a visible edge.
+   * cream panel with a deep drop shadow. It used to separate from that
+   * panel by being visibly LIGHTER than it; since the colour pass of
+   * 2026-09-15 it separates by being far DARKER, which is the same job
+   * done from the other end and is the one thing that changed here. It
+   * still takes the page's ordinary 28px card rung and the page's own
+   * diffused lift (`.mef-home .mef-card`), and still adds only what
+   * keeps it from being a flat rectangle: a barely-there wash down the
+   * surface and one soft sage bloom in the top right corner. No second
+   * border, no gradient with a visible edge.
    *
    * GOLD APPEARS ONCE, AS A 3PX LINE. The progress bar is the only gold
    * on this card, which is the whole reason it reads as a measurement
-   * worth glancing at rather than as decoration. The track under it is
-   * forest at 8 percent, the same track every other measurement on this
-   * screen uses.
+   * worth glancing at rather than as decoration. It is unchanged at
+   * #C4A050, which carries 5.0:1 on the new surface. The track under it
+   * is the only measurement track on Home that is NOT forest at 8
+   * percent, because forest on forest is nothing: it is cream at 18.
    *
    * The bar's fill grows from nothing on arrival, once, and never
    * loops: a number presenting itself, the same posture as the Root
@@ -2262,8 +2265,40 @@
     position: relative;
     overflow: hidden;
     background:
-      radial-gradient(120% 90% at 100% 0%, rgba(122, 155, 133, 0.13) 0%, rgba(122, 155, 133, 0) 62%),
-      linear-gradient(180deg, #fffdf7 0%, #fdfbf5 46%, #faf7ee 100%);
+      radial-gradient(120% 90% at 100% 0%, rgba(122, 155, 133, 0.22) 0%, rgba(122, 155, 133, 0) 62%),
+      linear-gradient(180deg, #1f4234 0%, #1b3a2d 46%, #183227 100%);
+  }
+
+  /*
+   * THE SURFACE IS BRAND DEEP FOREST NOW (colour-only pass, 2026-09-15),
+   * so every foreground on this card flips to brand cream. Nothing else
+   * about the card changed: same 28px rung, same padding, same gaps,
+   * same copy, same destination, same gold progress line.
+   *
+   * The three Home type levels are redefined HERE, under this card's own
+   * class, and not at their own definitions, because `.mef-home-label`,
+   * `.mef-home-title` and `.mef-home-body` are shared by every other
+   * section on Home and those are all still on light surfaces.
+   *
+   * The alpha steps are the light card's steps, carried over so the
+   * hierarchy reads exactly as it did: the eyebrow sits under the title,
+   * the supporting line sits under both. Measured against #1B3A2D the
+   * eyebrow is 5.2:1, the body 6.5:1 and the title 10.9:1.
+   */
+  .mef-home .mef-questionnaires-card {
+    border-color: rgba(245, 240, 228, 0.14);
+  }
+
+  .mef-questionnaires-card .mef-home-label {
+    color: rgba(245, 240, 228, 0.62);
+  }
+
+  .mef-questionnaires-card .mef-home-title {
+    color: #f5f0e4;
+  }
+
+  .mef-questionnaires-card .mef-home-body {
+    color: rgba(245, 240, 228, 0.72);
   }
 
   .mef-questionnaires-bar {

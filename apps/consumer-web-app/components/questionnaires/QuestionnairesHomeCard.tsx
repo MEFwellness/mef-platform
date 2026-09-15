@@ -66,9 +66,9 @@ export function QuestionnairesHomeCard({
       className="mef-card mef-questionnaires-card p-6"
     >
       <div className="flex items-start gap-4">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#1B3A2D]/[0.07] bg-[#1B3A2D]/[0.045]">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#F5F0E4]/[0.16] bg-[#F5F0E4]/[0.10]">
           <ClipboardList
-            className="h-[1.15rem] w-[1.15rem] text-[#1B3A2D]"
+            className="h-[1.15rem] w-[1.15rem] text-[#F5F0E4]"
             strokeWidth={1.6}
             aria-hidden="true"
           />
@@ -91,11 +91,11 @@ export function QuestionnairesHomeCard({
           a 3px line under it. Identical wording to the line the
           Questionnaires screen prints under its own heading, from the
           identical pair of numbers. */}
-      <p className="mt-6 text-[13px] font-medium tracking-wide text-[#1B3A2D]/70">
+      <p className="mt-6 text-[13px] font-medium tracking-wide text-[#F5F0E4]/70">
         {completedCount} of {totalCount} complete
       </p>
       <div
-        className="mt-2.5 h-[3px] w-full overflow-hidden rounded-full bg-[#1B3A2D]/[0.08]"
+        className="mt-2.5 h-[3px] w-full overflow-hidden rounded-full bg-[#F5F0E4]/[0.18]"
         role="presentation"
       >
         <div
@@ -106,7 +106,7 @@ export function QuestionnairesHomeCard({
 
       <QuietLink
         href={'/questionnaires' as Route}
-        className="mef-press mef-focus-ring mt-6 inline-flex min-h-[2.75rem] items-center gap-2 rounded-full border border-[#1B3A2D]/15 bg-[#1B3A2D]/[0.035] px-5 py-3 text-sm font-semibold text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.07]"
+        className="mef-press mef-focus-ring mt-6 inline-flex min-h-[2.75rem] items-center gap-2 rounded-full border border-[#F5F0E4]/25 bg-[#F5F0E4]/[0.10] px-5 py-3 text-sm font-semibold text-[#F5F0E4] hover:bg-[#F5F0E4]/[0.18]"
       >
         View questionnaires
         <ChevronRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
@@ -119,18 +119,18 @@ export function QuestionnairesHomeCard({
            request the Assigned to You section is already making. */
         <QuietLink
           href={nextItem.href as Route}
-          className="mef-press mef-focus-ring mt-6 flex min-h-[2.75rem] items-center gap-3 border-t border-[#1B3A2D]/[0.08] pt-4 text-left"
+          className="mef-press mef-focus-ring mt-6 flex min-h-[2.75rem] items-center gap-3 border-t border-[#F5F0E4]/[0.16] pt-4 text-left"
         >
           <span className="min-w-0 flex-1">
-            <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1B3A2D]/40">
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-[#F5F0E4]/60">
               {nextItem.inProgress ? 'Pick up where you left off' : 'Next for you'}
             </span>
-            <span className="mt-1 block truncate text-[14px] leading-snug text-[#1B3A2D]">
+            <span className="mt-1 block truncate text-[14px] leading-snug text-[#F5F0E4]">
               {nextItem.title}
             </span>
           </span>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06]">
-            <ArrowRight className="h-4 w-4 text-[#1B3A2D]/70" strokeWidth={1.75} aria-hidden="true" />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F5F0E4]/[0.14]">
+            <ArrowRight className="h-4 w-4 text-[#F5F0E4]/70" strokeWidth={1.75} aria-hidden="true" />
           </span>
         </QuietLink>
       )}
