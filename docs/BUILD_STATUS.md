@@ -64,6 +64,70 @@ checkout of `main` and again with this change: nine both times, same file,
 same lines. Not touched here, because this task was colour only, but it is
 real and it is sitting on `main`.
 
+### Live verification, production, 2026-09-15
+
+Signed in as the standing test member on `app.mefwellness.com` at 390x844,
+after confirming the production domain had picked up the push. The old
+bundle served `linear-gradient(#fffdf7, ...)` before the deploy and
+`ff5e778af834beb0.css` serves `linear-gradient(#1f4234, #1b3a2d 46%,
+#183227)` after it, so the domain is genuinely serving this commit.
+
+**The card's computed surface on the real page** is
+`linear-gradient(rgb(31,66,52), rgb(27,58,45) 46%, rgb(24,50,39))`. The
+dominant stop is `rgb(27,58,45)`, which is `#1B3A2D` exactly.
+
+Every foreground read off the rendered page, flattened against the
+surface and measured:
+
+| element | computed | flattened | ratio |
+| --- | --- | --- | --- |
+| eyebrow "QUESTIONNAIRES" | cream at 0.62 | `#A2AB9E` | 5.24:1 |
+| title "Continue your assessments" | cream | `#F5F0E4` | 10.93:1 |
+| body copy | cream at 0.72 | `#B8BDB1` | 6.48:1 |
+| "8 of 13 complete" | cream at 0.70 | `#B4B9AD` | 6.36:1 |
+| clipboard icon | cream | `#F5F0E4` | 10.93:1 |
+| "View questionnaires" | cream | `#F5F0E4` | 10.93:1 |
+| progress bar | `rgb(196,160,80)` | `#C4A050` | 5.03:1 |
+
+Tailwind 4 emits the opacity steps as `oklab()`, so the count line and the
+progress track come back in that space. Rasterized, the opaque form of
+that colour is `#F5F0E4` exactly, the count line lands on `#B4B9AD` and
+the track on `#425A4D`.
+
+**Nothing around it moved.** The card is section 3 of 8 at document offset
+1235, the same offset the 2026-09-14 run recorded for it. Radius 28px,
+padding 24px, CTA min-height 44px, CTA href `/questionnaires`, progress
+fill 186px of its track: all unchanged. Your Week with Root above it is
+still `rgb(245,240,228)` and Root's Daily Brief below it is still white.
+The bottom bar still reads Home, Check-In, Today with the forest pill on
+Home and the gold button in the middle.
+
+`/questionnaires` was visited on the same pass and is untouched: the
+active All chip is `rgb(27,58,45)` on white text and the other four are
+white with forest text, exactly as before.
+
+**No console error and no page error anywhere in the walk.**
+
+Screenshots went to `apps/consumer-web-app/scripts/.verify/`, which is
+gitignored. Nothing from this run is committed.
+
+### TURNSTILE IS NOT ON THE LOGIN FORM, AND THIS FILE SHOULD SAY SO
+
+Unrelated to this change, found while doing the above. `CLAUDE.md` states
+that Turnstile is LIVE on the `app.mefwellness.com` login form and blocks
+automated form sign-in by design. It is not live. A scripted browser
+filled in the email and password fields and was signed in and redirected
+to `/dashboard`, with no challenge at any point.
+
+Checked directly and repeatedly against the live login page at 2, 7 and 17
+seconds after load: zero `challenges.cloudflare.com` iframes, zero
+`.cf-turnstile` elements, zero `[data-sitekey]` elements, zero Turnstile
+script tags, and the string "turnstile" does not appear in the served HTML
+at all.
+
+Not touched here, because this task was colour only and switching a
+security control back on is not a colour change. Flagged for a decision.
+
 ## The questionnaires moved up, and stopped being a row (2026-09-14)
 
 Thirteen questionnaires are the substance of what Root knows about a
