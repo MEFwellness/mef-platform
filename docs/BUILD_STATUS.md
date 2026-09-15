@@ -200,9 +200,29 @@ same adapters through the same engine, oldest sitting first, so a
 backfilled sitting and a live one produce identical rows. Safe to run as
 many times as anyone likes. Real members only unless `--include-test`.
 
+### ONE DEFECT WAS FOUND AND FIXED ON THE FIRST REAL BACKFILL RUN
+
+Migration 240 wrote the fingerprint guard as a PARTIAL unique index,
+`where ingest_fingerprint is not null`, to say out loud that a coach entry
+carries no fingerprint and is never deduplicated. That is the correct
+intent, and it is also unusable as an upsert target: Postgres only infers a
+partial index for ON CONFLICT when the statement repeats the index's own
+WHERE clause, and PostgREST's `onConflict` has no way to send one.
+
+**Every ingestion write came back 42P10 and wrote nothing.** It was caught
+on the very first backfill run against production, before a single signal
+had been written, which is the only reason it is a footnote rather than a
+silent hole.
+
+Migration 242 replaces it with a plain unique index on `(member_id,
+ingest_fingerprint)`. Postgres treats nulls as distinct in a unique index
+by default, so any number of coach entries coexist and the behaviour the
+partial predicate protected is unchanged. The guard test now asserts
+against the index in force and fails if a partial one comes back.
+
 ### Checks
 
-11,755 tests passing across 614 files, 115 of them new across three new
+11,755 tests passing across 614 files, 116 of them new across three new
 files. Lint clean at 0 errors. Production build clean.
 
 **Typecheck is now clean, and it was not before this change.** The nine
@@ -211,10 +231,91 @@ literals in `tests/home-questionnaires-card.test.tsx` that no longer
 satisfy the key union, are fixed here: the fixtures use real keys from the
 union rather than invented strings.
 
-Migrations 240 and 241 applied to production. The ledger is unbroken:
-every row from 1 to 241 is present locally and remotely and the two match.
+Migrations 240, 241 and 242 applied to production. The ledger is unbroken:
+every row from 1 to 242 is present locally and remotely and the two match.
 Seed verified on production: 20 categories, 23 body areas, 20 symptom
 words, 159 standardized names, 6 sources, 164 dictionary rows.
+
+### Live verification, production, 2026-09-15
+
+Correct repo (`MEFwellness/mef-platform`), branch `main`, Vercel project
+`mef-platform`, target Production, and `app.mefwellness.com` confirmed
+aliased to the deployment carrying this commit before anything was checked.
+
+**BACKFILL.** Nine real members walked: seven check-in pain signals
+written. Ebony, the seeded test member paired with the coach account,
+walked separately: **59 signals from four sources**, 50 from her Body
+Systems Survey sitting, 7 from her two Breathing Pattern Check-Ins, 1 from
+her posture capture and 1 from a check-in. She has no Signal Assessment
+sitting, so that adapter correctly wrote nothing. A second run of the whole
+backfill wrote **0 rows**, which is the fingerprint guard working.
+
+**THE COACH SIDE.** Signed in as the coach paired with her, on her Client
+Detail at 390x844. The Signals section is present, collapsed on arrival,
+and its header reads "56 signals, 60 entries". Opened, it groups by
+category with the source and date on every row.
+
+Added a coach entered signal through the real tool: Musculoskeletal, Hip,
+Clicking, Right, Often. It saved and reads back as **"Hip clicking, Right,
+Often, Coach entered, Sep 15, 2026"** under Joint/Movement. The category
+is Joint/Movement rather than the Musculoskeletal that was tapped, and that
+is correct: "Hip clicking" is already a reviewed standardized name and the
+library's own row wins over a tap, which is what stops one coach
+re-filing a shared signal for everybody.
+
+**THE SOURCES AND THE ORIGINAL RESPONSES.** Every ingested row names its
+instrument and prints the exact question behind it. Read off the live page:
+
+| signal | value | source | the original response shown |
+| --- | --- | --- | --- |
+| Muscles and joints system signal | Quiet | Body Systems Survey | "Muscles and Joints, 6 percent" |
+| Muscle loss without a change in activity | Almost always | Body Systems Survey | "I have lost muscle even though my activity has not changed." |
+| Lower-crossed postural pattern | Both, Moderate | Posture and movement assessment | the capture's own narrative |
+| Daily pain or discomfort | 3 of 5 | Daily Check-In | "Pain or discomfort today" |
+
+**THE SHARED NAMES WORK ON REAL DATA.** "Cold hands or feet" opened onto
+two earlier entries from **two different instruments**: the Breathing
+Pattern Check-In ("Cold hands or feet", Never, Sep 12) and the Body Systems
+Survey ("My hands or feet stay cold even in warm rooms.", Almost always,
+Sep 11). One signal, one timeline, two sources, each still named.
+
+No console error and no page error anywhere in the coach walk, and no em
+dash on the page.
+
+**THE MEMBER SIDE: NOTHING LEAKED.**
+
+The fence was checked twice, at two different layers.
+
+At the DATABASE, with real minted sessions against production: a member
+session and an anonymous session each read **0 rows from all seven tables**,
+including 0 signals about the member herself. The coach session read all
+seven. The member tested is Ebony, who is the standing test member and the
+one with 59 signals, so this is the strongest version of the test.
+
+At the SCREEN, eighteen member routes walked signed in, with **every
+response body the browser received** scanned, HTML, JSON and RSC flight
+data alike, for `cross_system`, `crossSystemSignals`, `signal_slug`,
+`ingest_fingerprint`, `Coach entered`, `Add Signal`, `Hip clicking` and
+five more. **Zero hits in rendered pages and zero in payloads.** The one
+console error in the walk is a 404 on `/account`, a route that does not
+exist and was guessed at by the script.
+
+**THE BODY SYSTEMS SURVEY MEMBER RESULTS ARE UNCHANGED.** Her results
+screen was read on the live site and compared against her stored reading
+row by row. All eleven sections print the band the survey stored, in the
+stored loudest-first order: eight Speaking loudly, Digestion Showing up,
+Muscles and Joints and Immune System Quiet. No percentage appears anywhere
+on her screen, which is that survey's own rule. Nothing from this feature
+is on it.
+
+One thing worth naming so nobody trips on it later: that screen's eyebrow
+reads "YOUR SIGNALS". That is the Body Systems Survey's own copy, stored as
+`member.results_eyebrow` in migration 221 long before this build, and it
+was not touched. A keyword scan for the bare word "Signals" will flag it
+and be wrong.
+
+Screenshots went to `apps/consumer-web-app/scripts/.verify/`, which is
+gitignored. Nothing from this run is committed.
 
 ## The Questionnaires card on Home went deep forest (2026-09-15)
 

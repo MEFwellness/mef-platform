@@ -40,6 +40,7 @@ const SCHEMA = sql('00000000000240_cross_system_signal_library.sql');
 const CONTENT = sql('00000000000241_cross_system_signal_content.sql');
 const BODY_SYSTEMS_CONTENT = sql('00000000000221_body_systems_content.sql');
 const WBS_CONTENT = sql('00000000000226_whole_body_signal_content.sql');
+const FINGERPRINT_FIX = sql('00000000000242_cross_system_signal_fingerprint_index.sql');
 const FINDING_TYPES_SQL = sql('00000000000050_body_assessment_finding_types_screening.sql');
 
 const TABLES = [
@@ -125,10 +126,26 @@ describe('the library is coach only, in the database rather than by convention',
     }
   });
 
+  /**
+   * MIGRATION 242 IS THE ONE IN FORCE. 240 wrote this as a PARTIAL unique
+   * index, which said the right thing and could not be used as an ON
+   * CONFLICT target: Postgres only infers a partial index when the
+   * statement repeats its WHERE clause, and PostgREST cannot send one, so
+   * every ingestion write came back 42P10 and wrote nothing. 242 replaces
+   * it with a plain unique index, which says the same thing by relying on
+   * nulls being distinct: a coach entry carries no fingerprint and so is
+   * never deduplicated.
+   */
   it('re-running ingestion cannot duplicate a row, and a coach entry is never deduplicated', () => {
-    expect(SCHEMA).toContain(
-      'create unique index cross_system_signals_fingerprint_idx\n  on cross_system_signals (member_id, ingest_fingerprint)\n  where ingest_fingerprint is not null;'
+    expect(FINGERPRINT_FIX).toContain('drop index if exists cross_system_signals_fingerprint_idx;');
+    expect(FINGERPRINT_FIX).toContain(
+      'create unique index cross_system_signals_fingerprint_idx\n  on cross_system_signals (member_id, ingest_fingerprint);'
     );
+  });
+
+  it('the fingerprint index in force is inferrable, so nothing writes 42P10 again', () => {
+    const inForce = FINGERPRINT_FIX.slice(FINGERPRINT_FIX.indexOf('create unique index'));
+    expect(inForce, 'a partial index cannot be an ON CONFLICT target here').not.toContain('where ');
   });
 });
 
@@ -137,6 +154,15 @@ describe('the library is coach only, in the database rather than by convention',
 // ---------------------------------------------------------------------
 
 describe('nothing in this feature can be confused with the two assessments it is not', () => {
+  it('the fingerprint fix touches only this feature', () => {
+    for (const [, name] of FINGERPRINT_FIX.matchAll(/create (?:unique )?index (\w+)/g)) {
+      expect(name).toMatch(/^cross_system_/);
+    }
+    for (const [, target] of FINGERPRINT_FIX.matchAll(/\n(?:alter|drop) table (?:if exists )?(\w+)/g)) {
+      expect(target).toMatch(/^cross_system_/);
+    }
+  });
+
   it('every table, index and policy created here carries the cross_system prefix', () => {
     for (const [, name] of SCHEMA.matchAll(/create table (\w+)/g)) {
       expect(name, `table ${name}`).toMatch(/^cross_system_/);
