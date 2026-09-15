@@ -1,3 +1,221 @@
+## The Whole-Body Cross-System Correlation Engine, Prompt 1 of 3: the shared Signal Library (2026-09-15)
+
+The foundation only. A central store of standardized signals, five
+ingestion adapters that fill it from assessments members have already
+completed, and a coach entry tool fast enough to use mid conversation.
+
+**No correlation logic, no relationship definitions and no pattern cards
+are in this build**, and no table, type or view field exists for one. That
+is Prompt 3.
+
+### IT IS A NEW SYSTEM, AND IT IS NOT EITHER OF THE TWO THINGS ITS NAME SOUNDS LIKE
+
+The app already holds the **Rooted Reset Whole-Body Signal Assessment**
+(migrations 225 to 228, tables `whole_body_signal_*`, `lib/whole-body-signal/`)
+and the older **Whole-Body Check-In** in the assessment registry. Neither
+was read, written, renamed or retired.
+
+Everything new carries the `cross_system_` prefix: seven tables, every
+index, every policy, `lib/cross-system-signals/`. A guard in
+`tests/cross-system-signal-schema.test.ts` walks the migration SQL and
+fails if a table, index or policy created by this feature is named
+anything else, or if it alters or drops anything belonging to another
+feature. In coach facing words the library and its rows are called
+**Signals**.
+
+### COACH ONLY, AND THE FENCE IS PHYSICAL
+
+Not one of the seven tables carries a member select policy, so a member
+session asking for a row directly gets none. Same discipline as the Signal
+Assessment's Zone layer (migration 225). The guard test parses every
+policy in the migration and asserts each one is gated on an active `coach`
+or `platform_administrator` role, and that none compares `auth.uid()` to
+`member_id`.
+
+`cross_system_signals` also has **no insert policy for a member and no
+update policy for anybody**. A member's own submit therefore cannot write a
+signal about herself and a hand made POST from her browser cannot
+manufacture one, and a stored signal is a record of what was true on the
+day it was captured rather than something later editable.
+
+### WHAT A SIGNAL ROW CARRIES
+
+| | |
+| --- | --- |
+| who | member id |
+| what | standardized name, the label as it read on the day, category, body area, symptom, side |
+| how much | a flexible value: a scale word, a band, a severity, an instrument total, or a coach tap, with the comparable number beside it |
+| where from | source key, the source label as it read on the day, the sitting id, the question ref, and **the exact question prompt she answered** |
+| when | `captured_on`, a bare local day in HER timezone, and `captured_at`, the instant |
+| extra | an optional one line note, and the coach who entered it |
+
+`signal_name`, `category_key`, `source_label` and `source_question_prompt`
+are copied in at capture time rather than joined at read time, so a renamed
+category or a reworded question cannot silently rewrite a year of history.
+
+**APPEND OVER TIME, NEVER OVERWRITE.** A new sitting and a new coach entry
+each write a new dated row, so a timeline per signal exists from the first
+row onward.
+
+### EVERY LIST IS DATA, NOT AN ENUM
+
+Categories (20), body areas (23), symptom words (20), standardized signal
+names (159) and the dictionary mapping each source's own keys to those
+names (164 rows) are all rows in migration 241. A coach adding "Jaw
+clicking" or wiring a new assessment in needs no deploy.
+
+The three things that ARE check constraints are `side`, `value_kind` and
+`entry_mode`, because each is a shape the reading code must handle
+exhaustively and a new one is a code change by definition.
+
+### THE SHARED NAMES ARE THE POINT
+
+"Cold hands or feet" is ONE standardized name, and the Body Systems
+Survey's T2, its H9 and the Breathing Pattern Check-In's `cold_hands_feet`
+all map onto it. A coach opening that signal reads one timeline across two
+instruments rather than three near duplicates that never meet. A name is
+only shared where the questions genuinely ask the same thing: "Short of
+breath" and "Breathless after one flight of stairs" stay separate.
+
+### FIVE ADAPTERS, AND A REGISTRY THAT NAMES NONE OF THEM
+
+`lib/cross-system-signals/registry.ts` holds the shape; `adapters/index.ts`
+holds the list. Adding a sixth assessment is one file, one line in that
+list, one source row and its dictionary rows. Nothing in the engine, the
+store or the coach's panel changes.
+
+Every adapter is two halves. `load` and `listCompleted` touch the database.
+**`build` is pure**: handed a literal sitting and a literal library, it
+returns drafts, so all thirty seven adapter cases in
+`tests/cross-system-signal-adapters.test.ts` run with no database at all.
+
+| source | what it maps |
+| --- | --- |
+| Rooted Reset Body Systems Survey | all eleven section bands every sitting, **including the quiet ones**, plus every individual answer the survey's own scale marks elevated |
+| Rooted Reset Whole-Body Signal Assessment | its nine section signal percentages, **system level only** |
+| Breathing Pattern Check-In | the total out of the instrument's own maximum, plus items answered in the scale's top two responses |
+| Camera posture and movement assessment | one signal per active finding, with its side and its severity |
+| Daily Check-In | a pain and discomfort level of one or more |
+
+**A KEY WITH NO DICTIONARY ROW IS SKIPPED, NOT GUESSED AT.** There is no
+string transform anywhere in the code that turns a question ref into a
+signal name.
+
+**NO ZONE LOGIC CROSSES FROM THE SIGNAL ASSESSMENT.** Its adapter imports
+`loadReadingContent`, which asks the database for no Zone name, no chakra
+lens, no organ or gland list and no coach topic, and never
+`loadCoachContent`. Its input shape has five fields and none of them could
+hold a Zone; the dictionary holds section keys for that source and nothing
+else; and a test serialises its whole output and asserts the words "zone",
+"chakra", "organ" and "gland" appear nowhere in it.
+
+### A SETTLED SIGNAL CAN CLOSE ITSELF OUT
+
+Every adapter is told which standardized names this member already has at
+least one signal for, so a quiet answer writes a row when she has reported
+that signal before and nothing when she has not. Without it, last month's
+alarm would stand on her timeline forever with nothing able to close it,
+which is the same failure the Root Map's "publish every section every
+time" rule exists to prevent.
+
+The Daily Check-In is the deliberate exception: a nought writes nothing
+ever, because a check-in happens daily and a row a day saying there is
+nothing to report would bury every other signal she has.
+
+### RE-INGESTION IS SAFE, AND THE LIBRARY IS STILL APPEND OVER TIME
+
+Every ingested draft carries a fingerprint naming the source, the sitting
+and the thing inside it, with a unique index on `(member_id,
+ingest_fingerprint)`. Running ingestion twice over one completed sitting
+writes nothing the second time. A NEW sitting has a new id and therefore a
+new fingerprint, which is what keeps the timeline growing. A coach entry
+carries no fingerprint at all, on purpose: a coach recording the same thing
+twice in one day is recording it twice.
+
+### WHERE INGESTION RUNS, AND WHY IT USES THE TRUSTED CONNECTION
+
+Five completion points, each best effort and each after the member's own
+result has already been saved and returned: `submitBodySystemsSurveyAction`,
+`submitWholeBodySignalAction`, `submitBreathingCheckInAction`,
+`submitDailyCheckin` and `submitAssessmentAction`.
+
+The write goes through the service role connection, because the table has
+no member insert policy on purpose. Same precedent as
+`lib/coaching-direction/serviceRole.ts`. **The member id is never taken from
+a request body** and every draft is built by an adapter from rows read back
+out of the database, so a member cannot choose what her sitting says about
+her by posting something different. A missing credential costs a signal,
+never a completed assessment.
+
+### THE COACH SIDE
+
+An eighth collapsible section, **Signals**, on the client detail page,
+between Assessments and Findings and Health Context. Its folded header
+reads the two counts straight off the view the card itself renders, and its
+dot is **never gold**: a signal is a thing her body said, not a thing asking
+for anything, and colouring a count of symptoms would turn a record into an
+alarm scale.
+
+**Add Signal** is built for mid conversation. Two ways in, meeting in the
+same place: type into a search field over the standardized names (partial,
+case insensitive, over the name and its stored search terms), or tap a
+category, a body area and a symptom word, which compose a standardized
+name. A composed name the library has never held becomes one, once, so the
+next coach finds it by typing. Then side, then Rarely / Sometimes / Often,
+then an optional one line note. **No long form and no required free text.**
+
+The side selector disappears where it makes no sense: "Whole body" and
+"Abdomen" carry `takes_side` false, so the tool offers N/A and nothing else.
+
+**The server decides everything the form could have lied about.** The client
+posts taps; the standardized name, the category, the numeric value, the
+source label and the date are all resolved from the library and from the
+MEMBER'S own timezone. The three frequency words are deliberately the Body
+Systems Survey's own middle three, carrying that scale's own point values,
+so a coach tapping "Often" beside a member's own "Often" is comparable on
+one timeline.
+
+The **Signals list** groups by category, one row per standardized name and
+side, showing the latest value, its source and its date, with older dated
+entries behind a per signal control. **The source is visible on every single
+row**, latest and historical, and where the source recorded the exact
+question that question is printed with the answer.
+
+A left hip and a right hip stay two rows, because they are two things a
+coach treats separately.
+
+### WHAT WAS NOT TOUCHED
+
+The Body Systems Survey is unchanged: scoring, sections, the Quiet /
+Showing Up / Speaking Loudly bands, the member results experience and the
+safety and red flag system all stand exactly as they were. No questionnaire
+scoring and no member facing experience moved anywhere. The additions to
+the five action files are a single best effort call each, after the
+member's own result is already built.
+
+### BACKFILL
+
+`apps/consumer-web-app/scripts/backfill-cross-system-signals.ts` walks the
+same adapters through the same engine, oldest sitting first, so a
+backfilled sitting and a live one produce identical rows. Safe to run as
+many times as anyone likes. Real members only unless `--include-test`.
+
+### Checks
+
+11,755 tests passing across 614 files, 115 of them new across three new
+files. Lint clean at 0 errors. Production build clean.
+
+**Typecheck is now clean, and it was not before this change.** The nine
+errors sitting on `main` since 2026-09-14, all questionnaire key string
+literals in `tests/home-questionnaires-card.test.tsx` that no longer
+satisfy the key union, are fixed here: the fixtures use real keys from the
+union rather than invented strings.
+
+Migrations 240 and 241 applied to production. The ledger is unbroken:
+every row from 1 to 241 is present locally and remotely and the two match.
+Seed verified on production: 20 categories, 23 body areas, 20 symptom
+words, 159 standardized names, 6 sources, 164 dictionary rows.
+
 ## The Questionnaires card on Home went deep forest (2026-09-15)
 
 Colour only. The Questionnaires card on Home, the one directly under Your

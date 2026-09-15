@@ -13,6 +13,8 @@
  * or block what the member already did.
  */
 
+import { ingestSitting } from '@/lib/cross-system-signals/service';
+import { SOURCE_BODY_ASSESSMENT } from '@/lib/cross-system-signals/constants';
 import { createClient } from '@/lib/supabase/server';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { describeLockReason } from '@/lib/assessment-registry/status';
@@ -647,6 +649,22 @@ export async function submitAssessmentAction(
       'Coach Intelligence analysis failed for submitAssessmentAction',
       coachIntelligenceError
     );
+  }
+
+  // The shared Signal Library (Prompt 1 of the Cross-System Correlation
+  // Engine). COACH ONLY. One signal per active finding, with the
+  // screening engine's own severity carried across as the value and its
+  // own narrative kept as the original observation. A dismissed finding,
+  // a 'none' and an 'unknown' write nothing. Best effort, same discipline
+  // as the blocks above: her submission has already succeeded.
+  try {
+    await ingestSitting({
+      memberId: userId,
+      sourceKey: SOURCE_BODY_ASSESSMENT,
+      sittingId: assessmentId,
+    });
+  } catch (signalError) {
+    console.error('Signal Library ingestion failed for submitAssessmentAction', signalError);
   }
 
   try {

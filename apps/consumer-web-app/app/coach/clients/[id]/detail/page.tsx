@@ -118,6 +118,7 @@ import {
   coachToolsDigest,
   appControlsDigest,
   healthContextDigest,
+  signalsDigest,
 } from '@/lib/coach-detail/digests';
 import { CHECKIN_WINDOW_DAYS, loggedDaysInWindow } from '@/lib/coach-detail/checkinSeries';
 import {
@@ -172,6 +173,8 @@ import { getClientBodySystemsPanelAction } from '@/app/actions/bodySystems';
 import { getClientWholeBodySignalPanelAction } from '@/app/actions/wholeBodySignal';
 import { getClientBreathingCheckInPanelAction } from '@/app/actions/breathingCheckInCoach';
 import { getClientHealthIntakePanelAction } from '@/app/actions/healthIntake';
+import { getClientSignalsPanelAction } from '@/app/actions/crossSystemSignals';
+import { CrossSystemSignalsPanel } from '../CrossSystemSignalsPanel';
 import { buildHealthContextView } from '@/lib/health-intake/coachView';
 import { HealthContextPanel } from '../HealthContextPanel';
 import { OwningYourValuePanel } from '../OwningYourValuePanel';
@@ -312,6 +315,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     wholeBodySignalPanel,
     breathingCheckInPanel,
     healthIntakePanel,
+    crossSystemSignalsPanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
@@ -366,6 +370,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientWholeBodySignalPanelAction(profile.id),
     getClientBreathingCheckInPanelAction(profile.id),
     getClientHealthIntakePanelAction(profile.id),
+    getClientSignalsPanelAction(profile.id),
     getClientOwningYourValuePanelAction(profile.id),
     getClientWhereYourJoyLivesPanelAction(profile.id),
     getClientTheGivingLedgerPanelAction(profile.id),
@@ -560,6 +565,12 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
       // whether anything needs a look.
       safetySignals: latestHealthContext?.safetySignals.length ?? 0,
       exploringPrompts: latestHealthContext?.exploring.length ?? 0,
+    }),
+    signals: signalsDigest({
+      // The two numbers the card's own view already computed, so the
+      // header cannot count its own way and disagree with the list.
+      signals: crossSystemSignalsPanel.view.signalCount,
+      entries: crossSystemSignalsPanel.view.entryCount,
     }),
     progress: progressDigest({
       loggedDays: loggedDaysInWindow(
@@ -949,6 +960,31 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             section, indexed in the pinned search like every other card, and
             its header says the same thing the card says.
           */}
+          {/*
+            SIGNALS (2026-09-15). The shared Signal Library: every
+            standardized signal this member has, grouped by category, with
+            the source and date on every value and the coach's own Add
+            Signal tool at the top of it.
+
+            IT IS NOT THE ROOTED RESET WHOLE-BODY SIGNAL ASSESSMENT, whose
+            card is in Assessments and Findings above. This is the store
+            that assessment feeds, along with the Body Systems Survey, the
+            Breathing Pattern Check-In, the posture and movement captures
+            and the daily check-in.
+
+            No correlation, no relationship and no pattern card is drawn
+            here. That is Prompt 3.
+          */}
+          <DetailSection
+            id="detail-section-cross-system-signals"
+            title="Signals"
+            digest={sectionDigests.signals}
+          >
+            <div id="detail-card-cross-system-signals" className="scroll-mt-24">
+              <CrossSystemSignalsPanel state={crossSystemSignalsPanel} />
+            </div>
+          </DetailSection>
+
           <DetailSection
             id="detail-section-health-context"
             title="Health Context"

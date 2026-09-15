@@ -65,6 +65,8 @@ import { sanitizeRedFlagAnswers } from '@/lib/body-systems/redFlags';
 import { buildResults } from '@/lib/body-systems/scoring';
 import { buildSteps, clampStepIndex, lastQuestionStepIndex } from '@/lib/body-systems/steps';
 import { buildBodySystemsRegistryDrafts } from '@/lib/body-systems/rootMap';
+import { ingestSitting } from '@/lib/cross-system-signals/service';
+import { SOURCE_BODY_SYSTEMS } from '@/lib/cross-system-signals/constants';
 import { buildMemberResultsView, type MemberResultsView } from '@/lib/body-systems/memberView';
 import { memberCopy } from '@/lib/body-systems/copyKeys';
 import {
@@ -327,6 +329,17 @@ export async function submitBodySystemsSurveyAction(
   }
 
   await publishBodySystemsFindings(supabase, user.id, record, content);
+
+  // The shared Signal Library (Prompt 1 of the Cross-System Correlation
+  // Engine). COACH ONLY, and written through the trusted connection
+  // because cross_system_signals has no member insert policy on purpose.
+  // Best effort and never allowed to affect the result already built for
+  // her: her sitting is saved and her results screen is ready by here.
+  await ingestSitting({
+    memberId: user.id,
+    sourceKey: SOURCE_BODY_SYSTEMS,
+    sittingId: record.id,
+  });
 
   // The pop-up for this assignment can never be due again, which makes any
   // snooze or ignore row for it dead weight.

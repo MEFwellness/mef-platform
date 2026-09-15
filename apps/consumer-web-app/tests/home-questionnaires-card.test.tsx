@@ -231,33 +231,33 @@ describe('the quiet line, and what it is allowed to name', () => {
     const next = pickHomeNextQuestionnaire(
       catalog({
         available: [
-          card({ key: 'a' }),
-          card({ key: 'b', flags: { inProgress: true } as CatalogCard['flags'] }),
+          card({ key: 'four-doctors' }),
+          card({ key: 'short-haq', flags: { inProgress: true } as CatalogCard['flags'] }),
         ],
       }),
     );
-    expect(next?.key).toBe('b');
+    expect(next?.key).toBe('short-haq');
     expect(next?.inProgress).toBe(true);
   });
 
   it('falls back to a coach assignment she has not opened', () => {
     const next = pickHomeNextQuestionnaire(
       catalog({
-        assigned: [card({ key: 'assigned-1', section: 'assigned', assignmentId: 'a1' })],
-        available: [card({ key: 'open-1' })],
+        assigned: [card({ key: 'wbsa', section: 'assigned', assignmentId: 'a1' })],
+        available: [card({ key: 'four-doctors' })],
       }),
     );
-    expect(next?.key).toBe('assigned-1');
+    expect(next?.key).toBe('wbsa');
     expect(next?.inProgress).toBe(false);
   });
 
   it('says nothing at all when the only open thing is an untouched free item', () => {
     // An offer nobody is waiting on is what the library screen is for.
-    expect(pickHomeNextQuestionnaire(catalog({ available: [card({ key: 'open-1' })] }))).toBeNull();
+    expect(pickHomeNextQuestionnaire(catalog({ available: [card({ key: 'four-doctors' })] }))).toBeNull();
   });
 
   it('never names what Assigned to You is already drawing a card for', () => {
-    const assigned = card({ key: 'assigned-1', section: 'assigned', assignmentId: 'a1' });
+    const assigned = card({ key: 'wbsa', section: 'assigned', assignmentId: 'a1' });
     const next = pickHomeNextQuestionnaire(
       catalog({ assigned: [assigned] }),
       new Set([assigned.key]),
@@ -271,7 +271,7 @@ describe('the quiet line, and what it is allowed to name', () => {
         catalog({
           premium: [
             card({
-              key: 'locked',
+              key: 'short-haq',
               section: 'premium',
               flags: { locked: true, inProgress: true } as CatalogCard['flags'],
             }),
@@ -284,7 +284,7 @@ describe('the quiet line, and what it is allowed to name', () => {
         catalog({
           available: [
             card({
-              key: 'soon',
+              key: 'readiness-to-change',
               section: 'assigned',
               flags: { comingSoon: true } as CatalogCard['flags'],
             }),
@@ -296,7 +296,7 @@ describe('the quiet line, and what it is allowed to name', () => {
 
   it('opens the exact door the catalog page opens for the same card', () => {
     const started = card({
-      key: 'started',
+      key: 'core-values-snapshot',
       section: 'assigned',
       assignmentId: 'a1',
       primaryHref: '/health-intake',

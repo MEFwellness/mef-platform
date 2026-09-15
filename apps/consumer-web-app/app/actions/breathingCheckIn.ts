@@ -39,6 +39,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { ingestSitting } from '@/lib/cross-system-signals/service';
+import { SOURCE_BREATHING_CHECK_IN } from '@/lib/cross-system-signals/constants';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import {
   breathingCheckInPopupMessageKey,
@@ -179,6 +181,17 @@ export async function submitBreathingCheckInAction(
   if (!record?.completedAt || !record.results) {
     return { ok: false, error: BPC_COPY.saveError };
   }
+
+  // The shared Signal Library (Prompt 1 of the Cross-System Correlation
+  // Engine). Coach only, written through the trusted connection, best
+  // effort, and never allowed to affect the reading already built for her.
+  // Nothing about the validated instrument moves: the adapter reads the
+  // stored BpcResults and re-scores nothing.
+  await ingestSitting({
+    memberId: user.id,
+    sourceKey: SOURCE_BREATHING_CHECK_IN,
+    sittingId: record.id,
+  });
 
   // The pop-up for this assignment can never be due again, which makes any
   // snooze or ignore row for it dead weight.

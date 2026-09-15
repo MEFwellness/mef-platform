@@ -87,13 +87,16 @@ function tagIndex(componentName: string): number {
 }
 
 describe('nothing fell out, and everything landed inside a section', () => {
-  it('opens and closes exactly seven sections', () => {
-    // Seven since 2026-09-12, when Health Context joined them. It is its own
-    // section rather than a card inside Assessments and Findings because it
-    // is the background every reading in that section is read against
-    // rather than a reading of its own.
-    expect(RANGES).toHaveLength(7);
-    expect(DETAIL_SECTIONS).toHaveLength(7);
+  it('opens and closes exactly eight sections', () => {
+    // Seven since 2026-09-12, when Health Context joined them, and eight
+    // since 2026-09-15, when the shared Signal Library did. Each is its own
+    // section rather than a card inside Assessments and Findings: that
+    // section holds readings of ONE sitting, Health Context is the
+    // background they are read against, and Signals is every sitting plus
+    // the coach's own entries filed by what the body said rather than by
+    // which questionnaire asked.
+    expect(RANGES).toHaveLength(8);
+    expect(DETAIL_SECTIONS).toHaveLength(8);
   });
 
   /**
@@ -145,6 +148,7 @@ describe('nothing fell out, and everything landed inside a section', () => {
     'AssessmentHistoryList',
     'CheckinHistoryChart',
     'CoachNotesPanel',
+    'CrossSystemSignalsPanel',
   ];
 
   it.each(PANELS)('%s is still rendered, and is inside a section', (panel) => {

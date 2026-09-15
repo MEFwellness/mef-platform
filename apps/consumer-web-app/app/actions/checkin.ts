@@ -9,6 +9,8 @@
 
 'use server';
 
+import { ingestSitting } from '@/lib/cross-system-signals/service';
+import { SOURCE_DAILY_CHECK_IN } from '@/lib/cross-system-signals/constants';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import type { DailyCheckinInput, DailyCheckin, Habit } from '@mef/shared-types-contracts';
@@ -297,6 +299,20 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
     await refreshLongitudinalSignals(supabase, user.id, input.local_date);
   } catch (signalError) {
     console.error('Longitudinal signal refresh failed for submitDailyCheckin', signalError);
+  }
+
+  // The shared Signal Library (Prompt 1 of the Cross-System Correlation
+  // Engine). COACH ONLY, and it takes one thing from a check-in: a pain
+  // and discomfort level of one or more. A nought writes nothing, because
+  // a row a day saying there is nothing to report would bury every other
+  // signal she has. Best effort and last, exactly like the blocks above:
+  // her check-in is already saved and already returned.
+  if (typeof newCheckinId === 'string') {
+    await ingestSitting({
+      memberId: user.id,
+      sourceKey: SOURCE_DAILY_CHECK_IN,
+      sittingId: newCheckinId,
+    });
   }
 
   return {};

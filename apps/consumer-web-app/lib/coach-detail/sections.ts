@@ -38,6 +38,11 @@ import { WBS_LABEL } from '../whole-body-signal/constants';
 import { BPC_LABEL } from '../breathing-check-in/constants';
 import { HLI_LABEL } from '../health-intake/constants';
 import { FPA_LABEL } from '../fuel-pattern/constants';
+import {
+  CROSS_SYSTEM_SIGNALS_CARD_ID,
+  CROSS_SYSTEM_SIGNALS_LABEL,
+  CROSS_SYSTEM_SIGNALS_SECTION_ID,
+} from '../cross-system-signals/constants';
 
 /** One card inside a section, as the search knows it. `id` is its real DOM anchor. */
 export type DetailCardEntry = {
@@ -129,6 +134,24 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
       { id: 'detail-card-your-own-company', title: 'Your Own Company' },
       { id: 'detail-card-the-life-youre-building', title: "The Life You're Building" },
     ],
+  },
+  {
+    /*
+      SIGNALS (2026-09-15). The shared Signal Library, and it is its own
+      section rather than a card inside Assessments and Findings for the
+      same reason Health Context is: everything in that section is a
+      reading of ONE sitting, and this is every sitting plus the coach's
+      own entries filed together by what the body was saying rather than by
+      which questionnaire asked. It sits directly after the findings and
+      before the context, because it is the roll up of what those findings
+      said.
+
+      It is NOT the Rooted Reset Whole-Body Signal Assessment, which keeps
+      its own card in Assessments and Findings above.
+    */
+    id: CROSS_SYSTEM_SIGNALS_SECTION_ID,
+    title: CROSS_SYSTEM_SIGNALS_LABEL,
+    cards: [{ id: CROSS_SYSTEM_SIGNALS_CARD_ID, title: 'Signals and Add Signal' }],
   },
   {
     /*

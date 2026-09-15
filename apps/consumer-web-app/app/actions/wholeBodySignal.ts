@@ -66,6 +66,8 @@ import {
   type WbsFocusRecord,
   type WbsQuestionAction,
 } from '@/lib/whole-body-signal/data';
+import { ingestSitting } from '@/lib/cross-system-signals/service';
+import { SOURCE_WHOLE_BODY_SIGNAL } from '@/lib/cross-system-signals/constants';
 import { buildResults } from '@/lib/whole-body-signal/results';
 import { optionForQuestion, shownQuestions } from '@/lib/whole-body-signal/scoring';
 import { buildSteps, clampStepIndex, completionStepIndex } from '@/lib/whole-body-signal/steps';
@@ -284,6 +286,18 @@ export async function submitWholeBodySignalAction(
   if (!record?.completedAt || !record.results) {
     return { ok: false, error: memberCopy(content.copy, 'member.save_error') };
   }
+
+  // The shared Signal Library (Prompt 1 of the Cross-System Correlation
+  // Engine). ITS NINE SECTION PERCENTAGES ONLY: the adapter reads
+  // results.sections and has no branch that could reach results.zones, and
+  // the dictionary holds no Zone key for this source. Coach only, written
+  // through the trusted connection, best effort, and never allowed to
+  // affect the reading already built for her.
+  await ingestSitting({
+    memberId: user.id,
+    sourceKey: SOURCE_WHOLE_BODY_SIGNAL,
+    sittingId: record.id,
+  });
 
   // The pop-up for this assignment can never be due again, which makes any
   // snooze or ignore row for it dead weight.

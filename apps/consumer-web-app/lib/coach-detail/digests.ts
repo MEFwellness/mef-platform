@@ -258,3 +258,36 @@ export function appControlsDigest(input: AppControlsDigestInput): SectionDigest 
         : `${hiddenFeatures} of ${totalFeatures} features hidden`;
   return { text: line([water, features], water), dot: 'grey' };
 }
+
+/**
+ * The Signals header (2026-09-15).
+ *
+ * Two counts and nothing else: how many standardized signals this member
+ * has, and how many dated entries sit behind them. Both are read straight
+ * off the view the card itself renders, so the header and the list under
+ * it count the same thing by construction.
+ *
+ * THE DOT IS NEVER GOLD. A signal is a thing her body said, not a thing
+ * asking for anything, and nothing in this library ranks, grades or
+ * escalates one. Colouring a count of symptoms would turn a record into an
+ * alarm scale, which is exactly what the dot is documented at the top of
+ * this file as not being. Grey when she has none, green when she has some.
+ */
+export type SignalsDigestInput = {
+  /** Distinct standardized signals, the same number the card's groups add up to. */
+  signals: number;
+  /** Dated entries behind them, including every older one a timeline holds. */
+  entries: number;
+};
+
+export function signalsDigest(input: SignalsDigestInput): SectionDigest {
+  const { signals, entries } = input;
+  if (signals === 0) return { text: 'Nothing recorded yet', dot: 'grey' };
+  return {
+    text: line(
+      [plural(signals, 'signal'), entries > signals ? `${plural(entries, 'entry', 'entries')}` : null],
+      plural(signals, 'signal')
+    ),
+    dot: 'green',
+  };
+}
