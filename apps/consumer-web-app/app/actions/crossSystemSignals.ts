@@ -38,6 +38,7 @@ import {
 import { resolveCoachSignal, type CoachSignalInput } from '@/lib/cross-system-signals/entry';
 import { sourceLabel } from '@/lib/cross-system-signals/library';
 import { buildCoachSignalsView, type CoachSignalsView } from '@/lib/cross-system-signals/coachView';
+import { evaluateMember } from '@/lib/cross-system-patterns/evaluate';
 import type {
   SignalBodyArea,
   SignalCategory,
@@ -177,6 +178,17 @@ export async function addCoachSignalAction(
     note: signal.note,
   });
   if (!write.ok) return { ok: false, error: 'Could not save that signal. Please try again.' };
+
+  // RE-EVALUATION, THE SECOND OF THE THREE TRIGGERS (Prompt 3). Her
+  // timeline has a new row on it, so the patterns it meets may have
+  // changed. Best effort and after the fact: the signal is already stored
+  // and a failed evaluation is logged and swallowed inside evaluateMember,
+  // because losing an audit row must never cost a coach her entry.
+  //
+  // IT USES THE ENGINE'S OWN TRUSTED CONNECTION rather than her session,
+  // for the reason migration 245 states: no role has a write policy on the
+  // ledger at all, so a coach cannot manufacture a match by hand either.
+  await evaluateMember({ memberId: clientId, reason: 'coach_signal_added' });
 
   revalidatePath(`/coach/clients/${clientId}/detail`);
   return { ok: true };

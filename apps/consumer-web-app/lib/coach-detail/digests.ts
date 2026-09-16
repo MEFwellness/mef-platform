@@ -291,3 +291,47 @@ export function signalsDigest(input: SignalsDigestInput): SectionDigest {
     dot: 'green',
   };
 }
+
+/**
+ * WHOLE-BODY PATTERNS (2026-09-15). The matching engine's own section.
+ *
+ * ITS DOT IS NEVER GOLD, for the same reason the Signals dot is never
+ * gold and a stronger reason besides. A pattern is a thing a coach has
+ * asked to be shown so she can REVIEW it, not a thing asking for
+ * anything, and colouring one would turn "worth exploring" into an alarm
+ * on the folded header before she has read a word of her own text. The
+ * one exception is the case that is genuinely not about a pattern at all:
+ * a card the red flag system has withheld, which is safety, and safety is
+ * what the gold dot is for everywhere else on this page.
+ */
+export type PatternsDigestInput = {
+  /** Cards showing a pattern, the same number the card itself renders. */
+  patterns: number;
+  /** Cards the red flag system withheld, the same number again. */
+  suppressed: number;
+  /** Definitions switched on in the library, so an empty section can say why. */
+  activeRelationships: number;
+};
+
+export function patternsDigest(input: PatternsDigestInput): SectionDigest {
+  const { patterns, suppressed, activeRelationships } = input;
+  if (suppressed > 0) {
+    return {
+      text: line(
+        [
+          patterns > 0 ? plural(patterns, 'pattern') : null,
+          `${plural(suppressed, 'entry', 'entries')} held back for safety`,
+        ],
+        `${plural(suppressed, 'entry', 'entries')} held back for safety`
+      ),
+      dot: 'gold',
+    };
+  }
+  if (patterns === 0) {
+    return {
+      text: activeRelationships === 0 ? 'No pattern is active yet' : 'Nothing to review',
+      dot: 'grey',
+    };
+  }
+  return { text: plural(patterns, 'pattern to review'), dot: 'green' };
+}

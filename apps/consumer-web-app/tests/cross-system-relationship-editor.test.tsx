@@ -687,15 +687,44 @@ describe('this whole feature is coach only, structurally', () => {
   });
 
   it('nothing in this feature reads a member signal, scores anything or matches', () => {
-    // Prompt 2 defines patterns. It does not run them. If any of these
-    // appear here, a matching engine has arrived early and silently.
+    // Prompt 2 defines patterns. It still does not run them. Prompt 3
+    // added the matching engine, and the ONLY thing this file learned
+    // about it is a single call saying "a definition moved": which
+    // members that touches, what their rows say and what it costs all
+    // live behind that one name, in lib/cross-system-patterns/. If any of
+    // the strings below appear here, the engine has leaked back into the
+    // library that is supposed to know nothing about members.
     for (const forbidden of [
       'cross_system_signals',
       'listSignalsForMember',
       'buildCoachSignalsView',
+      'matchMemberSignals',
       'member_id',
     ]) {
       expect(ACTIONS, forbidden).not.toContain(forbidden);
+    }
+  });
+
+  it('the engine is reached through exactly one named call, and never inline', () => {
+    // The hand off, stated as a test rather than as a comment: one import
+    // of one function, and every write path that can change what an active
+    // definition means calls it.
+    const imports = [...ACTIONS.matchAll(/from '@\/lib\/cross-system-patterns\/([\w/]+)'/g)].map(
+      ([, module]) => module!
+    );
+    expect(imports).toEqual(['evaluate']);
+    expect([...ACTIONS.matchAll(/evaluateRelationshipChange\(/g)]).toHaveLength(3);
+
+    for (const fn of [
+      'createRelationshipAction',
+      'saveRelationshipVersionAction',
+      'setRelationshipActiveAction',
+    ]) {
+      const start = ACTIONS.indexOf(`export async function ${fn}(`);
+      const body = ACTIONS.slice(start, ACTIONS.indexOf('\nexport ', start + 1));
+      expect(body, `${fn} does not tell the engine its definition moved`).toContain(
+        'evaluateRelationshipChange({'
+      );
     }
   });
 

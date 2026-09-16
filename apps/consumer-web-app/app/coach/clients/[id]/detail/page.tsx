@@ -119,6 +119,7 @@ import {
   appControlsDigest,
   healthContextDigest,
   signalsDigest,
+  patternsDigest,
 } from '@/lib/coach-detail/digests';
 import { CHECKIN_WINDOW_DAYS, loggedDaysInWindow } from '@/lib/coach-detail/checkinSeries';
 import {
@@ -175,6 +176,8 @@ import { getClientBreathingCheckInPanelAction } from '@/app/actions/breathingChe
 import { getClientHealthIntakePanelAction } from '@/app/actions/healthIntake';
 import { getClientSignalsPanelAction } from '@/app/actions/crossSystemSignals';
 import { CrossSystemSignalsPanel } from '../CrossSystemSignalsPanel';
+import { getClientWholeBodyPatternsAction } from '@/app/actions/crossSystemPatterns';
+import { WholeBodyPatternsPanel } from '../WholeBodyPatternsPanel';
 import { buildHealthContextView } from '@/lib/health-intake/coachView';
 import { HealthContextPanel } from '../HealthContextPanel';
 import { OwningYourValuePanel } from '../OwningYourValuePanel';
@@ -316,6 +319,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     breathingCheckInPanel,
     healthIntakePanel,
     crossSystemSignalsPanel,
+    wholeBodyPatternsPanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
@@ -371,6 +375,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientBreathingCheckInPanelAction(profile.id),
     getClientHealthIntakePanelAction(profile.id),
     getClientSignalsPanelAction(profile.id),
+    getClientWholeBodyPatternsAction(profile.id),
     getClientOwningYourValuePanelAction(profile.id),
     getClientWhereYourJoyLivesPanelAction(profile.id),
     getClientTheGivingLedgerPanelAction(profile.id),
@@ -571,6 +576,14 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
       // header cannot count its own way and disagree with the list.
       signals: crossSystemSignalsPanel.view.signalCount,
       entries: crossSystemSignalsPanel.view.entryCount,
+    }),
+    patterns: patternsDigest({
+      // The same three numbers the card's own view already computed, so a
+      // folded header and the cards under it cannot disagree about how
+      // many patterns there are or how many were held back.
+      patterns: wholeBodyPatternsPanel.view.patternCount,
+      suppressed: wholeBodyPatternsPanel.view.suppressedCount,
+      activeRelationships: wholeBodyPatternsPanel.view.activeRelationshipCount,
     }),
     progress: progressDigest({
       loggedDays: loggedDaysInWindow(
@@ -982,6 +995,36 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
           >
             <div id="detail-card-cross-system-signals" className="scroll-mt-24">
               <CrossSystemSignalsPanel state={crossSystemSignalsPanel} />
+            </div>
+          </DetailSection>
+
+          {/*
+            WHOLE-BODY PATTERNS (2026-09-15). The matching engine, Prompt 3.
+            Every ACTIVE definition in the coach's Relationship Library that
+            this member's stored signals currently meet, one card each, with
+            Observed, Related Signals, Pattern Strength and Possible
+            Association kept as four separate blocks.
+
+            IT IS NOT A DIAGNOSIS AND IT CHANGES NO SCORE. The Body Systems
+            Survey's own percentages and bands are on their own card in
+            Assessments and Findings above, exactly as they were. Nothing
+            here is added to them and there is no combined number anywhere
+            in the feature.
+
+            IT SITS UNDER SIGNALS because it is those signals read against
+            her own written definitions, and it cannot be read without them.
+
+            THE SAFETY OVERRIDE IS ALREADY APPLIED by the time this renders:
+            a card touching a response that fired a red flag arrives with
+            every pattern field empty and draws the safety prompt instead.
+          */}
+          <DetailSection
+            id="detail-section-whole-body-patterns"
+            title="Whole-Body Patterns"
+            digest={sectionDigests.patterns}
+          >
+            <div id="detail-card-whole-body-patterns" className="scroll-mt-24">
+              <WholeBodyPatternsPanel state={wholeBodyPatternsPanel} />
             </div>
           </DetailSection>
 

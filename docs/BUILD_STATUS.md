@@ -1,3 +1,212 @@
+## The Whole-Body Cross-System Correlation Engine, Prompt 3 of 3: the matching engine and the Whole-Body Patterns view (2026-09-15)
+
+The engine that reads a member's stored signals against the definitions
+the coach wrote, the coach only card that shows what it found, and the
+timeline inside it. Migration 245, two tables, `lib/cross-system-patterns/`,
+one new section on the client detail page.
+
+**IT IS NOT A DIAGNOSTIC ENGINE AND IT CANNOT BECOME ONE.** It counts rows
+against thresholds she set and surfaces the ones that clear them, for her
+to review. Every word of interpretation on a card is HER OWN, carried
+through character for character from the version the match read. The
+schema carries no column that could hold a cause, a condition, a
+diagnosis, a severity, a confidence or a score, and a test reads the
+column names out of the SQL and fails if one appears.
+
+### THE MATCHER IS PURE, AND THERE IS NO MODEL ANYWHERE NEAR IT
+
+`lib/cross-system-patterns/match.ts` is handed a member's rows and a list
+of definitions and returns which ones those rows satisfy. No clock, no
+query, no randomness, nothing that could call out to a model. Same input,
+same answer, every time, and a test drives the whole engine from literals
+with no database at all.
+
+**THE THREE OUTCOMES, and what decides each:**
+
+| | |
+| --- | --- |
+| Single Signal | the primary is present and the floor is not met. `surfaced` is false, every field describing a pattern is null, and no card exists |
+| Emerging | primary present, floor met, and the LOWEST band she defined is reached. "An emerging cross-system pattern may be worth reviewing." |
+| Stronger | any band above the lowest one she defined. "Multiple related responses are contributing to this predefined pattern." |
+
+**ONE ANSWER ALONE CAN NEVER PRODUCE A CROSS-SYSTEM STATEMENT**, and the
+reason is structural rather than a rule somebody remembers: a row
+contributes ONCE. A definition naming both a body area and the category a
+signal sits in counts that one answer once, so a floor of two cannot be
+cleared out of a single response. A test drives exactly that case.
+
+**EMERGING AND STRONGER ARE STILL ROWS.** The engine never reads a level's
+NAME to decide which line to print. It reads the level's PLACE in her own
+ladder: the lowest band she defined is the emerging one, anything above it
+is a stronger one. A coach who renames both levels, deletes one or adds a
+third gets the right line anyway, and a test renames both and proves it.
+
+**ONLY THE CURRENT VALUE COUNTS, AND AN EXPLICIT NOUGHT IS NOT A SIGNAL.**
+The library is append over time, so the matcher reads the latest row per
+standardized signal AND side; the older rows are the timeline and never a
+second vote. A stored value of nought is the member saying the thing is
+not happening ("Never" is nought points on the survey's own scale), so a
+settled signal closes a pattern out rather than leaving last month's alarm
+standing forever.
+
+**INACTIVE IS INVISIBLE.** The active filter runs before a single signal
+is read, so a definition she has switched off cannot surface a card,
+cannot appear in a count and cannot reach the ledger.
+
+### THE SAFETY OVERRIDE ALWAYS WINS, AND IT HAPPENS IN THE BUILDER
+
+The Body Systems Survey's own red flag layer (`lib/body-systems/redFlags.ts`)
+is the only thing that decides a response carries a safety response, and
+`lib/cross-system-patterns/safety.ts` ASKS it rather than reimplementing
+it. Nothing in this build defines a flag, changes one, or writes to that
+layer at all.
+
+**THE RULE IS THE WIDE ONE, on purpose.** A red flag is answered on its own
+screens alongside a whole sitting, and there is no per question link
+between one flag and one section answer. Inventing one would be a clinical
+judgement this feature is not allowed to make, so EVERY signal captured
+from a sitting that fired a flag carries the response, and ONE contributing
+signal, primary or supporting, withholds the ENTIRE card.
+
+**A SUPPRESSED CARD IS BUILT EMPTY, NOT MERELY DRAWN EMPTY.** The override
+is the first branch in `buildPatternCard`, so a withheld card arrives with
+every pattern field null and every list empty. There is no possible
+association and no coaching consideration in the payload for a screen to
+leak. What draws in its place is the safety treatment the Body Systems
+card already uses, with a prompt pointing at the red flags pinned there.
+
+Proved twice over: against the built object, and against the real rendered
+HTML, searched character by character for the association, the
+consideration, both display lines, the pattern name and all four block
+headings. The unflagged render is asserted to contain every one of them
+first, so the guard cannot pass by rendering nothing.
+
+### THE CARD: FOUR BLOCKS THAT NEVER BLEND
+
+Observed, Related Signals, Pattern Strength and Possible Association are
+four separately headed regions with their own treatment, in that order,
+and no sentence is shared between them. A test walks the rendered HTML and
+asserts the four headings appear in that order, and a second one asserts
+no block's content appears inside another.
+
+| block | what it holds |
+| --- | --- |
+| Observed | the exact reported signals with their values ("Hip clicking, Often") |
+| Related Signals | each related input the coach wrote, with its supporting response count, including one nothing matched, which reads as nought |
+| Pattern Strength | her level's own label, plus one of the two fixed display lines |
+| Possible Association | her wording, unchanged. Null says so plainly rather than composing one |
+| Why Root noticed this | "Root identified 2 supporting signals across 1 source." Arithmetic, and it never says "1 signals" |
+| Sources | every contributing signal with its source label and its capture day |
+| Coaching Considerations | her list, in her order |
+| View contributing signals | every exact original response, with the question the member was answering, linked back to the card that reads that sitting |
+
+**THE QUESTIONNAIRE SCORES ARE UNTOUCHED.** The Body Systems Survey's
+percentages and bands are on their own card in Assessments and Findings,
+exactly as they were. There is no total on a pattern card, no index, no
+percentage and no combined number anywhere in the feature: a test asserts
+the card object carries no key containing score, total, index, percent,
+severity or confidence, and that the rendered card prints no percent sign
+at all.
+
+### THE TIMELINE IS OBSERVATIONAL, AND STRUCTURALLY SO
+
+Per signal, the values in the order they were captured: "Often to
+Sometimes to Rarely". A signal recorded once says so rather than being
+drawn with an arrow through it, and a left and a right stay two
+trajectories.
+
+Then ONE neutral pattern level line, never a stack of them. Six sentences
+exist and there are no others: the brief's two, plus one for a single
+signal going quiet (because "several" said about one signal is wrong about
+her own rows), one for both directions at once, one for nothing moving,
+and one for a pattern with nothing to compare yet.
+
+**NONE OF THEM CAN NAME TWO THINGS AND SAY ONE PRODUCED THE OTHER**, because
+none of them has a slot: they are fixed strings with no interpolation, and
+a test asserts that no movement sentence contains a template placeholder
+or the name of any body part or system.
+
+### RE-EVALUATION, AND A RENDER STILL DECIDES NOTHING
+
+| trigger | where |
+| --- | --- |
+| a new sitting ingested | `lib/cross-system-signals/service.ts`, after the rows are written and only when a row was written |
+| a coach signal added | `addCoachSignalAction`, after the insert |
+| a definition saved, activated or deactivated | the three write actions in `crossSystemRelationships.ts` |
+
+**THE CARD IS COMPUTED LIVE ON EVERY READ**, by the same pure matcher, so
+it is correct the instant any of the three happen and can never be stale.
+What the ledger adds is the thing a recomputation cannot: WHICH VERSION
+was current, WHICH rows satisfied it, and WHEN. A definition edited next
+month would otherwise erase the record of what last month's evaluation
+read.
+
+That is also why there is one source of truth rather than two: the coach's
+read COMPUTES and never reads the ledger back, and a test asserts it
+contains no insert, update, upsert, delete or evaluate call at all.
+
+**A RELATIONSHIP CHANGE IS BOUNDED.** A member holding none of the signals
+a definition names cannot match it, so a saved edit asks the signal table
+for the members who hold a row under one of its own keys, capped at 200,
+plus everybody who already has a ledger row for it, which is what lets a
+DEACTIVATION clear the rows it wrote even for a member whose signals have
+since settled.
+
+**A RE-EVALUATION REPLACES.** One row per member and relationship, deleted
+outright when the pattern stops meeting its floor. A stored row meaning
+"nothing" is a row every reader has to remember to filter.
+
+### THE FENCE, AND THE ONE THING IT MADE US MOVE
+
+Migration 245's two tables carry **no member policy of any kind** and **no
+write policy for anybody, coach included**. A member session reads nothing;
+a coach cannot manufacture a match for a member by hand. The only writer is
+the engine's trusted connection, the same discipline ingestion uses and for
+the same reason: two of the three triggers fire while a MEMBER'S own submit
+is completing, where no coach session exists.
+
+**The Relationship Library's own rule is intact.** It still has no service
+role, so every definition still has an author, and a test asserts the
+engine writes no relationship table at all.
+
+**WHAT THE IMPORT GRAPH ACTUALLY SAYS, written down rather than wished
+for.** Ingesting her finished sitting is a re-evaluation trigger, so a
+member's own submit genuinely does reach the matcher and the ledger. A test
+claiming otherwise would have described a fence this build does not have.
+So the feature was SPLIT: `copy.ts` holds every sentence a coach reads and
+is reachable only from a coach surface, and the evaluation half holds none.
+A match now reaches a STRENGTH rather than a sentence, and the view turns
+that into one of the two display lines.
+
+The test asserts both halves: no member surface reaches the copy, the card
+builder, the timeline, the coach read or the panel; and **not one
+coach facing string is present in any file a member surface can reach**,
+checked with the TypeScript compiler over real string nodes, with a
+non vacuous case proving those strings really are in the rendering half.
+
+### Checks
+
+**12,067 tests passing across 623 files**, 154 of them new across five new
+files: `cross-system-pattern-match.test.ts` (37),
+`cross-system-pattern-safety.test.tsx` (24),
+`cross-system-pattern-card.test.tsx` (38),
+`cross-system-pattern-engine.test.ts` (29),
+`cross-system-pattern-fence.test.ts` (26),
+`cross-system-pattern-copy.test.ts` (37), plus a shared fixture.
+
+Typecheck clean. Lint clean at 0 errors. Production build clean,
+`/coach/clients/[id]/detail` at 70.6 kB.
+
+Migration 245 applied to production. The ledger is unbroken: 245 locally
+and 245 remotely, row for row.
+
+**Two existing guards were updated rather than worked around.** Prompt 2's
+"nothing here matches" assertion now says what is true in Prompt 3: the
+relationship actions still read no member signal and score nothing, and
+the engine is reached through exactly ONE named call, asserted by
+import and by call site. Prompt 1's import fence gained the engine's coach
+read. The detail page's section count went from eight to nine.
+
 ## The Whole-Body Cross-System Correlation Engine, Prompt 2 of 3: the editable Relationship Library (2026-09-15)
 
 The definitions only, and the editor she writes them in. Five tables, a

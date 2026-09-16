@@ -510,6 +510,11 @@ describe('this whole feature is coach only, structurally', () => {
       'components/coach-relationships/RelationshipEditor.tsx',
       'components/coach-relationships/RelationshipLibraryPanel.tsx',
       'components/coach-relationships/RelationshipVersionHistory.tsx',
+      // The matching engine's own coach read (Prompt 3). Coach only, and
+      // guarded the same way: tests/cross-system-pattern-engine.test.tsx
+      // asserts it establishes a coach and applies the test account rule
+      // before it reads a single row.
+      'app/actions/crossSystemPatterns.ts',
     ];
     for (const hit of hits) {
       const isCoachSurface = hit.startsWith('app/coach/') || hit.startsWith('app/admin/');
@@ -533,7 +538,10 @@ describe('this whole feature is coach only, structurally', () => {
         hit.startsWith('app/coach/') ||
           hit.startsWith('app/admin/') ||
           hit.startsWith('components/coach-relationships/') ||
-          hit === 'app/actions/crossSystemRelationships.ts',
+          hit === 'app/actions/crossSystemRelationships.ts' ||
+          // The matching engine's own coach read (Prompt 3), which is the
+          // one place the definitions and a member's signals meet.
+          hit === 'app/actions/crossSystemPatterns.ts',
         `${hit} reaches the Relationship Library from outside a coach surface`
       ).toBe(true);
     }

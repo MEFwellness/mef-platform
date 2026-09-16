@@ -25,6 +25,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { localDateStringFor } from '../time/localDate';
 import { memberTimezone } from '../time/memberToday';
+import { evaluateMember } from '../cross-system-patterns/evaluate';
 import { SIGNAL_ADAPTER_REGISTRY } from './adapters';
 import { loadSignalLibrary } from './contentData';
 import { insertSignals, knownSignalSlugs } from './data';
@@ -91,6 +92,25 @@ export async function ingestSitting(input: {
 
     const write = await insertSignals(supabase, input.memberId, drafts);
     if (!write.ok) return { written: 0, skipped: 'write_failed' };
+
+    // RE-EVALUATION, THE FIRST OF THE THREE TRIGGERS (Prompt 3). New rows
+    // have just landed on this member's timeline, so the patterns her
+    // signals meet may have changed. It runs only when a row was actually
+    // written, because a re-run over a sitting already ingested changes
+    // nothing and a second evaluation of identical rows is a wasted pass.
+    //
+    // BEST EFFORT AND AFTER THE FACT. Her sitting is saved, her result is
+    // built and the signals are filed by the time this is called, and a
+    // failure here is logged and swallowed inside evaluateMember. The
+    // coach's card is computed live on every read, so a lost ledger write
+    // costs an audit row and never a screen.
+    if (write.written > 0) {
+      await evaluateMember({
+        memberId: input.memberId,
+        reason: 'sitting_ingested',
+        client: supabase,
+      });
+    }
     return { written: write.written, skipped: null };
   } catch (error) {
     console.error('ingestSitting failed', input.sourceKey, error);

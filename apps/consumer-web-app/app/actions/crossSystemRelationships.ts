@@ -50,6 +50,19 @@ import type {
   RelationshipDraft,
   RelationshipSummary,
 } from '@/lib/cross-system-relationships/types';
+/*
+  THE THIRD RE-EVALUATION TRIGGER (Prompt 3), and the ONE thing this file
+  knows about the matching engine.
+
+  Nothing in this file reads a member's signal rows, counts one, scores
+  anything or decides that anybody is showing a pattern. It still does
+  exactly what Prompt 2 built it to do: write down what the coach knows.
+  What it gained is a single call, after each write that could change what
+  an active definition means, telling the engine that a definition moved.
+  Everything about which members that touches, what their rows say and
+  what it costs lives behind that one name.
+*/
+import { evaluateRelationshipChange } from '@/lib/cross-system-patterns/evaluate';
 
 /** Everything the editor draws, in one read. */
 export type RelationshipLibraryState = {
@@ -150,6 +163,12 @@ export async function createRelationshipAction(
   });
   if (!written.ok) return written;
 
+  // A NEW PATTERN IS SAVED INACTIVE whatever the form thought, so this
+  // evaluates nothing today. It runs anyway because the trigger belongs to
+  // the WRITE rather than to a guess about the flag, and a future change
+  // to that default must not silently leave the engine behind.
+  await evaluateRelationshipChange({ relationshipId: written.relationshipId });
+
   revalidatePath(RELATIONSHIP_LIBRARY_HREF);
   return written;
 }
@@ -176,6 +195,10 @@ export async function saveRelationshipVersionAction(
     draft: resolution.draft,
   });
   if (!written.ok) return written;
+
+  // An edit can move a floor, a threshold or an input, so what this
+  // definition means for a member may have changed in either direction.
+  await evaluateRelationshipChange({ relationshipId });
 
   revalidatePath(RELATIONSHIP_LIBRARY_HREF);
   return written;
@@ -243,6 +266,11 @@ export async function setRelationshipActiveAction(
 
   const written = await setRelationshipActive(session.supabase, relationshipId, isActive);
   if (!written) return { ok: false, error: 'Could not change that. Please try again.' };
+
+  // BOTH DIRECTIONS MATTER, and the deactivation matters most: it is what
+  // removes the rows this definition wrote. A pattern switched off must
+  // leave nothing behind anywhere.
+  await evaluateRelationshipChange({ relationshipId });
 
   revalidatePath(RELATIONSHIP_LIBRARY_HREF);
   return { ok: true };

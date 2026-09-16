@@ -43,6 +43,11 @@ import {
   CROSS_SYSTEM_SIGNALS_LABEL,
   CROSS_SYSTEM_SIGNALS_SECTION_ID,
 } from '../cross-system-signals/constants';
+import {
+  WHOLE_BODY_PATTERNS_CARD_ID,
+  WHOLE_BODY_PATTERNS_SECTION_ID,
+} from '../cross-system-patterns/constants';
+import { WHOLE_BODY_PATTERNS_LABEL } from '../cross-system-patterns/copy';
 
 /** One card inside a section, as the search knows it. `id` is its real DOM anchor. */
 export type DetailCardEntry = {
@@ -152,6 +157,23 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
     id: CROSS_SYSTEM_SIGNALS_SECTION_ID,
     title: CROSS_SYSTEM_SIGNALS_LABEL,
     cards: [{ id: CROSS_SYSTEM_SIGNALS_CARD_ID, title: 'Signals and Add Signal' }],
+  },
+  {
+    /*
+      WHOLE-BODY PATTERNS (2026-09-15). The matching engine, and it sits
+      directly under Signals because it is those signals read against the
+      coach's own written definitions and nothing else. Near the
+      assessment results, after the store they feed, and before the
+      context everything is read against.
+
+      IT ADDS NOTHING TO A QUESTIONNAIRE. The Body Systems Survey's own
+      percentages and bands are on their own card, above, exactly as they
+      were. Nothing on this one is combined with them and there is no
+      total anywhere in the feature.
+    */
+    id: WHOLE_BODY_PATTERNS_SECTION_ID,
+    title: WHOLE_BODY_PATTERNS_LABEL,
+    cards: [{ id: WHOLE_BODY_PATTERNS_CARD_ID, title: 'Whole-Body Patterns' }],
   },
   {
     /*
