@@ -8,10 +8,11 @@
  * `loadSignalLibrary`.
  *
  * ORDERING IS DONE HERE, ONCE. The matcher depends on longest-phrase-first
- * and would otherwise re-sort 339 rows per sentence.
+ * and would otherwise re-sort seventeen hundred rows per sentence.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { orderPhrases } from './classify';
 import type {
   ComplaintContext,
@@ -52,17 +53,38 @@ type ContextRow = { context_key: string; position: number; display_name: string 
 export async function loadComplaintLexicon(
   supabase: SupabaseClient
 ): Promise<ComplaintLexicon> {
+  /*
+    THE PHRASES ARE PAGED, and that is not a precaution.
+
+    PostgREST caps an unbounded select at a thousand rows and reports
+    success. The lexicon holds over seventeen hundred, so this read was
+    silently losing seven hundred of them: a third of everything a member
+    can say had stopped being understood, with no error anywhere. See
+    lib/data/pagedSelect.ts for what found it.
+
+    The modifiers are paged for the same reason even though they are under
+    the cap today, because "under the cap today" is exactly the state the
+    phrases were in last week.
+  */
   const [phrases, modifiers, surfaces, contexts] = await Promise.all([
-    supabase
-      .from('cross_system_complaint_lexicon')
-      .select('phrase, signal_slug, body_area_key, specificity')
-      .eq('is_active', true),
-    supabase
-      .from('cross_system_complaint_modifiers')
-      .select(
-        'phrase, kind, side, body_area_key, context_key, frequency_key, frequency_label, frequency_numeric'
-      )
-      .eq('is_active', true),
+    selectAllRows<PhraseRow>(() =>
+      supabase
+        .from('cross_system_complaint_lexicon')
+        .select('phrase, signal_slug, body_area_key, specificity')
+        .eq('is_active', true)
+        .order('phrase', { ascending: true })
+        .order('signal_slug', { ascending: true })
+    ),
+    selectAllRows<ModifierRow>(() =>
+      supabase
+        .from('cross_system_complaint_modifiers')
+        .select(
+          'phrase, kind, side, body_area_key, context_key, frequency_key, frequency_label, frequency_numeric'
+        )
+        .eq('is_active', true)
+        .order('phrase', { ascending: true })
+        .order('kind', { ascending: true })
+    ),
     supabase
       .from('cross_system_complaint_surfaces')
       .select('surface_key, position, display_name, default_author_role')
@@ -73,8 +95,11 @@ export async function loadComplaintLexicon(
       .order('position'),
   ]);
 
-  const phraseRows = (phrases.data as PhraseRow[] | null) ?? [];
-  const modifierRows = (modifiers.data as ModifierRow[] | null) ?? [];
+  if (!phrases.ok) console.error('complaint lexicon read failed', phrases.error);
+  if (!modifiers.ok) console.error('complaint modifiers read failed', modifiers.error);
+
+  const phraseRows = phrases.rows;
+  const modifierRows = modifiers.rows;
   const surfaceRows = (surfaces.data as SurfaceRow[] | null) ?? [];
   const contextRows = (contexts.data as ContextRow[] | null) ?? [];
 

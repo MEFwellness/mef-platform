@@ -159,6 +159,27 @@ class FakeQuery {
     return this;
   }
 
+  /**
+   * A RANGE, BECAUSE POSTGREST HAS ONE AND SO DOES THE CAP.
+   *
+   * The reads in data.ts page themselves now, after a silent truncation at
+   * a thousand rows lost most of the Association Map's components on
+   * production. A fake without `range` cannot exercise that path at all,
+   * and this one deliberately enforces the cap too, so a read that goes
+   * back to asking for everything at once fails here rather than on a
+   * coach's screen.
+   */
+  range(from: number, to: number) {
+    this.rangeFrom = from;
+    this.rangeTo = to;
+    return this;
+  }
+
+  private rangeFrom: number | null = null;
+  private rangeTo: number | null = null;
+  /** What this project's database sets db-max-rows to. */
+  private static readonly MAX_ROWS = 1000;
+
   private matching(): Row[] {
     let rows = this.db.rows(this.table);
     for (const filter of this.filters) {
@@ -209,7 +230,13 @@ class FakeQuery {
       }
       return { data: [], error: null };
     }
-    return { data: this.matching(), error: null };
+    const rows = this.matching();
+    if (this.rangeFrom !== null && this.rangeTo !== null) {
+      const width = Math.min(this.rangeTo - this.rangeFrom + 1, FakeQuery.MAX_ROWS);
+      return { data: rows.slice(this.rangeFrom, this.rangeFrom + width), error: null };
+    }
+    // The cap, exactly as production applies it to an unbounded read.
+    return { data: rows.slice(0, FakeQuery.MAX_ROWS), error: null };
   }
 
   maybeSingle() {
@@ -580,6 +607,95 @@ describe('the editor opened on an existing pattern', () => {
     );
     expect(html).toContain('saves as version 4');
     expect(html).toContain('Save as a new version');
+  });
+});
+
+describe('a library larger than PostgREST will return in one read', () => {
+  /**
+   * THE DEFECT THIS PROVES FIXED, and it shipped before it was found.
+   *
+   * PostgREST caps an unbounded select at a thousand rows and reports
+   * success. The Whole-Body Association Map put 2,511 components in one
+   * table, and this read is ordered by position, so the cut fell across
+   * EVERY entry at once: each one kept its first few components and lost
+   * the rest. A coach was shown a finding that had checked three areas
+   * when the entry named nine, and nothing errored anywhere.
+   *
+   * The fake above enforces the same cap, so this case fails the moment
+   * the paging comes out.
+   */
+  it('returns every component of every definition, past the cap', async () => {
+    const db = new FakeDb();
+    const relationships = [];
+    const versions = [];
+    const components = [];
+    for (let index = 0; index < 250; index += 1) {
+      const relationshipId = `rel-${index}`;
+      const versionId = `ver-${index}`;
+      relationships.push({
+        id: relationshipId,
+        pattern_key: `map-${index}`,
+        is_active: true,
+        is_example: false,
+        is_seeded: true,
+        current_version: 1,
+        created_by: null,
+        created_at: `2026-09-${String((index % 28) + 1).padStart(2, '0')}T00:00:00Z`,
+        updated_at: '2026-09-16T00:00:00Z',
+      });
+      versions.push({
+        id: versionId,
+        relationship_id: relationshipId,
+        version_number: 1,
+        pattern_name: `Pattern ${index}`,
+        min_supporting_signals: 1,
+        possible_association_text: 'Observed together and worth reviewing.',
+        source_type_key: 'chek_hlc',
+        surfaces_on_complaint: true,
+        evidence_notes: null,
+        change_summary: null,
+        created_by: null,
+        created_at: '2026-09-16T00:00:00Z',
+      });
+      // Ten components each: 2,500 rows, well past the thousand row cap.
+      for (let position = 0; position < 10; position += 1) {
+        components.push({
+          id: `${versionId}-c${position}`,
+          version_id: versionId,
+          position,
+          role: position === 0 ? 'primary' : 'related',
+          ref_kind: 'category',
+          ref_key: `cat-${position}`,
+          ref_label: `Category ${position}`,
+          side: null,
+          value_key: null,
+          value_label: null,
+          min_value_numeric: null,
+          source_key: null,
+          source_question_ref: null,
+          source_question_prompt: null,
+          note: null,
+        });
+      }
+    }
+    db.replace('cross_system_relationships', relationships);
+    db.replace('cross_system_relationship_versions', versions);
+    db.replace('cross_system_relationship_components', components);
+
+    const listed = await listRelationships(db as never);
+    expect(listed.ok).toBe(true);
+    expect(listed.summaries.length).toBe(250);
+
+    const total = listed.summaries.reduce(
+      (sum, summary) => sum + summary.current.components.length,
+      0
+    );
+    expect(total).toBe(2500);
+    // And not one definition came back short, which is the shape the
+    // truncation actually took.
+    for (const summary of listed.summaries) {
+      expect(summary.current.components.length, summary.head.patternKey).toBe(10);
+    }
   });
 });
 

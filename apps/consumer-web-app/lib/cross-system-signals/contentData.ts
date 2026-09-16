@@ -14,6 +14,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { mappingKey } from './library';
 import type {
   SignalBodyArea,
@@ -89,15 +90,24 @@ async function fetchSymptoms(supabase: SupabaseClient): Promise<SignalSymptomTyp
   }));
 }
 
+/**
+ * PAGED. The names table grew from 159 to 211 in one build and the map
+ * that reads it is what keeps growing, so this is the next read that would
+ * have crossed PostgREST's thousand row cap silently. See
+ * lib/data/pagedSelect.ts for the one that already had.
+ */
 async function fetchNames(supabase: SupabaseClient): Promise<StandardizedSignalName[]> {
-  const { data, error } = await supabase
-    .from('cross_system_signal_names')
-    .select(
-      'signal_slug, display_name, category_key, default_body_area_key, default_symptom_key, search_terms, is_coach_addable'
-    )
-    .eq('is_active', true)
-    .order('display_name', { ascending: true });
-  if (error) {
+  const { ok, rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('cross_system_signal_names')
+      .select(
+        'signal_slug, display_name, category_key, default_body_area_key, default_symptom_key, search_terms, is_coach_addable'
+      )
+      .eq('is_active', true)
+      .order('display_name', { ascending: true })
+      .order('signal_slug', { ascending: true })
+  );
+  if (!ok) {
     console.error('cross-system signal names read failed', error);
     return [];
   }
@@ -130,12 +140,17 @@ async function fetchSources(supabase: SupabaseClient): Promise<SignalSource[]> {
   }));
 }
 
+/** Paged, for the same reason fetchNames is: it grows with the library. */
 async function fetchMappings(supabase: SupabaseClient): Promise<SignalSourceMapping[]> {
-  const { data, error } = await supabase
-    .from('cross_system_signal_source_map')
-    .select('source_key, external_kind, external_key, signal_slug, body_area_key')
-    .eq('is_active', true);
-  if (error) {
+  const { ok, rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('cross_system_signal_source_map')
+      .select('source_key, external_kind, external_key, signal_slug, body_area_key')
+      .eq('is_active', true)
+      .order('source_key', { ascending: true })
+      .order('external_key', { ascending: true })
+  );
+  if (!ok) {
     console.error('cross-system signal source map read failed', error);
     return [];
   }

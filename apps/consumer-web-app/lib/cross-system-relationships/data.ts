@@ -18,6 +18,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type { SignalSide } from '@/lib/cross-system-signals/types';
 import type { ResolvedRelationshipDraft } from './draft';
 import type {
@@ -171,27 +172,49 @@ async function hydrateVersions(
   if (versionRows.length === 0) return [];
   const ids = versionRows.map((row) => row.id);
 
+  /*
+    PAGED, AND THE REASON IS A REAL DEFECT THIS LIBRARY'S OWN GROWTH
+    EXPOSED.
+
+    PostgREST caps an unbounded select at a thousand rows and says nothing
+    about it. While the library held nineteen definitions that was
+    invisible. The Whole-Body Association Map is over two hundred, carrying
+    2,511 components and 1,435 considerations, and this read is ordered by
+    POSITION, so the cut fell across every entry at once: each one kept its
+    first few components and lost the rest. A coach was shown a finding
+    that had checked three areas when the entry named nine, and nothing
+    errored. See lib/data/pagedSelect.ts.
+  */
   const [components, levels, considerations] = await Promise.all([
-    supabase
-      .from('cross_system_relationship_components')
-      .select(COMPONENT_COLUMNS)
-      .in('version_id', ids)
-      .order('position', { ascending: true }),
-    supabase
-      .from('cross_system_relationship_strength_levels')
-      .select(LEVEL_COLUMNS)
-      .in('version_id', ids)
-      .order('position', { ascending: true }),
-    supabase
-      .from('cross_system_relationship_considerations')
-      .select(CONSIDERATION_COLUMNS)
-      .in('version_id', ids)
-      .order('position', { ascending: true }),
+    selectAllRows<ComponentRow>(() =>
+      supabase
+        .from('cross_system_relationship_components')
+        .select(COMPONENT_COLUMNS)
+        .in('version_id', ids)
+        .order('version_id', { ascending: true })
+        .order('position', { ascending: true })
+    ),
+    selectAllRows<LevelRow>(() =>
+      supabase
+        .from('cross_system_relationship_strength_levels')
+        .select(LEVEL_COLUMNS)
+        .in('version_id', ids)
+        .order('version_id', { ascending: true })
+        .order('position', { ascending: true })
+    ),
+    selectAllRows<ConsiderationRow>(() =>
+      supabase
+        .from('cross_system_relationship_considerations')
+        .select(CONSIDERATION_COLUMNS)
+        .in('version_id', ids)
+        .order('version_id', { ascending: true })
+        .order('position', { ascending: true })
+    ),
   ]);
 
-  if (components.error) console.error('relationship components read failed', components.error);
-  if (levels.error) console.error('relationship strength levels read failed', levels.error);
-  if (considerations.error) {
+  if (!components.ok) console.error('relationship components read failed', components.error);
+  if (!levels.ok) console.error('relationship strength levels read failed', levels.error);
+  if (!considerations.ok) {
     console.error('relationship considerations read failed', considerations.error);
   }
 
@@ -205,11 +228,9 @@ async function hydrateVersions(
     return map;
   };
 
-  const componentsByVersion = byVersion((components.data ?? []) as unknown as ComponentRow[]);
-  const levelsByVersion = byVersion((levels.data ?? []) as unknown as LevelRow[]);
-  const considerationsByVersion = byVersion(
-    (considerations.data ?? []) as unknown as ConsiderationRow[]
-  );
+  const componentsByVersion = byVersion(components.rows);
+  const levelsByVersion = byVersion(levels.rows);
+  const considerationsByVersion = byVersion(considerations.rows);
 
   return versionRows.map((row) => ({
     id: row.id,
@@ -241,29 +262,43 @@ async function hydrateVersions(
 export async function listRelationships(
   supabase: SupabaseClient
 ): Promise<{ ok: boolean; summaries: RelationshipSummary[] }> {
-  const heads = await supabase
-    .from('cross_system_relationships')
-    .select(HEAD_COLUMNS)
-    .order('created_at', { ascending: true });
-  if (heads.error) {
+  const heads = await selectAllRows<HeadRow>(() =>
+    supabase
+      .from('cross_system_relationships')
+      .select(HEAD_COLUMNS)
+      .order('created_at', { ascending: true })
+      .order('pattern_key', { ascending: true })
+  );
+  if (!heads.ok) {
     console.error('listRelationships failed', heads.error);
     return { ok: false, summaries: [] };
   }
-  const headRows = (heads.data ?? []) as unknown as HeadRow[];
+  const headRows = heads.rows;
   if (headRows.length === 0) return { ok: true, summaries: [] };
 
-  const versions = await supabase
-    .from('cross_system_relationship_versions')
-    .select(VERSION_COLUMNS)
-    .in(
-      'relationship_id',
-      headRows.map((row) => row.id)
-    );
-  if (versions.error) {
+  /*
+    PAGED, BEFORE IT NEEDS TO BE. This returns every version of every
+    relationship: 240 today because each one has been written once, and
+    1,200 the day the library has been edited five times over. The
+    components read below was in exactly this state a week ago, and it was
+    already over the cap by the time anybody noticed.
+  */
+  const versions = await selectAllRows<VersionRow>(() =>
+    supabase
+      .from('cross_system_relationship_versions')
+      .select(VERSION_COLUMNS)
+      .in(
+        'relationship_id',
+        headRows.map((row) => row.id)
+      )
+      .order('relationship_id', { ascending: true })
+      .order('version_number', { ascending: true })
+  );
+  if (!versions.ok) {
     console.error('listRelationships versions failed', versions.error);
     return { ok: false, summaries: [] };
   }
-  const versionRows = ((versions.data ?? []) as unknown as VersionRow[]).filter((row) => {
+  const versionRows = versions.rows.filter((row) => {
     const head = headRows.find((candidate) => candidate.id === row.relationship_id);
     return head ? head.current_version === row.version_number : false;
   });
@@ -297,18 +332,22 @@ export async function getRelationship(
   if (!head.data) return null;
   const headRow = head.data as unknown as HeadRow;
 
-  const versions = await supabase
-    .from('cross_system_relationship_versions')
-    .select(VERSION_COLUMNS)
-    .eq('relationship_id', relationshipId)
-    .order('version_number', { ascending: false });
-  if (versions.error) {
+  // Paged for the same reason the list read is: this returns the WHOLE
+  // trail of one definition, which grows by one every time she edits it.
+  const versions = await selectAllRows<VersionRow>(() =>
+    supabase
+      .from('cross_system_relationship_versions')
+      .select(VERSION_COLUMNS)
+      .eq('relationship_id', relationshipId)
+      .order('version_number', { ascending: false })
+  );
+  if (!versions.ok) {
     console.error('getRelationship versions failed', versions.error);
     return null;
   }
   const hydrated = await hydrateVersions(
     supabase,
-    (versions.data ?? []) as unknown as VersionRow[]
+    versions.rows
   );
   const current = hydrated.find((version) => version.versionNumber === headRow.current_version);
   if (!current) return null;
@@ -316,16 +355,26 @@ export async function getRelationship(
   return { head: headFromRow(headRow), current, history: hydrated };
 }
 
-/** Every pattern key already in use, so a new one can be made distinct. */
+/**
+ * Every pattern key already in use, so a new one can be made distinct.
+ *
+ * PAGED, AND THIS ONE MATTERS MORE THAN ITS SIZE SUGGESTS. A truncated
+ * read here does not lose a row a coach can see, it loses the knowledge
+ * that a key is taken, and the next duplicate is refused by the unique
+ * index with an error she did not cause and cannot read.
+ */
 export async function listPatternKeys(supabase: SupabaseClient): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from('cross_system_relationships')
-    .select('pattern_key');
-  if (error) {
+  const { ok, rows, error } = await selectAllRows<{ pattern_key: string }>(() =>
+    supabase
+      .from('cross_system_relationships')
+      .select('pattern_key')
+      .order('pattern_key', { ascending: true })
+  );
+  if (!ok) {
     console.error('listPatternKeys failed', error);
     return new Set();
   }
-  return new Set((data ?? []).map((row: { pattern_key: string }) => row.pattern_key));
+  return new Set(rows.map((row) => row.pattern_key));
 }
 
 async function writeVersionChildren(
