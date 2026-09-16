@@ -93,6 +93,35 @@ export type RelationshipVersion = {
   changeSummary: string | null;
   createdBy: string | null;
   createdAt: string;
+
+  /**
+   * WHAT SORT OF RELATIONSHIP THIS IS, and therefore what basis it rests
+   * on. A CHEK / HLC methodology association and a conventional
+   * referred-pain relationship are not the same kind of claim and must not
+   * be presented as though they are, so every version carries one and the
+   * coach's card prints it. Defaults to 'coach_added' for every row written
+   * before migration 246, which is truthful: those were coach added.
+   */
+  sourceTypeKey: string;
+
+  /**
+   * WHICH ENGINE READS THIS ENTRY.
+   *
+   * True means it is part of Root's Whole-Body Association Map: the
+   * complaint-driven lookup consults it whenever a matching complaint
+   * arrives, with no floor, and surfaces the areas it names along with what
+   * is in each one.
+   *
+   * False means it behaves exactly as every definition did before: the
+   * floor-based matcher counts her rows against the thresholds the coach
+   * wrote and surfaces a Whole-Body Pattern card when they are cleared.
+   *
+   * THE TWO ARE MUTUALLY EXCLUSIVE ON PURPOSE. One entry must never produce
+   * both a Root finding and a pattern card about the same thing, so each
+   * engine filters on this flag and neither sees the other's rows.
+   */
+  surfacesOnComplaint: boolean;
+
   components: RelationshipComponent[];
   strengthLevels: RelationshipStrengthLevel[];
   considerations: RelationshipConsideration[];
@@ -105,6 +134,15 @@ export type RelationshipHead = {
   isActive: boolean;
   /** True for the one shipped demonstration record, which is labelled as one everywhere. */
   isExample: boolean;
+  /**
+   * True for the starter Whole-Body Association Map delivered with the
+   * build. IT IS NOT is_example: a seeded entry is real, active
+   * methodology content rather than a demonstration of the form. It records
+   * only where the FIRST version came from, and the coach owns it exactly
+   * as she owns one she typed: she can edit it, which writes version 2 the
+   * ordinary way, or deactivate it, which takes it out of every lookup.
+   */
+  isSeeded: boolean;
   currentVersion: number;
   createdBy: string | null;
   createdAt: string;
@@ -153,6 +191,10 @@ export type RelationshipStrengthLevelDraft = {
 export type RelationshipDraft = {
   patternName: string;
   minSupportingSignals: number;
+  /** Validated against the closed set on the server. */
+  sourceTypeKey?: string | null;
+  /** Whether this entry belongs to Root's automatic map. Resolved on the server. */
+  surfacesOnComplaint?: boolean;
   possibleAssociationText?: string | null;
   evidenceNotes?: string | null;
   changeSummary?: string | null;

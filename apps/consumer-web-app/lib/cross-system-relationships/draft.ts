@@ -26,7 +26,10 @@ import {
   MAX_CONSIDERATIONS,
   MAX_STRENGTH_LEVELS,
   PATTERN_NAME_MAX_LENGTH,
+  RELATIONSHIP_SOURCE_TYPES,
+  DEFAULT_RELATIONSHIP_SOURCE_TYPE,
 } from './constants';
+import type { RelationshipSourceTypeKey } from './constants';
 import type {
   RelationshipComponentDraft,
   RelationshipComponentRole,
@@ -68,6 +71,10 @@ export type ResolvedStrengthLevel = {
 export type ResolvedRelationshipDraft = {
   patternName: string;
   minSupportingSignals: number;
+  /** Resolved against the closed set. A key the form invented is refused. */
+  sourceTypeKey: RelationshipSourceTypeKey;
+  /** Which engine reads this entry. See RelationshipVersion.surfacesOnComplaint. */
+  surfacesOnComplaint: boolean;
   possibleAssociationText: string | null;
   evidenceNotes: string | null;
   changeSummary: string | null;
@@ -281,6 +288,11 @@ export function resolveRelationshipDraft(
     draft: {
       patternName,
       minSupportingSignals,
+      // THE SERVER DECIDES BOTH. A hand built request cannot file a
+      // relationship under a basis that does not exist, and cannot promote
+      // its own definition into Root's automatic map by posting a flag.
+      sourceTypeKey: resolveSourceType(input.sourceTypeKey),
+      surfacesOnComplaint: input.surfacesOnComplaint === true,
       possibleAssociationText: normalizeText(input.possibleAssociationText, LONG_TEXT_MAX_LENGTH),
       evidenceNotes: normalizeText(input.evidenceNotes, LONG_TEXT_MAX_LENGTH),
       changeSummary: normalizeLine(input.changeSummary, 300),
@@ -289,6 +301,14 @@ export function resolveRelationshipDraft(
       considerations,
     },
   };
+}
+
+/** A basis key the closed set really holds, or the default. Never the posted string. */
+export function resolveSourceType(value: unknown): RelationshipSourceTypeKey {
+  if (typeof value !== 'string') return DEFAULT_RELATIONSHIP_SOURCE_TYPE;
+  return (RELATIONSHIP_SOURCE_TYPES as readonly string[]).includes(value)
+    ? (value as RelationshipSourceTypeKey)
+    : DEFAULT_RELATIONSHIP_SOURCE_TYPE;
 }
 
 /**

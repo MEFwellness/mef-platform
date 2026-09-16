@@ -87,18 +87,21 @@ function tagIndex(componentName: string): number {
 }
 
 describe('nothing fell out, and everything landed inside a section', () => {
-  it('opens and closes exactly nine sections', () => {
+  it('opens and closes exactly ten sections', () => {
     // Seven since 2026-09-12, when Health Context joined them, eight since
-    // 2026-09-15 when the shared Signal Library did, and nine since the
-    // matching engine gave Whole-Body Patterns its own. Each is its own
-    // section rather than a card inside Assessments and Findings: that
+    // 2026-09-15 when the shared Signal Library did, nine since the
+    // matching engine gave Whole-Body Patterns its own, and ten since
+    // automatic complaint understanding gave Root Noticed one. Each is its
+    // own section rather than a card inside Assessments and Findings: that
     // section holds readings of ONE sitting, Health Context is the
     // background they are read against, Signals is every sitting plus the
     // coach's own entries filed by what the body said rather than by which
-    // questionnaire asked, and Whole-Body Patterns is those signals read
-    // against the coach's own written definitions.
-    expect(RANGES).toHaveLength(9);
-    expect(DETAIL_SECTIONS).toHaveLength(9);
+    // questionnaire asked, Whole-Body Patterns is those signals read
+    // against the coach's own written definitions, and Root Noticed is
+    // what Root brought forward on its own after a client reported
+    // something, which is the one section she never has to ask for.
+    expect(RANGES).toHaveLength(10);
+    expect(DETAIL_SECTIONS).toHaveLength(10);
   });
 
   /**

@@ -250,6 +250,7 @@ function record(over: Partial<SignalRecord> & Pick<SignalRecord, 'id'>): SignalR
     note: null,
     enteredBy: null,
     entryMode: 'ingested',
+    ingestFingerprint: null,
     ...over,
   };
 }
@@ -283,6 +284,7 @@ const RECORDS: SignalRecord[] = [
     note: 'Said it clicks going up stairs.',
     enteredBy: 'coach-1',
     entryMode: 'coach_entered',
+    ingestFingerprint: null,
   }),
   record({
     id: 'r4',
@@ -302,6 +304,7 @@ const RECORDS: SignalRecord[] = [
     capturedOn: '2026-09-15',
     capturedAt: '2026-09-15T16:01:00.000Z',
     entryMode: 'coach_entered',
+    ingestFingerprint: null,
   }),
 ];
 
@@ -515,6 +518,11 @@ describe('this whole feature is coach only, structurally', () => {
       // asserts it establishes a coach and applies the test account rule
       // before it reads a single row.
       'app/actions/crossSystemPatterns.ts',
+      // The Root Noticed coach read. Coach only, and guarded the same way:
+      // tests/cross-system-root-schema.test.ts asserts no member surface
+      // reaches its copy, and the action establishes a coach and applies
+      // the test account rule before it reads a single row.
+      'app/actions/crossSystemRootFindings.ts',
     ];
     for (const hit of hits) {
       const isCoachSurface = hit.startsWith('app/coach/') || hit.startsWith('app/admin/');
@@ -541,7 +549,10 @@ describe('this whole feature is coach only, structurally', () => {
           hit === 'app/actions/crossSystemRelationships.ts' ||
           // The matching engine's own coach read (Prompt 3), which is the
           // one place the definitions and a member's signals meet.
-          hit === 'app/actions/crossSystemPatterns.ts',
+          hit === 'app/actions/crossSystemPatterns.ts' ||
+          // The Root Noticed coach read, which is the other one: it reads
+          // the Whole-Body Association Map against a member's complaint.
+          hit === 'app/actions/crossSystemRootFindings.ts',
         `${hit} reaches the Relationship Library from outside a coach surface`
       ).toBe(true);
     }

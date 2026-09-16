@@ -335,3 +335,49 @@ export function patternsDigest(input: PatternsDigestInput): SectionDigest {
   }
   return { text: plural(patterns, 'pattern to review'), dot: 'green' };
 }
+
+/**
+ * ROOT NOTICED. The complaint-driven section's folded header.
+ *
+ * ITS DOT IS NEVER GOLD EITHER, and for the Signals section's own reason:
+ * a finding is a thing Root brought forward for the coach to REVIEW, not a
+ * thing asking for anything, and colouring a count of a client's reported
+ * symptoms would turn a record into an alarm scale on a header she has not
+ * opened yet.
+ *
+ * The one exception is the case that is genuinely not about a finding at
+ * all: one the red flag system withheld, which is safety, and safety is
+ * what the gold dot is for everywhere else on this page.
+ */
+export type RootNoticedDigestInput = {
+  /** Findings showing something, the same number the card itself renders. */
+  findings: number;
+  /** Findings the red flag system withheld, the same number again. */
+  suppressed: number;
+  /** Complaints Root has read for this client. */
+  complaints: number;
+  /** Entries switched on in the Association Map, so an empty section can say why. */
+  mapEntries: number;
+};
+
+export function rootNoticedDigest(input: RootNoticedDigestInput): SectionDigest {
+  const { findings, suppressed, complaints, mapEntries } = input;
+  if (suppressed > 0) {
+    return {
+      text: line(
+        [
+          findings > 0 ? plural(findings, 'connection') : null,
+          `${plural(suppressed, 'report', 'reports')} held back for safety`,
+        ],
+        `${plural(suppressed, 'report', 'reports')} held back for safety`
+      ),
+      dot: 'gold',
+    };
+  }
+  if (findings === 0) {
+    if (mapEntries === 0) return { text: 'No association map entry is active yet', dot: 'grey' };
+    if (complaints === 0) return { text: 'Nothing reported yet', dot: 'grey' };
+    return { text: 'Nothing to review', dot: 'grey' };
+  }
+  return { text: plural(findings, 'connection to review'), dot: 'green' };
+}

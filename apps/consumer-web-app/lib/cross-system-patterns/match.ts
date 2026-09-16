@@ -307,7 +307,18 @@ export function matchMemberSignals(
   summaries: readonly RelationshipSummary[],
   records: readonly SignalRecord[]
 ): PatternMatch[] {
-  const active = summaries.filter((summary) => summary.head.isActive);
+  const active = summaries.filter(
+    (summary) =>
+      summary.head.isActive &&
+      // AND NOT A MAP ENTRY. An entry marked surfacesOnComplaint belongs to
+      // Root's complaint-driven lookup (lib/cross-system-root/lookup.ts),
+      // which reads it with no floor and reports what is in each area it
+      // names. Letting this matcher read it too would put the same
+      // relationship in front of the coach twice, once as a Root finding
+      // and once as a Whole-Body Pattern card, saying two different things
+      // about one set of her rows. Each engine sees only its own entries.
+      !summary.current.surfacesOnComplaint
+  );
   if (active.length === 0) return [];
   const current = currentSignals(records);
   return active

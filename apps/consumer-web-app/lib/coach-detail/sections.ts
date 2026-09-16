@@ -48,6 +48,11 @@ import {
   WHOLE_BODY_PATTERNS_SECTION_ID,
 } from '../cross-system-patterns/constants';
 import { WHOLE_BODY_PATTERNS_LABEL } from '../cross-system-patterns/copy';
+import {
+  ROOT_NOTICED_CARD_ID,
+  ROOT_NOTICED_LABEL,
+  ROOT_NOTICED_SECTION_ID,
+} from '../cross-system-root/copy';
 
 /** One card inside a section, as the search knows it. `id` is its real DOM anchor. */
 export type DetailCardEntry = {
@@ -174,6 +179,22 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
     id: WHOLE_BODY_PATTERNS_SECTION_ID,
     title: WHOLE_BODY_PATTERNS_LABEL,
     cards: [{ id: WHOLE_BODY_PATTERNS_CARD_ID, title: 'Whole-Body Patterns' }],
+  },
+  {
+    /*
+      ROOT NOTICED. What Root brought forward on its own, because the client
+      reported something and the Whole-Body Association Map named areas
+      worth reviewing alongside it.
+
+      IT SITS ABOVE Whole-Body Patterns, and that ordering is the point of
+      the whole build. Patterns is the coach ASKING a question she wrote
+      herself. This is Root answering one she never had to ask, which is
+      what stops the everyday workflow from being "open the library and
+      build a pattern per client".
+    */
+    id: ROOT_NOTICED_SECTION_ID,
+    title: ROOT_NOTICED_LABEL,
+    cards: [{ id: ROOT_NOTICED_CARD_ID, title: ROOT_NOTICED_LABEL }],
   },
   {
     /*

@@ -257,6 +257,25 @@ describe('no member surface can reach the matching engine', () => {
     'lib/cross-system-patterns/data.ts',
     'lib/cross-system-patterns/constants.ts',
     'lib/cross-system-patterns/types.ts',
+    /*
+      THE RED FLAG OVERRIDE, and it belongs on this side of the fence
+      deliberately rather than by accident.
+
+      Automatic complaint understanding classifies a member's check-in note
+      as her check-in completes, and the lookup it triggers has to apply the
+      safety override BEFORE it writes a finding, or a withheld finding
+      would be written and then hidden, which is exactly the shape this
+      feature refuses. So safety.ts is reachable from a member's own submit,
+      the same way evaluate.ts already was.
+
+      It is safe to be here for the reason the whole split exists: it holds
+      no coach facing sentence at all. It asks lib/body-systems/redFlags.ts
+      which sittings fired and returns a set of row ids. The
+      "NOT ONE WORD A COACH READS" case below scans every file reachable
+      from a member surface, including this one, so that claim is proved
+      rather than asserted.
+    */
+    'lib/cross-system-patterns/safety.ts',
   ];
 
   function importsOf(relative: string): string[] {
@@ -406,6 +425,10 @@ describe('no member surface can reach the matching engine', () => {
       // codebase's convention, each of which establishes a coach first.
       'app/actions/crossSystemSignals.ts',
       'app/actions/crossSystemRelationships.ts',
+      // The Root Noticed coach read, which applies the same red flag
+      // override before it builds a finding and establishes a coach and
+      // the test account rule before it reads a row.
+      'app/actions/crossSystemRootFindings.ts',
     ];
     for (const hit of hits) {
       const isCoachSurface = hit.startsWith('app/coach/') || hit.startsWith('app/admin/');

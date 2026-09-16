@@ -37,6 +37,7 @@ type HeadRow = {
   pattern_key: string;
   is_active: boolean;
   is_example: boolean;
+  is_seeded: boolean;
   current_version: number;
   created_by: string | null;
   created_at: string;
@@ -50,6 +51,8 @@ type VersionRow = {
   pattern_name: string;
   min_supporting_signals: number;
   possible_association_text: string | null;
+  source_type_key: string;
+  surfaces_on_complaint: boolean;
   evidence_notes: string | null;
   change_summary: string | null;
   created_by: string | null;
@@ -92,9 +95,9 @@ type ConsiderationRow = {
 };
 
 const HEAD_COLUMNS =
-  'id, pattern_key, is_active, is_example, current_version, created_by, created_at, updated_at';
+  'id, pattern_key, is_active, is_example, is_seeded, current_version, created_by, created_at, updated_at';
 const VERSION_COLUMNS =
-  'id, relationship_id, version_number, pattern_name, min_supporting_signals, possible_association_text, evidence_notes, change_summary, created_by, created_at';
+  'id, relationship_id, version_number, pattern_name, min_supporting_signals, possible_association_text, source_type_key, surfaces_on_complaint, evidence_notes, change_summary, created_by, created_at';
 const COMPONENT_COLUMNS =
   'id, version_id, position, role, ref_kind, ref_key, ref_label, side, value_key, value_label, min_value_numeric, source_key, source_question_ref, source_question_prompt, note';
 const LEVEL_COLUMNS =
@@ -107,6 +110,7 @@ function headFromRow(row: HeadRow): RelationshipHead {
     patternKey: row.pattern_key,
     isActive: row.is_active,
     isExample: row.is_example,
+    isSeeded: row.is_seeded,
     currentVersion: row.current_version,
     createdBy: row.created_by,
     createdAt: row.created_at,
@@ -214,6 +218,8 @@ async function hydrateVersions(
     patternName: row.pattern_name,
     minSupportingSignals: row.min_supporting_signals,
     possibleAssociationText: row.possible_association_text,
+    sourceTypeKey: row.source_type_key,
+    surfacesOnComplaint: row.surfaces_on_complaint,
     evidenceNotes: row.evidence_notes,
     changeSummary: row.change_summary,
     createdBy: row.created_by,
@@ -473,6 +479,13 @@ async function writeVersion(
       pattern_name: input.draft.patternName,
       min_supporting_signals: input.draft.minSupportingSignals,
       possible_association_text: input.draft.possibleAssociationText,
+      // CARRIED FORWARD, NOT DEFAULTED. An edit writes a NEW row, so a
+      // field the editor does not post would silently fall back to the
+      // column default and a seeded map entry would stop being one the
+      // first time the coach reworded it. Both are resolved on the server
+      // from the version being replaced.
+      source_type_key: input.draft.sourceTypeKey,
+      surfaces_on_complaint: input.draft.surfacesOnComplaint,
       evidence_notes: input.draft.evidenceNotes,
       change_summary: input.versionNumber === 1 ? null : input.draft.changeSummary,
       created_by: input.coachId,

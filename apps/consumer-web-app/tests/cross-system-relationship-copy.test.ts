@@ -117,16 +117,36 @@ function sourceViolations(): Violation[] {
   return out;
 }
 
-/** Every quoted string in the migration that seeds the one example record. */
-function seededStrings(): string[] {
-  const sql = fs.readFileSync(
-    path.join(MIGRATIONS, '00000000000244_cross_system_relationship_example.sql'),
-    'utf8'
-  );
-  // Only the INSERT statements. The header comment explains what the banned
-  // words are, and quoting them there is the point of the comment.
-  const body = sql.slice(sql.indexOf('insert into'));
+/**
+ * Every quoted string in the migrations that seed content into this
+ * library.
+ *
+ * THIS IS THE ONLY GUARD THAT CAN SEE THEM. A seeded association text and a
+ * seeded coaching consideration are rows in a database, not strings in a
+ * file, so the TypeScript walk above is blind to every one of them. That
+ * mattered when there was one example row and it matters far more now:
+ * migration 248 seeds eighteen authored map entries carrying eighteen
+ * association texts and over a hundred considerations, and all of that is
+ * content a coach reads.
+ */
+const SEED_MIGRATIONS = [
+  '00000000000244_cross_system_relationship_example.sql',
+  '00000000000248_cross_system_association_map_seed.sql',
+];
+
+function seededStringsIn(file: string): string[] {
+  const sql = fs.readFileSync(path.join(MIGRATIONS, file), 'utf8');
+  // Only the statements. The header comment explains what the banned words
+  // are, and quoting them there is the point of the comment.
+  const start = sql.indexOf('insert into');
+  const select = sql.indexOf('select pg_temp.');
+  const from = [start, select].filter((index) => index >= 0).sort((a, b) => a - b)[0] ?? 0;
+  const body = sql.slice(from);
   return [...body.matchAll(/'((?:[^']|'')*)'/g)].map((match) => match[1]!);
+}
+
+function seededStrings(): string[] {
+  return SEED_MIGRATIONS.flatMap((file) => seededStringsIn(file));
 }
 
 describe('the shipped copy writes in association language', () => {
@@ -165,6 +185,34 @@ describe('the shipped copy writes in association language', () => {
     const seeded = seededStrings();
     expect(seeded.length).toBeGreaterThan(20);
     expect(seeded.some((value) => value.startsWith('Example:'))).toBe(true);
+  });
+
+  it('really reads the eighteen seeded map entries, not just the example', () => {
+    const seeded = seededStringsIn(
+      '00000000000248_cross_system_association_map_seed.sql'
+    );
+    // Eighteen entries, each with a key, a name, a basis, an association
+    // text and several considerations.
+    expect(seeded.length).toBeGreaterThan(150);
+    expect(seeded).toContain('starter-hip-pelvis');
+    expect(seeded).toContain('starter-musculoskeletal-general');
+  });
+
+  it('the seeded map uses cautious wording everywhere a coach reads it', () => {
+    const offending: string[] = [];
+    for (const value of seededStringsIn(
+      '00000000000248_cross_system_association_map_seed.sql'
+    )) {
+      for (const hit of findBannedLanguage(value)) {
+        offending.push(`"${hit.found}" in "${value.slice(0, 160)}"`);
+      }
+    }
+    expect(offending, offending.join('\n')).toHaveLength(0);
+  });
+
+  it('no seeded string carries an em dash, which no member or coach may read', () => {
+    const offending = seededStrings().filter((value) => value.includes('\u2014'));
+    expect(offending, offending.join('\n')).toHaveLength(0);
   });
 });
 

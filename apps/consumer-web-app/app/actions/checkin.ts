@@ -11,6 +11,8 @@
 
 import { ingestSitting } from '@/lib/cross-system-signals/service';
 import { SOURCE_DAILY_CHECK_IN } from '@/lib/cross-system-signals/constants';
+import { ingestComplaint } from '@/lib/cross-system-complaints/service';
+import { SURFACE_DAILY_CHECKIN_NOTES } from '@/lib/cross-system-complaints/constants';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import type { DailyCheckinInput, DailyCheckin, Habit } from '@mef/shared-types-contracts';
@@ -313,6 +315,56 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
       sourceKey: SOURCE_DAILY_CHECK_IN,
       sittingId: newCheckinId,
     });
+  }
+
+  // AUTOMATIC COMPLAINT UNDERSTANDING. Her own words, read into the same
+  // standardized Signals vocabulary, and then checked against the
+  // Whole-Body Association Map so the coach is told about it without
+  // having to search for it.
+  //
+  // IT RUNS AFTER THE SAFETY CLASSIFIER, NEVER INSTEAD OF IT. The block
+  // further up already sent this same text through lib/safety/service.ts,
+  // which is the only thing that decides whether a note needs the safety
+  // process. This layer does not read a keyword, does not judge urgency
+  // and cannot withhold anything: the red flag layer suppresses a Root
+  // finding independently, inside the lookup.
+  //
+  // BEST EFFORT AND LAST, exactly like every block above it. Her check-in
+  // is already saved and already returned to her, and a sentence Root
+  // could not read must never cost her a completed check-in.
+  if (typeof newCheckinId === 'string') {
+    const reportedAt = new Date().toISOString();
+    // ONE FREE TEXT FIELD, BECAUSE THE CHECK-IN HAS ONE. The
+    // "new or worsening concern" answer beside it is a BOOLEAN: it says a
+    // concern exists and not what it is, and turning a true into a body
+    // signal would be inventing one. It already reaches the safety
+    // classifier above, which is where it belongs. The loop stays a loop
+    // because a second field (a pain flow's own note, a journal entry) is
+    // one entry here and nothing else.
+    for (const complaint of [
+      {
+        text: input.optional_notes,
+        surfaceKey: SURFACE_DAILY_CHECKIN_NOTES,
+        fieldRef: 'optional_notes',
+        fieldPrompt: 'Anything else you want to note about today?',
+      },
+    ]) {
+      if (typeof complaint.text !== 'string' || complaint.text.trim().length === 0) continue;
+      try {
+        await ingestComplaint({
+          memberId: user.id,
+          surfaceKey: complaint.surfaceKey,
+          rawText: complaint.text,
+          sourceRecordId: newCheckinId,
+          fieldRef: complaint.fieldRef,
+          fieldPrompt: complaint.fieldPrompt,
+          reportedAt,
+          authorRole: 'member',
+        });
+      } catch (complaintError) {
+        console.error('Complaint ingestion failed for submitDailyCheckin', complaintError);
+      }
+    }
   }
 
   return {};

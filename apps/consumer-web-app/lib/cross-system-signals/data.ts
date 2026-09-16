@@ -24,7 +24,7 @@ const SIGNAL_COLUMNS = `
   id, member_id, signal_slug, signal_name, category_key, body_area_key, symptom_key, side,
   value_kind, value_label, value_key, value_numeric,
   source_key, source_label, source_session_id, source_question_ref, source_question_prompt, source_record_id,
-  captured_on, captured_at, note, entered_by, entry_mode
+  captured_on, captured_at, note, entered_by, entry_mode, ingest_fingerprint
 `;
 
 type SignalRow = {
@@ -51,6 +51,7 @@ type SignalRow = {
   note: string | null;
   entered_by: string | null;
   entry_mode: string;
+  ingest_fingerprint: string | null;
 };
 
 function fromRow(row: SignalRow): SignalRecord {
@@ -83,6 +84,7 @@ function fromRow(row: SignalRow): SignalRecord {
     note: row.note,
     enteredBy: row.entered_by,
     entryMode: row.entry_mode as SignalEntryMode,
+    ingestFingerprint: row.ingest_fingerprint,
   };
 }
 

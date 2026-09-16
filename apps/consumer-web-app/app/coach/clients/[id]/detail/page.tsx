@@ -120,6 +120,7 @@ import {
   healthContextDigest,
   signalsDigest,
   patternsDigest,
+  rootNoticedDigest,
 } from '@/lib/coach-detail/digests';
 import { CHECKIN_WINDOW_DAYS, loggedDaysInWindow } from '@/lib/coach-detail/checkinSeries';
 import {
@@ -178,6 +179,8 @@ import { getClientSignalsPanelAction } from '@/app/actions/crossSystemSignals';
 import { CrossSystemSignalsPanel } from '../CrossSystemSignalsPanel';
 import { getClientWholeBodyPatternsAction } from '@/app/actions/crossSystemPatterns';
 import { WholeBodyPatternsPanel } from '../WholeBodyPatternsPanel';
+import { getClientRootNoticedAction } from '@/app/actions/crossSystemRootFindings';
+import { RootNoticedPanel } from '../RootNoticedPanel';
 import { buildHealthContextView } from '@/lib/health-intake/coachView';
 import { HealthContextPanel } from '../HealthContextPanel';
 import { OwningYourValuePanel } from '../OwningYourValuePanel';
@@ -320,6 +323,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     healthIntakePanel,
     crossSystemSignalsPanel,
     wholeBodyPatternsPanel,
+    rootNoticedPanel,
     owningYourValuePanel,
     whereYourJoyLivesPanel,
     theGivingLedgerPanel,
@@ -376,6 +380,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientHealthIntakePanelAction(profile.id),
     getClientSignalsPanelAction(profile.id),
     getClientWholeBodyPatternsAction(profile.id),
+    getClientRootNoticedAction(profile.id),
     getClientOwningYourValuePanelAction(profile.id),
     getClientWhereYourJoyLivesPanelAction(profile.id),
     getClientTheGivingLedgerPanelAction(profile.id),
@@ -576,6 +581,14 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
       // header cannot count its own way and disagree with the list.
       signals: crossSystemSignalsPanel.view.signalCount,
       entries: crossSystemSignalsPanel.view.entryCount,
+    }),
+    rootNoticed: rootNoticedDigest({
+      // The same four numbers the card's own view already computed, so a
+      // folded header and the findings under it cannot disagree.
+      findings: rootNoticedPanel.view.findingCount,
+      suppressed: rootNoticedPanel.view.suppressedCount,
+      complaints: rootNoticedPanel.view.complaintCount,
+      mapEntries: rootNoticedPanel.view.mapEntryCount,
     }),
     patterns: patternsDigest({
       // The same three numbers the card's own view already computed, so a
@@ -1018,6 +1031,38 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             a card touching a response that fired a red flag arrives with
             every pattern field empty and draws the safety prompt instead.
           */}
+          {/*
+            ROOT NOTICED. The complaint-driven half, and the one that runs
+            without the coach asking for it. A client reports something
+            anywhere in the app, Root classifies it into the same
+            standardized Signals vocabulary, checks the Whole-Body
+            Association Map for entries about that kind of complaint, and
+            brings forward what is actually in her data under each area the
+            map names.
+
+            IT IS NOT A SECOND SIGNALS SYSTEM. Every row behind it is an
+            ordinary cross_system_signals row, written through the same
+            insert and the same fingerprint guard as a questionnaire answer.
+
+            IT REQUIRES NO MANUAL PATTERN BUILDING. The map ships seeded
+            with eighteen authored methodology entries, so this section has
+            something to say on the first day without the coach opening the
+            Relationship Library at all.
+
+            THE SAFETY OVERRIDE IS ALREADY APPLIED by the time this renders:
+            a finding touching a response that fired a red flag arrives with
+            no areas and no wording at all.
+          */}
+          <DetailSection
+            id="detail-section-root-noticed"
+            title="Root Noticed"
+            digest={sectionDigests.rootNoticed}
+          >
+            <div id="detail-card-root-noticed" className="scroll-mt-24">
+              <RootNoticedPanel state={rootNoticedPanel} />
+            </div>
+          </DetailSection>
+
           <DetailSection
             id="detail-section-whole-body-patterns"
             title="Whole-Body Patterns"

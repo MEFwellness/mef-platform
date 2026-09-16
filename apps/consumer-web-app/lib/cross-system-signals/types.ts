@@ -174,4 +174,16 @@ export type SignalRecord = {
   note: string | null;
   enteredBy: string | null;
   entryMode: SignalEntryMode;
+  /**
+   * The fingerprint the row was written under, or null for a coach entry,
+   * which deliberately carries none so a coach recording the same thing
+   * twice in one day records it twice.
+   *
+   * It is READ BACK so a caller that has just written a batch can find
+   * exactly those rows again. An upsert with ignoreDuplicates returns
+   * nothing for a row that already existed, so a re-run over one note
+   * cannot identify its own rows by what the insert handed back, and
+   * identifying them by "the newest ones" would be a guess.
+   */
+  ingestFingerprint: string | null;
 };

@@ -56,6 +56,7 @@ export function signal(overrides: Partial<SignalRecord> = {}): SignalRecord {
     note: null,
     enteredBy: null,
     entryMode: 'ingested',
+    ingestFingerprint: null,
     ...overrides,
   };
 }
@@ -125,6 +126,10 @@ export function version(overrides: Partial<RelationshipVersion> = {}): Relations
     changeSummary: null,
     createdBy: 'coach-1',
     createdAt: '2026-09-01T00:00:00.000Z',
+    sourceTypeKey: 'coach_added',
+    // The floor-based matcher's own fixtures. A map entry is the other
+    // engine's, and cross-system-root has its own fixture for those.
+    surfacesOnComplaint: false,
     strengthLevels: defaultLevels(),
     considerations: [
       { id: 'con-1', position: 1, body: 'Ask what else she has noticed in the same week.' },
@@ -140,6 +145,7 @@ export function head(overrides: Partial<RelationshipHead> = {}): RelationshipHea
     patternKey: 'hip-and-bladder',
     isActive: true,
     isExample: false,
+    isSeeded: false,
     currentVersion: 1,
     createdBy: 'coach-1',
     createdAt: '2026-09-01T00:00:00.000Z',

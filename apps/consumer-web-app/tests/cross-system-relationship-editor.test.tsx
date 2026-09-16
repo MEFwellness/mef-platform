@@ -562,6 +562,8 @@ describe('the editor opened on an existing pattern', () => {
           versionNumber: 3,
           patternName: 'A pattern',
           minSupportingSignals: 2,
+          sourceTypeKey: 'coach_added',
+          surfacesOnComplaint: false,
           possibleAssociationText: null,
           evidenceNotes: null,
           changeSummary: null,
