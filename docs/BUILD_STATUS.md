@@ -249,7 +249,10 @@ Correct repo (`MEFwellness/mef-platform`), branch `main`, Vercel project
 `mef-platform`, target Production, and `app.mefwellness.com` confirmed
 aliased to the deployment carrying this work before anything was checked.
 `apps/consumer-web-app/scripts/verify-root-noticed-live.mjs` is the run,
-and **43 of 43 checks passed**, at 390x844.
+and **45 of 45 checks passed, three consecutive times**, at 390x844.
+Three runs rather than one on purpose: two earlier runs had failed
+intermittently, and one clean run would not have told the difference
+between fixed and lucky.
 
 **THE MEMBER SUBMITTED A REAL COMPLAINT THROUGH THE REAL WIZARD.** Every
 screen of the Daily Reset answered, the sentence typed into the notes
@@ -303,7 +306,38 @@ own stored band, and no combined or diagnostic key anywhere in it.
 **Production is clean.** The complaint, its findings, its two signals and
 the check-in row were all deleted in a `finally` and confirmed absent by an
 independent query. Ebony is back at exactly the 60 signals she had before
-the run, and the eighteen seeded entries are untouched.
+the run, the complaint, classification, finding and finding-area tables are
+all at nought, and the eighteen seeded entries are untouched at 19
+relationships total (the eighteen plus Prompt 2's one example).
+
+### FORTY ROUND TRIPS WHERE THREE WOULD DO, AND THE WAIT THAT FOUND THEM
+
+The one real defect this build's own live run uncovered, and it was in the
+new code rather than in the instrument.
+
+`replaceFindings` wrote one insert per area and then one more per that
+area's rows. A complaint triggering two map entries that each name nine
+areas made nearly forty sequential round trips. That is slow anywhere, and
+it is wrong HERE: it runs while a member's own check-in is completing.
+Her result is already saved and the block is best effort, so it could never
+have cost her the check-in, but it still held her request open.
+
+The areas now go in ONE insert whose `select` hands their ids back, matched
+by their own `position` rather than by the order the rows arrive in, because
+PostgREST does not promise insertion order. Their rows go in one more.
+
+**It was found because it was slow enough to race a test.** The live run
+waited a fixed six seconds after the submit and then read the findings
+table. On a slow run the writes were still in flight, it read nought
+findings, and it reported a working feature as broken twice. The run polls
+for `lookup_completed_at` now, so it waits for the END of the chain rather
+than guessing at its duration, and everything before that point is
+necessarily already written by the time it looks.
+
+Two Relationship Library interactions in the run also waited fixed
+intervals and now wait for their own content: the library lists nineteen
+entries, the row a check wants is not the first one drawn, and the editor
+loads its detail over the network before it draws anything.
 
 ### ONE COPY BUG THE LIVE HEADER CORRECTED, AND IT WAS OLDER THAN THIS BUILD
 
