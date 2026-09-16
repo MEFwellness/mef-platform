@@ -26,6 +26,7 @@ import {
   whyCheckedLine,
 } from '@/lib/cross-system-root/copy';
 import { CURRENT_WINDOW_DAYS, RECENT_WINDOW_DAYS } from '@/lib/cross-system-root/evidence';
+import { patternsDigest, rootNoticedDigest } from '@/lib/coach-detail/digests';
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -237,5 +238,68 @@ describe('the banned list really would catch this feature', () => {
   it('is non vacuous: a diagnostic sentence in this shape is rejected', () => {
     const bad = 'Kidney dysfunction is the cause of the hip pain.';
     expect(findBannedLanguage(bad).length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * THE FOLDED SECTION HEADER, which the live run corrected.
+ *
+ * The shared `plural` helper appends an "s" to whatever it is handed, which
+ * is right for a noun and wrong for a phrase. On production the Root
+ * Noticed header read "2 connection to reviews", and the Whole-Body
+ * Patterns header had been reading "2 pattern to reviews" since Prompt 3
+ * shipped. Both are fixed, and both are held here.
+ */
+describe('the folded section headers agree with their own counts', () => {
+  it('Root Noticed pluralizes the phrase, not its last word', () => {
+    expect(rootNoticedDigest({ findings: 1, suppressed: 0, complaints: 1, mapEntries: 18 }).text).toBe(
+      '1 connection to review'
+    );
+    expect(rootNoticedDigest({ findings: 2, suppressed: 0, complaints: 1, mapEntries: 18 }).text).toBe(
+      '2 connections to review'
+    );
+  });
+
+  it('Whole-Body Patterns does too, which it did not before', () => {
+    expect(patternsDigest({ patterns: 1, suppressed: 0, activeRelationships: 3 }).text).toBe(
+      '1 pattern to review'
+    );
+    expect(patternsDigest({ patterns: 4, suppressed: 0, activeRelationships: 9 }).text).toBe(
+      '4 patterns to review'
+    );
+  });
+
+  it('no header ever prints a phrase with a trailing s on the wrong word', () => {
+    const texts = [
+      rootNoticedDigest({ findings: 3, suppressed: 0, complaints: 2, mapEntries: 18 }).text,
+      patternsDigest({ patterns: 3, suppressed: 0, activeRelationships: 4 }).text,
+    ];
+    for (const text of texts) expect(text).not.toMatch(/to reviews/);
+  });
+
+  it('a count of findings is never coloured as an alarm', () => {
+    // A finding is a thing to review, not a thing asking for anything.
+    // Only the safety case is gold, everywhere on this page.
+    expect(rootNoticedDigest({ findings: 5, suppressed: 0, complaints: 3, mapEntries: 18 }).dot).toBe(
+      'green'
+    );
+    expect(rootNoticedDigest({ findings: 0, suppressed: 0, complaints: 0, mapEntries: 18 }).dot).toBe(
+      'grey'
+    );
+    expect(rootNoticedDigest({ findings: 1, suppressed: 2, complaints: 3, mapEntries: 18 }).dot).toBe(
+      'gold'
+    );
+  });
+
+  it('an empty section says WHY it is empty', () => {
+    expect(
+      rootNoticedDigest({ findings: 0, suppressed: 0, complaints: 0, mapEntries: 0 }).text
+    ).toBe('No association map entry is active yet');
+    expect(
+      rootNoticedDigest({ findings: 0, suppressed: 0, complaints: 0, mapEntries: 18 }).text
+    ).toBe('Nothing reported yet');
+    expect(
+      rootNoticedDigest({ findings: 0, suppressed: 0, complaints: 4, mapEntries: 18 }).text
+    ).toBe('Nothing to review');
   });
 });

@@ -333,7 +333,10 @@ export function patternsDigest(input: PatternsDigestInput): SectionDigest {
       dot: 'grey',
     };
   }
-  return { text: plural(patterns, 'pattern to review'), dot: 'green' };
+  // THE PLURAL IS SPELLED OUT, because the helper appends 's' to whatever
+  // it is given and "2 pattern to reviews" is what that produces for a
+  // phrase. Found on the live coach header during the 2026-09-15 run.
+  return { text: plural(patterns, 'pattern to review', 'patterns to review'), dot: 'green' };
 }
 
 /**
@@ -379,5 +382,5 @@ export function rootNoticedDigest(input: RootNoticedDigestInput): SectionDigest 
     if (complaints === 0) return { text: 'Nothing reported yet', dot: 'grey' };
     return { text: 'Nothing to review', dot: 'grey' };
   }
-  return { text: plural(findings, 'connection to review'), dot: 'green' };
+  return { text: plural(findings, 'connection to review', 'connections to review'), dot: 'green' };
 }

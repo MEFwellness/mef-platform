@@ -1,3 +1,351 @@
+## Root listens: automatic complaint understanding, and the Whole-Body Association Map it reads (2026-09-15)
+
+The correction to Prompts 1 to 3. Root now hears what a client reports
+anywhere in the app, normalizes it into the Signals vocabulary that already
+existed, checks her whole-body data against a seeded Whole-Body Association
+Map, and brings the relevant parts to the coach on its own. No manual
+searching, no manual relationship building, and no second Signals system.
+
+Migrations 246 to 250, `lib/cross-system-complaints/`,
+`lib/cross-system-root/`, one new section on the client detail page.
+
+### THE BEHAVIOUR THAT CHANGED, in one sentence each
+
+Prompt 3 asked: do this member's rows clear the floor a coach wrote for
+this definition. That made the COACH the engine's input, because somebody
+had to write a definition per client before anything surfaced at all.
+
+Root now asks: she just reported something, which entries in the
+Association Map name that kind of complaint, what did those entries say to
+go and look at, and what is actually in her data there.
+
+### NO SECOND SIGNAL STORE, AND THAT IS STRUCTURAL
+
+A classified complaint becomes a `SignalDraft`, the same shape the five
+ingestion adapters produce, written by the same `insertSignals` through the
+same fingerprint guard into `cross_system_signals`. The coach's Signals
+list shows it beside a questionnaire answer without knowing it arrived from
+a sentence, and the matching engine reads it as an ordinary row. Two new
+source rows were added to migration 241's own table: "Reported by the
+member" and "Reported to the coach".
+
+### THE CLASSIFIER IS DETERMINISTIC, AND THE REASON IS WRITTEN DOWN
+
+Both provider slots in this codebase
+(`lib/body-assessment/providers/registry.ts` and
+`lib/coach-intelligence/providers/registry.ts`) are unconfigured stubs
+whose every call throws, no AI SDK is a dependency of this app, and no
+provider key exists in the deployment. Three further reasons make a
+deterministic lexicon the right choice rather than merely the available
+one:
+
+- **It runs inside her submit.** Classification fires as a check-in
+  completes, where this feature's standing rule is that a missing
+  credential costs a signal and never a completed assessment. A network
+  call with latency, a rate limit and an outage in that path is a risk to
+  her submit for no gain.
+- **It cannot invent vocabulary, provably.** Every phrase it can match is
+  a row whose target is a foreign key onto a standardized signal name a
+  coach already reviewed. A phrase with no row is skipped, exactly as
+  migration 241's dictionary skips a question ref it does not hold.
+- **The coach has to be able to trace it.** Same words, same answer, every
+  time, and the span of HER text that produced each row is carried through
+  to the card.
+
+**The seam is still there.** `provider_validated` is reserved in migration
+246 for a model that later PROPOSES candidate phrases, with this matcher
+remaining the gate that validates them into canonical names. Nothing in
+`classify.ts` would move.
+
+### WHAT A COMPLAINT PRODUCES
+
+"My right hip has been clicking and aching when I walk." produces two
+classifications, both at the hip, both on the right, both carrying the
+context `when_walking`, and each carrying the span of her own text that
+produced it ("hip has been clicking", "aching"). Her whole sentence is
+stored verbatim on the report; the span is stored on the row.
+
+The lexicon is **355 phrases and 135 modifiers**, all rows. Modifiers are
+kept apart from phrases because they MODIFY a match rather than being one:
+"right" is not a complaint.
+
+**NEGATION HAS A DIRECTION, because English does.** "no bloating" puts the
+closing word in front and "my headaches have stopped" puts it behind, and
+a matcher reading only one direction gets half of them wrong. That is the
+worse direction to be wrong in: the library is append over time and the
+engine reads the LATEST row, so a sentence saying a thing has finished
+would otherwise have outranked the truth.
+
+### THE STARTER MAP: EIGHTEEN ENTRIES, SEEDED AND ACTIVE
+
+Migration 248 seeds the whole framework the brief specifies: hip and
+pelvis, low back, shoulder, neck, knee, ankle and foot, headaches, skin,
+digestion, blood sugar and energy, sleep, stress, mood, hormonal, urinary,
+breathing, fatigue, and one wide musculoskeletal entry so a joint signal
+at a place the other seventeen do not name still sends Root beyond the
+painful location.
+
+**WHY THIS SUPERSEDES MIGRATION 243'S "THE LIBRARY SHIPS EMPTY", and why
+it is not a contradiction.** That rule existed to stop the SYSTEM from
+inventing relationships at runtime, and it still holds absolutely: there
+is no generator, no inference and no similarity measure anywhere in the
+feature, and Root uses only what is in these tables. What changed is who
+authored the first rows. The map is authored coaching methodology content,
+reviewed as content exactly like migration 241's 159 standardized signal
+names, and the coach owns every row: she edits it, which writes an
+ordinary version 2, or deactivates it, which takes it out of every lookup
+immediately.
+
+**Nothing is hard coded to a pairing.** The seeding helper takes lists of
+(vocabulary, key) pairs and resolves their labels from the Signal Library,
+so the same call that seeds the hip entry seeds the mood one, and a typo
+raises and fails the migration rather than shipping a component labelled
+with its own slug.
+
+**Every entry carries a source type**, because a CHEK / HLC methodology
+association and a conventional referred-pain relationship are not the same
+kind of claim. The card prints the type and a basis line under the
+association, so the basis is stated rather than implied.
+
+### THE TWO ENGINES ARE MUTUALLY EXCLUSIVE
+
+A version carries `surfaces_on_complaint`. True means Root's
+complaint-driven lookup reads it with no floor; false means the Prompt 3
+matcher counts against the coach's thresholds exactly as before. Each
+engine filters on the flag and neither sees the other's rows, so one
+relationship can never face the coach twice saying two different things
+about one set of her rows. Every definition that already existed defaults
+to false and behaves exactly as it did.
+
+**NO FLOOR, DELIBERATELY.** An area worth reviewing is worth reviewing
+even when nothing supports it yet, because "the map says look at Kidney
+and Bladder, and there is nothing there" is information a coach wants and
+a floor would have silently thrown away. What the floor protected against
+is protected by something stronger: a finding never says a pattern is
+present, it says which areas were checked and exactly what was in each.
+
+### FIVE EVIDENCE STATES, KEPT APART
+
+CURRENT, RECENT, HISTORICAL, RESOLVED and NOT OBSERVED are five different
+things to a coach and blending any two would throw away what she needs.
+The brief's own case works: bloating a year ago, answered Never on the
+last two assessments, reads as **resolved** and never as support.
+
+A signal she has only ever answered Never produces no state at all, because
+turning consistent no into "resolved" would invent a symptom she never had.
+
+`satisfiesIgnoringPresence` exists for one reason worth writing down: the
+floor-based matcher correctly refuses a row whose value is nought, so
+reusing it unchanged would have made every resolution invisible and read
+as "not currently observed", which is a weaker and different statement
+than "she reported this and it has settled".
+
+### THE COACH SURFACE
+
+A tenth section, **Root Noticed**, above Whole-Body Patterns. That ordering
+is the point of the build: Patterns is the coach asking a question she
+wrote herself, and this is Root answering one she never had to ask.
+
+Each finding shows her complaint verbatim with its surface and date, what
+Root read it as, the map entry's name, how many areas were checked and how
+many hold something current, then per area: current supporting findings,
+recent and historical context, not currently observed, and why Root checked
+this area. Then the coach's own association text, its basis, and her own
+coaching considerations in her own order.
+
+**Its dot is never gold**, for the Signals section's reason: a finding is a
+thing to review, not a thing asking for anything, and colouring a count of
+a client's reported symptoms would turn a record into an alarm scale. The
+one exception is a finding the red flag system withheld, which is safety.
+
+### THE SAFETY OVERRIDE STILL WINS, AND IT HAPPENS IN THE BUILDER
+
+`lib/cross-system-patterns/safety.ts` is ASKED rather than reimplemented,
+so a flag added to the Body Systems layer next year is honoured the day it
+is added. One contributing row carrying a safety response withholds the
+ENTIRE finding, and a withheld finding is **built empty rather than drawn
+empty**: no areas, no association, no considerations, nothing in the
+database for a screen to leak. The flagged signal's NAME is deliberately
+kept, because the prompt's whole job is to send her to the response that
+needs the red flag process.
+
+### THE FENCE
+
+Migration 246's ten tables carry **no member policy of any kind**, and the
+report, classification and finding tables carry **no insert policy for
+anybody, coach included**. The only writer is the trusted connection, for
+migration 245's reason: classification fires while a MEMBER'S own submit is
+completing, where no coach session exists. A coach may UPDATE a finding,
+and only to mark it reviewed or dismissed.
+
+**One existing guard had to be told the truth rather than worked around.**
+`lib/cross-system-patterns/safety.ts` is now reachable from a member's own
+submit, because the lookup must apply the override BEFORE it writes a
+finding. It is safe there for the reason the whole copy split exists: it
+holds no coach facing sentence, it asks the survey's own red flag layer and
+returns a set of row ids. The fence test's "NOT ONE WORD A COACH READS"
+case scans it along with everything else, so that is proved rather than
+asserted.
+
+### Checks
+
+**12,213 tests passing across 628 files**, 121 of them new across five new
+files: `cross-system-complaint-classify.test.ts` (37),
+`cross-system-root-lookup.test.ts` (32),
+`cross-system-root-schema.test.ts` (29),
+`cross-system-root-card.test.tsx` (19),
+`cross-system-root-copy.test.ts` (24), plus a shared fixture.
+
+**The classifier tests drive the SHIPPED lexicon**, parsed out of
+migrations 247, 249 and 250 rather than a hand written fixture, including
+the DELETES those migrations perform. A classifier test built on six
+invented phrases would have proved the algorithm and nothing about whether
+a member writing "my right hip has been clicking" is understood by what is
+deployed.
+
+Typecheck clean. Lint clean at 0 errors. Production build clean,
+`/coach/clients/[id]/detail` at 73 kB.
+
+Migrations 246 to 250 applied to production. The ledger is unbroken: 250
+rows locally and 250 remotely.
+
+**Prompt 2's copy lint now reads the seeded map too.** It scanned only
+migration 244's single example row, which no longer describes the content
+this library ships: eighteen association texts and over a hundred coaching
+considerations are rows in a database that no source guard can see. All of
+it is held to zero banned phrases and zero em dashes.
+
+### THREE DEFECTS THE CLASSIFIER'S OWN FIRST RUN FOUND
+
+Each was found by driving the matcher over the brief's own example
+sentences against the seeded lexicon, and each was a class of error rather
+than one sentence. All three are fixed in migration 249.
+
+**1. A negation can follow the thing it negates.** "my headaches have
+stopped" classified as a headache signal, because the matcher only looked
+behind a match. Negation now has a direction, as two separate kinds of row
+rather than one list read both ways.
+
+**2. A generic pain word pinned itself to the whole body.** "My right hip
+has been clicking and aching" produced the hip clicking correctly and then
+a second row reading "whole body daily pain or discomfort", because the
+bare words pain, aching, sore and discomfort carried `whole_body` as their
+own area. They now point at "Joint aching", which takes an area, and carry
+none of their own, so the area comes from what she actually wrote. "Daily
+pain or discomfort" stays exactly what it was: the Daily Check-In's own
+numeric question, no longer reachable from free text, which is correct
+because a sentence is not that question.
+
+**3. Missing inflections.** "Both knees hurt." classified as nothing at
+all: the lexicon held "hurts" and not "hurt". That is not one missing word
+but one missing inflection across every generic complaint verb, and a
+member writing about two knees is not an edge case. Migration 250 adds the
+forms, plus the possessive contraction a phone keyboard produces
+("my hip's been clicking" normalizes to "hips been clicking").
+
+### Live verification, production, 2026-09-15
+
+Correct repo (`MEFwellness/mef-platform`), branch `main`, Vercel project
+`mef-platform`, target Production, and `app.mefwellness.com` confirmed
+aliased to the deployment carrying this work before anything was checked.
+`apps/consumer-web-app/scripts/verify-root-noticed-live.mjs` is the run,
+and **43 of 43 checks passed**, at 390x844.
+
+**THE MEMBER SUBMITTED A REAL COMPLAINT THROUGH THE REAL WIZARD.** Every
+screen of the Daily Reset answered, the sentence typed into the notes
+field, and Save check-in pressed. Production then held:
+
+| | |
+| --- | --- |
+| the complaint | stored verbatim, on her own local day, under "Daily check-in notes" |
+| the classifier | `deterministic_lexicon`, revision `deterministic-lexicon-1` |
+| what it found | `hip-clicking` and `joint-aching`, both right, both hip, both `when_walking` |
+| her words | "hip has been clicking" and "aching", each a real span of her sentence |
+| the signals | two ORDINARY rows under "Reported by the member" |
+| the lookup | ran automatically, from the seeded map, with zero relationships created by hand |
+| the finding | recorded the exact relationship version it read |
+
+**THE COACH SIDE.** Root Noticed present on Client Detail. The card read
+her complaint back verbatim, said "Root read this as: Hip clicking (Right
+Hip); Joint aching (Right Hip)", said "Root checked 9 areas. 9 of them have
+something currently reported.", printed "CHEK / HLC coaching methodology. A
+coaching methodology association, not an established medical finding.", and
+carried the standing line that Root does not diagnose. Opening a finding
+printed, per area, "Your Whole-Body Association Map lists Posture/Alignment
+under ... as an area that may be worth reviewing."
+
+**CONVERGENCE WORKED ON REAL DATA**, unprompted: "Several current findings
+overlap with Stress in your Whole-Body Association Map (2 separate reports
+led here)."
+
+**THE LIBRARY.** All five sampled seeded entries visible and organized on
+`/coach/relationships`. A seeded entry opened in the EXISTING editor
+drawing Observed inputs and Pattern composition, and its Version history
+listed Version 1. Nothing about a seeded row is a special case.
+
+No percent sign, no em dash and zero console or page errors anywhere in the
+coach walk.
+
+**THE MEMBER SIDE: NOTHING LEAKED.** Checked at both layers. At the
+DATABASE, a member session and an anonymous session each read **0 rows from
+all ten new tables**. At the SCREEN, ten real member routes walked signed
+in, with every response body the browser received scanned for fifteen
+words including "Root Noticed", "Whole-Body Association Map", "Areas Root
+checked", "matched_phrase" and "surfaces_on_complaint". **Zero hits**, and
+zero console errors. A member asking for the coach detail page by URL lands
+on `/dashboard`.
+
+**HER QUESTIONNAIRE RESULTS DID NOT MOVE.** Her Body Systems sitting was
+read before and after and compared including the whole stored `results`
+object: byte for byte identical, all eleven sections still carrying their
+own stored band, and no combined or diagnostic key anywhere in it.
+
+**Production is clean.** The complaint, its findings, its two signals and
+the check-in row were all deleted in a `finally` and confirmed absent by an
+independent query. Ebony is back at exactly the 60 signals she had before
+the run, and the eighteen seeded entries are untouched.
+
+### ONE COPY BUG THE LIVE HEADER CORRECTED, AND IT WAS OLDER THAN THIS BUILD
+
+The folded Root Noticed header read **"2 connection to reviews"**. The
+shared `plural` helper appends an "s" to whatever it is handed, which is
+right for a noun and wrong for a phrase.
+
+**The same bug was already shipped in Whole-Body Patterns**, which had been
+reading "2 pattern to reviews" since Prompt 3. Both callers now spell their
+own plural, and five regression tests hold every header to it. Only the
+live screen could show this: every test in the suite had been asserting the
+singular.
+
+### THREE INSTRUMENT BUGS WORTH WRITING DOWN
+
+The app needed no change for any of them, and each is a standing trap.
+
+**A heuristic that clicks "the first button" clicks the header avatar.**
+The first attempt at driving the check-in wizard clicked the profile
+avatar, left the flow, and reported the feature broken. Nav controls and
+the progress dots are buttons too, and they are excluded by label and by
+`aria-label` now.
+
+**A wizard screen GROWS as it is answered.** Answering "Any discomfort?"
+reveals a location group and a level group that did not exist a moment
+before, so a single snapshot of a screen's buttons stalls on it forever.
+The run answers in rounds, re-querying each time.
+
+**A transient DNS failure looks exactly like a regression.** One
+`ERR_NAME_NOT_RESOLVED` mid-run cost six checks AND made the cleanup
+report a dirty production table, because its own requests were failing for
+the same reason at the same moment. Navigations and every cleanup delete
+retry now.
+
+**And one vacuous guard, which is the worse kind.** The Body Systems
+comparison asked `body_systems_sessions` for `user_id`. The table is
+`member_body_systems_sessions` and the column is `member_id`, so it got
+nothing back twice and reported "unchanged" by comparing two empty lists.
+It now asserts she really has a sitting before it claims one is unchanged.
+A guard that cannot fail is not a guard, and this is the third time that
+trap has appeared in this file.
+
 ## The Whole-Body Cross-System Correlation Engine, Prompt 3 of 3: the matching engine and the Whole-Body Patterns view (2026-09-15)
 
 The engine that reads a member's stored signals against the definitions
