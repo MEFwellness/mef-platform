@@ -43,6 +43,8 @@ import {
 import { forgetMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
 import { clearRootPopupDismissal, healthIntakePopupMessageKey } from '@/lib/root-popup-messages/data';
 import { evaluateConcern } from '@/lib/safety/service';
+import { hearComplaints } from '@/lib/cross-system-complaints/service';
+import { SURFACE_ASSESSMENT_FREE_TEXT } from '@/lib/cross-system-complaints/constants';
 import { recordSafetyRestrictionNarrative } from '@/lib/narrative/service';
 import {
   HLI_CONTENT_VERSION,
@@ -60,7 +62,11 @@ import {
 } from '@/lib/health-intake/data';
 import { sanitizeWithArchive } from '@/lib/health-intake/sanitize';
 import { buildSteps, clampStepIndex, completionStepIndex } from '@/lib/health-intake/steps';
-import { evaluateIntakeSafety, freeTextForClassifier } from '@/lib/health-intake/safety';
+import {
+  evaluateIntakeSafety,
+  freeTextForClassifier,
+  intakeFreeTextEntries,
+} from '@/lib/health-intake/safety';
 import { buildMemberSummary, type MemberSummaryView } from '@/lib/health-intake/memberSummary';
 import type { IntakeAnswers } from '@/lib/health-intake/types';
 
@@ -229,6 +235,27 @@ export async function submitHealthIntakeAction(answersInput: unknown): Promise<S
   });
 
   if (!record?.completedAt) return { ok: false, error: HLI_COPY.saveError };
+
+  // AUTOMATIC COMPLAINT UNDERSTANDING. The intake is where a member writes
+  // the most about her body in her own words, and until this build every
+  // one of those boxes reached the safety classifier and nothing else.
+  //
+  // ONE REPORT PER FIELD, not one per intake, because a complaint report
+  // records the exact prompt she was answering and these are eight
+  // different questions. Best effort and last: her intake is complete and
+  // stored by the time this runs.
+  await hearComplaints(
+    intakeFreeTextEntries(record.answers).map((entry) => ({
+      memberId: user.id,
+      surfaceKey: SURFACE_ASSESSMENT_FREE_TEXT,
+      rawText: entry.text,
+      sourceRecordId: record.id,
+      fieldRef: entry.id,
+      fieldPrompt: entry.prompt,
+      reportedAt: record.completedAt as string,
+      authorRole: 'member' as const,
+    }))
+  );
 
   // The pop-up for this assignment can never be due again, which makes any
   // snooze or ignore row for it dead weight.

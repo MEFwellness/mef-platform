@@ -251,6 +251,8 @@ function record(over: Partial<SignalRecord> & Pick<SignalRecord, 'id'>): SignalR
     enteredBy: null,
     entryMode: 'ingested',
     ingestFingerprint: null,
+  complaintSurfaceKey: null,
+  complaintSurfaceLabel: null,
     ...over,
   };
 }

@@ -58,7 +58,11 @@ function EntryLine({ entry }: { entry: SignalHistoryEntry }) {
         <span className="text-sm font-medium text-[#1B3A2D]">{entry.valueLabel}</span>
         <span className="text-xs text-[#6B7A72]">{day(entry.capturedOn)}</span>
       </div>
-      <p className="mt-0.5 text-xs text-[#6B7A72]">{entry.sourceLabel}</p>
+      <p className="mt-0.5 text-xs text-[#6B7A72]">
+        {entry.complaintSurfaceLabel
+          ? `${entry.sourceLabel}, ${entry.complaintSurfaceLabel}`
+          : entry.sourceLabel}
+      </p>
       {entry.sourceQuestionPrompt ? (
         <p className="mt-0.5 text-xs italic leading-relaxed text-[#6B7A72]">
           {entry.sourceQuestionPrompt}
@@ -89,8 +93,15 @@ function SignalRow({ row }: { row: SignalGroupRow }) {
           </span>
           <span className="text-sm font-medium text-[#3E5C46]">{row.latest.valueLabel}</span>
         </div>
+        {/* WHERE SHE SAID IT, on the row itself. Null on every row that
+            did not come out of a sentence, and printed for every row that
+            did, because nine different surfaces write into this list now
+            and "in her Evening Reflection" and "in a message to me" are
+            different things to a coach. */}
         <p className="mt-0.5 text-xs text-[#6B7A72]">
-          {row.latest.sourceLabel}, {day(row.latest.capturedOn)}
+          {row.latest.complaintSurfaceLabel
+            ? `${row.latest.sourceLabel}, ${row.latest.complaintSurfaceLabel}, ${day(row.latest.capturedOn)}`
+            : `${row.latest.sourceLabel}, ${day(row.latest.capturedOn)}`}
         </p>
         {row.latest.sourceQuestionPrompt ? (
           <p className="mt-0.5 text-xs italic leading-relaxed text-[#6B7A72]">

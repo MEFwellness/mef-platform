@@ -94,6 +94,7 @@ export async function insertClassifications(
     body_area_key: draft.bodyAreaKey,
     side: draft.side,
     matched_phrase: draft.matchedPhrase,
+    is_resolution: draft.isResolution,
     context_key: draft.contextKey,
     frequency_key: draft.frequencyKey,
     frequency_label: draft.frequencyLabel,
@@ -127,6 +128,11 @@ export function complaintSignalFingerprint(
     draft.signalSlug,
     draft.bodyAreaKey ?? 'none',
     draft.side ?? 'none',
+    // A REPORT AND A RESOLUTION OF ONE SIGNAL IN ONE SENTENCE ARE TWO
+    // ROWS, so they cannot share a fingerprint. Without this, "the left
+    // one has settled but the right one is still sore" would write one row
+    // and lose whichever half arrived second.
+    draft.isResolution ? 'resolved' : 'reported',
   ].join('::');
 }
 
@@ -143,7 +149,7 @@ export function complaintSignalFingerprint(
  * slug.
  */
 export function signalDraftsFor(
-  report: { id: string; rawText: string; fieldRef: string | null; fieldPrompt: string | null; surfaceLabel: string; reportedOn: string; reportedAt: string; authorRole: 'member' | 'coach' },
+  report: { id: string; rawText: string; fieldRef: string | null; fieldPrompt: string | null; surfaceKey: string; surfaceLabel: string; reportedOn: string; reportedAt: string; authorRole: 'member' | 'coach' },
   drafts: readonly ComplaintClassificationDraft[],
   library: SignalLibrary
 ): SignalDraft[] {
@@ -172,6 +178,37 @@ export function signalDraftsFor(
     // presence: the thing was reported, and there is nothing to compare.
     const hasFrequency = draft.frequencyKey !== null && draft.frequencyNumeric !== null;
 
+    // A RESOLUTION IS WRITTEN AT NOUGHT, and that is the whole mechanism.
+    // Nothing downstream needs a new concept: lib/cross-system-root/
+    // evidence.ts already reads a latest row of nought behind an earlier
+    // present one as RESOLVED, and lib/cross-system-patterns/match.ts
+    // already refuses to count a nought as support. A resolution she has
+    // never reported before produces a row that says so and no state at
+    // all, which is correct: consistently saying no is not a symptom.
+    //
+    // The scale is the Body Systems Survey's own (migration 221), where
+    // nought is Never, so this row sits on one timeline with her
+    // questionnaire answers rather than on a second one.
+    //
+    // THE LABEL IS WRITTEN HERE AND NOT IMPORTED FROM THE COACH'S COPY
+    // FILE, on purpose. This module runs inside a member's own submit, and
+    // lib/cross-system-root/copy.ts holds the finding's narrative wording,
+    // which no member surface may be able to reach. A stored value label is
+    // a different thing from narrative copy: it is the answer itself, the
+    // same way 'Reported' below is, and it has to be written where the row
+    // is written. The fence test scans this file for the narrative strings
+    // and finds none of them.
+    const value = draft.isResolution
+      ? { kind: 'scale' as const, label: 'No longer reported', key: 'never', numeric: 0 }
+      : hasFrequency
+        ? {
+            kind: 'scale' as const,
+            label: draft.frequencyLabel!,
+            key: draft.frequencyKey,
+            numeric: draft.frequencyNumeric,
+          }
+        : { kind: 'presence' as const, label: 'Reported', key: null, numeric: null };
+
     out.push({
       signalSlug: draft.signalSlug,
       signalName: name.displayName,
@@ -179,12 +216,18 @@ export function signalDraftsFor(
       bodyAreaKey: bodyAreaKey ?? null,
       symptomKey: name.defaultSymptomKey,
       side: side ?? null,
-      valueKind: hasFrequency ? 'scale' : 'presence',
-      valueLabel: hasFrequency ? draft.frequencyLabel! : 'Reported',
-      valueKey: hasFrequency ? draft.frequencyKey : null,
-      valueNumeric: hasFrequency ? draft.frequencyNumeric : null,
+      valueKind: value.kind,
+      valueLabel: value.label,
+      valueKey: value.key,
+      valueNumeric: value.numeric,
       sourceKey,
       sourceLabel: source.displayName,
+      // WHERE SHE SAID IT. Copied in at capture time rather than joined at
+      // read time, the same discipline as sourceLabel beside it: renaming
+      // a surface next year must not rewrite what a coach was told last
+      // year about where a complaint came from.
+      complaintSurfaceKey: report.surfaceKey,
+      complaintSurfaceLabel: report.surfaceLabel,
       sourceSessionId: null,
       sourceQuestionRef: report.fieldRef,
       // WHAT SHE WAS ANSWERING, so the coach's Signals list can print the
@@ -331,6 +374,7 @@ export async function loadClassifications(
       bodyAreaKey: (raw.body_area_key as string | null) ?? null,
       side: (raw.side as ComplaintClassificationRecord['side']) ?? null,
       matchedPhrase: raw.matched_phrase as string,
+      isResolution: (raw.is_resolution as boolean | null) ?? false,
       contextKey: (raw.context_key as string | null) ?? null,
       frequencyKey: (raw.frequency_key as string | null) ?? null,
       frequencyLabel: (raw.frequency_label as string | null) ?? null,

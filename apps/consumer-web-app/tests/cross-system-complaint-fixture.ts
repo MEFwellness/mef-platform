@@ -10,8 +10,10 @@
  * holds.
  *
  * IT APPLIES THE DELETES TOO. Migration 249 removes five negation words and
- * four generic pain phrases, and a fixture that ignored a delete would test
- * a lexicon that has never existed anywhere.
+ * four generic pain phrases, and migration 256 retires twenty seven rows
+ * that mapped every sensation a joint can produce onto one canonical name.
+ * A fixture that ignored a delete would test a lexicon that has never
+ * existed anywhere.
  */
 
 import fs from 'node:fs';
@@ -30,6 +32,7 @@ const LEXICON_MIGRATIONS = [
   '00000000000247_cross_system_complaint_lexicon_seed.sql',
   '00000000000249_cross_system_complaint_lexicon_fixes.sql',
   '00000000000250_cross_system_complaint_lexicon_inflections.sql',
+  '00000000000256_cross_system_lexicon_expansion.sql',
 ];
 
 type Insert = { table: string; columns: string[]; rows: string[][] };
@@ -145,16 +148,37 @@ function value(row: string[], columns: string[], name: string): string | null {
   return raw;
 }
 
-/** The phrases a delete statement removes, by the column it keys on. */
-function deletedPhrases(sql: string, table: string): Set<string> {
-  const out = new Set<string>();
-  const pattern = new RegExp(`delete from ${table}[\\s\\S]*?phrase in \\(([^)]*)\\)`, 'gi');
+/**
+ * The phrases a delete statement removes, keyed by the signal slug it
+ * scopes itself to.
+ *
+ * WHY THE SLUG MATTERS AND USED NOT TO. Migration 249's deletes were all
+ * about one slug, so a set of bare phrases was enough. Migration 256
+ * REPOINTS: it deletes "clicking" from 'joint-aching' and inserts it
+ * against 'joint-clicking' in the same file. A fixture that read the
+ * delete as "remove the phrase clicking" would remove the row the
+ * migration just added, and would then be testing a lexicon in which
+ * nobody can say their knee clicks.
+ *
+ * A delete with no slug clause is recorded under the empty string, which
+ * means every slug.
+ */
+function deletedPhrases(sql: string, table: string): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  const pattern = new RegExp(
+    `delete from ${table}([\\s\\S]*?)phrase in \\(([^)]*)\\)`,
+    'gi'
+  );
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(sql)) !== null) {
-    for (const piece of match[1]!.split(',')) {
+    const scope = /signal_slug\s*=\s*'([^']+)'/i.exec(match[1] ?? '');
+    const slug = scope ? scope[1]! : '';
+    const held = out.get(slug) ?? new Set<string>();
+    for (const piece of match[2]!.split(',')) {
       const cleaned = piece.trim().replace(/^'|'$/g, '');
-      if (cleaned) out.add(cleaned);
+      if (cleaned) held.add(cleaned);
     }
+    out.set(slug, held);
   }
   return out;
 }
@@ -162,16 +186,19 @@ function deletedPhrases(sql: string, table: string): Set<string> {
 export function shippedLexicon(): ComplaintLexicon {
   const phrases: ComplaintPhrase[] = [];
   const modifiers: ComplaintModifier[] = [];
-  const deletedLexicon = new Set<string>();
+  /** slug (or '' for every slug) to the phrases removed from it. */
+  const deletedLexicon = new Map<string, Set<string>>();
   const deletedModifiers = new Set<string>();
 
   for (const file of LEXICON_MIGRATIONS) {
     const sql = fs.readFileSync(path.join(MIGRATIONS, file), 'utf8');
-    for (const phrase of deletedPhrases(sql, 'cross_system_complaint_lexicon')) {
-      deletedLexicon.add(phrase);
+    for (const [slug, removed] of deletedPhrases(sql, 'cross_system_complaint_lexicon')) {
+      const held = deletedLexicon.get(slug) ?? new Set<string>();
+      for (const phrase of removed) held.add(phrase);
+      deletedLexicon.set(slug, held);
     }
-    for (const phrase of deletedPhrases(sql, 'cross_system_complaint_modifiers')) {
-      deletedModifiers.add(phrase);
+    for (const removed of deletedPhrases(sql, 'cross_system_complaint_modifiers').values()) {
+      for (const phrase of removed) deletedModifiers.add(phrase);
     }
 
     for (const insert of parseInserts(sql)) {
@@ -216,10 +243,19 @@ export function shippedLexicon(): ComplaintLexicon {
   const liveModifiers = modifiers.filter(
     (modifier) => !(modifier.kind === 'negation' && deletedModifiers.has(modifier.phrase))
   );
-  const livePhrases = phrases.filter(
-    (phrase) =>
-      !(phrase.signalSlug === 'daily-pain-or-discomfort' && deletedLexicon.has(phrase.phrase))
-  );
+  const livePhrases = phrases.filter((phrase) => {
+    // THE ORDER OF A FILE IS NOT THE ORDER OF A DELETE. Postgres runs the
+    // statements in order, so a delete in migration 256 removes the rows
+    // migration 247 inserted and NOT the ones the same file inserts
+    // afterwards. This filter reproduces that by scoping the removal to the
+    // slug the delete named, which is the only thing that tells the two
+    // apart.
+    const scoped = deletedLexicon.get(phrase.signalSlug);
+    if (scoped && scoped.has(phrase.phrase)) return false;
+    const everything = deletedLexicon.get('');
+    if (everything && everything.has(phrase.phrase)) return false;
+    return true;
+  });
 
   return {
     phrases: orderPhrases(livePhrases),

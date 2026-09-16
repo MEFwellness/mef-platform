@@ -77,6 +77,7 @@ const CLASSIFICATIONS = [
     bodyAreaKey: 'hip',
     side: 'right' as const,
     matchedPhrase: 'hip keeps clicking',
+    isResolution: false,
     contextKey: null,
     frequencyKey: 'often',
     frequencyLabel: 'Often',

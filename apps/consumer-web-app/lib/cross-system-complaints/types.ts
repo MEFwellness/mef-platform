@@ -61,7 +61,18 @@ export type ComplaintModifierKind =
   /** Closes a match out when it sits IN FRONT of it ("no bloating"). */
   | 'negation'
   /** Closes a match out when it sits BEHIND it ("my headaches have stopped"). */
-  | 'negation_after';
+  | 'negation_after'
+  /**
+   * REOPENS one that a closing word would otherwise have shut.
+   *
+   * WHY THIS IS A THIRD KIND AND NOT THE ABSENCE OF THE OTHER TWO. "My
+   * headaches stopped, but they have come back" contains a closing word
+   * and is a CURRENT complaint. A matcher that only knew how to close
+   * would file it as settled, and that is the worse direction to be wrong
+   * in: the library is append over time and the engine reads the LATEST
+   * row, so a sentence reopening a complaint would have buried it.
+   */
+  | 'reassertion';
 
 /**
  * A word that CHANGES a match rather than being one.
@@ -107,6 +118,22 @@ export type ComplaintLexicon = {
 export type ComplaintClassificationDraft = {
   position: number;
   signalSlug: string;
+  /**
+   * TRUE WHEN HER WORDS CLOSED THIS OUT rather than reported it.
+   *
+   * A resolution is a classification, not a silence. The matcher used to
+   * recognize "my headaches have stopped" and then throw the whole match
+   * away, which wrote nothing at all: no row, and no way for a coach to
+   * know she had said it. Worse, the Signal Library is append over time
+   * and the engine reads the latest row, so the silence left her older
+   * complaint standing as the newest thing she had said on the subject.
+   *
+   * A row carrying this is written as an ordinary signal at nought, which
+   * is exactly what lib/cross-system-root/evidence.ts already reads as
+   * RESOLVED, and what lib/cross-system-patterns/match.ts already refuses
+   * to count as support.
+   */
+  isResolution: boolean;
   bodyAreaKey: string | null;
   side: SignalSide | null;
   /** The exact substring of the original text that produced this row. */

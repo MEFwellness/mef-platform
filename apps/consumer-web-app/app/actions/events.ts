@@ -28,6 +28,8 @@ import {
 } from '@/lib/events/service';
 import { isHydrationTracked } from '@/lib/hydration/data';
 import { evaluateConcern } from '@/lib/safety/service';
+import { hearComplaints } from '@/lib/cross-system-complaints/service';
+import { SURFACE_CONCERN_FLAG } from '@/lib/cross-system-complaints/constants';
 import { nowInTimezone, todaysLocalDate } from '@/lib/time/localDate';
 import { getTodaysCheckin, submitEveningBodyCheckin } from './checkin';
 import type { ActionResult } from './auth';
@@ -232,6 +234,26 @@ export async function flagConcern(text: string): Promise<ActionResult> {
   } catch (safetyError) {
     console.error('Safety classification failed for flagConcern', safetyError);
   }
+
+  // AUTOMATIC COMPLAINT UNDERSTANDING, through the same shared pipeline
+  // every other surface uses. A mid-day flag is the one place a member
+  // types a complaint the moment it happens rather than at the end of the
+  // day, so it is the one with the freshest words in it.
+  //
+  // AFTER THE SAFETY CLASSIFIER, NEVER INSTEAD OF IT, and best effort: the
+  // event is already written and already returned to her.
+  await hearComplaints([
+    {
+      memberId: ctx.memberId,
+      surfaceKey: SURFACE_CONCERN_FLAG,
+      rawText: trimmed,
+      sourceRecordId: event.id,
+      fieldRef: 'concern_flag',
+      fieldPrompt: 'What is new or worse today?',
+      reportedAt: event.occurred_at ?? new Date().toISOString(),
+      authorRole: 'member',
+    },
+  ]);
 
   return {};
 }

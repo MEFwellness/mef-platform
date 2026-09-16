@@ -18,6 +18,8 @@ import type { EnergyPattern, EveningReflection } from '@mef/shared-types-contrac
 import { recordMemberEvent } from '@/lib/events/service';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { evaluateConcern } from '@/lib/safety/service';
+import { hearComplaints } from '@/lib/cross-system-complaints/service';
+import { SURFACE_EVENING_REFLECTION } from '@/lib/cross-system-complaints/constants';
 import { todaysLocalDate } from '@/lib/time/localDate';
 import { recordForecastsFromEveningReflection } from '@/lib/energy-forecast/service';
 import { getForecastForDate } from '@/lib/energy-forecast/data';
@@ -175,6 +177,28 @@ export async function submitEveningReflection(
   } catch (safetyError) {
     console.error('Safety classification failed for submitEveningReflection', safetyError);
   }
+
+  // AUTOMATIC COMPLAINT UNDERSTANDING. "Anything new or changed today?" is
+  // the most direct complaint field a member has anywhere in this app, and
+  // until this build Root could not hear it.
+  //
+  // IT RUNS AFTER THE SAFETY CLASSIFIER, NEVER INSTEAD OF IT. The block
+  // above already sent this same text through lib/safety/service.ts, which
+  // is the only thing that decides whether a note needs the safety process.
+  // Best effort and never able to fail her reflection, which is already
+  // saved and already returned.
+  await hearComplaints([
+    {
+      memberId: ctx.memberId,
+      surfaceKey: SURFACE_EVENING_REFLECTION,
+      rawText: input.symptomsOrChanges ?? '',
+      sourceRecordId: reflection.id,
+      fieldRef: 'symptoms_or_changes',
+      fieldPrompt: 'Anything new or changed today? (optional)',
+      reportedAt: reflection.recorded_at ?? reflection.created_at,
+      authorRole: 'member',
+    },
+  ]);
 
   // Forecast & Calibration Loop — her forecast (if given) and Root's own
   // (attempted regardless, once it has a genuine basis). Best-effort, same

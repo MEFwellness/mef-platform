@@ -75,6 +75,17 @@ export const STATE_EXPLANATIONS: Record<EvidenceState, string> = {
   not_observed: 'Nothing in her data sits under this area at the moment.',
 };
 
+/**
+ * What Root read a resolution as, said plainly beside the signal name.
+ *
+ * WHY IT IS SAID AT ALL. A sentence closing something out now writes a row
+ * instead of vanishing, which means the coach's card can show a signal name
+ * she has just been told is FINISHED. Printing the name without this line
+ * would read as a current complaint, which is the opposite of what the
+ * member said.
+ */
+export const RESOLUTION_SUFFIX = 'reported as settled';
+
 /** The one line that opens a finding. */
 export function noticedLine(): string {
   return 'Root read what she reported and checked her whole-body data against the Association Map.';

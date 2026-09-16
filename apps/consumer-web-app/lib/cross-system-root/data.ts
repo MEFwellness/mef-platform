@@ -82,68 +82,81 @@ export async function replaceFindings(
     return { ok: false, written: 0 };
   }
 
-  let written = 0;
-  for (const finding of input.findings) {
-    if (!finding.surfaced) continue;
+  /*
+    THREE INSERTS FOR THE WHOLE COMPLAINT, NOT THREE PER FINDING.
+
+    The corrected build fixed forty round trips down to three per finding,
+    which was right for a map of eighteen entries where a complaint
+    triggered one or two. This map is over two hundred entries: a knee
+    complaint reaches the knee entry, the joint clicking entry, the
+    Joint/Movement system entry and the wide musculoskeletal entry, and a
+    sentence naming two things reaches twice that. Per finding batching
+    would put that back where it started.
+
+    So every finding goes in one insert, every area of every finding in a
+    second, and every row of every area in a third, regardless of how many
+    entries the complaint triggered. The ids come back through `select` and
+    are matched by a key the caller chose (the relationship for a finding,
+    the finding and position for an area), never by the order the rows
+    arrive in, because PostgREST does not promise insertion order.
+
+    IT STILL RUNS WHILE A MEMBER'S OWN CHECK-IN IS COMPLETING, which is why
+    the count of round trips is a correctness concern and not only a speed
+    one. Her result is already saved and this block is best effort, so it
+    can never cost her the check-in, but it holds her request open.
+  */
+  const surfaced = input.findings.filter((finding) => finding.surfaced);
+  if (surfaced.length === 0) return { ok: true, written: 0 };
+
+  const findingRows = surfaced.map((finding) => {
     const state = carried.get(finding.head.id);
+    return {
+      member_id: input.memberId,
+      report_id: input.reportId,
+      relationship_id: finding.head.id,
+      version_id: finding.version.id,
+      classification_id: null,
+      current_finding_count: finding.currentCount,
+      historical_finding_count: finding.historicalCount,
+      not_observed_count: finding.notObservedCount,
+      area_count: finding.areas.length,
+      is_safety_withheld: finding.safetyWithheld,
+      triggered_by: input.trigger,
+      noticed_on: input.noticedOn,
+      noticed_at: input.noticedAt,
+      reviewed_at: state?.reviewed_at ?? null,
+      reviewed_by: state?.reviewed_by ?? null,
+      dismissed_at: state?.dismissed_at ?? null,
+      dismissed_by: state?.dismissed_by ?? null,
+    };
+  });
 
-    const inserted = await supabase
-      .from('cross_system_root_findings')
-      .insert({
-        member_id: input.memberId,
-        report_id: input.reportId,
-        relationship_id: finding.head.id,
-        version_id: finding.version.id,
-        classification_id: null,
-        current_finding_count: finding.currentCount,
-        historical_finding_count: finding.historicalCount,
-        not_observed_count: finding.notObservedCount,
-        area_count: finding.areas.length,
-        is_safety_withheld: finding.safetyWithheld,
-        triggered_by: input.trigger,
-        noticed_on: input.noticedOn,
-        noticed_at: input.noticedAt,
-        reviewed_at: state?.reviewed_at ?? null,
-        reviewed_by: state?.reviewed_by ?? null,
-        dismissed_at: state?.dismissed_at ?? null,
-        dismissed_by: state?.dismissed_by ?? null,
-      })
-      .select('id')
-      .maybeSingle();
-    if (inserted.error || !inserted.data) {
-      console.error('replaceFindings insert failed', inserted.error);
-      continue;
-    }
-    const findingId = (inserted.data as { id: string }).id;
+  const insertedFindings = await supabase
+    .from('cross_system_root_findings')
+    .insert(findingRows)
+    .select('id, relationship_id');
+  if (insertedFindings.error) {
+    console.error('replaceFindings insert failed', insertedFindings.error);
+    return { ok: false, written: 0 };
+  }
 
-    // A WITHHELD FINDING STORES NO AREAS AND NO ROWS. The safety override
-    // is not a drawing decision that a later reader could ignore: there is
-    // nothing in the database for a screen to leak.
-    if (finding.safetyWithheld) {
-      written += 1;
-      continue;
-    }
+  const findingIdByRelationship = new Map(
+    (insertedFindings.data ?? []).map((row: Record<string, unknown>) => [
+      row.relationship_id as string,
+      row.id as string,
+    ])
+  );
 
-    /*
-      THE AREAS AND THEIR ROWS GO IN TWO CALLS, NOT TWO PER AREA.
+  // A WITHHELD FINDING STORES NO AREAS AND NO ROWS. The safety override is
+  // not a drawing decision a later reader could ignore: there is nothing in
+  // the database for a screen to leak.
+  const withAreas = surfaced.filter(
+    (finding) => !finding.safetyWithheld && findingIdByRelationship.has(finding.head.id)
+  );
 
-      This was one insert per area and then one per area's rows, which for a
-      finding naming nine areas is eighteen sequential round trips, and a
-      complaint that triggers two entries made nearly forty. That is slow
-      anywhere and it is wrong HERE: this runs while a member's own check-in
-      is completing, and although the block is best effort and her result is
-      already saved, it still holds her request open.
-
-      It was also long enough to be visible: the live verification's fixed
-      wait raced it and read nought findings on a slow run, which is how the
-      cost was noticed at all.
-
-      The areas are written in one insert whose `select` hands their ids
-      back, matched to their own `position` rather than to the order the
-      rows arrive in, because PostgREST does not promise insertion order.
-    */
-    const areaRows = finding.areas.map((area, index) => ({
-      finding_id: findingId,
+  const areaRows = withAreas.flatMap((finding) =>
+    finding.areas.map((area, index) => ({
+      finding_id: findingIdByRelationship.get(finding.head.id)!,
       position: index,
       ref_kind: area.refKind,
       ref_key: area.refKey,
@@ -151,45 +164,47 @@ export async function replaceFindings(
       component_role: area.role,
       evidence_state: area.state,
       finding_count: area.rows.length,
-    }));
+    }))
+  );
 
+  if (areaRows.length > 0) {
     const insertedAreas = await supabase
       .from('cross_system_root_finding_areas')
       .insert(areaRows)
-      .select('id, position');
+      .select('id, finding_id, position');
     if (insertedAreas.error) {
       console.error('replaceFindings area insert failed', insertedAreas.error);
-      written += 1;
-      continue;
+      return { ok: true, written: findingRows.length };
     }
 
-    const areaIdByPosition = new Map(
+    const areaIdByKey = new Map(
       (insertedAreas.data ?? []).map((row: Record<string, unknown>) => [
-        row.position as number,
+        `${row.finding_id as string}::${row.position as number}`,
         row.id as string,
       ])
     );
 
-    const signalRows = finding.areas.flatMap((area, index) => {
-      const areaId = areaIdByPosition.get(index);
-      if (!areaId) return [];
-      return area.rows.map((row, position) => ({
-        finding_id: findingId,
-        area_id: areaId,
-        signal_id: row.record.id,
-        position,
-      }));
+    const signalRows = withAreas.flatMap((finding) => {
+      const findingId = findingIdByRelationship.get(finding.head.id)!;
+      return finding.areas.flatMap((area, index) => {
+        const areaId = areaIdByKey.get(`${findingId}::${index}`);
+        if (!areaId) return [];
+        return area.rows.map((row, position) => ({
+          finding_id: findingId,
+          area_id: areaId,
+          signal_id: row.record.id,
+          position,
+        }));
+      });
     });
 
     if (signalRows.length > 0) {
       const linked = await supabase.from('cross_system_root_finding_signals').insert(signalRows);
       if (linked.error) console.error('replaceFindings signal link failed', linked.error);
     }
-
-    written += 1;
   }
 
-  return { ok: true, written };
+  return { ok: true, written: findingRows.length };
 }
 
 export type StoredFinding = {

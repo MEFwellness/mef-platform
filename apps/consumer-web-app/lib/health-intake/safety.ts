@@ -228,19 +228,46 @@ export function hasSafetySignal(answers: IntakeAnswers): boolean {
  * pain, fainting and the rest, and a box on this intake is no different
  * from a box on a check-in.
  */
+/**
+ * THE FREE TEXT FIELDS THIS INTAKE HAS, with the question each one asked.
+ *
+ * ONE LIST, TWO READERS. The safety classifier wants them joined into one
+ * passage, because one concern is one concern and it reads a passage.
+ * Automatic complaint understanding wants them SEPARATE, because a
+ * complaint report records the exact prompt a member was answering and
+ * "In your own words" and "What was looked at, if you remember?" are not
+ * the same question. Both read this, so neither can quietly grow a field
+ * the other does not know about.
+ *
+ * The prompts are the labels from lib/health-intake/questions.ts, copied
+ * here rather than imported, for the reason every stored prompt in this
+ * codebase is copied: what a coach is shown has to be what the member was
+ * actually asked on the day, and a reworded question next year must not
+ * rewrite last year's record.
+ */
+export const INTAKE_FREE_TEXT_FIELDS: ReadonlyArray<{ id: string; prompt: string }> = [
+  { id: 'concern_context', prompt: 'In your own words' },
+  { id: 'recent_illness', prompt: 'What happened? In your own words' },
+  { id: 'tried_helped', prompt: 'What has helped?' },
+  { id: 'tried_not_helped', prompt: 'What has not helped?' },
+  { id: 'labs_what', prompt: 'What was looked at, if you remember?' },
+  { id: 'primary_concerns_other', prompt: 'What would you call it?' },
+  { id: 'stress_sources_other', prompt: 'What else is weighing on you?' },
+  { id: 'tried_other_text', prompt: 'What else have you tried?' },
+];
+
+/** Each field she actually wrote in, with the question it asked. */
+export function intakeFreeTextEntries(
+  answers: IntakeAnswers
+): Array<{ id: string; prompt: string; text: string }> {
+  return INTAKE_FREE_TEXT_FIELDS.map((field) => ({
+    ...field,
+    text: readText(answers[field.id]).trim(),
+  })).filter((entry) => entry.text.length > 0);
+}
+
 export function freeTextForClassifier(answers: IntakeAnswers): string {
-  const ids = [
-    'concern_context',
-    'recent_illness',
-    'tried_helped',
-    'tried_not_helped',
-    'labs_what',
-    'primary_concerns_other',
-    'stress_sources_other',
-    'tried_other_text',
-  ];
-  return ids
-    .map((id) => readText(answers[id]).trim())
-    .filter((text) => text.length > 0)
+  return intakeFreeTextEntries(answers)
+    .map((entry) => entry.text)
     .join(' ');
 }

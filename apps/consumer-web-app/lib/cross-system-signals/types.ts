@@ -147,6 +147,16 @@ export type SignalDraft = {
    * what keeps the library append over time.
    */
   ingestFingerprint: string;
+  /**
+   * WHERE THE WORDS CAME FROM, for a row that came out of a sentence.
+   *
+   * Null on every questionnaire, assessment and check-in adapter, because
+   * an answer to a numbered question has no free text surface and must not
+   * be given a made up one. Copied in at capture time, like sourceLabel,
+   * so renaming a surface never rewrites what a coach was told.
+   */
+  complaintSurfaceKey?: string | null;
+  complaintSurfaceLabel?: string | null;
 };
 
 /** One stored signal, as every coach surface reads it. */
@@ -186,4 +196,7 @@ export type SignalRecord = {
    * identifying them by "the newest ones" would be a guess.
    */
   ingestFingerprint: string | null;
+  /** The free text surface this row's words arrived on, or null. */
+  complaintSurfaceKey: string | null;
+  complaintSurfaceLabel: string | null;
 };

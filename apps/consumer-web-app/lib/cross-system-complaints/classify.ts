@@ -54,7 +54,7 @@ import type {
  * Bump it whenever the ALGORITHM below changes. Lexicon rows are data and
  * carry their own timestamps, so adding a phrase does not bump this.
  */
-export const CLASSIFIER_REVISION = 'deterministic-lexicon-1';
+export const CLASSIFIER_REVISION = 'deterministic-lexicon-3';
 
 /** How far back from a match to look for a word that negates it. */
 const NEGATION_WINDOW = 28;
@@ -68,6 +68,15 @@ const NEGATION_WINDOW = 28;
 const TRAILING_NEGATION_WINDOW = 18;
 /** How far either side of a match to look for a side or an area word. */
 const MODIFIER_WINDOW = 40;
+/**
+ * How far forward to look for a word that REOPENS a closed complaint.
+ *
+ * Deliberately wider than either closing window, because English puts the
+ * reopening clause after the closing one with a conjunction in between:
+ * "my headaches stopped, but they have come back" needs more room than
+ * "have stopped" did.
+ */
+const REASSERTION_WINDOW = 70;
 
 /**
  * Her text, flattened for matching, with a map back to where every
@@ -141,7 +150,7 @@ function occurrences(haystack: string, phrase: string): number[] {
 }
 
 /**
- * Whether this match is her saying the thing is NOT happening.
+ * Whether this match is her saying the thing has FINISHED or is absent.
  *
  * WHY THIS MATTERS MORE THAN IT LOOKS. "no bloating this week" and "my
  * headaches have stopped" both contain a phrase in the lexicon, and a
@@ -160,7 +169,7 @@ function occurrences(haystack: string, phrase: string): number[] {
  * Each window is short, because "no" three clauses ago is about something
  * else.
  */
-function isNegated(
+function isResolved(
   norm: Normalized,
   start: number,
   end: number,
@@ -168,9 +177,48 @@ function isNegated(
 ): boolean {
   const before = norm.text.slice(Math.max(0, start - NEGATION_WINDOW), start);
   const after = norm.text.slice(end, Math.min(norm.text.length, end + TRAILING_NEGATION_WINDOW));
+
+  let closed = false;
   for (const modifier of modifiers) {
-    if (modifier.kind === 'negation' && before.includes(` ${modifier.phrase} `)) return true;
-    if (modifier.kind === 'negation_after' && after.includes(` ${modifier.phrase} `)) return true;
+    if (modifier.kind === 'negation' && before.includes(` ${modifier.phrase} `)) closed = true;
+    if (modifier.kind === 'negation_after' && after.includes(` ${modifier.phrase} `)) closed = true;
+    if (closed) break;
+  }
+  if (!closed) return false;
+
+  // AND THE DIRECTION THAT OPENS IT AGAIN. A reopening word wins, because
+  // it is the LAST thing she said about the complaint and the last thing
+  // said is what is true now.
+  //
+  // BUT ONLY WHILE SHE IS STILL TALKING ABOUT THIS ONE. "My headaches have
+  // stopped but my right hip is still clicking" reopens the HIP, not the
+  // headache, and a matcher reading a bare forward window would have
+  // cancelled the wrong closing and filed a settled headache as live.
+  //
+  // What separates the two is a PLACE named in between: "they have come
+  // back" names nobody new, and "my right hip is still clicking" does. So
+  // a reopening word only reaches back to this match when no body area
+  // word sits between them. That is the same vocabulary the side and area
+  // resolution already reads, so the rule needs nothing new to be true.
+  const from = Math.max(0, start - NEGATION_WINDOW);
+  const to = Math.min(norm.text.length, end + REASSERTION_WINDOW);
+  for (const modifier of modifiers) {
+    if (modifier.kind !== 'reassertion') continue;
+    const at = norm.text.indexOf(` ${modifier.phrase} `, from);
+    if (at === -1 || at >= to) continue;
+    const between =
+      at + 1 >= end ? norm.text.slice(end, at + 1) : norm.text.slice(at + modifier.phrase.length, start);
+    if (namesAnotherPlace(between, modifiers)) continue;
+    return false;
+  }
+  return true;
+}
+
+/** Whether a stretch of her sentence names a body area of its own. */
+function namesAnotherPlace(between: string, modifiers: readonly ComplaintModifier[]): boolean {
+  for (const modifier of modifiers) {
+    if (modifier.kind !== 'body_area') continue;
+    if (between.includes(` ${modifier.phrase} `)) return true;
   }
   return false;
 }
@@ -269,13 +317,13 @@ export function classifyComplaint(
       const end = start + entry.phrase.length;
 
       if (claimed.some((span) => start < span.end && end > span.start)) continue;
-      if (isNegated(norm, start, end, lexicon.modifiers)) {
-        // Still consume the span. She named the thing and said it was not
-        // happening, and a shorter phrase inside those same words must not
-        // then file it as though she had.
-        claimed.push({ start, end });
-        continue;
-      }
+
+      // A RESOLUTION IS STILL A CLASSIFICATION. She named the thing and
+      // said it has finished, and that is information a coach needs rather
+      // than a sentence to throw away. The row it produces is written at
+      // nought, which the evidence layer reads as resolved and the
+      // matching engine refuses as support.
+      const resolved = isResolved(norm, start, end, lexicon.modifiers);
 
       const sideModifier = nearestModifier(norm, start, end, lexicon.modifiers, 'side');
       const side: SignalSide | null = sideModifier?.side ?? null;
@@ -292,7 +340,9 @@ export function classifyComplaint(
       const contextModifier = sentenceModifier(norm, start, lexicon.modifiers, 'context');
       const frequencyModifier = sentenceModifier(norm, start, lexicon.modifiers, 'frequency');
 
-      const dedupeKey = `${entry.signalSlug}::${bodyAreaKey ?? ''}::${side ?? ''}`;
+      // A resolution and a report of the same signal in one sentence are
+      // two different statements, so they do not collapse into one row.
+      const dedupeKey = `${entry.signalSlug}::${bodyAreaKey ?? ''}::${side ?? ''}::${resolved ? 'r' : 'p'}`;
       claimed.push({ start, end });
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
@@ -300,6 +350,7 @@ export function classifyComplaint(
       drafts.push({
         position: drafts.length,
         signalSlug: entry.signalSlug,
+        isResolution: resolved,
         bodyAreaKey,
         side,
         // HER span, from the map, rather than the lexicon's own wording.

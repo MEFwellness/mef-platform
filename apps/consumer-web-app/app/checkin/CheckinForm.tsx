@@ -31,6 +31,7 @@ import { BooleanPills } from '@/components/checkin/scales/BooleanPills';
 import { SleepArc } from '@/components/checkin/SleepArc';
 import { BodySeverityOutline } from '@/components/checkin/BodySeverityOutline';
 import { DigestionIconTiles } from '@/components/checkin/DigestionIconTiles';
+import { OptionalFollowUpNote } from '@/components/checkin/OptionalFollowUpNote';
 import { ConcernToCoach } from '@/components/checkin/ConcernToCoach';
 import { EndingMoment } from '@/components/checkin/EndingMoment';
 import { TemperatureOverlay, computeWarmth } from '@/components/checkin/TemperatureOverlay';
@@ -240,6 +241,11 @@ export function CheckinForm({
     return null;
   });
   const [concern, setConcern] = useState(existingCheckin?.new_or_worsening_concern ?? false);
+  // THE TWO OPTIONAL BOXES. Both resume from the row exactly as the notes
+  // field does, so a member who typed something and exited mid check-in
+  // finds it again rather than typing it twice.
+  const [concernNote, setConcernNote] = useState(existingCheckin?.concern_note ?? '');
+  const [discomfortNote, setDiscomfortNote] = useState(existingCheckin?.discomfort_note ?? '');
   const [notes, setNotes] = useState(existingCheckin?.optional_notes ?? '');
   const [nothingToAdd, setNothingToAdd] = useState(false);
   const [habitStatus, setHabitStatus] = useState<Record<string, boolean>>(initialHabitLogs);
@@ -491,6 +497,11 @@ export function CheckinForm({
               value={hasDiscomfort}
               onChange={(value) => {
                 if (!value) {
+                  // Going back to no takes the optional sentence with it.
+                  // Her answer and the words about it are one statement,
+                  // and leaving the words behind would send Root a
+                  // complaint she has just withdrawn.
+                  setDiscomfortNote('');
                   // No discomfort: write the exact same values picking
                   // "None" under the old always-shown flow used to write,
                   // so pain_discomfort_level/morning_soreness still get a
@@ -515,6 +526,22 @@ export function CheckinForm({
     });
 
     if (hasDiscomfort) {
+      list.push({
+        key: 'discomfort-note',
+        section: 'body',
+        blockedReason: null,
+        answered: true,
+        render: () => (
+          <OptionalFollowUpNote
+            id="discomfort-note"
+            label="Anything else about this? (optional)"
+            placeholder="What it feels like, when it started, what makes it worse"
+            value={discomfortNote}
+            onChange={setDiscomfortNote}
+          />
+        ),
+      });
+
       list.push({
         key: 'body-severity',
         section: 'body',
@@ -641,8 +668,40 @@ export function CheckinForm({
       section: 'other',
       blockedReason: null,
       answered: true,
-      render: () => <ConcernToCoach coachFirstName={coachFirstName} checked={concern} onChange={setConcern} />,
+      render: () => (
+        <ConcernToCoach
+          coachFirstName={coachFirstName}
+          checked={concern}
+          onChange={(value) => {
+            // Unticking takes the sentence with it, for the reason the
+            // discomfort box does: the tick and the words are one answer.
+            if (!value) setConcernNote('');
+            setConcern(value);
+          }}
+        />
+      ),
     });
+
+    // ONLY ON YES. The box does not exist on the screen until she has
+    // ticked the item above, which is what keeps the check-in as short for
+    // a member with nothing to add as it was before this was built.
+    if (concern) {
+      list.push({
+        key: 'concern-note',
+        section: 'other',
+        blockedReason: null,
+        answered: true,
+        render: () => (
+          <OptionalFollowUpNote
+            id="concern-note"
+            label="Want to tell me more? (optional)"
+            placeholder="A sentence is plenty"
+            value={concernNote}
+            onChange={setConcernNote}
+          />
+        ),
+      });
+    }
 
     list.push({
       key: 'notes',
@@ -702,6 +761,8 @@ export function CheckinForm({
     bowelMovementStatus,
     digestionRating,
     concern,
+    concernNote,
+    discomfortNote,
     notes,
     nothingToAdd,
     habitStatus,
@@ -746,6 +807,10 @@ export function CheckinForm({
       movement_today: existingCheckin?.movement_today ?? null,
       new_or_worsening_concern: concern,
       optional_notes: notes.trim() ? notes.trim() : null,
+      // Null unless she both answered yes AND typed something, so the
+      // absence of a box changes nothing anywhere downstream.
+      concern_note: concern && concernNote.trim() ? concernNote.trim() : null,
+      discomfort_note: hasDiscomfort && discomfortNote.trim() ? discomfortNote.trim() : null,
       actual_bedtime: actualBedtime || null,
       actual_wake_time: actualWakeTime || null,
       night_waking_count: nightWakingCount,

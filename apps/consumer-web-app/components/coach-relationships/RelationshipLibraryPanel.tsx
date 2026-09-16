@@ -4,18 +4,29 @@
  * The Relationship Library's list view, and the one place the editor, the
  * version history and the toggles are reached from.
  *
- * THE LIBRARY IS EMPTY UNTIL SHE FILLS IT. The empty state says that
- * plainly rather than offering to generate anything, because nothing in
- * this app may invent a whole-body relationship. The single record it
- * ships with is flagged as an example, is inactive, and wears an Example
- * chip on its row.
+ * NOTHING IN THE RUNNING APP WRITES A ROW IN IT. That rule has not moved.
+ * The Whole-Body Association Map that fills this library is AUTHORED
+ * COACHING CONTENT, delivered by migration and reviewed as content, and
+ * the coach owns every row of it: she edits one, which writes an ordinary
+ * version 2, or deactivates one, which takes it out of every lookup
+ * immediately. There is still no generator, no inference and no
+ * suggestion anywhere in this feature.
+ *
+ * IT IS GROUPED NOW, BECAUSE IT IS BIG NOW. Nineteen entries were a list.
+ * Over two hundred are a map, and a map needs an index: the screen opens
+ * folded, by body area or by body system, with a count on each group, so a
+ * coach who wants to see what Root knows about the knee opens the knee
+ * rather than finding it by typing. Grouping lives in
+ * lib/cross-system-relationships/grouping.ts.
  *
  * SEARCH, ACTIVE FILTER, CATEGORY FILTER, all three run in the browser
  * over the list the page already loaded, because the library is a few
- * dozen definitions rather than a feed. The filtering itself lives in
+ * hundred definitions rather than a feed. The filtering itself lives in
  * lib/cross-system-relationships/filters.ts so the category chip and the
  * row's own body systems line cannot come to disagree about which
- * categories a pattern names.
+ * categories a pattern names. A NARROWED LIBRARY OPENS ITS OWN GROUPS,
+ * because a search that then asks her to unfold seven sections to find out
+ * what matched is worse than no search.
  *
  * NOTHING HERE MATCHES ANYTHING. No member, no signal row, no score. This
  * screen reads and writes definitions.
@@ -23,7 +34,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Copy, History, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ChevronDown, Copy, History, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import {
   deleteRelationshipAction,
   duplicateRelationshipAction,
@@ -37,6 +48,11 @@ import {
   filterRelationships,
   type RelationshipFilters,
 } from '@/lib/cross-system-relationships/filters';
+import {
+  groupRelationships,
+  type GroupingMode,
+  type SignalPlacementLookup,
+} from '@/lib/cross-system-relationships/grouping';
 import type {
   RelationshipDetail,
   RelationshipSummary,
@@ -79,6 +95,11 @@ const STATUS_OPTIONS: { key: RelationshipFilters['status']; label: string }[] = 
   { key: 'inactive', label: 'Inactive' },
 ];
 
+const GROUPING_OPTIONS: { key: GroupingMode; label: string }[] = [
+  { key: 'body_area', label: 'Body area' },
+  { key: 'system', label: 'Body system' },
+];
+
 export function RelationshipLibraryPanel({
   summaries,
   categories,
@@ -87,6 +108,13 @@ export function RelationshipLibraryPanel({
 }: Props) {
   const router = useRouter();
   const [filters, setFilters] = useState<RelationshipFilters>(EMPTY_FILTERS);
+  const [grouping, setGrouping] = useState<GroupingMode>('body_area');
+  /**
+   * WHICH GROUPS SHE HAS OPENED BY HAND. Everything starts folded, so the
+   * screen opens as an index of the map rather than as a scroll through it,
+   * and a search opens whatever it matched without disturbing this.
+   */
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(new Set());
   const [editor, setEditor] = useState<OpenEditor>(null);
   const [historyFor, setHistoryFor] = useState<RelationshipDetail | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
@@ -109,6 +137,62 @@ export function RelationshipLibraryPanel({
     () => filterRelationships(summaries, filters, lookup),
     [summaries, filters, lookup]
   );
+
+  // signal_slug to the area and category the Signal Library files it under,
+  // which is how an entry keyed on a signal finds its group.
+  const placement = useMemo<SignalPlacementLookup>(
+    () =>
+      new Map(
+        signalNames.map((name) => [
+          name.signalSlug,
+          { categoryKey: name.categoryKey, bodyAreaKey: name.defaultBodyAreaKey },
+        ])
+      ),
+    [signalNames]
+  );
+
+  const vocabulary = useMemo(
+    () =>
+      grouping === 'body_area'
+        ? bodyAreas.map((area) => ({
+            key: area.areaKey,
+            label: area.displayName,
+            position: area.position,
+          }))
+        : categories.map((category) => ({
+            key: category.categoryKey,
+            label: category.displayName,
+            position: category.position,
+          })),
+    [grouping, bodyAreas, categories]
+  );
+
+  const groups = useMemo(
+    () => groupRelationships(visible, grouping, placement, vocabulary),
+    [visible, grouping, placement, vocabulary]
+  );
+
+  /**
+   * WHEN EVERY GROUP IS OPEN WITHOUT HER ASKING, and why there are two
+   * reasons rather than one.
+   *
+   * A NARROWED LIBRARY OPENS ITSELF. Typing into the search box and then
+   * having to unfold seven groups to find out what matched would make the
+   * search worse than no search, so any active filter opens every group
+   * that still has something in it.
+   *
+   * AND A SMALL LIBRARY NEEDS NO INDEX AT ALL. Folding exists because the
+   * map is two hundred entries. A coach who has deleted most of it, or who
+   * is looking at a handful of her own patterns, should see them, not a row
+   * of headings she has to open one at a time. Below the threshold the
+   * screen behaves exactly as the flat list did.
+   */
+  const SMALL_LIBRARY = 12;
+  const isNarrowed =
+    filters.query.trim().length > 0 ||
+    filters.status !== 'all' ||
+    filters.categoryKey !== null ||
+    visible.length <= SMALL_LIBRARY;
 
   function openEditor(relationshipId: string) {
     setError(null);
@@ -211,6 +295,154 @@ export function RelationshipLibraryPanel({
     );
   }
 
+  /**
+   * ONE ROW, unchanged from the flat list it used to sit in. It is a
+   * function rather than inline JSX only because the list is grouped
+   * now and the same row is drawn inside whichever group it belongs to.
+   */
+  function relationshipRow(summary: RelationshipSummary) {
+    const systems = [...categoriesOf(summary, lookup)]
+      .map((key) => categoryName.get(key) ?? key)
+      .sort((a, b) => a.localeCompare(b));
+    const counts = (['primary', 'related', 'support'] as const).map((role) => ({
+      role,
+      count: summary.current.components.filter((item) => item.role === role).length,
+    }));
+
+    return (
+      <li key={summary.head.id} className={`${CARD} p-5`}>
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-[16px] font-semibold leading-snug text-[#1B3A2D]">
+                {summary.current.patternName}
+              </h2>
+              {summary.head.isExample ? (
+                <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#3E5C46]">
+                  Example
+                </span>
+              ) : null}
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                  summary.head.isActive
+                    ? 'bg-[#1B3A2D] text-white'
+                    : 'bg-[#1B3A2D]/[0.06] text-[#6B7A72]'
+                }`}
+              >
+                {summary.head.isActive ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+            <p className="mt-1 text-[12px] text-[#6B7A72]">
+              Version {summary.head.currentVersion}, saved{' '}
+              {formatDisplayDate(summary.current.createdAt, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-3 text-[13px] text-[#3E5C46]">
+          {counts
+            .filter((entry) => entry.count > 0)
+            .map((entry) => `${entry.count} ${ROLE_LABELS[entry.role].toLowerCase()}`)
+            .join(', ') || 'No inputs yet'}
+          {'. At least '}
+          {summary.current.minSupportingSignals} supporting signals before it may surface.
+        </p>
+
+        {systems.length > 0 ? (
+          <p className="mt-1 text-[13px] text-[#6B7A72]">
+            Body systems: {systems.join(', ')}
+          </p>
+        ) : null}
+
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {summary.current.components.slice(0, 6).map((component) => (
+            <li
+              key={component.id}
+              className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-2.5 py-1 text-[12px] text-[#3E5C46]"
+            >
+              {ROLE_LABELS[component.role]}: {component.refLabel}
+              <span className="text-[#6B7A72]">
+                {' '}
+                ({REF_KIND_LABELS[component.refKind]})
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() => openEditor(summary.head.id)}
+            className={OUTLINE_BUTTON}
+          >
+            <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            Edit
+          </button>
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() => openHistory(summary.head.id)}
+            className={OUTLINE_BUTTON}
+          >
+            <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            Version history
+          </button>
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() => duplicate(summary.head.id)}
+            className={OUTLINE_BUTTON}
+          >
+            <Copy className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            Duplicate
+          </button>
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() => toggleActive(summary.head.id, !summary.head.isActive)}
+            className={OUTLINE_BUTTON}
+          >
+            {summary.head.isActive ? 'Deactivate' : 'Activate'}
+          </button>
+          {confirmingDelete === summary.head.id ? (
+            <>
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => remove(summary.head.id)}
+                className="mef-focus-ring inline-flex min-h-[40px] items-center gap-2 rounded-full bg-[#8C2F1F] px-4 text-sm font-medium text-white transition hover:brightness-110"
+              >
+                Delete it and every version
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(null)}
+                className={OUTLINE_BUTTON}
+              >
+                Keep it
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => setConfirmingDelete(summary.head.id)}
+              className={OUTLINE_BUTTON}
+            >
+              <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              Delete
+            </button>
+          )}
+        </div>
+      </li>
+    );
+  }
+
   return (
     <div>
       {/* Search and the two filters. */}
@@ -273,11 +505,33 @@ export function RelationshipLibraryPanel({
             </option>
           ))}
         </select>
+
+        <p className={`${LABEL} mt-4`}>Group by</p>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {GROUPING_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              aria-pressed={grouping === option.key}
+              onClick={() => {
+                setGrouping(option.key);
+                // The open groups belonged to the other view's keys.
+                setOpenGroups(new Set());
+              }}
+              className={`${CHIP} ${grouping === option.key ? CHIP_ON : CHIP_OFF}`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] text-[#4F645A]">
           {visible.length} of {summaries.length} {summaries.length === 1 ? 'pattern' : 'patterns'}
+          {groups.length > 0
+            ? `, in ${groups.length} ${groups.length === 1 ? 'group' : 'groups'}`
+            : ''}
         </p>
         <button
           type="button"
@@ -310,150 +564,56 @@ export function RelationshipLibraryPanel({
           <p className="text-sm text-[#3E5C46]">No pattern matches those filters.</p>
         </div>
       ) : (
-        <ul className="mt-4 space-y-3">
-          {visible.map((summary) => {
-            const systems = [...categoriesOf(summary, lookup)]
-              .map((key) => categoryName.get(key) ?? key)
-              .sort((a, b) => a.localeCompare(b));
-            const counts = (['primary', 'related', 'support'] as const).map((role) => ({
-              role,
-              count: summary.current.components.filter((item) => item.role === role).length,
-            }));
-
+        <div className="mt-4 space-y-3">
+          {groups.map((group) => {
+            const open = isNarrowed || openGroups.has(group.key);
             return (
-              <li key={summary.head.id} className={`${CARD} p-5`}>
-                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-[16px] font-semibold leading-snug text-[#1B3A2D]">
-                        {summary.current.patternName}
-                      </h2>
-                      {summary.head.isExample ? (
-                        <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#3E5C46]">
-                          Example
-                        </span>
-                      ) : null}
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
-                          summary.head.isActive
-                            ? 'bg-[#1B3A2D] text-white'
-                            : 'bg-[#1B3A2D]/[0.06] text-[#6B7A72]'
-                        }`}
-                      >
-                        {summary.head.isActive ? 'Active' : 'Inactive'}
+              <section key={group.key} className={`${CARD} overflow-hidden`}>
+                <h2>
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() =>
+                      setOpenGroups((current) => {
+                        const next = new Set(current);
+                        if (next.has(group.key)) next.delete(group.key);
+                        else next.add(group.key);
+                        return next;
+                      })
+                    }
+                    className="mef-focus-ring flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-[15px] font-semibold text-[#1B3A2D]">
+                        {group.label}
                       </span>
-                    </div>
-                    <p className="mt-1 text-[12px] text-[#6B7A72]">
-                      Version {summary.head.currentVersion}, saved{' '}
-                      {formatDisplayDate(summary.current.createdAt, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="mt-3 text-[13px] text-[#3E5C46]">
-                  {counts
-                    .filter((entry) => entry.count > 0)
-                    .map((entry) => `${entry.count} ${ROLE_LABELS[entry.role].toLowerCase()}`)
-                    .join(', ') || 'No inputs yet'}
-                  {'. At least '}
-                  {summary.current.minSupportingSignals} supporting signals before it may surface.
-                </p>
-
-                {systems.length > 0 ? (
-                  <p className="mt-1 text-[13px] text-[#6B7A72]">
-                    Body systems: {systems.join(', ')}
-                  </p>
+                      <span className="mt-0.5 block text-[12px] text-[#4F645A]">
+                        {group.summaries.length}{' '}
+                        {group.summaries.length === 1 ? 'pattern' : 'patterns'},{' '}
+                        {group.activeCount} active
+                      </span>
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 text-[#4F645A] transition-transform duration-200 ${
+                        open ? 'rotate-180' : ''
+                      }`}
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                  </button>
+                </h2>
+                {/* UNMOUNTED WHEN FOLDED, not hidden. A library of two
+                    hundred entries that draws every one of them and then
+                    hides most is the same scroll with extra steps. */}
+                {open ? (
+                  <ul className="space-y-3 px-3 pb-3">
+                    {group.summaries.map((summary) => relationshipRow(summary))}
+                  </ul>
                 ) : null}
-
-                <ul className="mt-2 flex flex-wrap gap-1.5">
-                  {summary.current.components.slice(0, 6).map((component) => (
-                    <li
-                      key={component.id}
-                      className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-2.5 py-1 text-[12px] text-[#3E5C46]"
-                    >
-                      {ROLE_LABELS[component.role]}: {component.refLabel}
-                      <span className="text-[#6B7A72]">
-                        {' '}
-                        ({REF_KIND_LABELS[component.refKind]})
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => openEditor(summary.head.id)}
-                    className={OUTLINE_BUTTON}
-                  >
-                    <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => openHistory(summary.head.id)}
-                    className={OUTLINE_BUTTON}
-                  >
-                    <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                    Version history
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => duplicate(summary.head.id)}
-                    className={OUTLINE_BUTTON}
-                  >
-                    <Copy className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                    Duplicate
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => toggleActive(summary.head.id, !summary.head.isActive)}
-                    className={OUTLINE_BUTTON}
-                  >
-                    {summary.head.isActive ? 'Deactivate' : 'Activate'}
-                  </button>
-                  {confirmingDelete === summary.head.id ? (
-                    <>
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => remove(summary.head.id)}
-                        className="mef-focus-ring inline-flex min-h-[40px] items-center gap-2 rounded-full bg-[#8C2F1F] px-4 text-sm font-medium text-white transition hover:brightness-110"
-                      >
-                        Delete it and every version
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmingDelete(null)}
-                        className={OUTLINE_BUTTON}
-                      >
-                        Keep it
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={isBusy}
-                      onClick={() => setConfirmingDelete(summary.head.id)}
-                      className={OUTLINE_BUTTON}
-                    >
-                      <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </li>
+              </section>
             );
           })}
-        </ul>
+        </div>
       )}
     </div>
   );

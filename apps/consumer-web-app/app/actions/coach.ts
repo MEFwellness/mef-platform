@@ -16,6 +16,8 @@ import {
 } from '@/lib/onboarding/comparison';
 import type { Profile, DailyCheckin, Habit, CoachNote } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
+import { hearComplaints } from '@/lib/cross-system-complaints/service';
+import { SURFACE_COACH_NOTE } from '@/lib/cross-system-complaints/constants';
 import { emitAndDispatch } from '@/lib/ai/events';
 import {
   applyTestAccountExclusion,
@@ -204,6 +206,37 @@ export async function addCoachNote(
   } catch (aiError) {
     console.error('AI event emission failed for addCoachNote', aiError);
   }
+
+  // AUTOMATIC COMPLAINT UNDERSTANDING, FOR WHAT A COACH WRITES DOWN.
+  //
+  // A coach typing "she says her right hip has been clicking when she
+  // walks" has recorded exactly the same complaint the member would have
+  // typed herself, and before this build that sentence reached nothing.
+  // It goes through the ONE shared pipeline, with authorRole 'coach', so
+  // the signal it produces files under "Reported to the coach" rather than
+  // "Reported by the member" and a coach reading the Signals list can
+  // always tell which of them said it.
+  //
+  // THE COACH ONLY FENCE IS UNTOUCHED, and it is untouched STRUCTURALLY
+  // rather than by this comment: migration 246 gives the complaint,
+  // classification and finding tables no member policy of any kind, so
+  // nothing written here is readable by a member session at all. This is
+  // the same fence that already held for the member surfaces; a coach
+  // authored row does not need a second one.
+  //
+  // BEST EFFORT AND LAST. Her note is already saved.
+  await hearComplaints([
+    {
+      memberId: clientId,
+      surfaceKey: SURFACE_COACH_NOTE,
+      rawText: trimmed,
+      fieldRef: 'coach_note',
+      fieldPrompt: 'Coach note about this client',
+      reportedAt: new Date().toISOString(),
+      authorRole: 'coach',
+      authoredBy: user.id,
+    },
+  ]);
 
   return {};
 }

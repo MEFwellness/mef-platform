@@ -159,6 +159,16 @@ export interface DailyCheckinInput {
   bowel_movement_status: BowelMovementStatus | null;
   /** Elapsed seconds from the check-in wizard's first screen render to submission. Null/undefined on a draft (exit-triggered) save or any row predating this column. Optional (rather than required like every other field here) so the many existing test fixtures across other subsystems that build a DailyCheckin/DailyCheckinInput literal without it don't all need updating for a field they don't care about. */
   completion_seconds?: number | null;
+  /**
+   * Optional free text a member may add AFTER answering yes to the new or
+   * worsening concern item. Never required, never scored, and absent
+   * entirely when she answers no. Optional on the type for the same reason
+   * completion_seconds is: every fixture in this codebase that builds a
+   * check-in without caring about it keeps working.
+   */
+  concern_note?: string | null;
+  /** The same treatment on the discomfort item. Optional, never scored. */
+  discomfort_note?: string | null;
 }
 
 export interface DailyCheckin extends DailyCheckinInput {

@@ -57,6 +57,8 @@ export function signal(overrides: Partial<SignalRecord> = {}): SignalRecord {
     enteredBy: null,
     entryMode: 'ingested',
     ingestFingerprint: null,
+  complaintSurfaceKey: null,
+  complaintSurfaceLabel: null,
     ...overrides,
   };
 }

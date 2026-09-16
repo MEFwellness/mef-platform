@@ -21,6 +21,8 @@ import type {
   ConversationSession,
 } from '@mef/shared-types-contracts';
 import { sendMessage } from '@/lib/conversation-coach/service';
+import { hearComplaints } from '@/lib/cross-system-complaints/service';
+import { SURFACE_CLIENT_COMMENT } from '@/lib/cross-system-complaints/constants';
 import { requestHandoff } from '@/lib/conversation-coach/handoff';
 import {
   getActiveSession,
@@ -125,6 +127,26 @@ export async function sendConversationMessageAction(
   });
 
   if (!result) return { error: "Root didn't quite catch that. Give it a moment and try again." };
+
+  // AUTOMATIC COMPLAINT UNDERSTANDING, through the one shared pipeline.
+  // A member describing a symptom in a message to her coach has described
+  // a symptom, and before this build that sentence reached the safety
+  // classifier and nothing else.
+  //
+  // LAST, AND BEST EFFORT. Her message is stored, the reply is generated,
+  // and both are about to be returned. Nothing here can change either one.
+  await hearComplaints([
+    {
+      memberId: user.id,
+      surfaceKey: SURFACE_CLIENT_COMMENT,
+      rawText: trimmed,
+      sourceRecordId: result.memberMessage.id,
+      fieldRef: 'conversation_message',
+      fieldPrompt: 'Message to her coach',
+      reportedAt: result.memberMessage.created_at,
+      authorRole: 'member',
+    },
+  ]);
 
   return {
     memberMessage: result.memberMessage,

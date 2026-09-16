@@ -24,7 +24,8 @@ const SIGNAL_COLUMNS = `
   id, member_id, signal_slug, signal_name, category_key, body_area_key, symptom_key, side,
   value_kind, value_label, value_key, value_numeric,
   source_key, source_label, source_session_id, source_question_ref, source_question_prompt, source_record_id,
-  captured_on, captured_at, note, entered_by, entry_mode, ingest_fingerprint
+  captured_on, captured_at, note, entered_by, entry_mode, ingest_fingerprint,
+  complaint_surface_key, complaint_surface_label
 `;
 
 type SignalRow = {
@@ -52,6 +53,8 @@ type SignalRow = {
   entered_by: string | null;
   entry_mode: string;
   ingest_fingerprint: string | null;
+  complaint_surface_key?: string | null;
+  complaint_surface_label?: string | null;
 };
 
 function fromRow(row: SignalRow): SignalRecord {
@@ -85,6 +88,8 @@ function fromRow(row: SignalRow): SignalRecord {
     enteredBy: row.entered_by,
     entryMode: row.entry_mode as SignalEntryMode,
     ingestFingerprint: row.ingest_fingerprint,
+    complaintSurfaceKey: row.complaint_surface_key ?? null,
+    complaintSurfaceLabel: row.complaint_surface_label ?? null,
   };
 }
 
@@ -178,6 +183,10 @@ export async function insertSignals(
     entered_by: null,
     entry_mode: 'ingested' as const,
     ingest_fingerprint: draft.ingestFingerprint,
+    // Null on every row that did not come out of a sentence, which is
+    // every adapter except automatic complaint understanding.
+    complaint_surface_key: draft.complaintSurfaceKey ?? null,
+    complaint_surface_label: draft.complaintSurfaceLabel ?? null,
   }));
 
   const { data, error } = await supabase

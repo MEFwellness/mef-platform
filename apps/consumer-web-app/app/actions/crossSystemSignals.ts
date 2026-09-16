@@ -26,6 +26,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { isMemberVisibleToStaff } from '@/lib/staff/testAccounts';
+import { hearComplaints } from '@/lib/cross-system-complaints/service';
+import { SURFACE_COACH_OBSERVATION } from '@/lib/cross-system-complaints/constants';
 import { memberTimezone } from '@/lib/time/memberToday';
 import { todaysLocalDate } from '@/lib/time/localDate';
 import { SOURCE_COACH_ENTERED } from '@/lib/cross-system-signals/constants';
@@ -189,6 +191,35 @@ export async function addCoachSignalAction(
   // for the reason migration 245 states: no role has a write policy on the
   // ledger at all, so a coach cannot manufacture a match by hand either.
   await evaluateMember({ memberId: clientId, reason: 'coach_signal_added' });
+
+  // THE COACH'S OWN NOTE ON THE SIGNAL, read by the same pipeline.
+  //
+  // The signal she just entered is structured already: a name, an area, a
+  // side, a value. The NOTE beside it is the part in words, and it is
+  // routinely where the rest of the picture is ("only on stairs, and her
+  // left ankle has been swelling too"). That second half was reaching
+  // nothing.
+  //
+  // IT CANNOT MANUFACTURE THE SAME SIGNAL TWICE. The structured entry
+  // wrote its own row through her session a moment ago; anything the
+  // classifier finds in the note writes its own rows under a different
+  // source and a fingerprint of its own, and the coach's Signals list
+  // shows both for what they are.
+  //
+  // COACH ONLY, STRUCTURALLY, for the reason migration 246 gives: not one
+  // of these tables carries a member policy.
+  await hearComplaints([
+    {
+      memberId: clientId,
+      surfaceKey: SURFACE_COACH_OBSERVATION,
+      rawText: signal.note ?? '',
+      fieldRef: 'coach_signal_note',
+      fieldPrompt: 'Coach observation recorded with a signal',
+      reportedAt: new Date().toISOString(),
+      authorRole: 'coach',
+      authoredBy: user.id,
+    },
+  ]);
 
   revalidatePath(`/coach/clients/${clientId}/detail`);
   return { ok: true };

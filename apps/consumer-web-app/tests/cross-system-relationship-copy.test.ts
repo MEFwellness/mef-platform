@@ -124,14 +124,23 @@ function sourceViolations(): Violation[] {
  * THIS IS THE ONLY GUARD THAT CAN SEE THEM. A seeded association text and a
  * seeded coaching consideration are rows in a database, not strings in a
  * file, so the TypeScript walk above is blind to every one of them. That
- * mattered when there was one example row and it matters far more now:
- * migration 248 seeds eighteen authored map entries carrying eighteen
- * association texts and over a hundred considerations, and all of that is
- * content a coach reads.
+ * mattered when there was one example row and it matters far more now: the
+ * Whole-Body Association Map is over two hundred authored entries across
+ * five migrations, carrying an association text and six coaching
+ * considerations each, and every word of it is content a coach reads.
+ *
+ * THE GENERATOR IS NOT TRUSTED TO POLICE ITSELF. The map migrations were
+ * produced from structured data, and the producer ran the same banned list
+ * over its own output. That is a useful first pass and it is not a guard:
+ * what ships is the SQL, and this is what reads the SQL.
  */
 const SEED_MIGRATIONS = [
   '00000000000244_cross_system_relationship_example.sql',
   '00000000000248_cross_system_association_map_seed.sql',
+  '00000000000252_cross_system_map_structure.sql',
+  '00000000000253_cross_system_map_systems.sql',
+  '00000000000254_cross_system_map_posture.sql',
+  '00000000000255_cross_system_map_signals.sql',
 ];
 
 function seededStringsIn(file: string): string[] {
@@ -187,7 +196,7 @@ describe('the shipped copy writes in association language', () => {
     expect(seeded.some((value) => value.startsWith('Example:'))).toBe(true);
   });
 
-  it('really reads the eighteen seeded map entries, not just the example', () => {
+  it('really reads the whole seeded map, not just the example', () => {
     const seeded = seededStringsIn(
       '00000000000248_cross_system_association_map_seed.sql'
     );
@@ -196,6 +205,47 @@ describe('the shipped copy writes in association language', () => {
     expect(seeded.length).toBeGreaterThan(150);
     expect(seeded).toContain('starter-hip-pelvis');
     expect(seeded).toContain('starter-musculoskeletal-general');
+
+    // And the four migrations that grew it into a whole-body map. Each is
+    // named so that dropping one from SEED_MIGRATIONS fails here rather
+    // than silently leaving a family of entries unscanned.
+    const structure = seededStringsIn('00000000000252_cross_system_map_structure.sql');
+    expect(structure).toContain('map-area-jaw');
+    expect(structure).toContain('map-area-si-joint');
+    const systems = seededStringsIn('00000000000253_cross_system_map_systems.sql');
+    expect(systems).toContain('map-system-neurological');
+    expect(systems).toContain('map-reverse-digestion');
+    const posture = seededStringsIn('00000000000254_cross_system_map_posture.sql');
+    expect(posture).toContain('map-posture-upper-crossed-pattern');
+    expect(posture).toContain('map-posture-sway-back-pattern');
+    const signals = seededStringsIn('00000000000255_cross_system_map_signals.sql');
+    expect(signals.length).toBeGreaterThan(1000);
+    expect(signals).toContain('map-signal-joint-grinding');
+  });
+
+  it('every seeded map entry states a basis, so no claim is presented bare', () => {
+    // A source type key on every entry, and only keys migration 246 holds.
+    const KNOWN = [
+      'chek_hlc',
+      'referred_pain',
+      'biomechanics',
+      'lifestyle',
+      'mef_internal',
+      'coach_added',
+      'other',
+    ];
+    const files = SEED_MIGRATIONS.filter((file) => file.includes('cross_system_map_'));
+    expect(files.length).toBe(4);
+    let entries = 0;
+    for (const file of files) {
+      const sql = fs.readFileSync(path.join(MIGRATIONS, file), 'utf8');
+      for (const call of sql.matchAll(/select pg_temp\.seed_map_entry\(([\s\S]*?)\n\);/g)) {
+        entries += 1;
+        const found = KNOWN.filter((key) => call[1]!.includes(`'${key}'`));
+        expect(found.length, call[1]!.slice(0, 80)).toBeGreaterThan(0);
+      }
+    }
+    expect(entries).toBeGreaterThan(200);
   });
 
   it('the seeded map uses cautious wording everywhere a coach reads it', () => {

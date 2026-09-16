@@ -182,6 +182,7 @@ export async function ingestComplaint(input: {
         rawText: text,
         fieldRef: input.fieldRef ?? null,
         fieldPrompt: input.fieldPrompt ?? null,
+        surfaceKey: surface.surfaceKey,
         surfaceLabel: surface.displayName,
         reportedOn,
         reportedAt: input.reportedAt,
@@ -221,4 +222,47 @@ export async function ingestComplaint(input: {
     console.error('ingestComplaint failed', input.surfaceKey, error);
     return { ...NOTHING, skipped: 'write_failed' };
   }
+}
+
+/**
+ * EVERY SURFACE'S ONE CALL.
+ *
+ * WHY THIS EXISTS BESIDE `ingestComplaint` rather than instead of it. The
+ * brief's hard rule is one shared pipeline and no per surface classifier,
+ * and `ingestComplaint` is that pipeline. What was being repeated at every
+ * call site was not classification, it was the SAFETY WRAPPER around it:
+ * skip empty text, never throw, log and move on. Seven copies of that is
+ * seven chances to write the eighth one without a try, and a thrown error
+ * inside a member's submit is exactly the failure this feature promises
+ * cannot happen.
+ *
+ * SO THIS IS THE WRAPPER, ONCE. A caller hands it whatever free text it
+ * has, in a list, and gets back a count it is free to ignore. It cannot
+ * throw: every path inside it is caught, including the one that builds the
+ * trusted connection.
+ *
+ * IT IS ALWAYS CALLED LAST, by convention every call site keeps and every
+ * call site says out loud: her submission is already saved and already
+ * returned to her before any of this runs.
+ */
+export async function hearComplaints(
+  inputs: ReadonlyArray<Parameters<typeof ingestComplaint>[0] | null | undefined>
+): Promise<{ heard: number; classified: number }> {
+  let heard = 0;
+  let classified = 0;
+  for (const input of inputs) {
+    if (!input) continue;
+    if (typeof input.rawText !== 'string' || input.rawText.trim().length === 0) continue;
+    try {
+      const outcome = await ingestComplaint(input);
+      if (outcome.reportId) heard += 1;
+      classified += outcome.classified;
+    } catch (error) {
+      // UNREACHABLE IN PRACTICE, because ingestComplaint catches its own.
+      // Kept because "in practice" is not a guarantee, and the thing on the
+      // other side of this call is a member's completed check-in.
+      console.error('hearComplaints failed', input.surfaceKey, error);
+    }
+  }
+  return { heard, classified };
 }

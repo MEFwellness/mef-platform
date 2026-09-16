@@ -37,6 +37,7 @@ import type {
 import {
   FINDING_HEADINGS,
   NOT_A_DIAGNOSIS,
+  RESOLUTION_SUFFIX,
   SAFETY_WITHHELD_BODY,
   SAFETY_WITHHELD_HEADING,
   STATE_EXPLANATIONS,
@@ -171,7 +172,10 @@ export function interpretationLines(
     const area = entry.bodyAreaKey ? areaFor(entry.bodyAreaKey) : '';
     const place = [side, area].filter(Boolean).join(' ');
     parts.push(place ? `${nameFor(entry.signalSlug)} (${place})` : nameFor(entry.signalSlug));
-    if (entry.frequencyLabel) parts.push(entry.frequencyLabel);
+    // A RESOLUTION READS AS ONE. She said this has finished, and a card
+    // that printed the name alone would read as a current complaint.
+    if (entry.isResolution) parts.push(RESOLUTION_SUFFIX);
+    else if (entry.frequencyLabel) parts.push(entry.frequencyLabel);
     return parts.join(', ');
   });
 }

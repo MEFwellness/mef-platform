@@ -221,31 +221,89 @@ describe('the classifier identifies and never diagnoses', () => {
 // The two ways a sentence can say "this is NOT happening".
 // ---------------------------------------------------------------------
 
-describe('a sentence that closes something out files nothing', () => {
-  it('reads a negation that comes first', () => {
-    expect(slugs('No bloating this week.')).not.toContain('bloated-stomach');
-    expect(slugs('I have not had any headaches.')).not.toContain('headaches');
+describe('a sentence that closes something out files it as SETTLED, not as nothing', () => {
+  /**
+   * THE BEHAVIOUR THIS BLOCK USED TO ASSERT WAS WRONG, and it is worth
+   * saying why rather than quietly changing the expectations.
+   *
+   * The matcher recognized "my headaches have stopped" and then threw the
+   * whole match away. Nothing was written: no classification, no row, and
+   * no way for a coach to know she had said it. That is not neutral. The
+   * Signal Library is APPEND OVER TIME and the engine reads the LATEST
+   * row, so the silence left last month's headache complaint standing as
+   * the newest thing she had ever said on the subject. A member closing a
+   * symptom out had her closing ignored and her complaint preserved.
+   *
+   * A resolution is now an ordinary row at nought, which
+   * lib/cross-system-root/evidence.ts already reads as RESOLVED and
+   * lib/cross-system-patterns/match.ts already refuses as support.
+   */
+  function resolutionOf(text: string, slug: string) {
+    return classifyComplaint(text, LEXICON).find((draft) => draft.signalSlug === slug);
+  }
+
+  it('reads a closing word that comes first, and marks it as a resolution', () => {
+    const bloating = resolutionOf('No bloating this week.', 'bloated-stomach');
+    expect(bloating?.isResolution).toBe(true);
+    const headaches = resolutionOf('I have not had any headaches.', 'headaches');
+    expect(headaches?.isResolution).toBe(true);
   });
 
-  it('reads a negation that comes last, which is where English often puts it', () => {
-    expect(slugs('My headaches have stopped.')).not.toContain('headaches');
-    expect(slugs('The bloating is gone.')).not.toContain('bloated-stomach');
+  it('reads one that comes last, which is where English often puts it', () => {
+    expect(resolutionOf('My headaches have stopped.', 'headaches')?.isResolution).toBe(true);
+    expect(resolutionOf('The bloating is gone.', 'bloated-stomach')?.isResolution).toBe(true);
   });
 
-  it('does not let a closing word reach past the thing it closes', () => {
+  it('writes a resolution as a row at nought, which is what makes it resolved', () => {
+    const drafts = classifyComplaint('The bloating is gone.', LEXICON);
+    const rows = signalDraftsFor(REPORT, drafts, miniLibrary());
+    const bloating = rows.find((row) => row.signalSlug === 'bloated-stomach');
+    expect(bloating).toBeDefined();
+    expect(bloating?.valueNumeric).toBe(0);
+    expect(bloating?.valueKey).toBe('never');
+    expect(bloating?.valueLabel).toBe('No longer reported');
+    // And an ordinary complaint still writes a presence, unchanged.
+    const live = signalDraftsFor(
+      REPORT,
+      classifyComplaint('My right hip has been clicking.', LEXICON),
+      miniLibrary()
+    ).find((row) => row.signalSlug === 'hip-clicking');
+    expect(live?.valueKind).toBe('presence');
+    expect(live?.valueNumeric).toBeNull();
+  });
+
+  it('a live complaint in the same sentence stays live', () => {
     // "stopped" closes the headache. The hip is a separate clause and must
-    // survive, or one settled symptom would silence a live one.
+    // survive as a CURRENT complaint, or one settled symptom would silence
+    // a live one.
     const drafts = classifyComplaint(
       'My headaches have stopped but my right hip is still clicking.',
       LEXICON
     );
-    const found = drafts.map((draft) => draft.signalSlug);
-    expect(found).not.toContain('headaches');
-    // The hip half survives, on the right, which is the thing the window
-    // exists to protect: one settled symptom must not silence a live one.
+    const headache = drafts.find((draft) => draft.signalSlug === 'headaches');
+    expect(headache?.isResolution).toBe(true);
     const hip = drafts.find((draft) => draft.bodyAreaKey === 'hip');
     expect(hip).toBeDefined();
     expect(hip?.side).toBe('right');
+    expect(hip?.isResolution).toBe(false);
+  });
+
+  it('a reopening word cancels a closing one, in the sentence a member really writes', () => {
+    // THE DIRECTION THAT OPENS IT AGAIN. "Stopped, but they have come
+    // back" contains a closing word and is a CURRENT complaint, and a
+    // matcher that only knew how to close would have filed it as settled.
+    const back = resolutionOf(
+      'My headaches had stopped but they have come back this week.',
+      'headaches'
+    );
+    expect(back).toBeDefined();
+    expect(back?.isResolution).toBe(false);
+  });
+
+  it('an ordinary complaint is never marked as a resolution', () => {
+    for (const draft of classifyComplaint('My right hip has been clicking.', LEXICON)) {
+      expect(draft.isResolution).toBe(false);
+    }
   });
 
   it('a sentence with nothing in it produces nothing', () => {
@@ -316,6 +374,7 @@ const REPORT = {
   rawText: 'My right hip has been clicking.',
   fieldRef: 'optional_notes',
   fieldPrompt: 'Anything else you want to note about today?',
+  surfaceKey: 'daily_checkin_notes',
   surfaceLabel: 'Daily check-in notes',
   reportedOn: '2026-09-15',
   reportedAt: '2026-09-15T12:00:00.000Z',
@@ -457,6 +516,7 @@ describe('a classified complaint is an ordinary signal row', () => {
         {
           position: 0,
           signalSlug: 'not-a-real-signal',
+          isResolution: false,
           bodyAreaKey: null,
           side: null,
           matchedPhrase: 'whatever',

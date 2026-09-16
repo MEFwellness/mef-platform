@@ -11,8 +11,12 @@
 
 import { ingestSitting } from '@/lib/cross-system-signals/service';
 import { SOURCE_DAILY_CHECK_IN } from '@/lib/cross-system-signals/constants';
-import { ingestComplaint } from '@/lib/cross-system-complaints/service';
-import { SURFACE_DAILY_CHECKIN_NOTES } from '@/lib/cross-system-complaints/constants';
+import { hearComplaints } from '@/lib/cross-system-complaints/service';
+import {
+  SURFACE_DAILY_CHECKIN_CONCERN,
+  SURFACE_DAILY_CHECKIN_DISCOMFORT,
+  SURFACE_DAILY_CHECKIN_NOTES,
+} from '@/lib/cross-system-complaints/constants';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import type { DailyCheckinInput, DailyCheckin, Habit } from '@mef/shared-types-contracts';
@@ -121,6 +125,11 @@ async function insertCheckinRow(
     p_morning_soreness: input.morning_soreness,
     p_bowel_movement_status: input.bowel_movement_status,
     p_completion_seconds: input.completion_seconds,
+    // BOTH OPTIONAL, BOTH NULL WHEN SHE SAID NOTHING, and both defaulted to
+    // null in the function itself (migration 257), so an older caller that
+    // does not pass them writes exactly what it wrote before.
+    p_concern_note: input.concern_note ?? null,
+    p_discomfort_note: input.discomfort_note ?? null,
   });
 
   if (error) return { id: null, error: error.message };
@@ -222,12 +231,24 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
   // event emission above — never allowed to affect the result already
   // returned to the member.
   try {
-    if (input.optional_notes || input.new_or_worsening_concern) {
+    // THE TWO NEW BOXES GO THROUGH THE SAME DOOR, and they go through it
+    // FIRST, before anything else reads them. A member typing the thing
+    // that needs the safety process into the concern box rather than into
+    // the notes box must reach exactly the same classifier, or the box
+    // would be a second unreviewed channel. They are joined into the one
+    // text this call already takes rather than made into three calls,
+    // because the classifier reads a passage and one concern is one
+    // concern.
+    const screened = [input.optional_notes, input.concern_note, input.discomfort_note]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+      .join(' ');
+
+    if (screened.length > 0 || input.new_or_worsening_concern) {
       const evaluation = await evaluateConcern(supabase, {
         memberId: user.id,
         sourceFeature: 'daily_checkin',
         sourceRecordType: 'daily_checkin',
-        text: input.optional_notes,
+        text: screened.length > 0 ? screened : null,
         newOrWorseningConcern: input.new_or_worsening_concern,
       });
 
@@ -334,37 +355,52 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
   // could not read must never cost her a completed check-in.
   if (typeof newCheckinId === 'string') {
     const reportedAt = new Date().toISOString();
-    // ONE FREE TEXT FIELD, BECAUSE THE CHECK-IN HAS ONE. The
-    // "new or worsening concern" answer beside it is a BOOLEAN: it says a
-    // concern exists and not what it is, and turning a true into a body
-    // signal would be inventing one. It already reaches the safety
-    // classifier above, which is where it belongs. The loop stays a loop
-    // because a second field (a pain flow's own note, a journal entry) is
-    // one entry here and nothing else.
-    for (const complaint of [
+    // THREE FREE TEXT FIELDS NOW, BECAUSE THE CHECK-IN HAS THREE.
+    //
+    // The notes box was always here. The other two are new, and they exist
+    // for the same reason: the check-in was asking a member two questions
+    // she could only answer with a tap. She ticked "something new or
+    // worsening" and the app learned that a concern existed but not what it
+    // was, and she said yes to discomfort and picked a location off a list
+    // without ever getting to say what it felt like. Both were already
+    // reaching the safety classifier, which is right and unchanged; neither
+    // could reach Root, because Root reads sentences and there were none.
+    //
+    // BOTH ARE OPTIONAL AND BOTH ARE CONDITIONAL. A member who types
+    // nothing, or who answers no, submits exactly the check-in she
+    // submitted before, and no number anywhere reads either column.
+    await hearComplaints([
       {
-        text: input.optional_notes,
+        memberId: user.id,
         surfaceKey: SURFACE_DAILY_CHECKIN_NOTES,
+        rawText: input.optional_notes ?? '',
+        sourceRecordId: newCheckinId,
         fieldRef: 'optional_notes',
-        fieldPrompt: 'Anything else you want to note about today?',
+        fieldPrompt: 'Anything else worth noting?',
+        reportedAt,
+        authorRole: 'member',
       },
-    ]) {
-      if (typeof complaint.text !== 'string' || complaint.text.trim().length === 0) continue;
-      try {
-        await ingestComplaint({
-          memberId: user.id,
-          surfaceKey: complaint.surfaceKey,
-          rawText: complaint.text,
-          sourceRecordId: newCheckinId,
-          fieldRef: complaint.fieldRef,
-          fieldPrompt: complaint.fieldPrompt,
-          reportedAt,
-          authorRole: 'member',
-        });
-      } catch (complaintError) {
-        console.error('Complaint ingestion failed for submitDailyCheckin', complaintError);
-      }
-    }
+      {
+        memberId: user.id,
+        surfaceKey: SURFACE_DAILY_CHECKIN_CONCERN,
+        rawText: input.concern_note ?? '',
+        sourceRecordId: newCheckinId,
+        fieldRef: 'concern_note',
+        fieldPrompt: 'Want to tell me more? (optional)',
+        reportedAt,
+        authorRole: 'member',
+      },
+      {
+        memberId: user.id,
+        surfaceKey: SURFACE_DAILY_CHECKIN_DISCOMFORT,
+        rawText: input.discomfort_note ?? '',
+        sourceRecordId: newCheckinId,
+        fieldRef: 'discomfort_note',
+        fieldPrompt: 'Anything else about this? (optional)',
+        reportedAt,
+        authorRole: 'member',
+      },
+    ]);
   }
 
   return {};
@@ -402,12 +438,18 @@ export async function saveDailyCheckinDraft(
   if (error) return { error };
 
   try {
-    if (input.optional_notes || input.new_or_worsening_concern) {
+    // The draft path screens the same three fields the real submit does.
+    // An exit mid check-in is not a completion, but a concerning sentence
+    // typed before exiting is still a concerning sentence.
+    const screened = [input.optional_notes, input.concern_note, input.discomfort_note]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+      .join(' ');
+    if (screened.length > 0 || input.new_or_worsening_concern) {
       await evaluateConcern(supabase, {
         memberId: user.id,
         sourceFeature: 'daily_checkin',
         sourceRecordType: 'daily_checkin',
-        text: input.optional_notes,
+        text: screened.length > 0 ? screened : null,
         newOrWorseningConcern: input.new_or_worsening_concern,
       });
     }

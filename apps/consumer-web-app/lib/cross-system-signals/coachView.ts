@@ -36,6 +36,19 @@ export type SignalHistoryEntry = {
   note: string | null;
   /** The exact stimulus the member was answering, when the source had one. */
   sourceQuestionPrompt: string | null;
+  /**
+   * WHICH FREE TEXT SURFACE THE WORDS ARRIVED ON, for a row that came out
+   * of a sentence, and null for every row that did not.
+   *
+   * WHY THE SOURCE LABEL IS NOT ENOUGH. Every classified complaint files
+   * under one of two sources, "Reported by the member" or "Reported to the
+   * coach", and before this build exactly one surface existed so a coach
+   * could safely assume where it came from. Nine surfaces write here now.
+   * "She said this in her Evening Reflection" and "she said this in a
+   * message to me" are different things to a coach, and the row has to be
+   * able to say which.
+   */
+  complaintSurfaceLabel: string | null;
   sideLabel: string | null;
   entryMode: SignalRecord['entryMode'];
 };
@@ -87,6 +100,7 @@ function entryOf(record: SignalRecord): SignalHistoryEntry {
     capturedOn: record.capturedOn,
     note: record.note,
     sourceQuestionPrompt: record.sourceQuestionPrompt,
+    complaintSurfaceLabel: record.complaintSurfaceLabel,
     sideLabel: sideLabelOf(record.side),
     entryMode: record.entryMode,
   };
