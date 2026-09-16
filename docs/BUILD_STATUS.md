@@ -207,6 +207,91 @@ the engine is reached through exactly ONE named call, asserted by
 import and by call site. Prompt 1's import fence gained the engine's coach
 read. The detail page's section count went from eight to nine.
 
+### Live verification, production, 2026-09-15
+
+Correct repo (`MEFwellness/mef-platform`), branch `main`, Vercel project
+`mef-platform`, target Production, and `app.mefwellness.com` confirmed
+aliased to the deployment carrying this work before anything was checked.
+`apps/consumer-web-app/scripts/verify-whole-body-patterns-live.mjs` is the
+run, and **39 of 39 checks passed**, at 390x844, driving the real editor
+and the real Add Signal tool on the real site.
+
+**THE THREE OUTCOMES WERE WALKED IN ORDER ON ONE REAL MEMBER.** A test
+pattern was created through the real form, named "TEST DATA, safe to
+delete." in its first words, with four inputs the Ebony fixture did not
+already hold, so the run controlled the whole progression rather than
+riding on somebody else's rows.
+
+| step | what the screen said |
+| --- | --- |
+| created | inactive, version 1, its four inputs stored with the labels the SERVER resolved |
+| activated | active, **still version 1**, so a toggle writes no version |
+| no signals | "Nothing to review" |
+| primary only | **nothing at all**, no name, no line, no association |
+| one supporting | still nothing, because the floor is two |
+| two supporting | **Emerging**, "An emerging cross-system pattern may be worth reviewing." |
+| three supporting | **Stronger**, "Multiple related responses are contributing to this predefined pattern.", and the emerging line gone |
+| deactivated | the card disappears, and its ledger row goes with it |
+
+**THE CARD IS WHOLE.** All four blocks present and in the brief's order;
+Observed printing "Morning stiffness, Often"; Related Signals naming the
+related input with its supporting count; Pattern Strength carrying the
+level and its line; and the Possible Association and the Coaching
+Consideration both on screen character for character as they were typed.
+"Root identified 2 supporting signals across 1 source." moved to 3 when the
+third arrived. "View contributing signals" really opened onto every exact
+original response. Zero em dashes and zero console or page errors anywhere
+in the coach walk.
+
+**THE LEDGER RECORDED WHAT IT READ**: version 1, level `stronger`, three
+supporting signals, triggered by `coach_signal_added`, with **four
+contributing rows named individually**, one primary, one related and two
+supporting.
+
+**Production is clean.** One relationship left, the example, inactive, at
+version 1 and never touched. Ebony back at exactly the 60 signals she had
+before the run. Zero ledger rows. Her questionnaire results were never
+written to.
+
+**THE MEMBER SIDE: NOTHING LEAKED.** Checked at both layers. At the
+DATABASE, a member session and an anonymous session each read **0 rows from
+both ledger tables**. At the SCREEN, ten member routes walked signed in as
+the standing test member, with every response body the browser received,
+HTML, JSON and RSC flight data alike, scanned for fourteen words including
+both display lines, "Possible Association", "Coaching Considerations",
+"Pattern Strength", "Root identified" and the test pattern's own text.
+**Zero hits**, and zero console errors. A member asking for the coach
+detail page by URL lands on `/dashboard`. Her Body Systems Survey results
+are byte for byte what they were.
+
+Screenshots went to `apps/consumer-web-app/scripts/.verify/patterns/`,
+which is gitignored.
+
+### THREE THINGS THE LIVE RUN CORRECTED, all of them the instrument
+
+The app needed no change. Each is a standing trap, and two of them are
+already written down in this file from earlier runs.
+
+**A bare `.first()` reached the wrong row.** The shipped example is created
+first and is therefore listed first, so "click the first Activate button"
+activated THE EXAMPLE, and six checks then read the example's card and
+reported failures about a pattern they were not looking at. Every control
+is scoped to the list item carrying this run's own pattern name now, and
+two new checks assert the example is inactive before the run and untouched
+after it. Production was left correct either way: the run's own Deactivate
+click turned the example back off, and that was confirmed by an independent
+query.
+
+**`innerText` reports CSS-transformed text.** The four block headings are
+`uppercase` in the design system, so a case sensitive search for "Observed"
+failed against a screen displaying exactly that. This is the same trap the
+2026-09-07 run hit, recorded in this file, and it caught the next run
+anyway.
+
+**An invented route answers 404, and a 404 reads like a regression.**
+`/assessments` is a path SEGMENT in this app and has never been a page. The
+route list is now checked against real page files.
+
 ## The Whole-Body Cross-System Correlation Engine, Prompt 2 of 3: the editable Relationship Library (2026-09-15)
 
 The definitions only, and the editor she writes them in. Five tables, a
