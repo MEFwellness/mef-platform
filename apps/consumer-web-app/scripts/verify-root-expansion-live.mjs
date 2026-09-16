@@ -460,6 +460,8 @@ let member;
 let createdReportIds = [];
 let createdCheckinIds = [];
 let deactivatedRelationshipId = null;
+let startingSignalCount = 0;
+let startingActiveRelationships = 0;
 let coachNoteId = null;
 
 try {
@@ -521,7 +523,15 @@ try {
     (bodySystemsBefore.data ?? []).length > 0,
     `${(bodySystemsBefore.data ?? []).length} sittings on file`
   );
-  console.log(`\n  starting state: ${signalsBefore.count} signals\n`);
+  startingSignalCount = signalsBefore.count ?? 0;
+  const activeBefore = await service
+    .from('cross_system_relationships')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_active', true);
+  startingActiveRelationships = activeBefore.count ?? 0;
+  console.log(
+    `\n  starting state: ${startingSignalCount} signals, ${startingActiveRelationships} active relationships\n`
+  );
 
   /*
     A FRESH START, because the check-in RESUMES.
@@ -1150,6 +1160,27 @@ try {
       .eq('local_date', today);
     for (const row of todays.data ?? []) createdCheckinIds.push(row.id);
     for (const id of [...new Set(createdCheckinIds)]) {
+      /*
+        AND THE SIGNAL THE CHECK-IN ITSELF PRODUCED.
+
+        This is not a complaint and it is not new: the Daily Check-In
+        adapter has always written one "Daily pain or discomfort" signal
+        when the discomfort level is one or more, and answering that item
+        Yes is exactly what this run does to make the optional box appear.
+        It is still a row this run created, so it goes with the check-in
+        that made it. The first version of this cleanup left one behind on
+        every run, which is how a test member's signal count drifts.
+      */
+      await service
+        .from('cross_system_signals')
+        .delete()
+        .eq('member_id', EBONY_ID)
+        .eq('source_session_id', id);
+      await service
+        .from('cross_system_signals')
+        .delete()
+        .eq('member_id', EBONY_ID)
+        .eq('source_record_id', id);
       await service.from('daily_checkins').delete().eq('id', id);
     }
     await service
@@ -1186,7 +1217,16 @@ try {
       leftBehind === 0,
       `${leftBehind} complaint rows left behind`
     );
-    console.log(`\n  signals now: ${signalsNow.count}, active relationships now: ${relationshipsActive.count}\n`);
+    record(
+      'CLEANUP: the test member is back at exactly the signal count she started with',
+      signalsNow.count === startingSignalCount,
+      `started at ${startingSignalCount}, ended at ${signalsNow.count}`
+    );
+    record(
+      'CLEANUP: every seeded map entry is active again',
+      (relationshipsActive.count ?? 0) === startingActiveRelationships,
+      `started at ${startingActiveRelationships}, ended at ${relationshipsActive.count}`
+    );
   } catch (cleanupError) {
     record('CLEANUP completed', false, String(cleanupError).slice(0, 200));
   }

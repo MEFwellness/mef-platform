@@ -1,3 +1,284 @@
+## Root hears nine surfaces, and the map it reads grows to 239 entries (2026-09-16)
+
+The extension to the corrected build. Root now listens on every member
+surface in this app that carries free text, plus two the coach writes, and
+the Whole-Body Association Map it reads grew from eighteen starter entries
+to 239.
+
+Migrations 251 to 257, `lib/data/pagedSelect.ts`,
+`lib/cross-system-relationships/grouping.ts`,
+`components/checkin/OptionalFollowUpNote.tsx`.
+
+### THE MAP: 239 ENTRIES, 2,511 COMPONENTS, 1,435 CONSIDERATIONS
+
+Four families, four migrations, all seeded by one helper that resolves
+every label from the Signal Library and RAISES on a key that does not
+exist, so a typo fails the migration rather than shipping a component
+labelled with its own slug.
+
+| family | migration | entries |
+| --- | --- | --- |
+| Structure: every body area the starters did not own | 252 | 19 |
+| Systems, read in both directions | 253 | 20 |
+| Posture patterns | 254 | 20 |
+| One entry per standardized signal | 255 | 162 |
+
+Every major joint the brief names now has an entry of its own, including
+the **sacroiliac joint, which had nowhere to go at all**: the original 23
+body areas covered the cervical, thoracic and lumbar spine and every other
+major joint, and folded the SI joint into the pelvis, which is a region
+rather than a joint. Migration 251 adds it along with six muscle regions
+(glutes, hamstrings, calf, groin, thigh, ribs), eight symptom words and 52
+standardized signal names, all through migration 240's own tables and
+behind its own fence.
+
+**THE LINKS ARE BIDIRECTIONAL, AS TWO SETS OF ENTRIES rather than as an
+inference.** An entry keyed on a BODY AREA names systems among the areas
+worth reviewing; an entry keyed on a CATEGORY names body areas. Both halves
+exist for all fifteen systems, a coach can read either direction in the
+library, and the engine needed no change: a component names a vocabulary
+and a key and does not care which.
+
+**SUPPORT COMPONENTS CARRY A FLOOR, AND RELATED ONES DELIBERATELY DO NOT.**
+410 support components name a Body Systems Survey section rollup with a
+minimum of 40, which is what "this section is speaking up" means. A related
+area has no floor on purpose: "the map says look at Kidney and Bladder, and
+there is nothing there" is information a coach wants.
+
+Six of the seven registered bases are in use (115 CHEK / HLC, 62
+biomechanics, 40 lifestyle, 20 referred pain, 2 internal MEF, 1 coach
+added), because a methodology association and a referred-pain relationship
+are not the same kind of claim.
+
+### THE LIBRARY IS GROUPED, BECAUSE TWO HUNDRED IN A LIST IS A SCROLL
+
+`/coach/relationships` opens folded, grouped by body area or by body
+system, with a count and an active count on each group. An entry has
+exactly ONE home in each view, decided by its PRIMARY inputs and never by
+the areas it points at, so she cannot edit "the knee entry" in one group
+and find it changed in four others. A search opens whatever it matched, and
+a library under twelve entries opens flat, because folding exists for two
+hundred and not for three.
+
+### NINE SURFACES, ONE PIPELINE
+
+One was wired before this: the Daily Reset notes box.
+
+| surface | what it is | author |
+| --- | --- | --- |
+| `daily_checkin_notes` | "Anything else worth noting?" | member |
+| `daily_checkin_concern` | **new box** on the new-or-worsening item | member |
+| `daily_checkin_discomfort` | **new box** on the discomfort item | member |
+| `evening_reflection` | "Anything new or changed today?" | member |
+| `concern_flag` | the mid-day concern box | member |
+| `client_comment` | a message to her coach | member |
+| `assessment_free_text` | the intake's eight free text fields | member |
+| `coach_note` | a note a coach writes on her | coach |
+| `coach_observation` | the note on a hand-entered signal | coach |
+
+Five stay unwired and each says why in
+`lib/cross-system-complaints/constants.ts`: a journal, a pain check-in, a
+food check-in and a sleep check-in do not exist as features, and
+`questionnaire_free_text` has nothing to read because **no questionnaire in
+this app has a free text question**. Every question in the assessment
+engine and the Body Systems Survey is a scored choice, and giving a scored
+instrument a text box is a change to the instrument rather than a wiring
+job.
+
+`hearComplaints` is the one best-effort wrapper every surface calls. What
+was being repeated at each site was not classification, it was the SAFETY
+WRAPPER around it, and seven copies of "skip empty, never throw, log and
+move on" is seven chances to write the eighth one without a try.
+
+### TWO OPTIONAL BOXES, AND ONLY ON YES
+
+"Something new or worsening" and "Any discomfort today?" were questions a
+member could only answer with a tap. Both now carry one short optional box
+that **does not exist on the screen until she answers yes**, disappears
+with its answer if she changes her mind, is never required, and is read by
+no number anywhere. `tests/checkin-optional-notes.test.tsx` walks every
+directory in this app that turns check-in answers into a figure and fails
+if one of them reads either column.
+
+### FOUR DEFECTS IN SHIPPED CODE
+
+**1. A RESOLUTION WAS BEING THROWN AWAY.** "My headaches have stopped"
+classified as nothing at all. That is not neutral: the Signal Library is
+append over time and the engine reads the LATEST row, so the silence left
+last month's complaint standing as the newest thing she had ever said on
+the subject. A resolution is now an ordinary row at nought, which
+`evidence.ts` already reads as RESOLVED and `match.ts` already refuses as
+support. A reopening word ("came back", "again") cancels a closing one, and
+is scoped so that a PLACE named in between belongs to the other complaint:
+"my headaches have stopped but my right hip is still clicking" closes the
+headache and leaves the hip live.
+
+**2. EVERY SENSATION A JOINT CAN PRODUCE WAS ONE SIGNAL.** Click, pop,
+stiff, tight, weak, locking and giving way all classified as "Joint
+aching", so a member writing "my knee keeps giving way" was recorded as
+having an ache. 27 rows retired and the vocabulary to say those things
+properly added.
+
+**3. HALF THE CONTRACTIONS WERE MISSING.** The lexicon held "cant get a
+deep breath" and not "cannot get a deep breath". That is the hurt / hurts
+defect a third time: one missing FORM across every phrase that has one,
+fixed across the whole set rather than one word at a time.
+
+**4. THE MID-DAY CONCERN FLAG HAS NO SCREEN.**
+`components/checkin/ConcernFlag.tsx` carries a real text box and calls a
+real action, and NOTHING IMPORTS IT. Commit f03e10e replaced the Quick
+Actions carousel with a fixed icon grid and did not carry it across. The
+surface is wired and works the moment the component is mounted again; two
+cases in `tests/cross-system-surface-wiring.test.ts` record that and fail
+the day somebody mounts it, which is the right time to delete them.
+
+### AND THE ONE THE LIVE RUN FOUND, WHICH WAS THE WORST OF THEM
+
+**PostgREST caps an unbounded select at a thousand rows, and says
+nothing.** It does not error and it does not warn: it returns the first
+thousand and the caller carries on. Harmless while every table here was
+small, and this build made three of them large at once: 2,511 components,
+1,728 lexicon phrases, 1,435 considerations.
+
+The component read is ordered by POSITION, so the cut did not drop the last
+few entries, **it fell across every entry at once**: each one kept its first
+three or four components and lost the rest. On production a coach opening a
+sacroiliac complaint was told Root had checked 4 areas when the entry names
+9, and the wide musculoskeletal entry reported checking ONE. The lexicon
+read lost seven hundred phrases: a third of everything a member can say had
+quietly stopped being understood.
+
+**No test in this suite could have caught it.** Every one of them drives a
+fixture, and a fixture has no cap. It was found by printing, per finding,
+how many areas Root had actually checked on a real complaint on production,
+and noticing the number was wrong.
+
+`lib/data/pagedSelect.ts` walks `range` until a page comes back short, and
+is applied to every full read of a table that can get big, including four
+under the cap today that would have crossed it next. Three guards:
+`tests/no-truncated-reads-guard.test.ts` names the tables and fails on an
+unpaged read of one; the Relationship Library's fake PostgREST client now
+implements `range` AND ENFORCES THE SAME CAP; and a regression test builds
+250 definitions carrying 2,500 components and asserts every one comes back
+whole, proved by removing the paging (it reports 1,000 of 2,500).
+
+### THE VOCABULARY AND THE LEXICON, AS DEPLOYED
+
+| | before | after |
+| --- | --- | --- |
+| relationships in the map | 19 | 240 |
+| relationship components | 178 | 2,511 |
+| coaching considerations | 109 | 1,435 |
+| lexicon phrases | 368 | 1,728 |
+| modifiers | 140 | 401 |
+| standardized signal names | 159 | 211 |
+| body areas | 23 | 30 |
+| symptom words | 20 | 28 |
+| registered surfaces | 11 | 14 |
+
+### Checks
+
+**12,695 tests passing across 637 files**, 314 of them new across nine new
+files: `cross-system-map-expansion.test.ts` (138),
+`cross-system-lexicon-expansion.test.ts` (91),
+`cross-system-complaint-routing.test.ts` (83),
+`cross-system-expansion-fence.test.ts` (52),
+`cross-system-expansion-schema.test.ts` (32),
+`cross-system-surface-wiring.test.ts` (29),
+`checkin-optional-notes.test.tsx` (26),
+`cross-system-library-grouping.test.tsx` (18),
+`no-truncated-reads-guard.test.ts` (11), plus two shared fixtures.
+
+**The map tests, the lexicon tests and the routing test all drive the
+SHIPPED migrations**, parsed out of the SQL, rather than a fixture written
+to agree with them. The routing test classifies a real sentence with the
+real lexicon, turns it into the rows the pipeline would write, builds the
+real map out of its own migrations and runs the real lookup over both.
+
+Typecheck clean. Lint clean at 0 errors. Production build clean.
+Migrations 251 to 257 applied to production. **The ledger is unbroken: 257
+locally and 257 remotely, 0 pending.**
+
+### One thing the migration itself caught
+
+Migration 256 was refused by the modifier kind check constraint, which
+migration 249 had widened to two kinds and needed a third for
+`reassertion`. Widened before the rows are written, which is the only order
+a check constraint allows.
+
+### Live verification, production, 2026-09-16
+
+Correct repo (`MEFwellness/mef-platform`), branch `main`, Vercel project
+`mef-platform`, target Production, and `app.mefwellness.com` confirmed
+aliased to the deployment carrying this work before anything was checked.
+`apps/consumer-web-app/scripts/verify-root-expansion-live.mjs` is the run,
+and **67 of 67 checks passed**, at 390x844 for the member and 1280x1400
+for the coach.
+
+**THE MEMBER SUBMITTED FOUR REAL COMPLAINTS THROUGH FOUR REAL SURFACES**,
+each phrased to exercise a different half of what this build added:
+
+| surface | what she wrote | what Root did with it |
+| --- | --- | --- |
+| Daily check-in notes | "My headaches have stopped completely this month." | filed as SETTLED, at nought, and surfaced no finding claiming she reports it now |
+| the new concern box | "My left sacroiliac joint has been aching when I walk." | left, sacroiliac joint, 4 findings, 38 areas checked |
+| the new discomfort box | "My right knee has been grinding going up stairs." | Joint grinding at the knee, not a plain ache |
+| Evening Reflection | "Both hamstrings feel tight and my glutes are sore after training." | hamstrings and glutes, 7 findings, 67 areas checked |
+
+**THE BOX REALLY IS CONDITIONAL.** The run checked that `#concern-note` was
+absent from the page BEFORE she ticked the item and present after it, on a
+check-in cleared to a fresh start first, because the wizard resumes and a
+run following a run would otherwise find it already open.
+
+**THE COACH SIDE.** Root Noticed carried the complaints back verbatim with
+the surface named on each one, the Signals list printed the surface on the
+rows that came from a sentence, and a coach note ("She says her right
+shoulder keeps clicking when she reaches overhead") classified through the
+same pipeline under "Reported to the coach" with the coach-only fence
+intact. The Relationship Library showed **240 of 240 patterns in 31
+groups**, opened folded, offered both groupings, narrowed to 12 on a search
+for "sacroiliac" and opened the 7 groups that matched, filtered to inactive,
+and opened Version 1 on a seeded entry. Deactivating one entry took it off
+the card on reload.
+
+**THE MEMBER SIDE: NOTHING LEAKED.** Eight member routes walked with every
+response body scanned for thirteen coach-only words: zero hits, zero
+console errors. At the database, a member session and an anonymous session
+each read **0 rows from all eleven coach-only tables**. Her Body Systems
+sitting was read before and after and compared including the whole stored
+`results` object: byte for byte identical.
+
+**State left on production: none.** Every complaint, finding, signal,
+check-in row and reflection this run wrote was deleted in a `finally` and
+confirmed absent by an independent query. The test member is back at
+exactly the 60 signals she started with, and all 239 seeded entries are
+active again. That cleanup had its own defect on the first run: it tested
+the COMPLAINT keys against a prefix that matches the SURFACE keys, so it
+collected no check-in ids and left two rows behind. A cleanup that cannot
+fire is worse than no cleanup, because it reports success.
+
+### Four instrument bugs worth writing down
+
+The app needed no change for any of them.
+
+- **Not every control is a `<button>` with words in it.** "How much does it
+  bother you?" is a row of six blank tiles whose only text is an
+  aria-label, and "Overall, how was your day?" is an SVG arc whose points
+  carry `role="button"`. A loop reading `innerText` over the button TAG
+  skipped both, stalled the body screen and never opened the Evening
+  Reflection at all.
+- **A loop that answers a screen will un-answer what you just answered.**
+  It clicked "No" on the discomfort gate a moment after the run had
+  deliberately answered Yes, which closed the optional box and made a
+  working feature look unreachable.
+- **"The first Yes on the page" is the wrong Yes** when a screen carries
+  two boolean questions. Each renders as a `role="group"` labelled with its
+  own question, so the click is scoped to the group.
+- **The wizard RESUMES, which is correct and breaks a naive rerun.** The
+  check-in restores every answer from today's row including the concern
+  tick, so a second run finds the box already open and a conditional-render
+  check fails against a working app.
+
 ## Root listens: automatic complaint understanding, and the Whole-Body Association Map it reads (2026-09-15)
 
 The correction to Prompts 1 to 3. Root now hears what a client reports

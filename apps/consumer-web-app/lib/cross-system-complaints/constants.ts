@@ -50,6 +50,15 @@ export const SURFACE_COACH_OBSERVATION = 'coach_observation' as const;
  * Every surface this build listens on, in one list, so a test can assert
  * the set rather than hunting call sites and so a reader can see the whole
  * answer to "what does Root hear" in one place.
+ *
+ * ONE OF THEM IS WIRED BUT CURRENTLY UNREACHABLE, and saying so here is
+ * more honest than leaving it looking complete. `concern_flag` is the
+ * mid-day "what is new or worse today" box. Its action is wired into this
+ * pipeline and works; its COMPONENT, components/checkin/ConcernFlag.tsx,
+ * is imported by nothing. Commit f03e10e replaced the Quick Actions
+ * carousel with a fixed icon grid and did not carry it across, so a member
+ * has had no way to reach it since. Nothing here needs to change when it
+ * is mounted again.
  */
 export const WIRED_COMPLAINT_SURFACES = [
   SURFACE_DAILY_CHECKIN_NOTES,

@@ -137,6 +137,54 @@ describe('every wired surface reaches the one shared pipeline', () => {
   });
 });
 
+describe('the one wired surface that no screen can reach, recorded rather than hidden', () => {
+  /**
+   * WHY THIS IS A TEST AND NOT A COMMENT. The mid-day concern flag is
+   * wired: its action calls the shared pipeline, and it works. Its
+   * COMPONENT is imported by nothing, so a member cannot reach it, and the
+   * wiring therefore does nothing today. A build that reported nine live
+   * surfaces without saying so would be reporting something that is not
+   * true, and the next person to look would have to rediscover it.
+   *
+   * This fails the day somebody mounts the component, which is the right
+   * time to come back and delete it.
+   */
+  it('the ConcernFlag component still exists and still carries its text box', () => {
+    const source = read('components/checkin/ConcernFlag.tsx');
+    expect(source).toContain('flagConcern');
+    expect(source).toContain('<textarea');
+  });
+
+  it('and nothing imports it, which is why the surface is unreachable', () => {
+    const importers: string[] = [];
+    const walk = (directory: string): void => {
+      for (const entry of fs.readdirSync(path.join(ROOT, directory), { withFileTypes: true })) {
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+        const relative = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+          walk(relative);
+          continue;
+        }
+        if (!/\.tsx?$/.test(entry.name)) continue;
+        if (relative.endsWith('ConcernFlag.tsx')) continue;
+        if (read(relative).includes('ConcernFlag')) importers.push(relative);
+      }
+    };
+    walk('app');
+    walk('components');
+    expect(
+      importers,
+      `ConcernFlag is mounted again in ${importers.join(', ')}. The surface is reachable now, so this case and the note in lib/cross-system-complaints/constants.ts should both go.`
+    ).toHaveLength(0);
+  });
+
+  it('the action behind it is wired all the same, so mounting it is all that is left', () => {
+    const source = read('app/actions/events.ts');
+    expect(source).toContain('SURFACE_CONCERN_FLAG');
+    expect(source).toContain('hearComplaints(');
+  });
+});
+
 describe('there is no second Signals system, classifier or matching engine', () => {
   it('only one file classifies free text', () => {
     // Every call site imports the service, and only the service imports the
