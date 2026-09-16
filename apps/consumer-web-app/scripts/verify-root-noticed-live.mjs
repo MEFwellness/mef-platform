@@ -355,8 +355,36 @@ try {
   );
   await checkin.page.close();
 
-  // Give the best-effort ingestion block time to land.
-  await new Promise((resolve) => setTimeout(resolve, 6000));
+  /*
+    POLLED, NOT SLEPT. Classification, the signal writes and the lookup all
+    run in a best-effort block AFTER her result is returned, so they land
+    shortly after the submit rather than during it. A fixed six second wait
+    raced them: on a slow run this script read nought findings and reported
+    the feature broken while the rows were still being written a second
+    later. That is also how the cost of the unbatched area inserts was
+    noticed, and they are batched now.
+
+    It waits for the END of the chain (a finding), so everything before it
+    is necessarily already there.
+  */
+  const settled = await (async () => {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const probe = await service
+        .from('cross_system_complaint_reports')
+        .select('id, lookup_completed_at')
+        .eq('member_id', EBONY_ID)
+        .eq('raw_text', COMPLAINT)
+        .maybeSingle();
+      if (probe.data?.lookup_completed_at) return true;
+    }
+    return false;
+  })();
+  record(
+    'Root finished reading the complaint and marked it read',
+    settled,
+    settled ? 'lookup_completed_at is set on the report' : 'the lookup never completed within 60s'
+  );
 
   // -----------------------------------------------------------------
   // 2. IT BECAME STRUCTURED SIGNALS, WITH HER WORDS KEPT.
@@ -494,6 +522,18 @@ try {
     /Root Noticed/i.test(noticed.headerText),
     noticed.headerText
   );
+  /*
+    THE HEADER AGREES WITH ITS OWN COUNT. It read "2 connection to reviews"
+    on the first live run: the shared plural helper appends an "s" to
+    whatever it is handed, which is right for a noun and wrong for a phrase.
+    Only the live screen could show it, because every test in the suite was
+    asserting the singular, where the helper is correct.
+  */
+  record(
+    'The folded header pluralizes the phrase and not its last word',
+    !/to reviews/.test(noticed.headerText),
+    noticed.headerText
+  );
   record(
     'The coach reads the complaint in the member\'s own words',
     noticed.text.includes('My right hip has been clicking and aching when I walk.'),
@@ -629,11 +669,21 @@ try {
     .first();
   let editorOpened = false;
   let historyOpened = false;
+  // Waited for rather than assumed present: the library lists nineteen
+  // entries and the row this run wants is not the first one drawn.
+  await hipRow.waitFor({ state: 'visible', timeout: NAV_TIMEOUT }).catch(() => {});
   if ((await hipRow.count()) > 0) {
     const edit = hipRow.getByRole('button', { name: 'Edit', exact: true }).first();
     if ((await edit.count()) > 0) {
+      await edit.scrollIntoViewIfNeeded().catch(() => {});
       await edit.click();
-      await library2.page.waitForTimeout(1200);
+      // The editor loads the detail over the network before it draws, so
+      // wait for one of its own headings rather than for a fixed interval.
+      await library2.page
+        .getByText(/Observed inputs/i)
+        .first()
+        .waitFor({ state: 'visible', timeout: NAV_TIMEOUT })
+        .catch(() => {});
       const editorText = await library2.page.locator('main').innerText().catch(() => '');
       editorOpened = /Observed inputs|Pattern composition|Coaching Considerations/i.test(editorText);
       await library2.page.screenshot({ path: `${SHOTS}/coach-seeded-editor.png`, fullPage: true });
@@ -652,11 +702,17 @@ try {
     .locator('li, article, section')
     .filter({ hasText: 'Hip and pelvis signals' })
     .first();
+  await hipRow3.waitFor({ state: 'visible', timeout: NAV_TIMEOUT }).catch(() => {});
   if ((await hipRow3.count()) > 0) {
     const history = hipRow3.getByRole('button', { name: /Version history/i }).first();
     if ((await history.count()) > 0) {
+      await history.scrollIntoViewIfNeeded().catch(() => {});
       await history.click();
-      await library3.page.waitForTimeout(1000);
+      await library3.page
+        .getByText(/Version 1/i)
+        .first()
+        .waitFor({ state: 'visible', timeout: NAV_TIMEOUT })
+        .catch(() => {});
       const historyText = await library3.page.locator('main').innerText().catch(() => '');
       historyOpened = /Version 1/i.test(historyText);
       await library3.page.screenshot({ path: `${SHOTS}/coach-seeded-history.png`, fullPage: true });

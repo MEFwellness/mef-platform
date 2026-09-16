@@ -124,34 +124,68 @@ export async function replaceFindings(
       continue;
     }
 
-    for (const [index, area] of finding.areas.entries()) {
-      const areaRow = await supabase
-        .from('cross_system_root_finding_areas')
-        .insert({
-          finding_id: findingId,
-          position: index,
-          ref_kind: area.refKind,
-          ref_key: area.refKey,
-          ref_label: area.refLabel,
-          component_role: area.role,
-          evidence_state: area.state,
-          finding_count: area.rows.length,
-        })
-        .select('id')
-        .maybeSingle();
-      if (areaRow.error || !areaRow.data) continue;
-      const areaId = (areaRow.data as { id: string }).id;
+    /*
+      THE AREAS AND THEIR ROWS GO IN TWO CALLS, NOT TWO PER AREA.
 
-      if (area.rows.length === 0) continue;
-      await supabase.from('cross_system_root_finding_signals').insert(
-        area.rows.map((row, position) => ({
-          finding_id: findingId,
-          area_id: areaId,
-          signal_id: row.record.id,
-          position,
-        }))
-      );
+      This was one insert per area and then one per area's rows, which for a
+      finding naming nine areas is eighteen sequential round trips, and a
+      complaint that triggers two entries made nearly forty. That is slow
+      anywhere and it is wrong HERE: this runs while a member's own check-in
+      is completing, and although the block is best effort and her result is
+      already saved, it still holds her request open.
+
+      It was also long enough to be visible: the live verification's fixed
+      wait raced it and read nought findings on a slow run, which is how the
+      cost was noticed at all.
+
+      The areas are written in one insert whose `select` hands their ids
+      back, matched to their own `position` rather than to the order the
+      rows arrive in, because PostgREST does not promise insertion order.
+    */
+    const areaRows = finding.areas.map((area, index) => ({
+      finding_id: findingId,
+      position: index,
+      ref_kind: area.refKind,
+      ref_key: area.refKey,
+      ref_label: area.refLabel,
+      component_role: area.role,
+      evidence_state: area.state,
+      finding_count: area.rows.length,
+    }));
+
+    const insertedAreas = await supabase
+      .from('cross_system_root_finding_areas')
+      .insert(areaRows)
+      .select('id, position');
+    if (insertedAreas.error) {
+      console.error('replaceFindings area insert failed', insertedAreas.error);
+      written += 1;
+      continue;
     }
+
+    const areaIdByPosition = new Map(
+      (insertedAreas.data ?? []).map((row: Record<string, unknown>) => [
+        row.position as number,
+        row.id as string,
+      ])
+    );
+
+    const signalRows = finding.areas.flatMap((area, index) => {
+      const areaId = areaIdByPosition.get(index);
+      if (!areaId) return [];
+      return area.rows.map((row, position) => ({
+        finding_id: findingId,
+        area_id: areaId,
+        signal_id: row.record.id,
+        position,
+      }));
+    });
+
+    if (signalRows.length > 0) {
+      const linked = await supabase.from('cross_system_root_finding_signals').insert(signalRows);
+      if (linked.error) console.error('replaceFindings signal link failed', linked.error);
+    }
+
     written += 1;
   }
 
