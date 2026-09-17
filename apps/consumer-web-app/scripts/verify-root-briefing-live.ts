@@ -236,7 +236,12 @@ async function baselinePhase(): Promise<void> {
  * that session removed from before the baseline is not resurrected. The
  * recount reports rows missing from them separately rather than as a failure.
  */
-const SHARED_CLEANUP_TABLES = new Set(['member_wellness_events', 'member_daily_probe_selections']);
+const SHARED_CLEANUP_TABLES = new Set([
+  'member_wellness_events',
+  'member_daily_probe_selections',
+  'intelligence_profile_snapshots',
+  'coaching_insights',
+]);
 
 /** Parents before children, so a row put back never waits on its parent. */
 const INSERT_ORDER = [

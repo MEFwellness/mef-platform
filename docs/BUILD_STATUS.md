@@ -169,6 +169,14 @@ mounted effect, never from a render and never as a server action that
 would re-render the whole client page. Opening the page records nothing
 about any card.
 
+**FOUND BY THE LIVE RUN: A PINNED CARD COULD NOT BE REVIEWED.** Once pinned
+cards moved into their own list, the review action still looked the card up
+in the priority list only, so Reviewed or Not relevant on a pinned card was
+refused ("That did not save") and the pin could never come off. Every unit
+test recorded reviews through the data layer and could not see it. One
+lookup (`findBriefingCard`) now serves both lists, and a test holds the
+action to it (commit `a16a0bf`).
+
 ### SCORES
 
 No card and no rank note carries a score or a percentage. The survey
@@ -185,8 +193,8 @@ and an area with nothing under it is a one line row.
 
 ### Checks
 
-**12,907 tests across 646 files, all passing** on `main` with the data
-scale sweep landed beside this build, 62 of them in two new files: `root-briefing.test.ts` (54: ranking and the first survey
+**12,908 tests across 646 files, all passing** on `main` with the data
+scale sweep landed beside this build, 63 of them in two new files: `root-briefing.test.ts` (55: ranking and the first survey
 fallthrough, worsening and the comparable history it needs, First recorded
 and Changed since last time, canonical dedup across two questions and
 across a survey and a sentence, the related findings bar, grouping, the four
@@ -218,6 +226,113 @@ like every other script.
 Typecheck clean. Lint 0 errors. Production build clean,
 `/coach/clients/[id]/detail` 75.7 kB. Migration 260 applied to production:
 260 locally and remotely, 0 pending.
+
+### Live verification, production, 2026-09-17
+
+Repo `MEFwellness/mef-platform`, branch `main`, commits `d8088c1`,
+`e54e9d1`, `a16a0bf`, each built by the Vercel project `mef-platform`
+(team `mef-wellness`) as a Production deployment and reported complete on
+the commit. **The Vercel CLI on this machine has no stored login**, so the
+alias could not be read from it; `app.mefwellness.com` was confirmed to
+serve this build because the signed-in Client Detail page carries markup
+that exists only in it (`data-root-briefing`, the pinned section, the
+safety block's own element), and the pinned card fix was observed working
+there after `a16a0bf` deployed. Migration 260 applied: 260 locally and
+remotely, 0 pending.
+
+`apps/consumer-web-app/scripts/verify-root-briefing-live.ts`, phases
+baseline, read, flow, finish and restore; sessions minted and retired.
+
+**THE COACH ACCOUNT.** info@mefwellness.com is an administrator account and
+is sent to `/admin`; it cannot open a coach's Client Detail. The run used
+oakomah66@gmail.com, the coach account the previous live verification used.
+
+**READ, 21 of 21.** Three priority cards above "All evidence Root checked",
+ordered as their own "Why this ranked here" notes state; last updated line
+present; timeframe "Reported Sep 16 (covers past 3 months)", never "last 30
+days"; related findings each naming the entry that connects them, none a
+section score; assessment context present as band words ("Brain and
+Nervous System: Speaking loudly"); no percent sign and no em dash; empty
+areas as one line rows (71 in 25 lists); "Why Root checked this area" once
+per finding (27 for 27); the disclaimer once; no console errors. No safety
+block, correctly: none of her sittings answered a red flag Yes.
+
+**HER SEP 16 SURVEY IS NOT HER FIRST.** Production holds two completed
+sittings for her, Sep 11 and Sep 16 (01:00Z on Sep 17, which is Sep 16 in
+her zone). Every answer on her cards therefore has comparable history, and
+the live page correctly reads "Changed since last time" with both dates,
+for example "Often (Sep 16) from Never (Sep 11)". The check was written
+against her real sittings rather than the assumption of a first survey,
+and every change line matched. "First recorded" is covered by the unit
+tests (a first survey, and a question an earlier sitting did not ask).
+
+**FLOW AND FINISH, all checks on the app passed.** Reviewed on the card that
+would change folded it. The coach assigned a retake through Assessment
+Status; the member retook the survey with exactly one answer raised from
+Often to Almost always; her results screen showed no Root language. The
+changed card ranked first with "Changed since last time: Almost always
+(Sep 17) from Often (Sep 16)", came back marked "Changed since your review"
+and not "New since your last visit", and no unchanged card was marked
+Changed. Discuss next session drew the card in its own section above
+"Priority findings" with 3 priority cards still shown of 5 open. Not
+relevant folded its card. Reviewed on the pinned card removed the pin
+(after `a16a0bf`; before it, the action was refused, which is the defect
+above). The full evidence text was identical, character for character,
+before and after every one of the four actions. 143 member response bodies
+across six member routes: zero coach-only phrases, zero console errors; her
+own session reads 0 rows from both briefing tables and the Root tables.
+
+Four harness defects were fixed on the way, none in the app: CSS uppercases
+headings, blank lines sit between blocks, "Areas Root checked" also matched
+"Hide the areas Root checked", and the evidence count included finding
+cards drawn inside each card's own View evidence. The flow stopped once on
+a slow page load after Not relevant saved; the page was then loaded
+directly (status 200, no errors) and the rest ran as the finish phase
+rather than repeating the retake.
+
+**STATE LEFT ON PRODUCTION: HER STARTING STATE.** A baseline of every table
+with a member column for her (164 tables, 7,648 rows), the Root finding
+children, her profile, and the coach's briefing review and visit rows was
+taken at 13:35:11Z before anything ran. The restore deleted every row added
+since (the retake sitting, its assignment and attempt, 58 signals, 17
+findings with their 552 child rows, 11 registry entries, intelligence and
+wellness rows, the reviews and visit) and put back every row the retake had
+changed (intelligence alerts, recommendations, the recommendation
+computation, wellness profile rows). An independent recount matched all
+164 tables row for row and value for value. The data scale session was
+walking the same member at the same time; the two sessions agreed a split,
+it removed its own 20 rows from inside the baseline window, and those are
+the only rows not put back.
+
+### OUTSIDE THIS BUILD'S SCOPE, REPORTED AND NOT CHANGED
+
+These are in the systems this build preserves. None was changed, and none
+is presented as confirmed evidence.
+
+1. **Both puffiness questions are filed under Kidney/Bladder.** T7 ("My face
+   looks puffy or swollen in the morning") and K7 ("I have puffiness under
+   my eyes in the morning") map to signals whose category is
+   `kidney_bladder`, so a puffiness answer reaches urinary and bladder map
+   entries and lends "fluid balance" as a direction to other cards (live:
+   "Headaches: explore meal timing and fluid balance."). A mapping and
+   Signal Library question for the coach.
+2. **Broad reverse entries fire for every symptom in a category.** 27 map
+   entries are keyed on a whole category and 22 on a body area ("Mood
+   findings, body areas worth reviewing in return"), so one active answer
+   reaches many entries and the full evidence repeats the same signals
+   across findings. The briefing takes related findings from the entry
+   keyed on the reported signal itself; the map and the full evidence are
+   unchanged.
+3. **Single entries are very wide.** "Headache signals, whole-body areas
+   worth reviewing" lists eleven related categories and areas, so almost
+   any active answer is "related" to headaches.
+4. **The area state explanation still says "Reported in the last 30 days"**
+   (`STATE_EXPLANATIONS.current`), which contradicts a survey answer that
+   covers three months. It is still built into the finding data but no
+   longer drawn.
+5. **Staff times print in UTC.** "Last updated Sep 17, 2026, 1:00 AM UTC"
+   is 9:00 PM on Sep 16 for her and for a coach in Eastern time, per the
+   standing rule that staff surfaces pin to UTC.
 
 ## Root reads the Body Systems Survey (2026-09-17)
 
