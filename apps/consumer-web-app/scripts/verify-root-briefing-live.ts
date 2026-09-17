@@ -480,7 +480,7 @@ const FREQUENCY_RANK: Record<string, number> = { 'Almost always': 8, Often: 6, S
 
 function parsedReason(reason: string) {
   return {
-    changed: /^(Pinned for next session, )?Changed since last time/.test(reason),
+    changed: /^(Pinned for next session, )?Answer changed/.test(reason),
     frequency: FREQUENCY_RANK[/reported (Almost always|Often|Sometimes)/.exec(reason)?.[1] ?? ''] ?? 3,
     supporting: Number(/(\d+) supporting signal/.exec(reason)?.[1] ?? 0),
     pinned: reason.startsWith('Pinned for next session'),
@@ -603,8 +603,8 @@ async function readPhase(): Promise<void> {
           const from = labelOf.get(earlier.answers[question.questionRef]!)!;
           const to = labelOf.get(now!)!;
           expected = from === to
-            ? `Same as last time: ${to} (${dayOf(earlier.completed_at)} and ${dayOf(latest.completed_at)})`
-            : `Changed since last time: ${to} (${dayOf(latest.completed_at)}) from ${from} (${dayOf(earlier.completed_at)})`;
+            ? `Same answer: ${to} (${dayOf(earlier.completed_at)} and ${dayOf(latest.completed_at)})`
+            : `Answer changed: ${to} (${dayOf(latest.completed_at)}) from ${from} (${dayOf(earlier.completed_at)})`;
         }
         expectations.push(`${question.questionRef}: ${expected}`);
         if (!entry.includes(expected)) mismatches.push(`${question.questionRef} expected "${expected}" in: ${entry.replace(/\n/g, ' / ').slice(0, 200)}`);
@@ -843,13 +843,13 @@ async function flowPhase(): Promise<void> {
     // ---- The coach sees the change.
     const after = await coachReadsBriefing(coach.context, 'flow-2-after-retake');
     const top = after.cards[0];
-    const expected = new RegExp(`Changed since last time: Almost always \\(([A-Z][a-z]{2} \\d{1,2})\\) from Often \\(([A-Z][a-z]{2} \\d{1,2})\\)`);
+    const expected = new RegExp(`Answer changed: Almost always \\(([A-Z][a-z]{2} \\d{1,2})\\) from Often \\(([A-Z][a-z]{2} \\d{1,2})\\)`);
     const movement = expected.exec(top?.reported ?? '');
     record('5. The changed card ranks first', top?.targetKey === targetCard.targetKey, `first: ${top?.headline}; reason: ${top?.rankReason}`);
-    record('5. Its change marker shows the actual movement with both dates', Boolean(movement) && (top?.markers ?? []).includes('Changed since last time'), movement?.[0] ?? (top?.reported ?? '').slice(0, 300));
-    record('5. The previously Reviewed card is back, marked "Changed since your review"', (top?.markers ?? []).includes('Changed since your review'), (top?.markers ?? []).join(' + '));
+    record('5. Its change marker shows the actual movement with both dates', Boolean(movement) && (top?.markers ?? []).includes('Answer changed'), movement?.[0] ?? (top?.reported ?? '').slice(0, 300));
+    record('5. The previously Reviewed card is back, marked "Answers changed since your review"', (top?.markers ?? []).includes('Answers changed since your review'), (top?.markers ?? []).join(' + '));
     record('4. A visit is not a review: the returned card is not marked "New since your last visit"', !(top?.markers ?? []).includes('New since your last visit'), (top?.markers ?? []).join(' + '));
-    record('5. Cards whose answers did not move are not marked Changed', after.cards.slice(1).every((card) => !card.markers.includes('Changed since last time')), after.cards.map((card) => `${card.headline} [${card.markers.join('+')}]`).join(' || '));
+    record('5. Cards whose answers did not move are not marked Changed', after.cards.slice(1).every((card) => !card.markers.includes('Answer changed')), after.cards.map((card) => `${card.headline} [${card.markers.join('+')}]`).join(' || '));
 
     // ---- The other two actions.
     const others = after.cards.filter((card) => card.targetKey !== targetCard.targetKey);

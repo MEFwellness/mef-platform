@@ -133,8 +133,10 @@ export function RootNoticedPanel({
     return <div className={`${CARD} p-5`}>{evidence}</div>;
   }
 
+  // Less side padding on a phone, where this card already sits inside the
+  // section's own card and every pixel of width is a line saved.
   return (
-    <div className={`${CARD} p-5`}>
+    <div className={`${CARD} px-3 py-4 sm:p-5`}>
       <RootBriefing
         briefing={briefing}
         view={view}

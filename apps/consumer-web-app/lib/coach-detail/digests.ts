@@ -283,10 +283,15 @@ export type SignalsDigestInput = {
 export function signalsDigest(input: SignalsDigestInput): SectionDigest {
   const { signals, entries } = input;
   if (signals === 0) return { text: 'Nothing recorded yet', dot: 'grey' };
+  // LITERAL ABOUT WHAT IT COUNTS: distinct signals, and the dated entries
+  // behind them.
   return {
     text: line(
-      [plural(signals, 'signal'), entries > signals ? `${plural(entries, 'entry', 'entries')}` : null],
-      plural(signals, 'signal')
+      [
+        plural(signals, 'distinct signal'),
+        entries > signals ? `${plural(entries, 'dated entry', 'dated entries')}` : null,
+      ],
+      plural(signals, 'distinct signal')
     ),
     dot: 'green',
   };
@@ -372,7 +377,7 @@ export function rootNoticedDigest(input: RootNoticedDigestInput): SectionDigest 
     return {
       text: line(
         [
-          findings > 0 ? plural(findings, 'connection') : null,
+          findings > 0 ? rootCheckedConnections(findings) : null,
           `${plural(suppressed, 'report', 'reports')} held back for safety`,
         ],
         `${plural(suppressed, 'report', 'reports')} held back for safety`
@@ -385,5 +390,14 @@ export function rootNoticedDigest(input: RootNoticedDigestInput): SectionDigest 
     if (!heardSomething) return { text: 'Nothing reported yet', dot: 'grey' };
     return { text: 'Nothing to review', dot: 'grey' };
   }
-  return { text: plural(findings, 'connection to review', 'connections to review'), dot: 'green' };
+  // WHAT IT COUNTS, AND NOTHING MORE: the association matches Root checked.
+  // Never "to review", because a coach may already have reviewed or
+  // dismissed the cards built on them, and those are counted in the
+  // briefing on their own.
+  return { text: rootCheckedConnections(findings), dot: 'green' };
+}
+
+/** "Root checked 17 connections". */
+export function rootCheckedConnections(count: number): string {
+  return `Root checked ${plural(count, 'connection')}`;
 }

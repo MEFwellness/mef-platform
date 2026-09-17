@@ -375,8 +375,8 @@ describe('the coach signal list', () => {
 describe('the folded header counts what the card counts', () => {
   it('reads the two numbers off the view itself', () => {
     const digest = signalsDigest({ signals: VIEW.signalCount, entries: VIEW.entryCount });
-    expect(digest.text).toContain('3 signals');
-    expect(digest.text).toContain('4 entries');
+    expect(digest.text).toContain('3 distinct signals');
+    expect(digest.text).toContain('4 dated entries');
   });
 
   it('is grey and honest when there is nothing', () => {

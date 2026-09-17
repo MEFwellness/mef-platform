@@ -275,11 +275,13 @@ describe('the banned list really would catch this feature', () => {
  */
 describe('the folded section headers agree with their own counts', () => {
   it('Root Noticed pluralizes the phrase, not its last word', () => {
+    // Literal about what it counts (2026-09-17): the connections Root
+    // checked, never "to review", which a dismissed card contradicts.
     expect(rootNoticedDigest({ findings: 1, suppressed: 0, complaints: 1, mapEntries: 18 }).text).toBe(
-      '1 connection to review'
+      'Root checked 1 connection'
     );
     expect(rootNoticedDigest({ findings: 2, suppressed: 0, complaints: 1, mapEntries: 18 }).text).toBe(
-      '2 connections to review'
+      'Root checked 2 connections'
     );
   });
 

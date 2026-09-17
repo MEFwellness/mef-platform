@@ -50,30 +50,34 @@ import { findBannedLanguage } from '@/lib/cross-system-relationships/language';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 import { localDateStringFor } from '@/lib/time/localDate';
 import {
+  ANSWER_CHANGED,
   BRIEFING_DISCLAIMER,
   BRIEFING_HEADLINE_FALLBACK,
   EXPLORE_NOTHING_CONNECTS,
   FIRST_RECORDED,
   FIRST_RECORDED_NOTE,
-  CHANGED_SINCE_LAST_TIME,
-  DIRECTION_BY_CATEGORY,
   DIRECTION_BY_SIGNAL,
   NOT_ASSESSED_REASONS,
   NO_RELATED_FINDINGS,
   PAIR_QUESTIONS,
   REVIEW_ACTION_LABELS,
+  REVIEW_HISTORY_LABELS,
   SAFETY_WITHHELD_BODY,
   SAFETY_WITHHELD_HEADING,
+  SHORT_SOURCE_LABELS,
   WHY_REVIEW_FALLBACK,
   absenceLine,
+  answerChangedForLine,
   briefingHeadline,
   briefingUpdatedLine,
   changedSinceLine,
   dismissedLine,
   explorePairQuestion,
   exploreChangeQuestion,
+  inlineSourceLabel,
   rankReasonLine,
   reportedOnLine,
+  sharedSourceLine,
   unchangedSinceLine,
   whyReviewTogetherLine,
   type AbsenceKind,
@@ -101,7 +105,7 @@ import {
   relatedFindingEntries,
   reviewStatusOf,
   type BriefingEvidenceState,
-  type BriefingReviewAction,
+  type BriefingHistoryAction,
   type BriefingReviewStatus,
   type RankFacts,
 } from './briefingRules';
@@ -111,10 +115,10 @@ import type { RootFindingDraft } from './types';
 // Shapes
 // ---------------------------------------------------------------------
 
-/** One stored review action, as the builder reads it. */
+/** One stored review action or restore, as the builder reads it. */
 export type BriefingReviewRecord = {
   targetKey: string;
-  action: BriefingReviewAction;
+  action: BriefingHistoryAction;
   actedAt: string;
   evidenceState: BriefingEvidenceState | null;
 };
@@ -142,7 +146,13 @@ export type BriefingReportedLine = {
   sideLabel: string | null;
   /** The word she chose ("Often"), or what a sentence was recorded as. */
   valueLabel: string;
+  sourceKey: string;
   sourceLabel: string;
+  /**
+   * "(Breathing Check-In, Sep 12)" when this answer came from a different
+   * source than the card's shared one, and null when it did not.
+   */
+  inlineSource: string | null;
   /** The exact question, where there was one. */
   questionRef: string | null;
   questionPrompt: string | null;
@@ -157,7 +167,12 @@ export type BriefingRelatedLine = {
   signalSlug: string;
   signalName: string;
   valueLabel: string;
+  sourceKey: string;
   sourceLabel: string;
+  /** Short inline label, only when the source differs from the card's shared source. */
+  inlineSource: string | null;
+  /** Source identity: key and day. */
+  sourceOn: string;
   questionPrompt: string | null;
   reportedLine: string;
   /** The map entries that connect it to the reported symptom. */
@@ -195,18 +210,31 @@ export type BriefingCardView = {
 
   // 1. Headline
   headline: string;
-  /** The card level marker: "Changed since last time", "First recorded", or none. */
+  /** The card level marker: "Answer changed", "First recorded", or none. */
   changeMarker: string | null;
+  /**
+   * THE SOURCE THE CARD'S ANSWERS SHARE, said once per card:
+   * "Rooted Reset Body Systems Survey, Sep 16 (covers past 3 months)". A
+   * line from any other source carries its own short inline label instead.
+   */
+  sharedSource: string | null;
 
   // 2. Reported
   reported: BriefingReportedLine[];
+  /**
+   * The one Reported line the card draws: each symptom with its frequency,
+   * then the answer change if one exists. "Headaches, Often; Headaches when
+   * not eaten, Often. Answer changed: Often (Sep 16) from Sometimes (Sep 11)."
+   */
+  reportedSummary: string;
 
   // 3. Related findings, at most three, or the one sentence when none qualify.
   related: BriefingRelatedLine[];
   noRelatedLine: string | null;
 
-  // 4. Why review together
-  whyReviewTogether: string;
+  // 4. Why review together. Null for a card holding one finding, which has
+  //    nothing to review together.
+  whyReviewTogether: string | null;
 
   // 5. Explore next
   exploreNext: string[];
@@ -219,7 +247,11 @@ export type BriefingCardView = {
   newSinceVisit: boolean;
   /** Its evidence changed materially after this coach's last review action on it. */
   changedSinceReview: boolean;
-  lastAction: BriefingReviewAction | null;
+  lastAction: BriefingHistoryAction | null;
+  /** This coach's review history on the card, oldest first: every review and every restore. */
+  history: BriefingHistoryEntry[];
+  /** Position in the one ranked order across pinned, open and dismissed cards. */
+  rank: number;
 
   // View evidence
   rankReason: string;
@@ -252,10 +284,19 @@ export type BriefingAssessmentContext = {
   onDisplay: string;
 };
 
+export type BriefingHistoryEntry = {
+  action: BriefingHistoryAction;
+  label: string;
+  actedAt: string;
+  onDisplay: string;
+};
+
 export type BriefingDismissedView = {
   targetKey: string;
   headline: string;
   line: string;
+  /** The whole card, so a restore can draw it back in the briefing where it ranks. */
+  card: BriefingCardView;
 };
 
 export type BriefingSafetyView = {
@@ -318,6 +359,18 @@ export function findBriefingCard(
 ): BriefingCardView | null {
   if (!briefing) return null;
   return [...briefing.pinned, ...briefing.cards].find((card) => card.targetKey === targetKey) ?? null;
+}
+
+/**
+ * One card folded under "Reviewed or not relevant", by target. The one
+ * lookup Restore uses: only a dismissed card can be restored.
+ */
+export function findDismissedBriefingCard(
+  briefing: Pick<RootBriefingView, 'dismissed'> | null | undefined,
+  targetKey: string
+): BriefingCardView | null {
+  if (!briefing) return null;
+  return briefing.dismissed.find((entry) => entry.targetKey === targetKey)?.card ?? null;
 }
 
 // ---------------------------------------------------------------------
@@ -832,7 +885,9 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
         signalName: row.signalName,
         sideLabel: sideLabel(row),
         valueLabel: row.valueLabel,
+        sourceKey: row.sourceKey,
         sourceLabel: row.sourceLabel,
+        inlineSource: null,
         questionRef: row.sourceQuestionRef,
         questionPrompt: row.valueKind === 'scale' ? row.sourceQuestionPrompt : null,
         note: row.note,
@@ -873,11 +928,33 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
         signalSlug: record.signalSlug,
         signalName: nameOf(record.signalSlug, names, record.signalName),
         valueLabel: record.valueLabel,
+        sourceKey: record.sourceKey,
         sourceLabel: record.sourceLabel,
+        inlineSource: null,
+        sourceOn: record.capturedOn,
         questionPrompt: record.valueKind === 'scale' ? record.sourceQuestionPrompt : null,
         reportedLine: reportedOnLine(shortDay(record.capturedOn, input.today), REPORTING_WINDOWS[record.sourceKey] ?? null),
         viaPatternNames: via,
       }));
+
+    // ---- THE SHARED SOURCE, said once per card. The card's loudest
+    //      reported answer names it; any line from another source or another
+    //      day carries a short inline label, and only that line.
+    const sharedRow = orderedRows[0]!;
+    const sharedIdentity = `${sharedRow.sourceKey}::${sharedRow.capturedOn}`;
+    const sharedSource = sharedSourceLine(
+      sharedRow.sourceLabel,
+      shortDay(sharedRow.capturedOn, input.today),
+      REPORTING_WINDOWS[sharedRow.sourceKey] ?? null
+    );
+    const inlineFor = (sourceKey: string, sourceLabel: string, on: string): string | null =>
+      `${sourceKey}::${on}` === sharedIdentity
+        ? null
+        : inlineSourceLabel(SHORT_SOURCE_LABELS[sourceKey] ?? sourceLabel, shortDay(on, input.today));
+    reported.forEach((line) => {
+      line.inlineSource = inlineFor(line.sourceKey, line.sourceLabel, line.reportedOn);
+    });
+    for (const line of allRelated) line.inlineSource = inlineFor(line.sourceKey, line.sourceLabel, line.sourceOn);
     const related = allRelated.slice(0, RELATED_FINDINGS_LIMIT);
 
     // ---- Counts the ranking reads. Canonical signals, never rows.
@@ -916,32 +993,24 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
       input.lastVisitedAt !== null && appeared.at !== null && appeared.at > input.lastVisitedAt;
 
     // ---- Words.
-    const groupedNames = [...memberSlugs]
-      .filter((slug) => slug !== anchorSlug)
-      .map((slug) => nameOf(slug, names, slug))
-      .sort();
+    const groupedSlugs = [...memberSlugs].filter((slug) => slug !== anchorSlug).sort();
+    // A DIRECTION ONLY FROM WHAT THE CARD DISPLAYS: a grouped answer or a
+    // related finding drawn on it, through the signal table alone. Never a
+    // category, never a map entry, never a finding held back in View evidence.
     const directions: string[] = [];
-    const directionSources = [
-      ...[...memberSlugs].filter((slug) => slug !== anchorSlug).sort(),
-      ...allRelated.map((line) => line.signalSlug),
-    ];
-    for (const slug of directionSources) {
-      const direction =
-        DIRECTION_BY_SIGNAL[slug] ?? DIRECTION_BY_CATEGORY[names.get(slug)?.categoryKey ?? 'other'] ?? null;
+    for (const slug of [...groupedSlugs, ...related.map((line) => line.signalSlug)]) {
+      const direction = DIRECTION_BY_SIGNAL[slug] ?? null;
       if (direction && !directions.includes(direction)) directions.push(direction);
       if (directions.length === 2) break;
     }
-    const mapListsAreas = drafts.some((draft) => draft.areas.length > 0);
-    const headline = cautious(briefingHeadline(anchorName, directions, mapListsAreas), BRIEFING_HEADLINE_FALLBACK);
-    const whyReviewTogether = cautious(
-      whyReviewTogetherLine({
-        anchorName,
-        relatedNames: related.map((line) => line.signalName),
-        groupedNames,
-        mapListsAreas,
-      }),
-      WHY_REVIEW_FALLBACK
-    );
+    const headline = cautious(briefingHeadline(anchorName, directions), BRIEFING_HEADLINE_FALLBACK);
+    const whyLine = whyReviewTogetherLine({
+      anchorName: inSentence(anchorName),
+      relatedCount: related.length,
+      groupedCount: groupedSlugs.length,
+    });
+    const whyReviewTogether = whyLine === null ? null : cautious(whyLine, WHY_REVIEW_FALLBACK);
+    const reportedSummary = reportedSummaryOf(reported);
 
     const exploreNext = exploreQuestions({
       anchorSlug,
@@ -964,8 +1033,10 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
       anchorSlug,
       anchorName,
       headline,
-      changeMarker: changeKind === 'changed' ? CHANGED_SINCE_LAST_TIME : changeKind === 'first_recorded' ? FIRST_RECORDED : null,
+      changeMarker: changeKind === 'changed' ? ANSWER_CHANGED : changeKind === 'first_recorded' ? FIRST_RECORDED : null,
+      sharedSource,
       reported,
+      reportedSummary,
       related,
       noRelatedLine: related.length === 0 ? NO_RELATED_FINDINGS : null,
       whyReviewTogether,
@@ -976,6 +1047,16 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
       newSinceVisit,
       changedSinceReview: review.changedSinceReview,
       lastAction: latestReview?.action ?? null,
+      history: input.reviews
+        .filter((entry) => entry.targetKey === targetKey)
+        .sort((a, b) => a.actedAt.localeCompare(b.actedAt))
+        .map((entry) => ({
+          action: entry.action,
+          label: REVIEW_HISTORY_LABELS[entry.action],
+          actedAt: entry.actedAt,
+          onDisplay: formatDisplayDate(entry.actedAt, { month: 'short', day: 'numeric', year: 'numeric' }),
+        })),
+      rank: 0,
       rankReason: '',
       evidence: {
         relationshipIds: drafts.map((draft) => draft.head.id),
@@ -1018,7 +1099,8 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
   }
 
   built.sort((a, b) => compareByRank(a.facts, b.facts));
-  for (const entry of built) {
+  for (const [index, entry] of built.entries()) {
+    entry.card.rank = index;
     entry.card.rankReason = rankReasonLine({
       pinned: entry.facts.pinned,
       change: entry.changeKind,
@@ -1035,13 +1117,16 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
     .filter((entry) => entry.card.reviewStatus === 'dismissed')
     .map((entry) => {
       const review = latestReviewByTarget.get(entry.card.targetKey)!;
+      // Dismissed means the newest entry is Reviewed or Not relevant.
+      const action = review.action === 'reviewed' || review.action === 'not_relevant' ? review.action : 'reviewed';
       return {
         targetKey: entry.card.targetKey,
         headline: entry.card.headline,
         line: dismissedLine(
-          REVIEW_ACTION_LABELS[review.action],
+          REVIEW_ACTION_LABELS[action],
           formatDisplayDate(review.actedAt, { month: 'short', day: 'numeric', year: 'numeric' })
         ),
+        card: entry.card,
       };
     });
 
@@ -1072,10 +1157,50 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
 }
 
 /**
- * EXPLORE NEXT. Only questions that connect two pieces of HER evidence: an
- * answer that moved between two dates, or two of her own reported signals.
- * A generic coaching question is never generated here; the map entry's
- * own considerations stay in View evidence.
+ * THE ONE REPORTED LINE. Each reported symptom with its frequency (and an
+ * inline source label only where its source differs from the card's), then
+ * the answer change if one exists. When the answers moved in different ways
+ * the change names the symptom it belongs to; every change is in View
+ * evidence either way.
+ */
+function reportedSummaryOf(reported: readonly BriefingReportedLine[]): string {
+  const items = reported.map((line) => {
+    const name = line.sideLabel ? `${line.signalName} (${line.sideLabel})` : line.signalName;
+    return `${name}, ${line.valueLabel}${line.inlineSource ? ` ${line.inlineSource}` : ''}`;
+  });
+  const moved = primaryChange(reported);
+  const change = moved
+    ? moved.named
+      ? answerChangedForLine(inSentence(moved.line.signalName), moved.change.toLabel, moved.change.toOn, moved.change.fromLabel, moved.change.fromOn)
+      : changedSinceLine(moved.change.toLabel, moved.change.toOn, moved.change.fromLabel, moved.change.fromOn)
+    : null;
+  return change ? `${items.join('; ')}. ${change}.` : `${items.join('; ')}.`;
+}
+
+type ChangedLine = BriefingReportedLine & { change: Exclude<BriefingChange, { kind: 'first_recorded' }> };
+
+/**
+ * The answer change a card speaks of: the first reported line that moved.
+ * Named when the card holds another reported answer that did not move the
+ * same way, so a change is never read as belonging to the wrong symptom.
+ */
+function primaryChange(
+  reported: readonly BriefingReportedLine[]
+): { line: ChangedLine; change: ChangedLine['change']; named: boolean } | null {
+  const moved = reported.find((line): line is ChangedLine => line.change.kind === 'changed');
+  if (!moved) return null;
+  const named = reported.some((line) => line.change.line !== moved.change.line);
+  return { line: moved, change: moved.change, named };
+}
+
+/**
+ * EXPLORE NEXT. One question by default, joining two pieces of HER
+ * evidence: an answer that moved between two sittings (asked as a change in
+ * her answer, which may or may not be a change in the symptom), or two of
+ * her own signals. A second question only when it adds something the first
+ * did not: a pinned pair question after a change question. A generic
+ * coaching question is never generated here; the map entry's own
+ * considerations stay in View evidence.
  */
 function exploreQuestions(input: {
   anchorSlug: string;
@@ -1084,28 +1209,30 @@ function exploreQuestions(input: {
   pairs: ReadonlyArray<{ slug: string; name: string }>;
 }): string[] {
   const out: string[] = [];
-  const moved = input.reported.find((line) => line.change.kind === 'changed');
-  if (moved && moved.change.kind === 'changed') {
+  const moved = primaryChange(input.reported);
+  if (moved) {
     const question = cautious(
       exploreChangeQuestion(
-        moved.signalName,
-        moved.change.fromLabel,
-        moved.change.fromOn,
         moved.change.toLabel,
-        moved.change.toOn
+        moved.change.fromLabel,
+        moved.named ? inSentence(moved.line.signalName) : null
       ),
       ''
     );
     if (question) out.push(question);
   }
-  for (const pair of input.pairs) {
-    if (out.length >= EXPLORE_NEXT_LIMIT) break;
-    const key = [input.anchorSlug, pair.slug].sort().join('+');
+  const pinnedPair = input.pairs
+    .map((pair) => PAIR_QUESTIONS[[input.anchorSlug, pair.slug].sort().join('+')])
+    .find((question): question is string => Boolean(question));
+  if (pinnedPair) {
+    const question = cautious(pinnedPair, '');
+    if (question && !out.includes(question)) out.push(question);
+  } else if (out.length === 0 && input.pairs.length > 0) {
     const question = cautious(
-      PAIR_QUESTIONS[key] ?? explorePairQuestion(inSentence(input.anchorName), inSentence(pair.name)),
+      explorePairQuestion(inSentence(input.anchorName), inSentence(input.pairs[0]!.name)),
       ''
     );
-    if (question && !out.includes(question)) out.push(question);
+    if (question) out.push(question);
   }
   return out.slice(0, EXPLORE_NEXT_LIMIT);
 }

@@ -36,8 +36,8 @@ import {
 } from '@/lib/cross-system-root/data';
 import type { FullRootNoticedView } from '@/lib/cross-system-root/noticedView';
 import { recordBriefingReview, recordBriefingVisit } from '@/lib/cross-system-root/briefingData';
-import { isBriefingReviewAction } from '@/lib/cross-system-root/briefingRules';
-import { findBriefingCard } from '@/lib/cross-system-root/briefing';
+import { BRIEFING_RESTORE_ACTION, isBriefingReviewAction } from '@/lib/cross-system-root/briefingRules';
+import { findBriefingCard, findDismissedBriefingCard } from '@/lib/cross-system-root/briefing';
 import { EMPTY_ROOT_NOTICED_VIEW, readRootNoticed } from '@/lib/cross-system-root/noticedRead';
 
 export type RootNoticedPanelState = {
@@ -110,6 +110,45 @@ export async function recordRootBriefingReviewAction(
     memberId: clientId,
     targetKey,
     action,
+    evidenceState: card.evidenceState,
+    actedAt: new Date().toISOString(),
+  });
+  return { ok };
+}
+
+/**
+ * RESTORE: one card folded under "Reviewed or not relevant" returns to the
+ * briefing.
+ *
+ * APPENDED, NEVER DELETED. The restore is its own row (coach, client, card,
+ * action, time, and the evidence state it was taken at), so the card's
+ * history keeps the review and the restore both, and no coach ever needs a
+ * database cleanup to undo a tap. The card is rebuilt from her rows first,
+ * and only a card that is dismissed now can be restored: a stale page or a
+ * hand made POST naming an open or pinned card records nothing.
+ *
+ * Nothing else moves: pins, the return on a material change, the ranking
+ * and the map read nothing new.
+ */
+export async function restoreRootBriefingCardAction(
+  clientId: string,
+  targetKey: string
+): Promise<{ ok: boolean }> {
+  const user = await getCachedUser();
+  if (!user) return { ok: false };
+  const supabase = createClient();
+  if (!(await isCoachOrAdmin(supabase, user.id))) return { ok: false };
+  if (!(await isMemberVisibleToStaff(supabase, clientId, user.id))) return { ok: false };
+
+  const view = await readRootNoticed(supabase, clientId, { viewerId: user.id });
+  const card = findDismissedBriefingCard(view.briefing, targetKey);
+  if (!card) return { ok: false };
+
+  const ok = await recordBriefingReview(supabase, {
+    coachId: user.id,
+    memberId: clientId,
+    targetKey,
+    action: BRIEFING_RESTORE_ACTION,
     evidenceState: card.evidenceState,
     actedAt: new Date().toISOString(),
   });

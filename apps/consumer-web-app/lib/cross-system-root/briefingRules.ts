@@ -68,7 +68,11 @@ export const BRIEFING_CARD_LIMIT = 3;
 /** The most related findings one card lists. */
 export const RELATED_FINDINGS_LIMIT = 3;
 
-/** The most "Explore next" questions one card carries. */
+/**
+ * The most "Explore next" questions one card carries. One by default: a
+ * second is added only when it is a pinned pair question (copy.ts,
+ * PAIR_QUESTIONS) asking something the first did not.
+ */
 export const EXPLORE_NEXT_LIMIT = 2;
 
 /**
@@ -312,6 +316,23 @@ export function isBriefingReviewAction(value: unknown): value is BriefingReviewA
   return typeof value === 'string' && (BRIEFING_REVIEW_ACTIONS as readonly string[]).includes(value);
 }
 
+/**
+ * RESTORE: THE UNDO FOR A REVIEW CHOICE. Offered on a card folded under
+ * "Reviewed or not relevant", and only there. It is appended as its own
+ * entry (coach, client, card, action, time, and the evidence state it was
+ * taken at), so the history keeps the review AND the restore; no earlier
+ * entry is ever deleted, and no coach needs a database cleanup to undo a
+ * tap. A restored card is open and ranks wherever the rules above place it.
+ */
+export const BRIEFING_RESTORE_ACTION = 'restored' as const;
+
+/** Every entry a card's review history can hold. */
+export type BriefingHistoryAction = BriefingReviewAction | typeof BRIEFING_RESTORE_ACTION;
+
+export function isBriefingHistoryAction(value: unknown): value is BriefingHistoryAction {
+  return value === BRIEFING_RESTORE_ACTION || isBriefingReviewAction(value);
+}
+
 /** Where one card stands for one coach. */
 export type BriefingReviewStatus =
   /** No action, or its evidence changed materially since the last one. */
@@ -330,10 +351,13 @@ export type BriefingReviewStatus =
  * `changedSinceReview` is what marks it.
  */
 export function reviewStatusOf(
-  latest: { action: BriefingReviewAction; state: BriefingEvidenceState | null } | null,
+  latest: { action: BriefingHistoryAction; state: BriefingEvidenceState | null } | null,
   now: BriefingEvidenceState
 ): { status: BriefingReviewStatus; changedSinceReview: boolean } {
   if (!latest) return { status: 'open', changedSinceReview: false };
+  // A restore undoes the review before it: the card is open, exactly as a
+  // card nobody acted on, and nothing marks it as changed.
+  if (latest.action === BRIEFING_RESTORE_ACTION) return { status: 'open', changedSinceReview: false };
   // A stored state that cannot be read is treated as different, which is
   // the direction that shows a card rather than hiding one.
   const changed = latest.state === null ? true : isMaterialChange(latest.state, now);

@@ -76,6 +76,7 @@ import {
   buildRootBriefing,
   cautious,
   findBriefingCard,
+  findDismissedBriefingCard,
   describeAbsence,
   type BriefingCardView,
   type RootBriefingInputs,
@@ -83,6 +84,7 @@ import {
 } from '@/lib/cross-system-root/briefing';
 import {
   BRIEFING_CARD_LIMIT,
+  BRIEFING_RESTORE_ACTION,
   EMPTY_EVIDENCE_STATE,
   REPORTING_WINDOWS,
   compareByRank,
@@ -100,15 +102,19 @@ import {
   ABSENCE_LABELS,
   BRIEFING_DISCLAIMER,
   BRIEFING_HEADLINE_FALLBACK,
-  DIRECTION_BY_CATEGORY,
+  BRIEFING_MARKERS,
   DIRECTION_BY_SIGNAL,
   NOT_A_DIAGNOSIS,
   NO_RELATED_FINDINGS,
   PAIR_QUESTIONS,
+  SHORT_SOURCE_LABELS,
+  WHY_REVIEW_FALLBACK,
   briefingHeadline,
+  exploreChangeQuestion,
   explorePairQuestion,
   whyReviewTogetherLine,
 } from '@/lib/cross-system-root/copy';
+import { rootNoticedDigest, signalsDigest } from '@/lib/coach-detail/digests';
 import { findBannedLanguage } from '@/lib/cross-system-relationships/language';
 import { RootNoticedPanel } from '@/app/coach/clients/[id]/RootNoticedPanel';
 import type { FullRootNoticedView } from '@/lib/cross-system-root/noticedView';
@@ -256,20 +262,20 @@ describe('ranking order', () => {
 // ---------------------------------------------------------------------
 
 describe('worsening, and the comparable history it needs', () => {
-  it('a retake that moves up the scale is Changed since last time, with both dates, and ranks first', async () => {
+  it('a retake that moves up the scale is Answer changed, with both dates, and ranks first', async () => {
     await complete('s1', answers({ N4: 'sometimes', D1: 'almost_always', HB7: 'often' }), JUN12);
     await complete('s2', answers({ N4: 'often', D1: 'almost_always', HB7: 'often' }), SEP16);
     const briefing = briefingOf(await coachOpens());
     const headaches = card(briefing, 'headaches');
     expect(briefing.cards[0]!.targetKey).toBe(headaches.targetKey);
-    expect(headaches.changeMarker).toBe('Changed since last time');
+    expect(headaches.changeMarker).toBe('Answer changed');
     const line = headaches.reported.find((entry) => entry.signalSlug === 'headaches')!;
-    expect(line.change.line).toBe('Changed since last time: Often (Sep 16) from Sometimes (Jun 12)');
-    expect(headaches.rankReason).toMatch(/^Changed since last time/);
+    expect(line.change.line).toBe('Answer changed: Often (Sep 16) from Sometimes (Jun 12)');
+    expect(headaches.rankReason).toMatch(/^Answer changed/);
     // The louder card that did not change ranks below it.
     const bloating = card(briefing, 'bloating-after-eating');
     expect(bloating.changeMarker).toBeNull();
-    expect(bloating.reported[0]!.change.line).toBe('Same as last time: Almost always (Jun 12 and Sep 16)');
+    expect(bloating.reported[0]!.change.line).toBe('Same answer: Almost always (Jun 12 and Sep 16)');
   });
 
   it('moving DOWN the scale is a change but not a reason to rank first', async () => {
@@ -277,9 +283,9 @@ describe('worsening, and the comparable history it needs', () => {
     await complete('s2', answers({ N4: 'often', HB7: 'often' }), SEP16);
     const briefing = briefingOf(await coachOpens());
     const headaches = card(briefing, 'headaches');
-    expect(headaches.changeMarker).toBe('Changed since last time');
-    expect(headaches.rankReason).not.toContain('more often than before');
-    expect(headaches.reported[0]!.change.line).toBe('Changed since last time: Often (Sep 16) from Almost always (Jun 12)');
+    expect(headaches.changeMarker).toBe('Answer changed');
+    expect(headaches.rankReason).not.toContain('a higher frequency selected');
+    expect(headaches.reported[0]!.change.line).toBe('Answer changed: Often (Sep 16) from Almost always (Jun 12)');
   });
 
   it('an earlier sitting that did not ASSESS the question is not comparable history', async () => {
@@ -299,7 +305,7 @@ describe('worsening, and the comparable history it needs', () => {
     await complete('s2', answers({ K2: 'often', D1: 'almost_always' }), SEP16);
     const briefing = briefingOf(await coachOpens());
     expect(briefing.cards[0]!.anchorSlug).toBe('frequent-urination');
-    expect(briefing.cards[0]!.reported[0]!.change.line).toBe('Changed since last time: Often (Sep 16) from Never (Jun 12)');
+    expect(briefing.cards[0]!.reported[0]!.change.line).toBe('Answer changed: Often (Sep 16) from Never (Jun 12)');
   });
 
   it('First recorded never says the symptom just began', async () => {
@@ -402,8 +408,10 @@ describe('related findings', () => {
     const puffiness = card(briefingOf(await coachOpens()), 'under-eye-puffiness');
     expect(puffiness.related).toHaveLength(0);
     expect(puffiness.noRelatedLine).toBe('No related findings are currently supported by her answers.');
-    // Anchored on what she reported, never on an area she did not.
-    expect(puffiness.headline.startsWith('Under-eye puffiness in the morning:')).toBe(true);
+    // Anchored on what she reported, never on an area she did not, and with
+    // nothing displayed to support a direction it is the symptom alone.
+    expect(puffiness.headline).toBe('Under-eye puffiness in the morning');
+    expect(puffiness.whyReviewTogether).toBeNull();
     expect(puffiness.headline).not.toMatch(/^Urinary/);
   });
 
@@ -529,7 +537,8 @@ describe('the timeframe names the assessment window, not a recency tier', () => 
     const line = card(briefingOf(view), 'headaches').reported[0]!;
     expect(line.reportedLine).toBe('Reported Sep 16 (covers past 3 months)');
     const html = renderToStaticMarkup(createElement(RootNoticedPanel, { state: { allowed: true, view } }));
-    expect(html).toContain('Reported Sep 16 (covers past 3 months)');
+    // On the card it is said once, in the shared source line.
+    expect(html).toContain('Rooted Reset Body Systems Survey, Sep 16 (covers past 3 months)');
     expect(JSON.stringify(view.briefing)).not.toMatch(/last 30 days/i);
   });
 
@@ -574,9 +583,14 @@ describe('the three card limit, without padding', () => {
     await complete('s1', answers({ N4: 'often', D1: 'almost_always', N5: 'often', K7: 'often', HB7: 'often' }), SEP16);
     const view = await coachOpens();
     const html = render(view);
-    for (const part of ['reported', 'related', 'why', 'explore']) {
+    const drawn = briefingOf(view).cards.slice(0, BRIEFING_CARD_LIMIT);
+    for (const part of ['reported', 'related', 'explore']) {
       expect(html.match(new RegExp(`data-briefing-part="${part}"`, 'g'))).toHaveLength(3);
     }
+    // A card holding one finding has nothing to review together.
+    expect(html.match(/data-briefing-part="why"/g) ?? []).toHaveLength(
+      drawn.filter((entry) => entry.whyReviewTogether !== null).length
+    );
     expect(html.split(BRIEFING_DISCLAIMER).length - 1).toBe(1);
     expect(html).toContain('Last updated Sep 16, 2026');
     expect(html).toContain('All evidence Root checked');
@@ -880,7 +894,7 @@ describe('scores', () => {
     await complete('s1', answers({ N4: 'almost_always', N1: 'almost_always', N2: 'almost_always', N3: 'often', D1: 'often' }), SEP16);
     const view = await coachOpens();
     for (const entry of briefingOf(view).cards) {
-      const surface = [entry.headline, entry.whyReviewTogether, ...entry.exploreNext, entry.rankReason, ...entry.reported.map((line) => `${line.valueLabel} ${line.reportedLine} ${line.change.line}`), ...entry.related.map((line) => `${line.valueLabel} ${line.reportedLine}`)].join(' ');
+      const surface = [entry.headline, entry.whyReviewTogether ?? '', entry.reportedSummary, entry.sharedSource ?? '', ...entry.exploreNext, entry.rankReason, ...entry.reported.map((line) => `${line.valueLabel} ${line.reportedLine} ${line.change.line}`), ...entry.related.map((line) => `${line.valueLabel} ${line.reportedLine}`)].join(' ');
       expect(surface).not.toMatch(/%|percent|\bscore|\bpoints?\b/i);
       // The only number in a rank note is a count of her own signals.
       expect(entry.rankReason.replace(/\d+ supporting signals?/, '').replace(/from \d+ sources/, '')).not.toMatch(/\d/);
@@ -897,24 +911,19 @@ describe('scores', () => {
 });
 
 describe('every generated line passes the cautious language check', () => {
-  const directions = [
-    ...new Set([
-      ...Object.values(DIRECTION_BY_CATEGORY).filter((entry): entry is string => entry !== null),
-      ...Object.values(DIRECTION_BY_SIGNAL),
-    ]),
-  ];
+  const directions = [...new Set(Object.values(DIRECTION_BY_SIGNAL))];
 
   it('every headline for every shipped canonical signal, with every direction', () => {
     const offenders: string[] = [];
     for (const name of REAL_NAMES) {
       const lines = [
-        briefingHeadline(name.displayName, [], true),
-        briefingHeadline(name.displayName, [], false),
-        ...directions.map((direction) => briefingHeadline(name.displayName, [direction], true)),
-        briefingHeadline(name.displayName, directions.slice(0, 2), true),
-        whyReviewTogetherLine({ anchorName: name.displayName, relatedNames: ['Headaches'], groupedNames: [], mapListsAreas: true }),
-        whyReviewTogetherLine({ anchorName: name.displayName, relatedNames: [], groupedNames: ['Headaches'], mapListsAreas: true }),
+        briefingHeadline(name.displayName, []),
+        ...directions.map((direction) => briefingHeadline(name.displayName, [direction])),
+        briefingHeadline(name.displayName, directions.slice(0, 2)),
+        whyReviewTogetherLine({ anchorName: name.displayName, relatedCount: 1, groupedCount: 0 })!,
+        whyReviewTogetherLine({ anchorName: name.displayName, relatedCount: 0, groupedCount: 1 })!,
         explorePairQuestion(name.displayName.toLowerCase(), 'headaches'),
+        exploreChangeQuestion('Often', 'Sometimes', name.displayName.toLowerCase()),
       ];
       for (const line of lines) {
         if (findBannedLanguage(line).length > 0 || line.includes('—')) offenders.push(line);
@@ -925,21 +934,430 @@ describe('every generated line passes the cautious language check', () => {
   });
 
   it('a line built from stored words that fails the check is replaced, and a direction never names a cause', () => {
-    const bad = briefingHeadline('Pain that the diet causes', ['sleep'], true);
+    const bad = briefingHeadline('Pain that the diet causes', ['night waking']);
     expect(cautious(bad, BRIEFING_HEADLINE_FALLBACK)).toBe(BRIEFING_HEADLINE_FALLBACK);
     expect(cautious('Headaches — sleep', BRIEFING_HEADLINE_FALLBACK)).toBe(BRIEFING_HEADLINE_FALLBACK);
-    expect(cautious('Headaches: explore sleep.', BRIEFING_HEADLINE_FALLBACK)).toBe('Headaches: explore sleep.');
+    expect(cautious('Headaches: explore meal timing', BRIEFING_HEADLINE_FALLBACK)).toBe('Headaches: explore meal timing');
     for (const direction of directions) expect(direction).not.toMatch(/cause|because|due to|from/i);
   });
 
-  it('the built briefing uses only exploration language in its headlines', async () => {
+  it('the built briefing uses only the symptom, or the symptom and an exploration direction, in its headlines', async () => {
     await complete('s1', answers({ N4: 'often', D1: 'almost_always', N5: 'often', K7: 'often', HB7: 'often', B5: 'often' }), SEP16);
     for (const entry of briefingOf(await coachOpens()).cards) {
-      expect(entry.headline).toMatch(/: (explore .+|related areas to explore|worth reviewing)\.$/);
+      expect(entry.headline === entry.anchorName || entry.headline.startsWith(`${entry.anchorName}: explore `)).toBe(true);
       expect(findBannedLanguage(entry.headline)).toHaveLength(0);
-      expect(findBannedLanguage(entry.whyReviewTogether)).toHaveLength(0);
+      expect(findBannedLanguage(entry.whyReviewTogether ?? '')).toHaveLength(0);
       for (const question of entry.exploreNext) expect(findBannedLanguage(question)).toHaveLength(0);
     }
+  });
+});
+
+// ---------------------------------------------------------------------
+// The compact card
+// ---------------------------------------------------------------------
+
+/** Every category name in the shipped library, as whole words ("Kidney/Bladder" is "Kidney" and "Bladder"). */
+const CATEGORY_WORDS = [...new Set(
+  [...REAL_LIBRARY.categories.values()]
+    .flatMap((category) => [category.displayName, ...category.displayName.split('/')])
+    .map((word) => word.trim())
+    .filter((word) => word.length > 0 && word.toLowerCase() !== 'other')
+)];
+const MAP_ENTRY_NAMES = [...new Set(REAL_SUMMARIES.map((summary) => summary.current.patternName))];
+
+/** What a headline says beyond her own symptom's name. */
+function beyondAnchor(headline: string, anchorName: string): string {
+  return headline.startsWith(anchorName) ? headline.slice(anchorName.length) : headline;
+}
+
+function namesACategoryOrMapEntry(text: string): string | null {
+  for (const word of CATEGORY_WORDS) {
+    if (new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)) return word;
+  }
+  for (const name of MAP_ENTRY_NAMES) if (text.includes(name)) return name;
+  if (/\bsignals?\b/i.test(text)) return 'signals';
+  if (/association map/i.test(text)) return 'Association Map';
+  return null;
+}
+
+describe('plain headlines: no map entry name and no category name', () => {
+  it('the guard is not vacuous: it catches the wording the last build shipped', () => {
+    expect(CATEGORY_WORDS.length).toBeGreaterThan(10);
+    expect(MAP_ENTRY_NAMES.length).toBeGreaterThan(10);
+    expect(namesACategoryOrMapEntry(': explore clearance signals and stress')).not.toBeNull();
+    expect(namesACategoryOrMapEntry(': explore nervous system signals')).not.toBeNull();
+    expect(namesACategoryOrMapEntry(': explore Kidney/Bladder')).not.toBeNull();
+    expect(namesACategoryOrMapEntry(`: ${MAP_ENTRY_NAMES[0]}`)).not.toBeNull();
+  });
+
+  it('every shipped signal, with every direction, the symptom alone, and the language check fallback', () => {
+    const offenders: string[] = [];
+    for (const name of REAL_NAMES) {
+      const headlines = [
+        briefingHeadline(name.displayName, []),
+        ...directions().map((direction) => briefingHeadline(name.displayName, [direction])),
+        briefingHeadline(name.displayName, directions().slice(0, 2)),
+      ];
+      for (const headline of headlines) {
+        const hit = namesACategoryOrMapEntry(beyondAnchor(headline, name.displayName));
+        if (hit) offenders.push(`${headline} (${hit})`);
+      }
+    }
+    expect(offenders, offenders.join('\n')).toHaveLength(0);
+    // The fallback a failed check leaves behind names nothing either.
+    expect(namesACategoryOrMapEntry(BRIEFING_HEADLINE_FALLBACK)).toBeNull();
+    expect(cautious(briefingHeadline('Pain the diet causes', []), BRIEFING_HEADLINE_FALLBACK)).toBe(BRIEFING_HEADLINE_FALLBACK);
+    // With nothing displayed to support a direction, the symptom alone.
+    expect(briefingHeadline('Headaches', [])).toBe('Headaches');
+  });
+
+  function directions(): string[] {
+    return [...new Set(Object.values(DIRECTION_BY_SIGNAL))];
+  }
+
+  it('the built cards: headlines and card sentences carry no map or category name; the map entry names stay in View evidence', async () => {
+    // Puffiness is filed under Kidney/Bladder and headaches under
+    // Neurological, which is what once put "fluid balance" and
+    // "nervous system signals" into headlines.
+    await complete('s1', answers({ N4: 'often', D1: 'almost_always', N5: 'often', K7: 'often', HB7: 'often', B5: 'often', T2: 'often' }), SEP16);
+    const briefing = briefingOf(await coachOpens());
+    expect(briefing.cards.length).toBeGreaterThan(3);
+    let viaNames = 0;
+    for (const entry of briefing.cards) {
+      expect(namesACategoryOrMapEntry(beyondAnchor(entry.headline, entry.anchorName)), entry.headline).toBeNull();
+      // A sentence may name her own signals ("lighter or broken sleep"), so
+      // it is held to the map words only.
+      for (const sentence of [entry.whyReviewTogether ?? '', ...entry.exploreNext]) {
+        expect(MAP_ENTRY_NAMES.some((name) => sentence.includes(name)), sentence).toBe(false);
+        expect(sentence, sentence).not.toMatch(/\bsignals\b|association map/i);
+      }
+      for (const line of entry.evidence.allRelated) viaNames += line.viaPatternNames.length;
+      // A direction only from a signal the card displays.
+      const displayed = new Set([...entry.reported.map((line) => line.signalSlug), ...entry.related.map((line) => line.signalSlug)]);
+      const supported = [...displayed].map((slug) => DIRECTION_BY_SIGNAL[slug]).filter(Boolean);
+      const direction = /: explore (.+)$/.exec(entry.headline)?.[1];
+      if (direction) for (const part of direction.split(' and ')) expect(supported).toContain(part);
+    }
+    expect(viaNames, 'the map entry names are still carried into View evidence').toBeGreaterThan(0);
+    // Her grouped "when not eaten" answer and her broken sleep, both on the card.
+    expect(card(briefing, 'headaches').headline).toBe('Headaches: explore meal timing and night waking');
+  });
+});
+
+describe('why review together is about coaching, not software', () => {
+  it('pins the neutral fallback', () => {
+    expect(WHY_REVIEW_FALLBACK).toBe('These findings are reported together. Explore whether their timing overlaps.');
+  });
+
+  it('a card with related findings uses the neutral fallback, never map wording or a mechanism', async () => {
+    await complete('s1', answers({ N4: 'often', HB7: 'often' }), SEP16);
+    const headaches = card(briefingOf(await coachOpens()), 'headaches');
+    expect(headaches.related.length).toBeGreaterThan(0);
+    expect(headaches.whyReviewTogether).toBe(WHY_REVIEW_FALLBACK);
+    expect(headaches.whyReviewTogether).not.toMatch(/map|links|lists|entry|because|driv|affect/i);
+  });
+
+  it('a card that only groups her own answers says so, and a single finding draws no sentence', async () => {
+    await complete('s1', answers({ N4: 'often', B5: 'often', K7: 'often' }), SEP16);
+    const briefing = briefingOf(await coachOpens());
+    const grouped = card(briefing, 'headaches');
+    if (grouped.related.length === 0) {
+      expect(grouped.whyReviewTogether).toBe('She describes headaches in more than one way, so these answers are read as one.');
+    } else {
+      expect(grouped.whyReviewTogether).toBe(WHY_REVIEW_FALLBACK);
+    }
+    expect(whyReviewTogetherLine({ anchorName: 'headaches', relatedCount: 0, groupedCount: 1 })).toBe(
+      'She describes headaches in more than one way, so these answers are read as one.'
+    );
+    expect(whyReviewTogetherLine({ anchorName: 'headaches', relatedCount: 0, groupedCount: 0 })).toBeNull();
+    db = new FakeDb();
+    await complete('s1', answers({ K7: 'often' }), SEP16);
+    const alone = card(briefingOf(await coachOpens()), 'under-eye-puffiness');
+    expect(alone.related).toHaveLength(0);
+    expect(alone.whyReviewTogether).toBeNull();
+  });
+
+  it('the copy file no longer carries the software sentences', () => {
+    const copy = fs.readFileSync(path.resolve(__dirname, '../lib/cross-system-root/copy.ts'), 'utf8');
+    expect(copy).not.toContain('Your Association Map links');
+    expect(copy).not.toContain('lists areas to check beside it');
+    expect(copy).not.toContain('DIRECTION_BY_CATEGORY');
+  });
+});
+
+describe('the shared source, once per card', () => {
+  it('names the assessment, its date and its window once, and no line under it repeats them', async () => {
+    await complete('s1', answers({ N4: 'often', B5: 'often', HB7: 'often' }), SEP16);
+    const view = await coachOpens();
+    const headaches = card(briefingOf(view), 'headaches');
+    expect(headaches.sharedSource).toBe('Rooted Reset Body Systems Survey, Sep 16 (covers past 3 months)');
+    // Every line shares it, so none carries a label.
+    for (const line of [...headaches.reported, ...headaches.related]) expect(line.inlineSource).toBeNull();
+    expect(headaches.reportedSummary).toBe('Headaches, Often; Headaches when not eaten, Often.');
+
+    const html = renderToStaticMarkup(createElement(RootNoticedPanel, { state: { allowed: true, view } }));
+    const cardHtml = html.split('data-briefing-card=').slice(1);
+    expect(cardHtml.length).toBeGreaterThan(0);
+    for (const chunk of cardHtml) {
+      // Drawn once, and the window is said once.
+      expect(chunk.match(/data-briefing-source/g) ?? []).toHaveLength(1);
+      expect(chunk.split('covers past 3 months').length - 1).toBe(1);
+      expect(chunk).not.toContain('Reported Sep 16 (covers past 3 months)');
+    }
+  });
+
+  it('a finding from a different assessment carries the short inline label, and only that finding', async () => {
+    await complete('s1', answers({ N4: 'often', HB7: 'often' }), SEP16);
+    const inputs = await inputsFor();
+    // Her broken sleep, as a Breathing Check-In answer from Sep 12 instead.
+    const records = inputs.records.map((record) =>
+      record.signalSlug === 'lighter-or-broken-sleep' && record.valueKind === 'scale'
+        ? {
+            ...record,
+            sourceKey: 'breathing_pattern_check_in',
+            sourceLabel: 'Breathing Pattern Check-In',
+            sourceSessionId: null,
+            sourceQuestionRef: null,
+            capturedOn: '2026-09-12',
+            capturedAt: '2026-09-12T14:00:00.000Z',
+          }
+        : record
+    );
+    const briefing = buildRootBriefing({ ...inputs, records });
+    const headaches = briefing.cards.find((entry) => entry.anchorSlug === 'headaches')!;
+    expect(headaches.sharedSource).toBe('Rooted Reset Body Systems Survey, Sep 16 (covers past 3 months)');
+    const sleep = headaches.related.find((line) => line.signalSlug === 'lighter-or-broken-sleep');
+    expect(sleep, 'the sleep finding is still related').toBeDefined();
+    expect(sleep!.inlineSource).toBe('(Breathing Check-In, Sep 12)');
+    expect(SHORT_SOURCE_LABELS.breathing_pattern_check_in).toBe('Breathing Check-In');
+    for (const line of headaches.related.filter((entry) => entry !== sleep)) expect(line.inlineSource).toBeNull();
+    // Full source details stay in View evidence.
+    const full = headaches.evidence.allRelated.find((line) => line.signalSlug === 'lighter-or-broken-sleep')!;
+    expect(full.sourceLabel).toBe('Breathing Pattern Check-In');
+    expect(full.reportedLine).toBe('Reported Sep 12');
+
+    const html = renderToStaticMarkup(
+      createElement(RootNoticedPanel, {
+        state: { allowed: true, view: { ...(await coachOpens()), briefing } },
+      })
+    );
+    expect(html).toContain('(Breathing Check-In, Sep 12)');
+  });
+
+  it('a reported answer from a second source is labelled inside the one Reported line', async () => {
+    await complete('s1', answers({ N4: 'often' }), SEP16);
+    await ingestComplaint({
+      memberId: MEMBER_ID,
+      surfaceKey: 'daily_checkin_notes',
+      rawText: 'I have had headaches again this week.',
+      reportedAt: SEP17,
+      authorRole: 'member',
+      client: db.asClient(),
+      now: SEP17,
+    });
+    const headaches = card(briefingOf(await coachOpens()), 'headaches');
+    expect(headaches.reported).toHaveLength(2);
+    const [first, second] = headaches.reported;
+    expect(first!.inlineSource).toBeNull();
+    expect(second!.inlineSource).toMatch(/^\(.+, Sep 1[67]\)$/);
+    expect(headaches.reportedSummary).toContain(second!.inlineSource!);
+    expect(headaches.reportedSummary.split('covers past 3 months')).toHaveLength(1);
+  });
+});
+
+describe('the change wording: an answer changed, not a symptom', () => {
+  it('reads "Answer changed" with the movement and both dates, and asks which of the two it was', async () => {
+    await complete('s1', answers({ N4: 'sometimes', B5: 'sometimes', D1: 'almost_always' }), '2026-09-11T14:00:00.000Z');
+    await complete('s2', answers({ N4: 'often', B5: 'often', D1: 'almost_always' }), SEP16);
+    const briefing = briefingOf(await coachOpens());
+    const headaches = card(briefing, 'headaches');
+    expect(headaches.changeMarker).toBe('Answer changed');
+    expect(headaches.reportedSummary).toBe(
+      'Headaches, Often; Headaches when not eaten, Often. Answer changed: Often (Sep 16) from Sometimes (Sep 11).'
+    );
+    expect(headaches.exploreNext[0]).toBe(
+      'You selected Often this time and Sometimes previously. Does that reflect a change in your symptoms or in how you understood the question?'
+    );
+    // The second question is only a pinned pair question that adds something.
+    expect(headaches.exploreNext).toEqual([headaches.exploreNext[0], PAIR_QUESTIONS['headaches+headaches-when-not-eaten']]);
+    const words = JSON.stringify(briefing);
+    expect(words).not.toContain('Changed since last time');
+    expect(words).not.toContain('What changed for you in between');
+    expect(words).not.toMatch(/more often than before/);
+    expect(headaches.rankReason).toMatch(/^Answer changed \(a higher frequency selected\)/);
+  });
+
+  it('names the symptom when the answers on one card moved differently', async () => {
+    await complete('s1', answers({ N4: 'sometimes', B5: 'often' }), '2026-09-11T14:00:00.000Z');
+    await complete('s2', answers({ N4: 'often', B5: 'often' }), SEP16);
+    const headaches = card(briefingOf(await coachOpens()), 'headaches');
+    expect(headaches.reportedSummary).toContain('Answer changed for headaches: Often (Sep 16) from Sometimes (Sep 11).');
+    expect(headaches.exploreNext[0]).toBe(
+      'For headaches, you selected Often this time and Sometimes previously. Does that reflect a change in your symptoms or in how you understood the question?'
+    );
+  });
+
+  it('a card with no change carries one question by default', async () => {
+    await complete('s1', answers({ N4: 'often', HB7: 'often', K7: 'often', D1: 'often' }), SEP16);
+    for (const entry of briefingOf(await coachOpens()).cards) {
+      const pinned = Object.values(PAIR_QUESTIONS);
+      if (!entry.exploreNext.some((question) => question.startsWith('You selected') || question.startsWith('For '))) {
+        expect(entry.exploreNext.length).toBeLessThanOrEqual(1);
+      } else if (entry.exploreNext.length === 2) {
+        expect(pinned).toContain(entry.exploreNext[1]);
+      }
+    }
+  });
+
+  it('the return marker speaks of her answers, not her symptoms', () => {
+    expect(BRIEFING_MARKERS.changedSinceReview).toBe('Answers changed since your review');
+    expect(BRIEFING_MARKERS.changedSinceReview).not.toMatch(/symptom/i);
+  });
+});
+
+describe('counts say what they count, and reconcile', () => {
+  it('Root checked N connections, never "to review"', () => {
+    expect(rootNoticedDigest({ findings: 17, suppressed: 0, complaints: 0, mapEntries: 40, questionnaireRead: true }).text).toBe(
+      'Root checked 17 connections'
+    );
+    expect(rootNoticedDigest({ findings: 1, suppressed: 0, complaints: 1, mapEntries: 40 }).text).toBe('Root checked 1 connection');
+    expect(rootNoticedDigest({ findings: 17, suppressed: 1, complaints: 0, mapEntries: 40 }).text).toBe(
+      'Root checked 17 connections, 1 report held back for safety'
+    );
+    expect(signalsDigest({ signals: 12, entries: 30 }).text).toBe('12 distinct signals, 30 dated entries');
+  });
+
+  it('priority findings, the view all remainder and the dismissed count add up to every card, and nothing dismissed waits for review', async () => {
+    await complete('s1', answers({ N4: 'often', D1: 'almost_always', N5: 'often', K7: 'often', HB7: 'often', T2: 'often' }), SEP16);
+    const start = briefingOf(await coachOpens());
+    const total = start.cards.length;
+    expect(total).toBeGreaterThanOrEqual(6);
+    for (const target of start.cards.slice(-2)) {
+      await recordBriefingReview(db.asClient(), {
+        coachId: COACH_ID,
+        memberId: MEMBER_ID,
+        targetKey: target.targetKey,
+        action: 'reviewed',
+        evidenceState: target.evidenceState,
+        actedAt: '2026-09-16T20:00:00.000Z',
+      });
+    }
+    const view = await coachOpens();
+    const briefing = briefingOf(view);
+    expect(briefing.dismissed).toHaveLength(2);
+    const html = renderToStaticMarkup(createElement(RootNoticedPanel, { state: { allowed: true, view, clientId: MEMBER_ID } }));
+    const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    const priority = Number(/(\d+) priority findings?/.exec(text)?.[1]);
+    const more = Number(/View all findings \((\d+) more\)/.exec(text)?.[1] ?? 0);
+    const dismissed = Number(/Reviewed or not relevant \((\d+)\)/.exec(text)?.[1]);
+    expect(priority).toBe(3);
+    expect(html.match(/data-briefing-card=/g)).toHaveLength(priority);
+    expect(dismissed).toBe(2);
+    expect(priority + more + dismissed).toBe(total);
+    expect(text).not.toMatch(/to review|awaiting|waiting for review/i);
+  });
+});
+
+describe('restore', () => {
+  async function record(targetKey: string, action: 'reviewed' | 'not_relevant' | 'discuss_next_session' | 'restored', at: string) {
+    const briefing = briefingOf(await coachOpens());
+    const target = findBriefingCard(briefing, targetKey) ?? findDismissedBriefingCard(briefing, targetKey);
+    expect(target, `a card ${targetKey} to act on`).not.toBeNull();
+    await recordBriefingReview(db.asClient(), {
+      coachId: COACH_ID,
+      memberId: MEMBER_ID,
+      targetKey,
+      action,
+      evidenceState: target!.evidenceState,
+      actedAt: at,
+    });
+  }
+
+  it('returns a card to the briefing where the rules rank it, keeps the review and appends the restore', async () => {
+    await complete('s1', answers({ N4: 'often', D1: 'almost_always', N5: 'often', K7: 'often' }), SEP16);
+    const start = briefingOf(await coachOpens());
+    const order = start.cards.map((entry) => entry.targetKey);
+    const target = start.cards[0]!;
+
+    await record(target.targetKey, 'not_relevant', '2026-09-16T20:00:00.000Z');
+    const folded = briefingOf(await coachOpens());
+    expect(folded.cards.some((entry) => entry.targetKey === target.targetKey)).toBe(false);
+    expect(findDismissedBriefingCard(folded, target.targetKey)?.targetKey).toBe(target.targetKey);
+
+    await record(target.targetKey, BRIEFING_RESTORE_ACTION, '2026-09-16T21:00:00.000Z');
+    const restoredView = await coachOpens();
+    const restored = briefingOf(restoredView);
+    // Back, in the order the rules give, and out of the fold.
+    expect(restored.cards.map((entry) => entry.targetKey)).toEqual(order);
+    expect(restored.dismissed).toHaveLength(0);
+    const back = restored.cards[0]!;
+    expect(back.reviewStatus).toBe('open');
+    expect(back.changedSinceReview).toBe(false);
+    expect(back.lastAction).toBe('restored');
+    // History keeps both, oldest first.
+    expect(back.history.map((entry) => entry.action)).toEqual(['not_relevant', 'restored']);
+    expect(back.history.map((entry) => entry.label)).toEqual(['Not relevant', 'Restored to the briefing']);
+    // Appended: two rows, the first untouched.
+    const rows = db.rows('cross_system_root_briefing_reviews');
+    expect(rows.map((row) => row.action)).toEqual(['not_relevant', 'restored']);
+    expect(rows.every((row) => row.coach_id === COACH_ID && row.member_id === MEMBER_ID && row.target_key === target.targetKey)).toBe(true);
+    // The evidence behind it is exactly what it was.
+    expect(back.evidence).toEqual(target.evidence);
+    expect(back.reported).toEqual(target.reported);
+  });
+
+  it('only a dismissed card can be restored, and the server action is held to that lookup', async () => {
+    await complete('s1', answers({ N4: 'often', D1: 'almost_always' }), SEP16);
+    const briefing = briefingOf(await coachOpens());
+    expect(findDismissedBriefingCard(briefing, briefing.cards[0]!.targetKey)).toBeNull();
+    expect(findDismissedBriefingCard(null, 'group:head:pain')).toBeNull();
+    const action = fs.readFileSync(path.resolve(__dirname, '../app/actions/crossSystemRootFindings.ts'), 'utf8');
+    const restore = action.slice(action.indexOf('export async function restoreRootBriefingCardAction'));
+    expect(restore).toContain('findDismissedBriefingCard(view.briefing, targetKey)');
+    expect(restore).toContain('action: BRIEFING_RESTORE_ACTION');
+    expect(restore.slice(0, restore.indexOf('\n}\n'))).not.toMatch(/\.delete\(|\.update\(/);
+  });
+
+  it('restore is not a review action button, and a restored card can be reviewed again and returns on material change', async () => {
+    await complete('s1', answers({ N4: 'often' }), SEP16);
+    const headaches = card(briefingOf(await coachOpens()), 'headaches');
+    await record(headaches.targetKey, 'reviewed', '2026-09-16T20:00:00.000Z');
+    await record(headaches.targetKey, 'restored', '2026-09-16T21:00:00.000Z');
+    await record(headaches.targetKey, 'reviewed', '2026-09-16T22:00:00.000Z');
+    const again = briefingOf(await coachOpens());
+    expect(again.dismissed.map((entry) => entry.targetKey)).toEqual([headaches.targetKey]);
+    expect(again.dismissed[0]!.card.history.map((entry) => entry.action)).toEqual(['reviewed', 'restored', 'reviewed']);
+    // Material change still returns it, marked, exactly as before.
+    await complete('s2', answers({ N4: 'almost_always' }), SEP17);
+    const returned = card(briefingOf(await coachOpens()), 'headaches');
+    expect(returned.reviewStatus).toBe('open');
+    expect(returned.changedSinceReview).toBe(true);
+    expect(reviewStatusOf({ action: 'restored', state: EMPTY_EVIDENCE_STATE }, EMPTY_EVIDENCE_STATE)).toEqual({
+      status: 'open',
+      changedSinceReview: false,
+    });
+  });
+
+  it('a pinned card is unchanged by restore: the pin stays until Reviewed or Not relevant', async () => {
+    await complete('s1', answers({ N4: 'often', D1: 'almost_always' }), SEP16);
+    const headaches = card(briefingOf(await coachOpens()), 'headaches');
+    await record(headaches.targetKey, 'discuss_next_session', '2026-09-16T20:00:00.000Z');
+    const pinned = briefingOf(await coachOpens());
+    expect(pinned.pinned.map((entry) => entry.targetKey)).toEqual([headaches.targetKey]);
+    expect(findDismissedBriefingCard(pinned, headaches.targetKey)).toBeNull();
+  });
+
+  it('the dismissed fold offers Restore, and the fold line says how a card comes back', async () => {
+    await complete('s1', answers({ N4: 'often', D1: 'almost_always' }), SEP16);
+    const headaches = card(briefingOf(await coachOpens()), 'headaches');
+    await record(headaches.targetKey, 'reviewed', '2026-09-16T20:00:00.000Z');
+    const briefing = briefingOf(await coachOpens());
+    expect(briefing.dismissed[0]!.line).toBe(
+      'Reviewed on Sep 16, 2026. It returns to the briefing if her answers change, or when you restore it.'
+    );
+    const source = fs.readFileSync(path.resolve(__dirname, '../app/coach/clients/[id]/RootBriefing.tsx'), 'utf8');
+    expect(source).toContain('data-briefing-action={BRIEFING_RESTORE_ACTION}');
+    expect(source).toContain('restoreRootBriefingCardAction(clientId, card.targetKey)');
   });
 });
 

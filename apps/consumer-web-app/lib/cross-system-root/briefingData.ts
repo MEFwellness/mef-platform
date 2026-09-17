@@ -16,10 +16,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllRows } from '@/lib/data/pagedSelect';
 import {
   evidenceFingerprint,
-  isBriefingReviewAction,
+  isBriefingHistoryAction,
   parseEvidenceState,
   type BriefingEvidenceState,
-  type BriefingReviewAction,
+  type BriefingHistoryAction,
 } from './briefingRules';
 import type { BriefingReviewRecord } from './briefing';
 
@@ -55,7 +55,7 @@ export async function listBriefingReviews(
   if (!read.ok) return { ok: false, reviews: [] };
   const reviews: BriefingReviewRecord[] = [];
   for (const row of read.rows) {
-    if (!isBriefingReviewAction(row.action)) continue;
+    if (!isBriefingHistoryAction(row.action)) continue;
     reviews.push({
       targetKey: row.target_key,
       action: row.action,
@@ -66,14 +66,17 @@ export async function listBriefingReviews(
   return { ok: true, reviews };
 }
 
-/** Appends one review action at the evidence state the card has now. */
+/**
+ * Appends one review action, or a restore, at the evidence state the card
+ * has now. Never an update and never a delete: a restore is a new row.
+ */
 export async function recordBriefingReview(
   supabase: SupabaseClient,
   input: {
     coachId: string;
     memberId: string;
     targetKey: string;
-    action: BriefingReviewAction;
+    action: BriefingHistoryAction;
     evidenceState: BriefingEvidenceState;
     actedAt: string;
   }

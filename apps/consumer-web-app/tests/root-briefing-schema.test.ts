@@ -23,10 +23,9 @@ function policies(): Array<{ name: string; table: string; body: string }> {
 }
 
 describe('migration 260', () => {
-  it('continues from the head', () => {
+  it('continues from 259', () => {
     const files = fs.readdirSync(MIGRATIONS).filter((name) => /^\d+_.*\.sql$/.test(name)).sort();
-    expect(files[files.length - 1]).toBe(FILE);
-    expect(files).toContain('00000000000259_daily_checkins_current_hydration_restore.sql');
+    expect(files[files.indexOf(FILE) - 1]).toBe('00000000000259_daily_checkins_current_hydration_restore.sql');
   });
 
   it('turns row level security on for both tables', () => {
@@ -74,5 +73,39 @@ describe('migration 260', () => {
 
   it('carries no em dash in anything stored', () => {
     expect(SQL.replace(/--.*$/gm, '')).not.toContain('—');
+  });
+});
+
+/**
+ * MIGRATION 261: RESTORE. One change to the action check, and nothing that
+ * could let a coach rewrite or remove a row: a restore is appended.
+ */
+const RESTORE_FILE = '00000000000261_cross_system_root_briefing_restore.sql';
+const RESTORE_SQL = fs.readFileSync(path.join(MIGRATIONS, RESTORE_FILE), 'utf8');
+const RESTORE_STATEMENTS = RESTORE_SQL.replace(/--.*$/gm, '');
+
+describe('migration 261', () => {
+  it('continues from 260 and is the head', () => {
+    const files = fs.readdirSync(MIGRATIONS).filter((name) => /^\d+_.*\.sql$/.test(name)).sort();
+    expect(files[files.length - 1]).toBe(RESTORE_FILE);
+    expect(files[files.length - 2]).toBe(FILE);
+  });
+
+  it('allows restored beside the three review actions, on the review table only', () => {
+    expect(RESTORE_STATEMENTS).toContain(
+      "check (action in ('discuss_next_session', 'reviewed', 'not_relevant', 'restored'))"
+    );
+    for (const match of RESTORE_STATEMENTS.matchAll(/^\s*(?:alter table|drop table|create table|insert into|update|delete from|truncate)\s+(\w+)/gim)) {
+      expect(match[1]).toBe('cross_system_root_briefing_reviews');
+    }
+  });
+
+  it('adds no policy, so a coach still has no update and no delete, and a member has nothing', () => {
+    expect(RESTORE_STATEMENTS).not.toMatch(/create policy|drop policy|alter policy|grant /i);
+    expect(RESTORE_STATEMENTS).not.toMatch(/member_id/);
+  });
+
+  it('carries no em dash in anything stored', () => {
+    expect(RESTORE_STATEMENTS).not.toContain('—');
   });
 });
