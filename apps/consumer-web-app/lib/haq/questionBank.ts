@@ -17,12 +17,17 @@
 
 import type { HaqQuestion, HaqResponseOption, HaqResponseType, HaqSection } from './types';
 
-export const HAQ_KEY = 'haq';
-export const HAQ_VERSION = 'haq_v1';
-export const HAQ_VERSION_NUMBER = 1;
-export const HAQ_TITLE = 'Rooted Reset Health Appraisal Questionnaire';
-export const HAQ_QUESTION_COUNT = 260;
-export const HAQ_SECTION_COUNT = 21;
+// The identity lives in ./constants.ts, which carries no question text, so
+// the coach's list and the member's shelf can name the HAQ without shipping
+// all 260 questions. Re-exported here so every existing import still reads.
+export {
+  HAQ_KEY,
+  HAQ_VERSION,
+  HAQ_VERSION_NUMBER,
+  HAQ_TITLE,
+  HAQ_QUESTION_COUNT,
+  HAQ_SECTION_COUNT,
+} from './constants';
 
 /** The only answers each response type accepts, in the order they are offered. */
 export const HAQ_RESPONSE_OPTIONS: Record<HaqResponseType, readonly HaqResponseOption[]> = {

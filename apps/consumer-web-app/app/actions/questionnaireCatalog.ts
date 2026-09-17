@@ -25,6 +25,11 @@
  * feature's own accessor already resolves. Nothing about what they offer,
  * where they are offered or how they are gated changes here: only the shelf
  * gained a row.
+ *
+ * AND A FIFTH (2026-09-17): the Rooted Reset Health Appraisal Questionnaire,
+ * on the same terms (lib/haq/access.ts). Unlike the four it has no Home card
+ * or Root knock of its own, so its card carries its open assignment id and
+ * the generic assigned-questionnaire path surfaces it.
  */
 
 'use server';
@@ -54,6 +59,8 @@ import { getMyHealthIntake } from '@/lib/health-intake/view';
 import { getMyBodySystemsSurvey } from '@/lib/body-systems/view';
 import { getMyWholeBodySignal } from '@/lib/whole-body-signal/view';
 import { getMyBreathingCheckIn } from '@/lib/breathing-check-in/view';
+import { getMyHaq } from '@/lib/haq/view';
+import { HAQ_KEY } from '@/lib/haq/constants';
 import { HLI_KEY } from '@/lib/health-intake/constants';
 import { BODY_SYSTEMS_KEY } from '@/lib/body-systems/constants';
 import { WBS_KEY } from '@/lib/whole-body-signal/constants';
@@ -151,6 +158,7 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
     bodySystems,
     wholeBodySignal,
     breathingCheckIn,
+    haq,
   ] = await Promise.all([
     getMemberAssessmentFacts(supabase, memberId),
     getMyQuestionnaireList(),
@@ -159,6 +167,7 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
     getMyBodySystemsSurvey(),
     getMyWholeBodySignal(),
     getMyBreathingCheckIn(),
+    getMyHaq(),
   ]);
 
   const engineByKey = new Map(engineList.map((item) => [item.questionnaireId, item] as const));
@@ -385,6 +394,13 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
     [BODY_SYSTEMS_KEY]: bodySystems,
     [WBS_KEY]: wholeBodySignal,
     [BPC_KEY]: breathingCheckIn,
+    [HAQ_KEY]: haq
+      ? {
+          status: haq.status,
+          session: haq.status === 'completed' ? { completedAt: haq.completedAt } : null,
+          ...(haq.status === 'completed' ? {} : { assignmentId: haq.assignmentId }),
+        }
+      : null,
   };
   const coachAssignedCards: CatalogCard[] = COACH_ASSIGNED_QUESTIONNAIRES.map((questionnaire) =>
     buildCoachAssignedCatalogCard(questionnaire, coachAssignedStateByKey[questionnaire.key])

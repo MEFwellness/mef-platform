@@ -52,6 +52,7 @@ import {
   BPC_KEY,
   BPC_LABEL,
 } from '../breathing-check-in/constants';
+import { HAQ_AREA, HAQ_DEFINITION_ID, HAQ_KEY, HAQ_LABEL } from '../haq/constants';
 import { STRESS_LOAD_AREA, STRESS_LOAD_LABEL } from '../stress-load/copy';
 import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_AREA, OYV_LABEL } from '../owning-your-value/copy';
@@ -185,6 +186,12 @@ const COACH_ASSIGNED_EXPERIENCES: {
     definitionId: BPC_DEFINITION_ID,
     displayName: BPC_LABEL,
     areaLabel: BPC_AREA,
+  },
+  {
+    id: HAQ_KEY,
+    definitionId: HAQ_DEFINITION_ID,
+    displayName: HAQ_LABEL,
+    areaLabel: HAQ_AREA,
   },
   {
     id: 'stress-load-deep-dive',

@@ -39,6 +39,7 @@ const deepDive = {
   'whole-body-signal': vi.fn(async () => ({ ok: true })),
   'health-lifestyle-intake': vi.fn(async () => ({ ok: true })),
   'breathing-pattern-check-in': vi.fn(async () => ({ ok: true })),
+  haq: vi.fn(async () => ({ ok: true })),
   'stress-load-deep-dive': vi.fn(async () => ({ ok: true })),
   'owning-your-value': vi.fn(async () => ({ ok: true })),
   'where-your-joy-lives': vi.fn(async () => ({ ok: true })),
@@ -61,6 +62,9 @@ vi.mock('@/app/actions/healthIntake', () => ({
 }));
 vi.mock('@/app/actions/breathingCheckInCoach', () => ({
   assignBreathingCheckInAction: deepDive['breathing-pattern-check-in'],
+}));
+vi.mock('@/app/actions/haqCoach', () => ({
+  assignHaqAction: deepDive.haq,
 }));
 vi.mock('@/app/actions/stressLoad', () => ({
   assignStressLoadDeepDiveAction: deepDive['stress-load-deep-dive'],

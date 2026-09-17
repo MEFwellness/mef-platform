@@ -43,13 +43,22 @@ import {
 import { WBS_AREA, WBS_KEY, WBS_LABEL, WBS_ROUTE } from '@/lib/whole-body-signal/constants';
 import { HLI_AREA, HLI_KEY, HLI_LABEL, HLI_ROUTE } from '@/lib/health-intake/constants';
 import { BPC_AREA, BPC_KEY, BPC_LABEL, BPC_ROUTE } from '@/lib/breathing-check-in/constants';
+import { HAQ_AREA, HAQ_ESTIMATED_MINUTES, HAQ_KEY, HAQ_LABEL, HAQ_ROUTE } from '@/lib/haq/constants';
 
-/** The four, addressed by their own feature keys. Not AssessmentKeys: none of them has a registry entry, deliberately. */
+/**
+ * The coach assign only questionnaires, addressed by their own feature keys.
+ * Not AssessmentKeys: none of them has a registry entry, deliberately.
+ *
+ * THE HEALTH APPRAISAL JOINED THE FOUR ON 2026-09-17, on exactly their terms:
+ * no plan opens it, an assignment is the only key (lib/haq/access.ts), and
+ * its one route hands back where she stopped.
+ */
 export type CoachAssignedQuestionnaireKey =
   | typeof HLI_KEY
   | typeof BODY_SYSTEMS_KEY
   | typeof WBS_KEY
-  | typeof BPC_KEY;
+  | typeof BPC_KEY
+  | typeof HAQ_KEY;
 
 export type CoachAssignedQuestionnaire = {
   key: CoachAssignedQuestionnaireKey;
@@ -63,6 +72,16 @@ export type CoachAssignedQuestionnaire = {
   category: string;
   /** The one route. It opens the taker when a sitting is open and her results when one is finished, which is why there is no separate resume or results address. */
   route: string;
+  /**
+   * WHETHER THE LIBRARY CARD CARRIES THE ASSIGNMENT ID. See
+   * buildCoachAssignedCatalogCard: the original four each have their own Home
+   * card and their own Root knock, so their cards carry none. The Health
+   * Appraisal has neither, so its card carries the id and Home's priority
+   * card and the generic questionnaire_assigned knock find it the way they
+   * find every other assigned questionnaire. One offer per assignment either
+   * way.
+   */
+  surfacesAssignment: boolean;
 };
 
 /**
@@ -79,6 +98,7 @@ export const COACH_ASSIGNED_QUESTIONNAIRES: readonly CoachAssignedQuestionnaire[
     estimatedMinutes: 10,
     category: HLI_AREA,
     route: HLI_ROUTE,
+    surfacesAssignment: false,
   },
   {
     key: BODY_SYSTEMS_KEY,
@@ -88,6 +108,7 @@ export const COACH_ASSIGNED_QUESTIONNAIRES: readonly CoachAssignedQuestionnaire[
     estimatedMinutes: 15,
     category: BODY_SYSTEMS_AREA,
     route: BODY_SYSTEMS_ROUTE,
+    surfacesAssignment: false,
   },
   {
     key: WBS_KEY,
@@ -97,6 +118,7 @@ export const COACH_ASSIGNED_QUESTIONNAIRES: readonly CoachAssignedQuestionnaire[
     estimatedMinutes: 15,
     category: WBS_AREA,
     route: WBS_ROUTE,
+    surfacesAssignment: false,
   },
   {
     key: BPC_KEY,
@@ -106,6 +128,17 @@ export const COACH_ASSIGNED_QUESTIONNAIRES: readonly CoachAssignedQuestionnaire[
     estimatedMinutes: 2,
     category: BPC_AREA,
     route: BPC_ROUTE,
+    surfacesAssignment: false,
+  },
+  {
+    key: HAQ_KEY,
+    title: HAQ_LABEL,
+    description:
+      'How you have felt over the last four months, part by part through the whole body, with a body map at the end.',
+    estimatedMinutes: HAQ_ESTIMATED_MINUTES,
+    category: HAQ_AREA,
+    route: HAQ_ROUTE,
+    surfacesAssignment: true,
   },
 ];
 
@@ -122,6 +155,8 @@ export const COACH_ASSIGNED_QUESTIONNAIRES: readonly CoachAssignedQuestionnaire[
 export type CoachAssignedQuestionnaireState = {
   status: 'pending' | 'in_progress' | 'completed';
   session?: { completedAt: string | null } | null;
+  /** The open assignment's id, read only for a questionnaire whose card surfaces it. */
+  assignmentId?: string;
 } | null;
 
 /** The fields of a catalog card this file fills in. Structural, so it needs no import from the 'use server' module that owns CatalogCard. */
@@ -139,7 +174,7 @@ export type CoachAssignedCatalogCard = {
   resumeHref: string | null;
   resultHref: string | null;
   coachAssignmentReason: string | null;
-  assignmentId: null;
+  assignmentId: string | null;
 };
 
 function lockedFlags(): CatalogFlags {
@@ -203,12 +238,12 @@ export function buildCoachAssignedCatalogCard(
     estimatedMinutes: questionnaire.estimatedMinutes,
     category: questionnaire.category,
     draftProgress: null,
-    assignmentId: null,
   } as const;
 
   if (!state) {
     return {
       ...shared,
+      assignmentId: null,
       section: 'premium',
       flags: lockedFlags(),
       latestCompletedAt: null,
@@ -222,6 +257,7 @@ export function buildCoachAssignedCatalogCard(
   if (state.status === 'completed') {
     return {
       ...shared,
+      assignmentId: null,
       section: 'completed',
       flags: openFlags(false),
       latestCompletedAt: state.session?.completedAt ?? null,
@@ -236,6 +272,7 @@ export function buildCoachAssignedCatalogCard(
 
   return {
     ...shared,
+    assignmentId: questionnaire.surfacesAssignment ? (state.assignmentId ?? null) : null,
     section: 'assigned',
     flags: openFlags(state.status === 'in_progress'),
     latestCompletedAt: null,

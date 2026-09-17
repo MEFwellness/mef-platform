@@ -1,6 +1,5 @@
 /**
- * The HAQ's numbers never travel toward a member, and in Prompt 1 nothing
- * of the HAQ is in the member app at all.
+ * The HAQ's numbers never travel toward a member.
  *
  * TWO KINDS OF GUARD, and only the second is temporary.
  *
@@ -10,10 +9,10 @@
  * any member route. A client component's imports are shipped to the
  * browser, so a reachable file is a payload the member can read.
  *
- * PROMPT 1 ONLY. The HAQ is backend only today: no registry entry, no
- * route, and no file under app/, components/ or hooks/ imports lib/haq.
- * Prompt 2 builds the member experience and replaces that block with the
- * screens it adds; the permanent block stays.
+ * PROMPT 2. The member experience now exists (app/health-appraisal,
+ * components/haq, app/api/haq), so the Prompt 1 block that asserted nothing
+ * imported lib/haq is replaced by one proving the member files really reach
+ * lib/haq, and reach only the member-safe modules listed here.
  */
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
@@ -23,7 +22,21 @@ import { findAssessmentDefinition, listAssessmentRegistryEntries } from '../lib/
 const ROOT = path.resolve(__dirname, '..');
 
 const NUMBERS_MODULES = ['lib/haq/scoringRules.ts', 'lib/haq/scoring.ts', 'lib/haq/sql.ts'];
-const MEMBER_SAFE_MODULES = ['lib/haq/memberData.ts', 'lib/haq/questionBank.ts', 'lib/haq/types.ts'];
+const MEMBER_SAFE_MODULES = [
+  'lib/haq/memberData.ts',
+  'lib/haq/questionBank.ts',
+  'lib/haq/types.ts',
+  // Prompt 2: the member experience.
+  'lib/haq/access.ts',
+  'lib/haq/bodyMap.ts',
+  'lib/haq/constants.ts',
+  'lib/haq/copy.ts',
+  'lib/haq/data.ts',
+  'lib/haq/pageProps.ts',
+  'lib/haq/service.ts',
+  'lib/haq/view.ts',
+  'lib/haq/walk.ts',
+];
 
 /** Every import and re-export specifier in a file, matched per statement. */
 function importedPaths(file: string): string[] {
@@ -135,24 +148,30 @@ describe('the HAQ numbers modules are unreachable from anything a member loads (
   });
 });
 
-describe('Prompt 1: nothing of the HAQ is visible in the member app', () => {
-  it('has no assessment registry entry, so no card, route, lock or assignment can name it', () => {
+describe('Prompt 2: the member experience reaches the HAQ, and only through member-safe modules', () => {
+  it('still has no assessment registry entry, because no plan opens it', () => {
     expect(findAssessmentDefinition('haq')).toBeNull();
     const keys = listAssessmentRegistryEntries().map((entry) => entry.key);
     expect(keys).not.toContain('haq');
     expect(keys).toContain('short-haq');
   });
 
-  it('no file under app/, components/ or hooks/ imports lib/haq', () => {
-    const importers = APP_FILES.filter((file) => {
-      const reachable = reachableFrom(file);
-      return [...reachable].some((reached) => reached.startsWith('lib/haq/'));
-    });
-    expect(importers).toEqual([]);
+  it('has its one route, and the route and its screens really do reach lib/haq (so the guards above are not vacuous)', () => {
+    expect(fs.existsSync(path.join(ROOT, 'app/health-appraisal/page.tsx'))).toBe(true);
+    for (const entry of ['app/health-appraisal/page.tsx', 'components/haq/HaqExperience.tsx', 'app/api/haq/answer/route.ts']) {
+      const reachable = [...reachableFrom(entry)];
+      expect(reachable.some((file) => file.startsWith('lib/haq/')), entry).toBe(true);
+    }
   });
 
-  it('has no route of its own', () => {
-    const routeDirs = APP_FILES.map((file) => path.dirname(file).split(path.sep)).flat();
-    expect(routeDirs.filter((segment) => /^haq$|health-appraisal/i.test(segment))).toEqual([]);
+  it('every lib/haq module a member file reaches is one of the member-safe modules', () => {
+    const memberFiles = APP_FILES.filter(
+      (file) => !file.startsWith('app/coach/') && !file.startsWith('app/admin/') && !file.endsWith('haqCoach.ts')
+    );
+    const reached = new Set<string>();
+    for (const file of memberFiles) {
+      for (const reachedFile of reachableFrom(file)) if (reachedFile.startsWith('lib/haq/')) reached.add(reachedFile);
+    }
+    expect([...reached].filter((reachedFile) => !MEMBER_SAFE_MODULES.includes(reachedFile))).toEqual([]);
   });
 });

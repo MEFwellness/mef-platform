@@ -6,6 +6,10 @@
  * session, which is the same table and the same triggers), and completes
  * through completeSession.
  *
+ * A COACH ASSIGNS IT FIRST. Since migration 263 a member opens her own HAQ
+ * instance only on a pending coach assignment, so every instance here is
+ * started the way the product starts one (tests/haq-ledger-fixture.ts).
+ *
  * WHAT A UNIT TEST CANNOT PROVE, and this can: that the database stores the
  * hidden value the rules give, refuses anything else, refuses to complete
  * an instance with an unanswered question, computes each section against
@@ -23,6 +27,8 @@ import { scoreHaqInstance } from '../lib/haq/scoring';
 import { haqInstanceStatus, readHaqMemberSectionResults } from '../lib/haq/memberData';
 import { SPEC_BOUNDARIES, SPEC_BOUNDARY_COLORS, SPEC_HIDDEN_VALUES, SPEC_SPOT_CHECKS } from './haq-spec';
 import { allHighestAnswers, allZeroAnswers, answersForSectionTotal, answersForSectionTotals } from './haq-fixture';
+import { clearHaqLedger, ensurePendingHaqAssignment } from './haq-ledger-fixture';
+import { HAQ_DEFINITION_ID } from '../lib/haq/constants';
 
 const memberOneId = TEST_USERS.memberOne.id;
 const memberTwoId = TEST_USERS.memberTwo.id;
@@ -41,6 +47,7 @@ async function clearHaqInstances() {
     .in('member_id', [memberOneId, memberTwoId])
     .eq('assessment_definition_id', definitionId);
   if (error) throw new Error(error.message);
+  await clearHaqLedger([memberOneId, memberTwoId]);
 }
 
 beforeAll(async () => {
@@ -65,6 +72,7 @@ afterEach(async () => {
 });
 
 async function startInstance(member: SupabaseClient, memberId: string, retake = false): Promise<AssessmentSession> {
+  await ensurePendingHaqAssignment(memberId);
   const result = await startOrResumeSession(member, memberId, HAQ_KEY, { startRetake: retake });
   if (result.status !== 'started' && result.status !== 'resumed') {
     throw new Error(`Expected a session, got ${result.status}`);
@@ -104,7 +112,7 @@ async function resultsFor(sessionId: string) {
 }
 
 describe('7. seed integrity in the database', () => {
-  it('holds 260 questions in 21 sections on the shared runtime, version 1, not in the catalog', async () => {
+  it('holds 260 questions in 21 sections on the shared runtime, version 1, bridged to its catalog row', async () => {
     const service = serviceRoleClient();
     const { data: def } = await service.from('unified_assessment_definitions').select('*').eq('key', HAQ_KEY).single();
     expect(def).toMatchObject({
@@ -112,7 +120,7 @@ describe('7. seed integrity in the database', () => {
       version: 1,
       active: true,
       adaptive_enabled: false,
-      catalog_definition_id: null,
+      catalog_definition_id: HAQ_DEFINITION_ID,
       scoring_profile: { haq_version: 'haq_v1', scoring: 'per_section_cutoffs' },
     });
 

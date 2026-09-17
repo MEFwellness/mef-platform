@@ -46,6 +46,7 @@ import {
 } from '../lib/body-systems/constants';
 import { WBS_KEY, WBS_LABEL, WBS_ROUTE } from '../lib/whole-body-signal/constants';
 import { BPC_KEY, BPC_LABEL, BPC_ROUTE } from '../lib/breathing-check-in/constants';
+import { HAQ_KEY, HAQ_LABEL, HAQ_ROUTE } from '../lib/haq/constants';
 
 const ROOT = path.resolve(__dirname, '..');
 const read = (relPath: string) => fs.readFileSync(path.join(ROOT, relPath), 'utf-8');
@@ -59,7 +60,13 @@ const EXPECTED = [
   { key: BODY_SYSTEMS_KEY, title: BODY_SYSTEMS_LABEL, route: BODY_SYSTEMS_ROUTE },
   { key: WBS_KEY, title: WBS_LABEL, route: WBS_ROUTE },
   { key: BPC_KEY, title: BPC_LABEL, route: BPC_ROUTE },
+  // The Rooted Reset Health Appraisal Questionnaire joined on 2026-09-17,
+  // on exactly the same terms.
+  { key: HAQ_KEY, title: HAQ_LABEL, route: HAQ_ROUTE },
 ] as const;
+
+/** The four that shipped with their own Home card and Root knock, and so never hand their assignment to the generic path. */
+const OWN_HOME_SURFACES = [HLI_KEY, BODY_SYSTEMS_KEY, WBS_KEY, BPC_KEY] as const;
 
 const NOT_ASSIGNED: CoachAssignedQuestionnaireState = null;
 const ASSIGNED: CoachAssignedQuestionnaireState = { status: 'pending' };
@@ -69,8 +76,8 @@ const FINISHED: CoachAssignedQuestionnaireState = {
   session: { completedAt: '2026-09-10T14:00:00.000Z' },
 };
 
-describe('the four coach-assign-only questionnaires are exactly these four', () => {
-  it('all four are present, in the shelf order, and no fifth has crept in', () => {
+describe('the coach-assign-only questionnaires are exactly these', () => {
+  it('all of them are present, in the shelf order, and nothing else has crept in', () => {
     expect(COACH_ASSIGNED_QUESTIONNAIRES.map((q) => q.key)).toEqual(EXPECTED.map((e) => e.key));
   });
 
@@ -161,14 +168,37 @@ describe('the gating exception: no plan reaches these four, and assignment is th
    * same thing twice and knock twice for one assignment.
    */
   it.each(['pending', 'in_progress', 'completed'] as const)(
-    'a %s card never enters the generic assigned-questionnaire candidate list',
+    'a %s card of the original four never enters the generic assigned-questionnaire candidate list',
     (status) => {
-      const state = (status === 'completed' ? FINISHED : { status }) as CoachAssignedQuestionnaireState;
-      for (const q of COACH_ASSIGNED_QUESTIONNAIRES) {
+      const state = (
+        status === 'completed' ? FINISHED : { status, assignmentId: 'assignment-1' }
+      ) as CoachAssignedQuestionnaireState;
+      for (const q of COACH_ASSIGNED_QUESTIONNAIRES.filter((item) =>
+        (OWN_HOME_SURFACES as readonly string[]).includes(item.key)
+      )) {
+        expect(q.surfacesAssignment).toBe(false);
         expect(buildCoachAssignedCatalogCard(q, state).assignmentId).toBeNull();
       }
     }
   );
+
+  /**
+   * THE HEALTH APPRAISAL HAS NO HOME CARD OR KNOCK OF ITS OWN, so its card is
+   * how an assignment reaches her: the generic path finds a card in Assigned
+   * with an assignment id and a route. Still one offer per assignment, and
+   * nothing once it is finished or before it is sent.
+   */
+  it('the Health Appraisal card carries its open assignment, and only while it is open', () => {
+    const haq = COACH_ASSIGNED_QUESTIONNAIRES.find((q) => q.key === HAQ_KEY)!;
+    expect(haq.surfacesAssignment).toBe(true);
+    for (const status of ['pending', 'in_progress'] as const) {
+      const card = buildCoachAssignedCatalogCard(haq, { status, assignmentId: 'assignment-1' });
+      expect(card.assignmentId).toBe('assignment-1');
+      expect(card.primaryHref).toBe(HAQ_ROUTE);
+    }
+    expect(buildCoachAssignedCatalogCard(haq, FINISHED).assignmentId).toBeNull();
+    expect(buildCoachAssignedCatalogCard(haq, NOT_ASSIGNED).assignmentId).toBeNull();
+  });
 
   it('the library appends them AFTER the visibility filter, so no rule can hide one', () => {
     const source = read('app/actions/questionnaireCatalog.ts');

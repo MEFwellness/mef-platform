@@ -49,6 +49,7 @@ import { assignBodySystemsSurveyAction } from './bodySystems';
 import { assignWholeBodySignalAction } from './wholeBodySignal';
 import { assignHealthIntakeAction } from './healthIntake';
 import { assignBreathingCheckInAction } from './breathingCheckInCoach';
+import { assignHaqAction } from './haqCoach';
 import { assignOwningYourValueAction } from './owningYourValue';
 import { assignWhereYourJoyLivesAction } from './whereYourJoyLives';
 import { assignTheGivingLedgerAction } from './theGivingLedger';
@@ -69,6 +70,7 @@ const OWN_ACTION_BY_ROW_ID: Record<
   'whole-body-signal': assignWholeBodySignalAction,
   'health-lifestyle-intake': assignHealthIntakeAction,
   'breathing-pattern-check-in': assignBreathingCheckInAction,
+  haq: assignHaqAction,
   'stress-load-deep-dive': assignStressLoadDeepDiveAction,
   'owning-your-value': assignOwningYourValueAction,
   'where-your-joy-lives': assignWhereYourJoyLivesAction,

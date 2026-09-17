@@ -31,6 +31,16 @@ type Props = {
   sectionIndex?: number | undefined;
   sectionCount?: number | undefined;
   tone?: Tone | undefined;
+  /**
+   * The counter's words, for a caller that does not count questions. The
+   * Health Appraisal counts Parts ("Part 3 of 10") and must never show a
+   * question count, so it hands its own label and its own fill together,
+   * which keeps the line and the words describing one thing. Left off, the
+   * bar reads exactly as it always did.
+   */
+  label?: string | undefined;
+  /** The fill, nought to one hundred, to go with `label`. */
+  percent?: number | undefined;
 };
 
 const TONES: Record<Tone, { text: string; track: string; fill: string }> = {
@@ -51,10 +61,14 @@ export function AssessmentProgressBar({
   sectionIndex,
   sectionCount,
   tone = 'forest',
+  label,
+  percent: percentOverride,
 }: Props) {
   const last = throughNumber && throughNumber > currentNumber ? throughNumber : null;
   const filledTo = last ?? currentNumber;
-  const percent = totalQuestions > 0 ? Math.round((filledTo / totalQuestions) * 100) : 0;
+  const counted = totalQuestions > 0 ? Math.round((filledTo / totalQuestions) * 100) : 0;
+  const percent =
+    percentOverride != null ? Math.max(0, Math.min(100, Math.round(percentOverride))) : counted;
   const colors = TONES[tone];
   const hasSection = sectionIndex != null && sectionCount != null;
   const barHeight = tone === 'forest' ? 'h-1.5' : 'h-[3px]';
@@ -71,9 +85,10 @@ export function AssessmentProgressBar({
       */}
       <div className={`flex items-center justify-between gap-3 text-xs font-medium ${colors.text}`}>
         <span className="whitespace-nowrap">
-          {last
-            ? `Questions ${currentNumber} to ${last} of ${totalQuestions}`
-            : `Question ${currentNumber} of ${totalQuestions}`}
+          {label ??
+            (last
+              ? `Questions ${currentNumber} to ${last} of ${totalQuestions}`
+              : `Question ${currentNumber} of ${totalQuestions}`)}
         </span>
         {hasSection && (
           <span className="min-w-0 truncate">

@@ -27,6 +27,7 @@ import { BODY_SYSTEMS_DEFINITION_ID, BODY_SYSTEMS_LABEL } from '../body-systems/
 import { WBS_DEFINITION_ID, WBS_LABEL } from '../whole-body-signal/constants';
 import { HLI_DEFINITION_ID, HLI_LABEL } from '../health-intake/constants';
 import { BPC_DEFINITION_ID, BPC_LABEL } from '../breathing-check-in/constants';
+import { HAQ_DEFINITION_ID, HAQ_LABEL } from '../haq/constants';
 import { OYV_DEFINITION_ID } from '../owning-your-value/constants';
 import { OYV_LABEL } from '../owning-your-value/copy';
 import { WYJL_DEFINITION_ID } from '../where-your-joy-lives/constants';
@@ -66,6 +67,7 @@ export function assignmentNamesByDefinitionId(): Map<string, string> {
       member surface. One name per thing, everywhere.
     */
     [BPC_DEFINITION_ID, BPC_LABEL],
+    [HAQ_DEFINITION_ID, HAQ_LABEL],
     [OYV_DEFINITION_ID, OYV_LABEL],
     [WYJL_DEFINITION_ID, WYJL_LABEL],
     [TGL_DEFINITION_ID, TGL_LABEL],

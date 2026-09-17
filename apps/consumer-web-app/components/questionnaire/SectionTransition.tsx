@@ -90,9 +90,18 @@ const TONE = {
 export function SectionTransition({
   tone,
   nextLine,
+  heading = SECTION_COMPLETE_LABEL,
 }: {
   tone: TransitionTone;
   nextLine: string;
+  /**
+   * What finished. Left off, every existing caller reads "Section complete"
+   * exactly as before. The Health Appraisal names the real section it has
+   * just finished ("Gastric Function complete"), and like `nextLine` the
+   * words are the caller's, so this component still names nothing it was
+   * not handed.
+   */
+  heading?: string;
 }) {
   const colors = TONE[tone];
   /*
@@ -126,7 +135,7 @@ export function SectionTransition({
       <p
         className={`mt-5 font-[family-name:var(--font-cormorant-garamond)] text-[24px] leading-tight ${colors.heading}`}
       >
-        {SECTION_COMPLETE_LABEL}
+        {heading}
       </p>
 
       <p className={`mt-2 text-[14px] leading-relaxed ${colors.body}`}>{nextLine}</p>
