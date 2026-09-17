@@ -38,6 +38,10 @@ const MEMBER_SAFE_MODULES = [
   'lib/haq/walk.ts',
   // Prompt 3: her results page. Colours and labels, and no number at all.
   'lib/haq/results.ts',
+  // Her results MAP: grouping, the three counts and the three band widths.
+  // Pure, so it can be shipped to her browser without the database client
+  // that results.ts pulls in, which is the whole reason it is a second file.
+  'lib/haq/resultsView.ts',
 ];
 
 /**

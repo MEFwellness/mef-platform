@@ -1,3 +1,113 @@
+## Her Health Appraisal results are a map now, not a stack of cards (2026-09-17)
+
+Her results page showed twenty one full width cards, each one a heading, a
+colour, and the same paragraph as the card above it. To find out where she
+stood she had to read the whole thing. The page is now one map: a summary
+strip that counts her three states, then all twenty one sections as compact
+rows grouped under the instrument's own ten Parts, each row carrying its
+name, its one result in words, and one bar in that result's colour.
+
+**Nothing behind it moved.** Not a question, not a word of a question, not a
+hidden value, not a section cutoff, not the three bands, not the coach's
+reading, not save and resume, not retakes, not the body map, not a migration
+and not a row in the database. The scoring that decides Green, Yellow and Red
+is untouched, and so is every approved sentence she reads.
+
+### THE MAP IS THE BODY SYSTEM STRUCTURE, AND THAT IS WHY IT IS NOT SORTED
+
+The old page stood the Red sections first. It answered "how many" twice, at
+the top and again in the order, and "where" not at all. The summary strip
+already answers "how many", so `buildHaqResultCards` now sorts on the
+section's own order and nothing else: Part I's four sections, then Part II's
+one, through to Part X's two, exactly as the questionnaire asked them. A
+colour never moves a section out of the Part it belongs to. The ten headings
+are the Parts' real names, "Gastrointestinal" and not "Part I", because the
+numeral belongs to the question flow.
+
+Each card carries its Part as two strings, an id and a name, and never an
+order: a `partOrder` would be a number in a payload whose whole guarantee is
+that it holds none. Grouping is one pass over cards that are already in
+order (`haqResultGroups`), so the screen draws ten headings without loading
+the thirty kilobyte question bank to do it.
+
+### THE BAR SAYS WHICH BAND, AND REFUSES TO SAY ANYTHING ELSE
+
+Three fixed widths: a third for Doing Well, two thirds for Needs Attention,
+the whole track for High Attention. One neutral track, one fill, one colour,
+and never a gradient or a three zone scale behind it.
+
+Fixed, because the sections do not share a scale. One turns Red at 8, another
+at 16, another at 32. A bar drawn from a raw total would therefore claim that
+one Red section is worse than another Red section, which is not something
+this instrument measures and not something she should be invited to read. A
+test asserts every Red bar is drawn identically.
+
+No number of the instrument is on the screen or in its props: no total, no
+cutoff, no maximum, no hidden value, no priority, no percentage and no
+overall result. The only digits she may read are still the three counts, and
+the test that asserts exactly that (`['1', '13', '7']` and nothing else) is
+unchanged. It is also why there is no `<noscript>` block filling the bars
+without JavaScript: a `<style>` element would put its own digits into the
+page's text. The bar is `aria-hidden` decoration and the row states its
+result in words beside a colour dot, so nothing here is carried by colour
+alone.
+
+### WHAT MOVES, AND ONLY THREE THINGS DO
+
+`components/haq/HaqResults.tsx` is a client component now, for the bars, the
+summary strip and the rows, and for nothing else.
+
+- **The bars fill once.** A row's bar runs from empty to its band width the
+  first time the row reaches the screen, 700ms, decelerating, 50ms of stagger
+  between the sections of one Part. Then it latches: scrolling away and back
+  does nothing. `components/haq/useHaqBarReveal.ts` carries the safety net
+  `RevealOnScroll` needed on Home, because an observer only reports a change
+  across a threshold at the frames it samples, and a row flicked past in one
+  movement would otherwise sit at zero width for good, reading as a section
+  with no result.
+- **The summary strip holds one colour up.** Tapping High Attention steps the
+  rows that are not Red back to a third opacity, where they already stand.
+  Nothing is filtered, reordered or removed, and there is no second screen:
+  the point of the map is where a result falls, and a filtered list would
+  destroy exactly that. A second tap puts the page back, and only one count
+  is ever held up.
+- **A row opens for its sentence.** The approved explanation for that colour,
+  verbatim and alone, one row open at a time. It stays in the document when
+  closed, collapsed by grid rows, so opening it is a height and not a jump.
+
+Reduced motion gets the same page with the travel switched off: every bar at
+its band width, `transition: none`, nothing withheld.
+
+### A SECOND MODULE, BECAUSE A CLIENT COMPONENT SHIPS ITS IMPORTS
+
+`lib/haq/results.ts` reads the database, so it pulls the Supabase client and
+the assessment runtime onto anything that imports it. Everything the browser
+actually needs is arithmetic over cards it already holds, so grouping, the
+three counts and the three band widths moved to `lib/haq/resultsView.ts`,
+which imports nothing but types. `results.ts` re-exports them, so no caller
+needed a second import. `tests/haq-member-safety.test.ts` lists it as
+member-safe and holds it to the same rule as the rest: no numbers module and
+no coach module reachable from it, and no hidden value or cutoff inside it.
+`/health-appraisal/results` builds at 3.46 kB, 102 kB first load.
+
+### TESTS
+
+`tests/haq-member-results.test.tsx` went from 15 to 28. Every approved
+wording assertion is exactly as it was: the title, the intro, all three
+explanations, the three member labels, the comparison line, the three trend
+words, the no-digits-but-the-three-counts guard, the no-em-dash guard and the
+symptoms-never-conditions guard. What changed is the ordering block, which
+now asserts the instrument's own order out of a deliberately shuffled and
+colour-interleaved input, the ten groups in Part order with their sections in
+original order, and that no Part numeral reaches the page. What is new covers
+one colour a row, the three band widths, two Red bars drawn identically, the
+bar being aria-hidden, the accordion opening and closing with one open at a
+time, the strip emphasising without reordering or removing a row, and reduced
+motion.
+
+Full suite: 655 files, 13,353 tests, all passing. Typecheck clean, lint clean
+on the changed files, production build clean.
+
 ## The Completed list points at the results it was already drawing (2026-09-17)
 
 On the coach's client Detail page, the Assessment Status block's Completed

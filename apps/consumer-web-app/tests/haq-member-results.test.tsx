@@ -14,6 +14,20 @@
  * suite assert the view is empty of numbers outright: no total, no cutoff,
  * no hidden value and no overall grade can hide among them.
  *
+ * THE MAP IS GROUPED BY THE INSTRUMENT'S OWN TEN PARTS, and no longer stands
+ * loudest first. The summary strip already counts her three states, so what
+ * the map is for is showing WHERE a result falls in the body system
+ * structure, and a colour never moves a section out of its Part. The
+ * ordering assertions below are about that, and they are the only thing in
+ * this file that changed with it: every approved sentence is still quoted
+ * word for word.
+ *
+ * THE EXPLANATION IS NOW ONE TAP AWAY rather than printed under all twenty
+ * one. It stays in the document when the row is closed, so the approved
+ * wording is still asserted on the rendered screen exactly as before, and
+ * there are new assertions that opening a row really shows it and that only
+ * one row is open at a time.
+ *
  * What the database gives her is proved against the real database in
  * tests/haq-coach-integration.test.ts. Here the results are the rows the
  * database would have returned.
@@ -25,13 +39,15 @@ import { createRoot, type Root } from 'react-dom/client';
 
 const { HaqResults } = await import('../components/haq/HaqResults');
 const {
+  HAQ_BAND_FILL,
   HAQ_RESULT_COLOR_ORDER,
   buildHaqResultCards,
   haqResultCounts,
+  haqResultGroups,
   haqTrend,
 } = await import('../lib/haq/results');
 const copy = await import('../lib/haq/copy');
-const { HAQ_SECTIONS } = await import('../lib/haq/questionBank');
+const { HAQ_PARTS, HAQ_SECTIONS } = await import('../lib/haq/questionBank');
 
 import type { HaqMemberSectionResult, HaqResultColor } from '../lib/haq/types';
 import type { HaqMemberResults } from '../lib/haq/results';
@@ -142,25 +158,48 @@ function numericLeaves(value: unknown, at = '$'): string[] {
 // ---------------------------------------------------------------------
 
 describe('the order the areas stand in', () => {
-  it('is Red, then Yellow, then Green, and inside one colour the instrument\'s own section order', () => {
-    // Deliberately interleaved, so a list that merely kept its input order fails.
+  it("is the instrument's own section order, and a colour never moves a section", () => {
+    // Deliberately interleaved: a list that sorted by colour fails here.
     const mixed: HaqResultColor[] = HAQ_SECTIONS.map((_, index) =>
       index % 3 === 0 ? 'green' : index % 3 === 1 ? 'red' : 'yellow'
     );
-    const cards = buildHaqResultCards(resultsFrom(mixed), null);
 
-    const colors = cards.map((card) => card.resultColor);
-    const firstYellow = colors.indexOf('yellow');
-    const firstGreen = colors.indexOf('green');
-    expect(colors.lastIndexOf('red')).toBeLessThan(firstYellow);
-    expect(colors.lastIndexOf('yellow')).toBeLessThan(firstGreen);
+    // Shuffled on the way in, so an implementation that merely kept its
+    // input order fails too.
+    const shuffled = [...resultsFrom(mixed)].reverse();
+    const cards = buildHaqResultCards(shuffled, null);
 
-    for (const color of HAQ_RESULT_COLOR_ORDER) {
-      const orders = cards
-        .filter((card) => card.resultColor === color)
-        .map((card) => HAQ_SECTIONS.findIndex((section) => section.id === card.sectionId));
-      expect([...orders], color).toEqual([...orders].sort((a, b) => a - b));
+    expect(cards.map((card) => card.sectionId)).toEqual(HAQ_SECTIONS.map((section) => section.id));
+
+    // And the same 21 colours, still attached to the same 21 sections.
+    for (const card of cards) {
+      const index = HAQ_SECTIONS.findIndex((section) => section.id === card.sectionId);
+      expect(card.resultColor, card.sectionId).toBe(mixed[index]);
     }
+  });
+
+  it('groups into the ten Parts, in Part order, each holding its own sections in order', () => {
+    const groups = haqResultGroups(buildHaqResultCards(resultsFrom(LIVE_SHAPE), null));
+
+    expect(groups.map((group) => group.partId)).toEqual(HAQ_PARTS.map((part) => part.id));
+    expect(groups.map((group) => group.partName)).toEqual(HAQ_PARTS.map((part) => part.name));
+
+    for (const group of groups) {
+      const expected = HAQ_SECTIONS.filter((section) => section.partId === group.partId);
+      expect(group.cards.map((card) => card.sectionId), group.partId).toEqual(
+        expected.map((section) => section.id)
+      );
+    }
+    expect(groups.flatMap((group) => group.cards)).toHaveLength(21);
+  });
+
+  it('draws every Part by its real name, and never by its numeral', () => {
+    mount(viewOf(LIVE_SHAPE));
+    const rendered = text();
+    for (const part of HAQ_PARTS) expect(rendered, part.id).toContain(part.name);
+    // "Part I of 10" belongs to the question flow, not to her results.
+    expect(rendered).not.toMatch(/\bPart\s+(I|II|III|IV|V|VI|VII|VIII|IX|X)\b/);
+    expect(rendered).not.toMatch(/\bPart\b/);
   });
 
   it('holds all 21 sections, once each, and the three counts always sum to 21', () => {
@@ -337,5 +376,207 @@ describe('no em dash in anything she reads on this page', () => {
     }
     mount(viewOf(LIVE_SHAPE, HAQ_SECTIONS.map(() => 'green' as const)));
     expect(text()).not.toContain(EM_DASH);
+  });
+});
+
+// ---------------------------------------------------------------------
+// The map itself: one colour a row, a bar that says only which band, a
+// summary strip that emphasises without filtering, and a row that opens.
+// ---------------------------------------------------------------------
+
+function click(node: Element | null | undefined): void {
+  expect(node).toBeTruthy();
+  act(() => {
+    node!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
+const rowOf = (sectionId: string) =>
+  container.querySelector(`[data-testid="haq-result-card-${sectionId}"]`);
+const barOf = (sectionId: string) =>
+  container.querySelector(`[data-testid="haq-bar-${sectionId}"]`) as HTMLElement | null;
+const panelOf = (sectionId: string) =>
+  container.querySelector(`#haq-detail-${sectionId}`) as HTMLElement | null;
+const toggleOf = (sectionId: string) => rowOf(sectionId)?.querySelector('button');
+
+describe('one section, one colour, one bar', () => {
+  it('every row wears exactly one of the three colours, and it is its own result', () => {
+    const view = viewOf(LIVE_SHAPE);
+    mount(view);
+
+    for (const card of view.cards) {
+      const row = rowOf(card.sectionId);
+      expect(row, card.sectionId).toBeTruthy();
+      expect(row!.getAttribute('data-result'), card.sectionId).toBe(card.resultColor);
+
+      // The row names its own result in words, beside the colour, so nothing
+      // on this page is carried by colour alone.
+      expect(row!.textContent, card.sectionId).toContain(APPROVED_LABELS[card.resultColor]);
+
+      // And never a second state's words on the same row.
+      for (const other of HAQ_RESULT_COLOR_ORDER) {
+        if (other === card.resultColor) continue;
+        expect(row!.textContent, `${card.sectionId} / ${other}`).not.toContain(APPROVED_LABELS[other]);
+      }
+    }
+  });
+
+  it('fills a third for Doing Well, two thirds for Needs Attention, and the whole track for High Attention', () => {
+    expect(HAQ_BAND_FILL).toEqual({ green: '33%', yellow: '66%', red: '100%' });
+
+    const view = viewOf(LIVE_SHAPE);
+    mount(view);
+
+    for (const card of view.cards) {
+      const bar = barOf(card.sectionId);
+      expect(bar, card.sectionId).toBeTruthy();
+      expect(bar!.getAttribute('data-fill'), card.sectionId).toBe(HAQ_BAND_FILL[card.resultColor]);
+      expect(bar!.style.width, card.sectionId).toBe(HAQ_BAND_FILL[card.resultColor]);
+    }
+  });
+
+  it('draws two Red sections identically, whatever sat behind them', () => {
+    // The sections do not share a scale, so a bar may never imply that one
+    // Red section is worse than another Red section.
+    const view = viewOf(LIVE_SHAPE);
+    mount(view);
+    const reds = view.cards.filter((card) => card.resultColor === 'red');
+    expect(reds.length).toBeGreaterThan(1);
+    const widths = new Set(reds.map((card) => barOf(card.sectionId)!.style.width));
+    expect([...widths]).toEqual(['100%']);
+  });
+
+  it('the bar is decoration, and the screen reader is never asked to read it', () => {
+    mount(viewOf(LIVE_SHAPE));
+    const bar = barOf(HAQ_SECTIONS[0]!.id)!;
+    expect(bar.closest('[aria-hidden="true"]')).toBeTruthy();
+  });
+});
+
+describe('a row opens for the sentence, one at a time', () => {
+  it('starts closed, opens on a tap, and closes on a second', () => {
+    const first = HAQ_SECTIONS[0]!.id;
+    mount(viewOf(LIVE_SHAPE));
+
+    expect(toggleOf(first)!.getAttribute('aria-expanded')).toBe('false');
+    expect(panelOf(first)!.getAttribute('aria-hidden')).toBe('true');
+
+    click(toggleOf(first));
+    expect(toggleOf(first)!.getAttribute('aria-expanded')).toBe('true');
+    expect(panelOf(first)!.getAttribute('aria-hidden')).toBe('false');
+
+    click(toggleOf(first));
+    expect(toggleOf(first)!.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('shows that section\'s own approved sentence and no other', () => {
+    const view = viewOf(LIVE_SHAPE);
+    mount(view);
+
+    for (const sectionId of [HAQ_SECTIONS[0]!.id, HAQ_SECTIONS[14]!.id]) {
+      const card = view.cards.find((one) => one.sectionId === sectionId)!;
+      click(toggleOf(sectionId));
+      const panel = panelOf(sectionId)!;
+      expect(panel.textContent!.trim(), sectionId).toBe(APPROVED_EXPLANATIONS[card.resultColor]);
+      click(toggleOf(sectionId));
+    }
+  });
+
+  it('opening a second row closes the first', () => {
+    const first = HAQ_SECTIONS[0]!.id;
+    const second = HAQ_SECTIONS[1]!.id;
+    mount(viewOf(LIVE_SHAPE));
+
+    click(toggleOf(first));
+    click(toggleOf(second));
+
+    expect(toggleOf(first)!.getAttribute('aria-expanded')).toBe('false');
+    expect(toggleOf(second)!.getAttribute('aria-expanded')).toBe('true');
+    expect(
+      container.querySelectorAll('[aria-expanded="true"]'),
+      'exactly one row open'
+    ).toHaveLength(1);
+  });
+});
+
+describe('the summary strip emphasises, and never filters', () => {
+  const sectionOrder = () =>
+    Array.from(container.querySelectorAll('[data-testid^="haq-result-card-"]')).map((node) =>
+      (node.getAttribute('data-testid') ?? '').replace('haq-result-card-', '')
+    );
+
+  it('holds one colour up across the map without reordering or removing a single row', () => {
+    const view = viewOf(LIVE_SHAPE);
+    mount(view);
+    const before = sectionOrder();
+
+    click(container.querySelector('[data-testid="haq-summary-red"]'));
+
+    expect(sectionOrder(), 'nothing reordered and nothing removed').toEqual(before);
+    expect(sectionOrder()).toHaveLength(21);
+
+    for (const card of view.cards) {
+      expect(rowOf(card.sectionId)!.getAttribute('data-dimmed'), card.sectionId).toBe(
+        card.resultColor === 'red' ? 'false' : 'true'
+      );
+    }
+    // Every section is still readable: emphasis steps rows back, it does not
+    // take them away.
+    for (const section of HAQ_SECTIONS) expect(text(), section.id).toContain(section.title);
+  });
+
+  it('a second tap on the same count puts the whole map back', () => {
+    mount(viewOf(LIVE_SHAPE));
+    const strip = () => container.querySelector('[data-testid="haq-summary-yellow"]')!;
+
+    click(strip());
+    expect(strip().getAttribute('aria-pressed')).toBe('true');
+
+    click(strip());
+    expect(strip().getAttribute('aria-pressed')).toBe('false');
+    for (const section of HAQ_SECTIONS) {
+      expect(rowOf(section.id)!.getAttribute('data-dimmed'), section.id).toBe('false');
+    }
+  });
+
+  it('only one count is held up at a time', () => {
+    mount(viewOf(LIVE_SHAPE));
+    click(container.querySelector('[data-testid="haq-summary-red"]'));
+    click(container.querySelector('[data-testid="haq-summary-green"]'));
+
+    expect(container.querySelector('[data-testid="haq-summary-red"]')!.getAttribute('aria-pressed')).toBe(
+      'false'
+    );
+    expect(
+      container.querySelector('[data-testid="haq-summary-green"]')!.getAttribute('aria-pressed')
+    ).toBe('true');
+  });
+});
+
+describe('reduced motion is the same page without the travel', () => {
+  it('draws every bar at its band width with no transition at all', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: () => ({
+        matches: true,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+      }),
+    });
+
+    const view = viewOf(LIVE_SHAPE);
+    mount(view);
+
+    for (const card of view.cards) {
+      const bar = barOf(card.sectionId)!;
+      expect(bar.style.width, card.sectionId).toBe(HAQ_BAND_FILL[card.resultColor]);
+      expect(bar.style.transition, card.sectionId).toBe('none');
+    }
+
+    // @ts-expect-error restoring jsdom's own absence of matchMedia
+    delete window.matchMedia;
   });
 });
