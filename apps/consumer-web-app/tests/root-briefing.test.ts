@@ -75,6 +75,7 @@ import { listAllSignalsForMember } from '@/lib/cross-system-signals/data';
 import {
   buildRootBriefing,
   cautious,
+  findBriefingCard,
   describeAbsence,
   type BriefingCardView,
   type RootBriefingInputs,
@@ -697,6 +698,21 @@ describe('review actions', () => {
     expect(cleared.pinned).toHaveLength(0);
     expect(cleared.cards.some((entry) => entry.targetKey === top.targetKey)).toBe(false);
     expect(cleared.dismissed.map((entry) => entry.targetKey)).toContain(top.targetKey);
+  });
+
+  it('the review action finds a pinned card as well as a priority card (the live run found it could not)', async () => {
+    await complete('s1', answers({ N4: 'often', D1: 'almost_always' }), SEP16);
+    const headaches = card(briefingOf(await coachOpens()), 'headaches');
+    await act(headaches.targetKey, 'discuss_next_session', '2026-09-16T20:00:00.000Z');
+    const briefing = briefingOf(await coachOpens());
+    expect(briefing.cards.some((entry) => entry.targetKey === headaches.targetKey)).toBe(false);
+    expect(findBriefingCard(briefing, headaches.targetKey)?.targetKey).toBe(headaches.targetKey);
+    expect(findBriefingCard(briefing, card(briefing, 'bloating-after-eating').targetKey)).not.toBeNull();
+    expect(findBriefingCard(briefing, 'group:nowhere:nothing')).toBeNull();
+    expect(findBriefingCard(null, headaches.targetKey)).toBeNull();
+    const action = fs.readFileSync(path.resolve(__dirname, '../app/actions/crossSystemRootFindings.ts'), 'utf8');
+    expect(action).toContain('findBriefingCard(view.briefing, targetKey)');
+    expect(action).not.toMatch(/briefing\?\.cards\.find/);
   });
 
   it('a pinned card whose evidence changes stays pinned and says it changed since the review', async () => {

@@ -229,6 +229,15 @@ async function baselinePhase(): Promise<void> {
   );
 }
 
+/**
+ * Tables another session was cleaning up for this member at the same time
+ * (the data scale sweep's screen walks, 2026-09-17). The restore deletes what
+ * was added to them after the baseline and never puts anything back, so a row
+ * that session removed from before the baseline is not resurrected. The
+ * recount reports rows missing from them separately rather than as a failure.
+ */
+const SHARED_CLEANUP_TABLES = new Set(['member_wellness_events', 'member_daily_probe_selections']);
+
 /** Parents before children, so a row put back never waits on its parent. */
 const INSERT_ORDER = [
   'profiles',
@@ -281,6 +290,7 @@ async function restorePhase(): Promise<void> {
   // 2. PUT BACK what the run changed or removed, exactly as recorded: parents first.
   for (const table of [...tables].sort((a, b) => orderIndex(a) - orderIndex(b))) {
     const realTable = table.replace(/^coach:/, '');
+    if (SHARED_CLEANUP_TABLES.has(realTable)) continue;
     const current = new Map((now[table]?.rows ?? []).map((row) => [keyOf(row), row]));
     const toWrite = (baseline.snap[table]?.rows ?? []).filter((row) => {
       const held = current.get(keyOf(row));
@@ -301,7 +311,17 @@ async function restorePhase(): Promise<void> {
   // 3. An independent recount, by full row content.
   const after = await snapshot(baseline.coachId, parents);
   const differences: string[] = [];
+  const sharedNotes: string[] = [];
   for (const table of new Set([...Object.keys(baseline.snap), ...Object.keys(after)])) {
+    if (SHARED_CLEANUP_TABLES.has(table)) {
+      const wasKeys = new Set((baseline.snap[table]?.rows ?? []).map(keyOf));
+      const isRows = after[table]?.rows ?? [];
+      const added = isRows.filter((row) => !wasKeys.has(keyOf(row))).length;
+      const missing = [...wasKeys].filter((key) => !isRows.some((row) => keyOf(row) === key)).length;
+      if (added > 0) differences.push(`${table}: ${added} rows added after the baseline remain`);
+      sharedNotes.push(`${table}: 0 added remain, ${missing} baseline rows removed by the other session's own cleanup`);
+      continue;
+    }
     const was = (baseline.snap[table]?.rows ?? []).map((row) => JSON.stringify(row)).sort();
     const is = (after[table]?.rows ?? []).map((row) => JSON.stringify(row)).sort();
     if (JSON.stringify(was) !== JSON.stringify(is)) {
@@ -313,6 +333,7 @@ async function restorePhase(): Promise<void> {
     }
   }
   record('Nothing left over that this run could not remove or put back', problems.length === 0, problems.join(' | '));
+  record('Shared cleanup tables: nothing added after the baseline remains', !differences.some((line) => SHARED_CLEANUP_TABLES.has(line.split(':')[0]!)), sharedNotes.join(' | '));
   record(
     'An independent recount matches the baseline in every table, row for row and value for value',
     differences.length === 0,
@@ -367,7 +388,10 @@ async function readCard(card: Locator): Promise<CardRead> {
   const evidenceBlock = card.locator('[data-briefing-evidence]');
   await evidenceBlock.waitFor({ timeout: 15_000 });
   const evidence = await evidenceBlock.innerText();
-  const rankReason = evidence.split('\n').map((line) => line.trim()).find((line, index, all) => /why this ranked here/i.test(all[index - 1] ?? '')) ?? '';
+  // innerText uppercases the CSS headings and puts blank lines between blocks.
+  const lines = evidence.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+  const headingAt = lines.findIndex((line) => /^why this ranked here$/i.test(line));
+  const rankReason = headingAt >= 0 ? (lines[headingAt + 1] ?? '') : '';
   const pinnedSection = await card.evaluate((element) => Boolean(element.closest('[data-briefing-pinned]')));
   return {
     targetKey: (await card.getAttribute('data-briefing-card')) ?? '',
@@ -398,7 +422,7 @@ async function coachReadsBriefing(context: BrowserContext, label: string, keepOp
   await pause(300);
   const more = section.getByRole('button', { name: /^Show \d+ more connection/ });
   if ((await more.count()) > 0) await more.first().click();
-  const areaToggles = section.getByRole('button', { name: 'Areas Root checked' });
+  const areaToggles = section.getByRole('button', { name: 'Areas Root checked', exact: true });
   for (let guard = 0; guard < 60 && (await areaToggles.count()) > 0; guard += 1) {
     await areaToggles.first().click();
     await pause(60);
@@ -407,11 +431,44 @@ async function coachReadsBriefing(context: BrowserContext, label: string, keepOp
   const notObservedRows = await section.locator('[data-root-not-observed] li').count();
   const notObservedBlocks = await section.locator('[data-root-not-observed]').count();
   const whyCheckedCount = (fullEvidence.match(/why root checked this area/gi) ?? []).length;
-  const findingCount = await section.locator('article[data-root-finding-origin]').count();
+  // Only the full evidence: a card's own View evidence also draws finding
+  // cards, and which cards are open changes with every review action.
+  const findingCount = await section
+    .locator('article[data-root-finding-origin]')
+    .evaluateAll((nodes) => nodes.filter((node) => !node.closest('[data-briefing-evidence]')).length);
   writeFileSync(`${SHOTS}/${label}.txt`, fullEvidence);
   await page.screenshot({ path: `${SHOTS}/${label}.png`, fullPage: true });
   if (!keepOpen) await page.close();
   return { page, section, cards, sectionText, fullEvidence, notObservedRows, notObservedBlocks, whyCheckedCount, findingCount };
+}
+
+/** The answers a card REPORTS, from its View evidence text: related findings excluded. */
+function reportedEntries(evidence: string): string[] {
+  const answersPart = (evidence.split(/every answer behind this card/i)[1] ?? '').split(/assessment context|signal timelines|related questions with nothing current|association details/i)[0] ?? '';
+  return answersPart
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .reduce<string[][]>((out, line) => {
+      if (/, (Almost always|Often|Sometimes|Rarely|Never)$/.test(line)) out.push([line]);
+      else out[out.length - 1]?.push(line);
+      return out;
+    }, [])
+    .filter((entry) => !entry.some((line) => line.startsWith('Connected through')))
+    .map((entry) => entry.join('\n'));
+}
+
+/** Open priority cards in the briefing: the ones shown plus "View all findings (N more)". */
+async function openCardCount(read: BriefingRead): Promise<number> {
+  const shown = read.cards.filter((card) => card.section === 'priority').length;
+  const more = /View all findings \((\d+) more\)/.exec(read.sectionText);
+  return shown + (more ? Number(more[1]) : 0);
+}
+
+/** The full evidence only, as text: everything under "All evidence Root checked". */
+function fullEvidenceText(read: BriefingRead): string {
+  const at = read.fullEvidence.toLowerCase().lastIndexOf('all evidence root checked');
+  return at === -1 ? '' : read.fullEvidence.slice(at);
 }
 
 const FREQUENCY_RANK: Record<string, number> = { 'Almost always': 8, Often: 6, Sometimes: 3, Rarely: 1, Never: 0 };
@@ -481,15 +538,78 @@ async function readPhase(): Promise<void> {
 
     const shown = read.cards.filter((card) => card.section === 'priority');
     record('1. No pinned section before any review action', read.cards.every((card) => card.section === 'priority'));
-    record('1. The briefing renders above the evidence', read.sectionText.indexOf('Coach briefing') < read.sectionText.indexOf('All evidence Root checked'), read.sectionText.split('\n').slice(0, 3).join(' | '));
+    const lowered = read.sectionText.toLowerCase();
+    record('1. The briefing renders above the evidence', lowered.indexOf('coach briefing') > -1 && lowered.indexOf('coach briefing') < lowered.indexOf('all evidence root checked'), read.sectionText.split('\n').filter(Boolean).slice(0, 3).join(' | '));
     record('1. At most three cards are shown', shown.length >= 1 && shown.length <= 3, `${shown.length} cards: ${shown.map((card) => card.headline).join(' || ')}`);
     record('1. Every card says why it ranked where it did', shown.every((card) => card.rankReason.length > 0), shown.map((card) => card.rankReason).join(' || '));
     record('1. The order agrees with the ranking rules as each card states them', rankedByRules(shown));
     const updated = /Last updated [^\n]+/.exec(read.sectionText)?.[0] ?? '';
     record('1. The briefing says when it was last updated', updated.length > 0, updated);
 
-    const changedAnywhere = shown.some((card) => card.markers.includes('Changed since last time') || /Changed since last time/.test(card.reported));
-    record('2. Her existing findings are First recorded, never Changed', shown.every((card) => card.markers.includes('First recorded')) && !changedAnywhere, shown.map((card) => card.markers.join('+')).join(' || '));
+    // CHECK 2, AGAINST HER REAL SITTINGS rather than an assumption. For every
+    // survey answer a card lists, the expected change line is worked out here
+    // from her stored sittings and compared with what the page says.
+    const content = await loadMemberContent(service);
+    const refByPrompt = new Map(content.questions.map((question) => [question.prompt, question]));
+    const labelOf = new Map(content.scale.map((option) => [option.valueKey, option.label]));
+    const { rows: sittings } = await selectAllRows<{ id: string; answers: Record<string, string>; branch: 'a' | 'b'; completed_at: string }>(() =>
+      service
+        .from('member_body_systems_sessions')
+        .select('id, answers, branch, completed_at')
+        .eq('member_id', MEMBER_ID)
+        .not('completed_at', 'is', null)
+        .order('completed_at')
+        .order('id')
+    );
+    const { data: profile } = await service.from('profiles').select('timezone').eq('id', MEMBER_ID).maybeSingle();
+    const zone = (profile?.timezone as string | null) ?? 'America/New_York';
+    const dayOf = (instant: string) =>
+      new Date(instant).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: zone });
+    const latest = sittings[sittings.length - 1]!;
+    const expectations: string[] = [];
+    const mismatches: string[] = [];
+    for (const card of shown) {
+      // Only the answers she REPORTED carry a change line; a related
+      // finding in the same list says "Connected through" instead.
+      const answersPart = (card.evidence.split(/every answer behind this card/i)[1] ?? '').split(/assessment context|signal timelines|related questions with nothing current|association details/i)[0] ?? '';
+      const entries = answersPart
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .reduce<string[][]>((out, line) => {
+          if (/, (Almost always|Often|Sometimes|Rarely|Never)$/.test(line)) out.push([line]);
+          else out[out.length - 1]?.push(line);
+          return out;
+        }, [])
+        .filter((entry) => !entry.some((line) => line.startsWith('Connected through')))
+        .map((entry) => entry.join('\n'));
+      for (const [prompt, question] of refByPrompt) {
+        const entry = entries.find((candidate) => candidate.split('\n').includes(prompt));
+        if (!entry) continue;
+        const now = latest.answers[question.questionRef];
+        const earlier = [...sittings.slice(0, -1)].reverse().find((sitting) => {
+          const value = sitting.answers[question.questionRef];
+          const asked = question.branch === 'all' || question.branch === sitting.branch;
+          return asked && value !== undefined && value !== 'dna' && labelOf.has(value);
+        });
+        let expected: string;
+        if (!earlier) expected = 'First recorded';
+        else {
+          const from = labelOf.get(earlier.answers[question.questionRef]!)!;
+          const to = labelOf.get(now!)!;
+          expected = from === to
+            ? `Same as last time: ${to} (${dayOf(earlier.completed_at)} and ${dayOf(latest.completed_at)})`
+            : `Changed since last time: ${to} (${dayOf(latest.completed_at)}) from ${from} (${dayOf(earlier.completed_at)})`;
+        }
+        expectations.push(`${question.questionRef}: ${expected}`);
+        if (!entry.includes(expected)) mismatches.push(`${question.questionRef} expected "${expected}" in: ${entry.replace(/\n/g, ' / ').slice(0, 200)}`);
+      }
+    }
+    record(
+      `2. Change markers match her real history (${sittings.length} completed sittings: ${sittings.map((sitting) => dayOf(sitting.completed_at)).join(', ')})`,
+      expectations.length > 0 && mismatches.length === 0,
+      mismatches.length ? mismatches.join(' | ') : expectations.join(' | ')
+    );
 
     const noRelated = shown.filter((card) => card.related.includes('No related findings are currently supported by her answers.'));
     const withRelated = shown.filter((card) => !card.related.includes('No related findings'));
@@ -507,7 +627,7 @@ async function readPhase(): Promise<void> {
     record('Headlines lead with what she reported and use exploration language only', shown.every((card) => /: (explore .+|related areas to explore|worth reviewing)\.$/.test(card.headline)));
     record('No percent sign and no em dash anywhere in the section', !read.fullEvidence.includes('%') && !read.fullEvidence.includes(String.fromCharCode(0x2014)));
     record('6b. No score or percentage on any card or rank note; the only numbers in a rank note count her signals', shown.every((card) => !/%|percent|score|points/i.test(card.headline + card.reported + card.related + card.why + card.explore + card.rankReason) && !/\d/.test(card.rankReason.replace(/\d+ supporting signals?/, '').replace(/from \d+ sources/, ''))));
-    record('6b. Section results appear as assessment context inside View evidence, never as related findings', shown.some((card) => /assessment context/i.test(card.evidence)) && shown.every((card) => !/Speaking loudly|Showing up/.test(card.related)), shown.map((card) => (/assessment context\n([^\n]+)/i.exec(card.evidence) ?? ['', 'none'])[1]).join(' || '));
+    record('6b. Section results appear as assessment context inside View evidence, never as related findings', shown.some((card) => /assessment context/i.test(card.evidence)) && shown.every((card) => !/Speaking loudly|Showing up/.test(card.related)), shown.map((card) => (/assessment context\s*\n\s*([^\n]+)/i.exec(card.evidence) ?? ['', 'none'])[1]).join(' || '));
 
     record('7. Empty areas are one line rows inside the evidence', read.notObservedRows > 0 && read.notObservedBlocks > 0, `${read.notObservedRows} one line rows in ${read.notObservedBlocks} lists`);
     record('7. "Why Root checked this area" is said once per finding, not once per area', read.whyCheckedCount <= read.findingCount, `${read.whyCheckedCount} times across ${read.findingCount} findings`);
@@ -660,8 +780,10 @@ async function flowPhase(): Promise<void> {
     if (!first) throw new Error('she has no completed sitting');
     const before = await coachReadsBriefing(coach.context, 'flow-0-before');
     const oftenRefs = Object.entries(first.answers).filter(([, value]) => value === 'often').map(([ref]) => ref);
-    const targetCard = before.cards.find((card) => oftenRefs.some((ref) => card.evidence.includes(questionByRef.get(ref)!.prompt)));
-    const raisedRef = oftenRefs.find((ref) => targetCard?.evidence.includes(questionByRef.get(ref)!.prompt));
+    const reportsPrompt = (card: CardRead, ref: string) =>
+      reportedEntries(card.evidence).some((entry) => entry.split('\n').includes(questionByRef.get(ref)!.prompt));
+    const targetCard = before.cards.find((card) => oftenRefs.some((ref) => reportsPrompt(card, ref)));
+    const raisedRef = oftenRefs.find((ref) => targetCard && reportsPrompt(targetCard, ref));
     if (!targetCard || !raisedRef) throw new Error('no shown card carries an Often answer to raise');
     const lastCard = before.cards[before.cards.length - 1]!;
     record('5. Chose the answer to change', true, `${raisedRef} "${questionByRef.get(raisedRef)!.prompt}" Often to Almost always, on "${targetCard.headline}" (ranked ${before.cards.indexOf(targetCard) + 1} of ${before.cards.length})`);
@@ -741,7 +863,7 @@ async function flowPhase(): Promise<void> {
     );
     record(
       '3. The pinned section sits above the priority cards and takes none of their three slots',
-      priorityCards.length === Math.min(3, after.cards.length - 1) && pinned.sectionText.indexOf('Cards you pinned') < pinned.sectionText.toLowerCase().indexOf('priority findings'),
+      priorityCards.length === Math.min(3, (await openCardCount(pinned)) ) && pinned.sectionText.indexOf('Cards you pinned') < pinned.sectionText.toLowerCase().indexOf('priority findings'),
       `${priorityCards.length} priority cards beside 1 pinned`
     );
 
@@ -791,7 +913,88 @@ async function flowPhase(): Promise<void> {
   }
 }
 
+/**
+ * The end of the flow, from the state it left: used when the flow stopped on
+ * a slow page load after "Not relevant" saved, so the retake is not repeated
+ * (a second retake would add history the restore then has to remove).
+ */
+async function finishPhase(): Promise<void> {
+  const browser = await chromium.launch();
+  const coach = await mintSessionContext(browser, COACH_EMAIL, { baseUrl: BASE, viewport: { width: 1280, height: 1400 } });
+  const member = await mintSessionContext(browser, MEMBER_EMAIL, { baseUrl: BASE, viewport: { width: 390, height: 844 }, contextOptions: { reducedMotion: 'reduce' } });
+  if (!coach || !member) throw new Error('a session could not be minted');
+  const coachId = await userId(COACH_EMAIL);
+  const walk: Walk = { consoleErrors: [], bodies: [] };
+  try {
+    const { rows: reviews } = await selectAllRows<{ target_key: string; action: string; acted_at: string }>(() =>
+      service
+        .from('cross_system_root_briefing_reviews')
+        .select('target_key, action, acted_at')
+        .eq('coach_id', coachId)
+        .eq('member_id', MEMBER_ID)
+        .order('acted_at')
+        .order('id')
+    );
+    const latest = new Map<string, string>();
+    for (const row of reviews) latest.set(row.target_key, row.action);
+    const pinTarget = [...latest].find(([, action]) => action === 'discuss_next_session')?.[0];
+    const notRelevantTarget = [...latest].find(([, action]) => action === 'not_relevant')?.[0];
+    record('Picked up the flow state: one pinned card and one Not relevant card', Boolean(pinTarget && notRelevantTarget), `${reviews.length} review rows`);
+
+    const afterNotRelevant = await coachReadsBriefing(coach.context, 'flow-4-not-relevant');
+    record('6. Not relevant folds that card', !afterNotRelevant.cards.some((card) => card.targetKey === notRelevantTarget) && /Reviewed or not relevant \(\d+\)/i.test(afterNotRelevant.sectionText));
+    const before = readFileSync(`${SHOTS}/flow-0-before.txt`, 'utf8');
+    const beforeFull = before.slice(before.toLowerCase().lastIndexOf('all evidence root checked'));
+    const retakeRead = readFileSync(`${SHOTS}/flow-2-after-retake.txt`, 'utf8');
+    const retakeFull = retakeRead.slice(retakeRead.toLowerCase().lastIndexOf('all evidence root checked'));
+    const pinnedRead = readFileSync(`${SHOTS}/flow-3-pinned.txt`, 'utf8');
+    const pinnedFull = pinnedRead.slice(pinnedRead.toLowerCase().lastIndexOf('all evidence root checked'));
+    const reviewedRead = readFileSync(`${SHOTS}/flow-1-reviewed.txt`, 'utf8');
+    const reviewedFull = reviewedRead.slice(reviewedRead.toLowerCase().lastIndexOf('all evidence root checked'));
+    record('6. No evidence disappeared after Reviewed: the full evidence is identical before and after', beforeFull === reviewedFull, `${beforeFull.length} and ${reviewedFull.length} characters`);
+    record('6. No evidence disappeared after Discuss next session: identical before and after', retakeFull === pinnedFull, `${retakeFull.length} and ${pinnedFull.length} characters`);
+    record('6. No evidence disappeared after Not relevant: identical before and after', pinnedFull === fullEvidenceText(afterNotRelevant), `${pinnedFull.length} and ${fullEvidenceText(afterNotRelevant).length} characters`);
+    const pinnedCards = afterNotRelevant.cards.filter((card) => card.section === 'pinned');
+    const priority = afterNotRelevant.cards.filter((card) => card.section === 'priority');
+    record('3. The pinned section sits above the priority cards and takes none of their three slots', pinnedCards.length === 1 && priority.length === Math.min(3, await openCardCount(afterNotRelevant)) && afterNotRelevant.sectionText.indexOf('Cards you pinned') < afterNotRelevant.sectionText.toLowerCase().indexOf('priority findings'), `${pinnedCards.length} pinned, ${priority.length} priority shown of ${await openCardCount(afterNotRelevant)} open`);
+
+    record('3. Reviewed on the pinned card saved', await actOn(coach.context, pinTarget!, 'reviewed'));
+    const unpinned = await coachReadsBriefing(coach.context, 'flow-5-unpinned');
+    record('3. Reviewing a pinned card removes its pin and folds it', !unpinned.cards.some((card) => card.targetKey === pinTarget) && !unpinned.sectionText.includes('Cards you pinned'));
+    record('6. No evidence disappeared after Reviewed on the pinned card', fullEvidenceText(afterNotRelevant) === fullEvidenceText(unpinned));
+
+    for (const route of ['/dashboard', '/today', '/checkin', '/body-systems', '/progress', '/profile']) {
+      const routePage = await member.context.newPage();
+      listen(routePage, walk);
+      await go(routePage, route);
+      await pause(1500);
+      await routePage.close();
+    }
+    const leaks: string[] = [];
+    for (const { url, body } of walk.bodies) for (const word of COACH_ONLY_WORDS) if (body.includes(word)) leaks.push(`"${word}" in ${url.slice(0, 90)}`);
+    record('8. Zero coach-only phrases in every member response body', leaks.length === 0, leaks.length ? leaks.slice(0, 6).join(' | ') : `${walk.bodies.length} response bodies across six member routes`);
+    record('8. Zero console errors on her screens', walk.consoleErrors.length === 0, walk.consoleErrors.slice(0, 5).join(' | '));
+    const asMember = createClient(process.env.PROD_SUPABASE_URL!, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${member.session.access_token}` } },
+    });
+    const readable: string[] = [];
+    for (const table of ['cross_system_root_briefing_reviews', 'cross_system_root_briefing_visits', 'cross_system_root_findings', 'cross_system_signals']) {
+      const { data } = await asMember.from(table).select('*').limit(5);
+      if ((data ?? []).length > 0) readable.push(`${table}=${data!.length}`);
+    }
+    record('8. Her own session reads 0 rows from the briefing tables and the Root tables', readable.length === 0, readable.join(', ') || 'all four empty to her');
+  } catch (error) {
+    record('The finish completed without throwing', false, String(error).slice(0, 400));
+  } finally {
+    await retireSession(member);
+    await retireSession(coach);
+    await browser.close();
+  }
+}
+
 const phases: Record<string, () => Promise<void>> = {
+  finish: finishPhase,
   baseline: baselinePhase,
   read: readPhase,
   flow: flowPhase,
@@ -799,7 +1002,7 @@ const phases: Record<string, () => Promise<void>> = {
 };
 const run = phases[process.argv[2] ?? ''];
 if (!run) {
-  console.error('Usage: verify-root-briefing-live.ts baseline|read|flow|restore');
+  console.error('Usage: verify-root-briefing-live.ts baseline|read|flow|finish|restore');
   process.exit(2);
 }
 if (process.argv[2] === 'restore' && !existsSync(BASELINE)) {

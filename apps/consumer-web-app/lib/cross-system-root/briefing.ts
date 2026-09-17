@@ -307,6 +307,19 @@ export type RootBriefingInputs = {
   lastVisitedAt: string | null;
 };
 
+/**
+ * One card in a briefing, by target, wherever it is drawn: the pinned
+ * section or the priority cards. The one lookup the review action uses, so a
+ * card that moved sections is still a card a coach can act on.
+ */
+export function findBriefingCard(
+  briefing: Pick<RootBriefingView, 'pinned' | 'cards'> | null | undefined,
+  targetKey: string
+): BriefingCardView | null {
+  if (!briefing) return null;
+  return [...briefing.pinned, ...briefing.cards].find((card) => card.targetKey === targetKey) ?? null;
+}
+
 // ---------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------

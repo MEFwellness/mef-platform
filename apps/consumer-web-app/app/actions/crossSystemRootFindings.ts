@@ -37,6 +37,7 @@ import {
 import type { FullRootNoticedView } from '@/lib/cross-system-root/noticedView';
 import { recordBriefingReview, recordBriefingVisit } from '@/lib/cross-system-root/briefingData';
 import { isBriefingReviewAction } from '@/lib/cross-system-root/briefingRules';
+import { findBriefingCard } from '@/lib/cross-system-root/briefing';
 import { EMPTY_ROOT_NOTICED_VIEW, readRootNoticed } from '@/lib/cross-system-root/noticedRead';
 
 export type RootNoticedPanelState = {
@@ -100,7 +101,8 @@ export async function recordRootBriefingReviewAction(
   if (!(await isMemberVisibleToStaff(supabase, clientId, user.id))) return { ok: false };
 
   const view = await readRootNoticed(supabase, clientId, { viewerId: user.id });
-  const card = view.briefing?.cards.find((entry) => entry.targetKey === targetKey);
+  // Pinned or not: a pinned card must still be one she can review.
+  const card = findBriefingCard(view.briefing, targetKey);
   if (!card) return { ok: false };
 
   const ok = await recordBriefingReview(supabase, {
