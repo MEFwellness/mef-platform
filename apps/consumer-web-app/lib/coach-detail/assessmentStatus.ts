@@ -108,24 +108,36 @@ const NOT_SENDABLE: AssignCapability = {
  * registry row and the experience slug for a deep-dive, so no definition
  * UUID is typed out here and nothing can drift from the registry.
  *
- * A KEY THAT IS ABSENT IS A DELIBERATE NULL. Four questionnaires
- * (Nutrition and Lifestyle, Four Doctors, Primal Pattern Diet Type, Short
- * Health Assessment) have no card of their own in this section: their
- * sittings are listed under Progress and Reassessments, which renders only
- * when a baseline exists. A completed row for one of those therefore
- * carries no tap-through rather than a link that would land on nothing on
- * some clients and say nothing about it.
+ * A KEY THAT IS ABSENT IS A DELIBERATE NULL. Three questionnaires
+ * (Nutrition and Lifestyle, Four Doctors, Short Health Assessment) have no
+ * card of their own in this section: their sittings are listed under
+ * Progress and Reassessments, which renders only when a baseline exists. A
+ * completed row for one of those therefore carries no tap-through rather
+ * than a link that would land on nothing on some clients and say nothing
+ * about it.
+ *
+ * THREE OF THEM WERE ABSENT BY OVERSIGHT RATHER THAN BY DECISION, and
+ * 2026-09-17 added them. The Health Appraisal, the Fuel Pattern Assessment
+ * and the Health and Lifestyle Intake each already had a card on this page
+ * and a completed row in this block, and the two were simply never joined:
+ * a coach reading "Completed" was offered Assign Again and no way to read
+ * what had come back, on a page that was already drawing it further down.
+ * Nothing new renders because of this; the rows now point at what was
+ * always there.
  */
 export const ASSESSMENT_RESULT_ANCHORS: Record<string, string> = {
   'core-values-snapshot': 'detail-card-core-values',
   'life-signal-check': 'detail-card-life-signal',
   'readiness-pulse': 'detail-card-readiness-pulse',
   'onboarding-health-history': 'detail-card-baseline',
+  'fuel-pattern': 'detail-card-fuel-pattern',
   'body-assessment': 'detail-card-body-assessment',
   wbsa: 'detail-card-wbsa',
   'body-systems-survey': 'detail-card-body-systems',
   'whole-body-signal': 'detail-card-whole-body-signal',
+  'health-lifestyle-intake': 'detail-card-health-intake',
   'breathing-pattern-check-in': 'detail-card-breathing-check-in',
+  haq: 'detail-card-health-appraisal',
   'stress-load-deep-dive': 'detail-card-stress-load',
   'owning-your-value': 'detail-card-owning-your-value',
   'where-your-joy-lives': 'detail-card-where-your-joy-lives',

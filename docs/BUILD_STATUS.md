@@ -1,3 +1,68 @@
+## The Completed list points at the results it was already drawing (2026-09-17)
+
+On the coach's client Detail page, the Assessment Status block's Completed
+group offered "View results" on most rows and, on three of them, only
+Assign Again. The Rooted Reset Health Appraisal Questionnaire, the Rooted
+Reset Fuel Pattern Assessment and the Health & Lifestyle Intake each
+rendered a full results card further down the SAME page, and the row simply
+never pointed at it. A coach reading "Completed" was told something had come
+back and offered no way to read it.
+
+**No new view, no new route, no new component and no query changed.** The
+whole change is three lines in `ASSESSMENT_RESULT_ANCHORS`
+(`lib/coach-detail/assessmentStatus.ts`), the one map that decides which
+Completed rows carry a tap-through:
+
+    'fuel-pattern'            -> detail-card-fuel-pattern
+    'health-lifestyle-intake' -> detail-card-health-intake
+    haq                       -> detail-card-health-appraisal
+
+The link is the existing control, unchanged: the same button, the same
+styling, the same placement beside Assign Again, going through the same
+`requestDetailSection` bus the pinned search uses, so the owning section
+opens before the scroll. That last part is why the Intake matters as a case
+of its own: its card lives in Health Context, a DIFFERENT collapsible
+section, and a browser cannot scroll to an anchor inside a section that is
+still folded.
+
+### THE NEWEST SITTING IS WHAT HE LANDS ON, AND THE READ IS WHAT DECIDES IT
+
+The Health Appraisal's card lists every finished sitting newest first, each
+one opening the full reading that already existed at
+`/coach/clients/[id]/health-appraisal/[sessionId]`. Writing the test proved
+the ordering is NOT the panel's doing: `buildHaqSittingSummaries` preserves
+the order it is handed, and newest-first comes from
+`listHaqCoachInstances`'s own `completed_at` descending read. The test
+asserts it where it is actually decided, because asserting it on the builder
+would have passed while proving nothing.
+
+### THE THREE ROWS LEFT ALONE, AND WHY
+
+Four Doctors, Nutrition & Lifestyle and the Short Health Assessment
+Questionnaire have no results card anywhere on this page. Pointing them
+somewhere would be a link that lands on nothing, so their rows are untouched
+and still carry their status line and their send control. The map's header
+comment named four of these and included Primal Pattern Diet Type, which has
+since been retired into the Fuel Pattern card; it now names the three that
+are really true.
+
+### TESTS
+
+`tests/coach-assessment-status-block.test.tsx` gained 7: the Health
+Appraisal row offering View results once a sitting has come back, that link
+opening `detail-card-health-appraisal` through the bus, the control sitting
+BESIDE Assign Again rather than replacing it, nothing offered before a
+sitting exists, the Fuel Pattern row, the Intake row opening across sections
+into Health Context, and the three rows with no view rendering unchanged. A
+new guard asserts every anchor in the map is a real indexed card that
+`sectionIdForAnchor` can open, so no row can point at an id nothing renders.
+`tests/haq-coach-view.test.ts` gained 4 covering the anchor, the card on the
+page, the order the read hands over, and the sitting route.
+
+All five behavioural tests were proved to FAIL with the three map lines
+removed, so none of them passes vacuously. Full suite 13,339 passing.
+Nothing member-facing was touched.
+
 ## Rooted Reset Health Appraisal Questionnaire, Prompt 3 of 3: her results, the coach's reading, retakes and history (2026-09-17)
 
 The HAQ is finished. She can now read what her sitting showed, her coach can

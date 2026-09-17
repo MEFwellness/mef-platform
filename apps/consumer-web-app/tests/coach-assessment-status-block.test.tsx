@@ -52,8 +52,10 @@ const { AssessmentStatusBlock } =
   await import('@/app/coach/clients/[id]/detail/AssessmentStatusBlock');
 const { listAssignableTemplates } = await import('@/lib/assignments/assignableCatalog');
 const { assignmentNameRecord } = await import('@/lib/assignments/experienceNames');
-const { groupAssessmentsByStatus, assessmentStatusCounts } =
+const { groupAssessmentsByStatus, assessmentStatusCounts, ASSESSMENT_RESULT_ANCHORS } =
   await import('@/lib/coach-detail/assessmentStatus');
+const { DETAIL_SECTIONS, sectionIdForAnchor } = await import('@/lib/coach-detail/sections');
+const { HAQ_LABEL } = await import('@/lib/haq/constants');
 const { assignmentStatusLine, resolveAssignmentProgress } =
   await import('@/lib/assignments/status');
 const { resetDetailBusForTests, useDetailSectionRequests } =
@@ -477,6 +479,142 @@ describe('a completed row goes to its results', () => {
     mount([orphan]);
     expect(rowEl('short-haq').textContent).toContain(orphan.statusLine);
     expect(rowEl('short-haq').textContent).not.toContain('View results');
+  });
+});
+
+/**
+ * THE THREE ROWS THAT HAD A CARD AND NO WAY IN (2026-09-17).
+ *
+ * The Health Appraisal, the Fuel Pattern Assessment and the Health and
+ * Lifestyle Intake each rendered a full results card on this page and each
+ * offered only Assign Again once she had finished, because their template
+ * ids were missing from ASSESSMENT_RESULT_ANCHORS. Nothing new renders
+ * because of this: the rows now point at what was already drawn.
+ */
+describe('a completed row whose card existed but was never pointed at', () => {
+  /** Watches one section for the open-and-scroll request the row sends. */
+  function SectionSpy({
+    sectionId,
+    onOpen,
+  }: {
+    sectionId: string;
+    onOpen: (anchorId: string) => void;
+  }) {
+    useDetailSectionRequests(sectionId, onOpen);
+    return null;
+  }
+
+  function completed(templateId: string, id: string) {
+    return assignment({
+      id,
+      definitionId: TEMPLATES.find((t) => t.id === templateId)!.definitionId,
+      status: 'completed',
+      createdAt: '2026-09-01T12:00:00.000Z',
+      completedAt: '2026-09-03T18:00:00.000Z',
+    });
+  }
+
+  /** Mounts with a listener on `sectionId` and returns the anchors it is asked to open. */
+  function mountWatching(sectionId: string, assignments: ReturnType<typeof assignment>[]) {
+    const opened: string[] = [];
+    const groups = groupAssessmentsByStatus(TEMPLATES, assignments, NAMES);
+    act(() => {
+      root.render(
+        <>
+          <SectionSpy sectionId={sectionId} onOpen={(anchorId) => opened.push(anchorId)} />
+          <AssessmentStatusBlock clientId="member-1" groups={groups} />
+        </>
+      );
+    });
+    return opened;
+  }
+
+  function viewResultsIn(rowId: string): HTMLButtonElement | undefined {
+    return [...rowEl(rowId).querySelectorAll('button')].find(
+      (b) => b.textContent === 'View results'
+    ) as HTMLButtonElement | undefined;
+  }
+
+  it('the Health Appraisal offers View results once a sitting has come back', () => {
+    const done = completed('haq', 'a-haq');
+    const opened = mountWatching('detail-section-assessments', [done]);
+    expect(groupEl('completed').textContent).toContain(HAQ_LABEL);
+    const link = viewResultsIn('haq');
+    expect(link, 'View results on the Health Appraisal row').toBeDefined();
+    click(link!);
+    expect(opened).toEqual(['detail-card-health-appraisal']);
+  });
+
+  it('sits beside Assign Again rather than replacing it, exactly as the other rows do', () => {
+    mountWatching('detail-section-assessments', [completed('haq', 'a-haq')]);
+    const labels = [...rowEl('haq').querySelectorAll('button')].map((b) => b.textContent);
+    expect(labels).toContain('View results');
+    expect(labels).toContain('Assign Again');
+  });
+
+  it('offers nothing at all before a sitting has come back', () => {
+    mount();
+    expect(rowEl('haq').textContent).not.toContain('View results');
+  });
+
+  it('the Fuel Pattern Assessment opens its own card in the same section', () => {
+    const opened = mountWatching('detail-section-assessments', [
+      completed('fuel-pattern', 'a-fuel'),
+    ]);
+    const link = viewResultsIn('fuel-pattern');
+    expect(link, 'View results on the Fuel Pattern row').toBeDefined();
+    click(link!);
+    expect(opened).toEqual(['detail-card-fuel-pattern']);
+  });
+
+  /*
+    THE INTAKE'S CARD IS IN A DIFFERENT SECTION, which is the case most
+    likely to break: Health Context is a separate collapsible group, and a
+    browser cannot scroll to an anchor inside a section that is still
+    folded. It goes through the same bus, so the section opens first.
+  */
+  it('the Health and Lifestyle Intake opens its card in Health Context, across sections', () => {
+    const opened = mountWatching('detail-section-health-context', [
+      completed('health-lifestyle-intake', 'a-hli'),
+    ]);
+    const link = viewResultsIn('health-lifestyle-intake');
+    expect(link, 'View results on the Health and Lifestyle Intake row').toBeDefined();
+    click(link!);
+    expect(opened).toEqual(['detail-card-health-intake']);
+  });
+
+  /*
+    AND THE ROWS THAT GENUINELY HAVE NOWHERE TO GO ARE UNTOUCHED. These
+    three have no results card anywhere on this page, so a link would land
+    on nothing. They keep their status line and their send control and
+    offer no tap-through, which is what they did before this change.
+  */
+  it.each(['four-doctors', 'chek-hlc1-nutrition-lifestyle', 'short-haq'])(
+    'leaves %s unchanged, because it has no results view to open',
+    (templateId) => {
+      const done = completed(templateId, `a-${templateId}`);
+      mount([done]);
+      expect(rowEl(templateId).textContent).toContain(done.statusLine);
+      expect(rowEl(templateId).textContent).not.toContain('View results');
+      expect(groupAssessmentsByStatus(TEMPLATES, [done], NAMES).completed.find(
+        (r) => r.id === templateId
+      )!.resultsAnchorId).toBeNull();
+    }
+  );
+
+  /*
+    NO ROW MAY POINT AT AN ID NOTHING RENDERS. The failure this guards
+    against is silent: a tap that opens no section and scrolls nowhere
+    looks like a dead button, not like an error.
+  */
+  it('every anchor in the map resolves to a section that can open it', () => {
+    const entries = Object.entries(ASSESSMENT_RESULT_ANCHORS);
+    expect(entries.length).toBeGreaterThan(0);
+    const cards = DETAIL_SECTIONS.flatMap((section) => section.cards).map((card) => card.id);
+    for (const [templateId, anchorId] of entries) {
+      expect(cards, `${templateId} points at ${anchorId}`).toContain(anchorId);
+      expect(sectionIdForAnchor(anchorId), `${templateId} owning section`).not.toBeNull();
+    }
   });
 });
 

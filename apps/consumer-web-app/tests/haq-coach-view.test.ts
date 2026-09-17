@@ -12,11 +12,16 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   buildCoachHaqSitting,
   buildHaqSittingSummaries,
   type CoachHaqSitting,
 } from '../lib/haq/coachView';
+import { ASSESSMENT_RESULT_ANCHORS } from '../lib/coach-detail/assessmentStatus';
+import { DETAIL_SECTIONS, sectionIdForAnchor } from '../lib/coach-detail/sections';
+import { HAQ_KEY, HAQ_LABEL } from '../lib/haq/constants';
 import type {
   HaqCoachInstance,
   HaqCoachQuestionResponseRow,
@@ -39,6 +44,8 @@ const EARLIER: HaqCoachInstance = {
   completedAt: '2026-06-17T14:00:00.000Z',
   haqVersion: 'haq_v1',
 };
+
+const ROOT = path.resolve(__dirname, '..');
 
 function resultRow(sessionId: string, sectionId: string, rawTotal: number, color: HaqResultColor): HaqCoachSectionResultRow {
   const state = HAQ_RESULT_STATES[color];
@@ -282,5 +289,74 @@ describe('the history list on the client Detail page', () => {
     const summaries = buildHaqSittingSummaries([SITTING], []);
     expect(summaries[0]!.hasResults).toBe(false);
     expect(summaries[0]!.counts).toEqual({ red: 0, yellow: 0, green: 0 });
+  });
+});
+
+/**
+ * THE WAY IN FROM THE COMPLETED LIST (2026-09-17).
+ *
+ * Every other finished assessment offered "View results" on its row in the
+ * Assessment Status block, and the Health Appraisal offered only Assign
+ * Again, on a page that was already drawing its sittings further down. The
+ * card, the route and the reading all existed; the row simply did not point
+ * at them. These assert the join, not a new view.
+ */
+describe('the Completed row points at the sittings this module builds', () => {
+  it('carries the anchor of the card its sittings render on, and that card is indexed', () => {
+    const anchor = ASSESSMENT_RESULT_ANCHORS[HAQ_KEY];
+    expect(anchor, 'the Health Appraisal row points somewhere').toBeDefined();
+    expect(anchor).toBe('detail-card-health-appraisal');
+    const cards = DETAIL_SECTIONS.flatMap((section) => section.cards);
+    expect(cards.some((card) => card.id === anchor && card.title === HAQ_LABEL)).toBe(true);
+    // A folded section cannot be scrolled to, so the anchor has to resolve
+    // to the section that opens first or the tap lands on nothing.
+    expect(sectionIdForAnchor(anchor!)).toBe('detail-section-assessments');
+  });
+
+  it('renders that card on the coach client detail page under the same id', () => {
+    const page = fs.readFileSync(path.join(ROOT, 'app/coach/clients/[id]/detail/page.tsx'), 'utf8');
+    expect(page).toContain('id="detail-card-health-appraisal"');
+    expect(page).toContain('<HaqPanel clientId={profile.id} state={haqPanel} />');
+  });
+
+  /**
+   * THE NEWEST SITTING IS THE FIRST THING HE REACHES, AND THE READ IS WHAT
+   * DECIDES IT. `buildHaqSittingSummaries` deliberately preserves the order
+   * it is handed rather than sorting again, so the claim "lands on the
+   * newest" belongs to `listHaqCoachInstances`, which orders on
+   * `completed_at` descending. Asserting it on the builder would prove
+   * nothing and would pass if the query's order were dropped tomorrow.
+   */
+  it('keeps the order the read handed it, rather than sorting a second time', () => {
+    const results = [
+      ...HAQ_SECTIONS.map((section, index) =>
+        resultRow(SITTING.sessionId, section.id, index, COLORS[index]!)
+      ),
+      ...HAQ_SECTIONS.map((section) => resultRow(EARLIER.sessionId, section.id, 0, 'green')),
+    ];
+    expect(
+      buildHaqSittingSummaries([SITTING, EARLIER], results).map((s) => s.sessionId)
+    ).toEqual([SITTING.sessionId, EARLIER.sessionId]);
+    expect(
+      buildHaqSittingSummaries([EARLIER, SITTING], results).map((s) => s.sessionId)
+    ).toEqual([EARLIER.sessionId, SITTING.sessionId]);
+  });
+
+  it('is handed them newest first, which is what puts the newest at the top of the card', () => {
+    const read = fs.readFileSync(path.join(ROOT, 'lib/haq/coachData.ts'), 'utf8');
+    const instances = read.slice(read.indexOf('listHaqCoachInstances'));
+    expect(instances).toContain("order('completed_at', { ascending: false })");
+    // Ends on a unique column so two pages can neither overlap nor skip.
+    expect(instances).toContain("order('id', { ascending: false })");
+  });
+
+  it('opens that sitting on the route the panel already links to', () => {
+    const panel = fs.readFileSync(path.join(ROOT, 'app/coach/clients/[id]/HaqPanel.tsx'), 'utf8');
+    expect(panel).toContain('/coach/clients/${clientId}/health-appraisal/${sitting.sessionId}');
+    expect(
+      fs.existsSync(
+        path.join(ROOT, 'app/coach/clients/[id]/health-appraisal/[sessionId]/page.tsx')
+      )
+    ).toBe(true);
   });
 });
