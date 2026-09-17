@@ -386,7 +386,6 @@ async function main(): Promise<void> {
 
     const beforeFull = await fullEvidence(section);
     const target = cards[0]!.targetKey;
-    const targetCard = () => section.locator(`[data-briefing-card="${target}"]`).first();
     const targetEvidenceBefore = firstEvidence.text;
     await page.close();
 

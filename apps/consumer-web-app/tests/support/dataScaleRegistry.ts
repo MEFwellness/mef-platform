@@ -243,6 +243,7 @@ export const RPC_RETURNS_SET: Record<string, boolean> = {
   get_member_restricted_topics: false,
   get_my_coaching_tone_preference: false,
   grant_coach_role: false,
+  haq_member_section_results: true,
   has_active_role: false,
   lead_acquisition_for_email: true,
   list_own_wellness_recommendation_feedback: true,

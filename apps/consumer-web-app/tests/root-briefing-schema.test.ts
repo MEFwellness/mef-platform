@@ -85,10 +85,12 @@ const RESTORE_SQL = fs.readFileSync(path.join(MIGRATIONS, RESTORE_FILE), 'utf8')
 const RESTORE_STATEMENTS = RESTORE_SQL.replace(/--.*$/gm, '');
 
 describe('migration 261', () => {
-  it('continues from 260 and is the head', () => {
+  // Directly after 260, rather than "the newest file", which the next
+  // migration anyone adds would falsify without anything being wrong.
+  it('continues directly from 260', () => {
     const files = fs.readdirSync(MIGRATIONS).filter((name) => /^\d+_.*\.sql$/.test(name)).sort();
-    expect(files[files.length - 1]).toBe(RESTORE_FILE);
-    expect(files[files.length - 2]).toBe(FILE);
+    expect(files.indexOf(RESTORE_FILE)).toBe(files.indexOf(FILE) + 1);
+    expect(files.indexOf(FILE)).toBeGreaterThanOrEqual(0);
   });
 
   it('allows restored beside the three review actions, on the review table only', () => {
