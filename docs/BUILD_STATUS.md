@@ -108,6 +108,31 @@ motion.
 Full suite: 655 files, 13,353 tests, all passing. Typecheck clean, lint clean
 on the changed files, production build clean.
 
+### LIVE, ON PRODUCTION: 31 OF 31
+
+`scripts/verify-haq-results-map-live.ts` is new and read only. It signs in as
+the real test member on app.mefwellness.com at 390x844 and checks the page
+against what the database actually holds: the three counts, the ten Parts in
+the instrument's order with every section in its own, one colour a row, each
+bar at its band, the only digits on the page being her three counts, a bar
+below the fold starting empty and filling when its row arrives and NOT
+starting again when she scrolls away and back, the strip holding one colour
+up without reordering or removing a row, a row opening on its own approved
+sentence with only one open at a time, every trend chip matching her previous
+sitting, the comparison line appearing exactly once, reduced motion drawing
+the same widths with no transition, and the coach's Deep Dive still carrying
+all 21 raw totals and its priority wording. All 31 passed.
+
+**Her newest sitting is the retake, and the page is showing it.** 13 Red / 1
+Yellow / 7 Green is the FIRST sitting and is still exactly what the database
+holds for it. The newest reads 10 Red / 4 Yellow / 7 Green, which is what the
+strip shows and what all 21 rows and their trend chips are measured against.
+
+The script asks the Supabase CLI for the keys over the owner's existing login
+and holds them in the process only, so nothing secret reaches a disk or a
+command line. `PROD_SERVICE_KEY_FILE` and `PROD_ANON_KEY_FILE` are still
+honoured when set, so the standing file path method keeps working unchanged.
+
 ## The Completed list points at the results it was already drawing (2026-09-17)
 
 On the coach's client Detail page, the Assessment Status block's Completed
