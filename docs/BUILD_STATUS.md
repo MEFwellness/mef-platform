@@ -1,3 +1,221 @@
+## Rooted Reset Health Appraisal Questionnaire, Prompt 2 of 3: the member experience, the body map, and who it opens for (2026-09-17)
+
+Prompt 1's backend is now something a member walks. The HAQ is registered,
+coach assign only, and the whole take experience exists:
+`/health-appraisal`. **No question wording, id, response value, cutoff or
+scoring rule from Prompt 1 changed.** The member results page and the coach
+view are Prompt 3.
+
+Files: `lib/haq/` gained `constants.ts`, `copy.ts`, `walk.ts`, `bodyMap.ts`,
+`access.ts`, `data.ts`, `service.ts`, `view.ts`, `pageProps.ts`;
+`app/health-appraisal/`, `app/api/haq/{answer,body-map}/route.ts`,
+`app/actions/haq.ts`, `app/actions/haqCoach.ts`, `components/haq/`;
+`supabase/migrations/00000000000263_rooted_reset_haq_registration.sql`;
+`scripts/verify-haq-member-live.ts`; tests `haq-member-experience`,
+`haq-member-integration` (plus `haq-ledger-fixture.ts`).
+
+### IT IS THE FIFTH COACH ASSIGN ONLY QUESTIONNAIRE, NOT A REGISTRY ENTRY
+
+The brief asked for it to be registered "in the catalog and registry". It is
+in the catalog (`assessment_definitions`, fixed id, bridged from the runtime
+definition) and in the coach's assignable list, and it is deliberately NOT in
+`lib/assessment-registry/registry.ts`, because **that file is the plan map**:
+every entry in it carries a `membership.minLevel`, and every level opens what
+it names. An entry there would mean a plan tier unlocks the HAQ, which the
+brief forbids. So it joins the Health & Lifestyle Intake, the Body Systems
+Survey, the Whole-Body Signal Assessment and the Breathing Pattern Check-In in
+`lib/questionnaires/coachAssignedQuestionnaires.ts`, which is where the four
+have lived since 2026-09-12 for exactly this reason. The standing rule
+("access is the plan, plus a coach assignment that only ever adds") is
+untouched: no second invisible lock was added under a plan, because there is
+no plan rule for this one at all.
+
+**ONE DIFFERENCE FROM THE FOUR, AND IT IS ON PURPOSE.** Each of them has its
+own Home card and its own Root knock, so their cards carry a null
+`assignmentId` to avoid offering the same assignment twice. The HAQ has
+neither, so its card carries the real id and the generic
+`questionnaire_assigned` knock and Home priority card find it the way they
+find every other assigned questionnaire. Still one offer per assignment.
+
+### THE GATE IS THE ASSIGNMENT, IN THE APP AND IN THE DATABASE
+
+`lib/haq/access.ts`: an open assignment, else a finished instance, else not
+offered, failing shut on a failed read. The route re-asks it before it
+renders and every write re-asks it from a fresh read. Migration 263 adds the
+same rule underneath, in the HAQ's own instance guard: a member opening an
+instance for herself must have a pending assignment. The runtime's shared
+session insert policy is untouched, so no other questionnaire's gating moved.
+
+Completion closes the assignment with no new code: the catalog bridge means
+migration 100's trigger writes one `assessment_attempts` row, and migration
+144's trigger on that table closes the pending assignment, in the same
+transaction as the section results.
+
+### WHAT SHE ACTUALLY WALKS
+
+Reused whole: `lib/questionnaire/groups.ts` (two or three questions a screen,
+never one alone, never across a section), `QuestionBlock`,
+`QuestionOptionButton` (gold on light), `SectionTransition`, `useScreenTop`,
+`AssessmentProgressBar`, and the runtime's `startOrResumeSession`,
+`persistAnswer` and `completeSession`. 260 questions become **94 screens**.
+
+- **The intro, once, before question one**: the approved framing, one line
+  saying there is nothing to get right, and the four answer definitions in
+  full. A small help control on every question screen reopens them.
+- **Where she is, always**: "Part III, Section A" over the section's own name,
+  and "Part X of 10" over the thin gold line. The line is that counter drawn,
+  a tenth per Part, moving screen by screen inside a Part. **No question
+  count, and no remaining count, anywhere.**
+- **Continue is the only thing that moves her.** No auto advance. Back moves
+  one screen, across a section boundary too, and any answer can be changed
+  until she completes.
+- **The beat names the real sections**: "Gastric Function complete", "Next: GI
+  Inflammation". Reduced motion skips it rather than playing it slowly.
+- The **Dysglycemia-L introduction** stands above that section's questions, on
+  each of its screens.
+- **Autosave on every tap**, over a route handler rather than a Server Action
+  for the reason the 2026-09-11 pass gives (a Server Action's response is the
+  whole page; 260 taps would be 260 renders). Exit and completion wait for
+  every save first. Resume restores her answers and lands her on the first
+  screen holding an unanswered question, derived from her answers rather than
+  from a stored pointer.
+- **Neutral answers**: the same four rows, one gold selected state with a
+  tick for every option, no number anywhere near them, no ordinals.
+
+### THE BODY MAP
+
+The approved instruction, a front and a back view drawn as one figure,
+25 areas a view, and four categories: Pain, Swelling, Discomfort, Skin
+change. A tap opens a sheet, a category makes the mark, the mark is listed
+underneath and can be removed, and tapping a marked category again removes
+it. **Left and right are HERS**: the same side of the picture is her right on
+the front and her left on the back, and the stored location always says her
+side. An elbow is a small target on a phone, so every area is also offered as
+a list of full width rows. It is optional: **completing with nothing marked
+is never blocked**, and no mark ever reaches a section total (proved against
+the real database: 21 sections all at their own totals with marks standing).
+
+### COMPLETION
+
+All 260 answers are still required (Prompt 1 enforces it in the runtime and in
+the database) and the section results are computed in the same transaction.
+Her screen says "Health Appraisal complete. Thank you for taking the time."
+and that her coach can now see her responses, and carries **no result, no
+colour and no number**. Her results page is Prompt 3.
+
+### WHAT THE PRODUCTION WALK FOUND, AND IT WAS NOT A TEST THAT FOUND IT
+
+The first live journey answered all 260 questions and then **lost the first
+body map mark**: one POST came back refused, the screen said so in a small
+line, and on a phone that is a mark she believes she made. A second area
+tapped while that write was still in flight was **ignored outright**, with
+nothing on screen to say why.
+
+Both are fixed. Every answer and body map write is **retried once** before she
+is told it failed, the same discipline the Turnstile submissions carry,
+because the first request to a route can be the one that pays for a cold
+start; a second failure is still hers to see. Saves still overlap, because a
+queue makes the round trips additive and costs a member who closes the tab her
+last answers. And a tap on an area **always** opens its sheet.
+
+Three tests hold it, each proved to fail without its fix. The fix was then
+driven in a real browser against the local dev server with the first write
+refused with a 500: all four marks reached the database and no failure line
+appeared.
+
+A third, smaller thing the same run found: the completion screen's haptic
+fired on every visit, and a browser blocks a vibration on a page nobody has
+tapped yet and logs an error for it. It now buzzes when she taps Complete and
+stays quiet on a revisit.
+
+### TESTS
+
+`haq-member-experience` 49 (the walk's arithmetic, the intro, the definitions
+reopening on sampled screens, the Part and Section header and "Part X of 10"
+on two screens of every one of the ten Parts, Continue, Back, a changed
+answer, resume position, the beat and the reduced motion member, the
+Dysglycemia-L intro, the body map including left and right, completion copy,
+the retry and the in-flight tap, and no em dash in anything she reads).
+`haq-member-integration` 10, against the real database through the real
+actions, route handlers and page as the signed in member and coach: the gate
+(no state, the route sends her Home, Begin opens nothing, every write refuses,
+and the database refuses a hand made insert), the coach's own Assign action,
+one instance per Begin, a changed answer replacing the stored response, resume
+after a mid Part III exit, the body map (area, view, category, duplicates,
+refusals, removal, a completed instance's marks frozen), completion closing the
+assignment, and the payload check: the page props carry exactly one number
+(the screen index) and her own session can read no value, cutoff, response
+record or result row.
+
+Prompt 1's suites were updated rather than worked around: the integration
+tests now have a coach assign the HAQ before each instance, which is what the
+product now requires, and the member safety guard's "nothing of the HAQ is
+visible" block is replaced by one proving the member files DO reach lib/haq
+and reach only the member safe modules.
+
+**652 files, 13,269 tests, all passing.** Typecheck clean, lint 0 errors,
+production build clean. Migration 263 applied to production with
+`supabase db push`; a dry run afterwards reported the remote database up to
+date.
+
+### LIVE VERIFICATION, PRODUCTION, 2026-09-17
+
+Repo `MEFwellness/mef-platform`, branch `main`. Commits `8e0d10d` (the build),
+`20f1624` (the body map fixes), `cbf7228` (the haptic and the review mode).
+Vercel project `mef-platform`, team `mef-wellness`: deployment
+`mef-platform-18dw5b7y2`, target production, Ready, aliased to
+`https://app.mefwellness.com` (read with `vercel inspect`).
+
+`scripts/verify-haq-member-live.ts`, four modes, as 8weeks2fab@gmail.com at
+390 x 844 with sessions minted and retired, and the coach's own account for
+the assignment.
+
+- **Before the deploy**, `baseline`: where all 14 existing questionnaire
+  routes land and what heading each shows, recorded outside the repository.
+- **`journey`, 31 of 32.** Locked with the Premium marker and no way in; the
+  lock sheet's coach sentence word for word with no plan and no way to buy
+  past it; a direct URL landing on Home; the coach's real Assign control on
+  his client Detail page writing one pending assignment; the card unlocking
+  under Assigned; the intro with the approved framing and the four
+  definitions; the help control reopening them; **the Part and Section header
+  and "Part X of 10" correct on all 94 screens**, all ten Parts walked; the
+  beat reading "Gastric Function complete" and "Next: GI Inflammation"; an
+  answer stored the moment it was tapped and a changed answer replacing it;
+  Save and exit midway through Part III and **resume landing on that exact
+  screen**, in Part III, with that answer still chosen and the screen before
+  it intact, and no intro again. The one failure was the body map mark
+  described above.
+- **`finish`, 16 of 20**, which picked the same instance up at the body map
+  rather than sitting a second one on a real member's account: the completion
+  screen with no number or colour on it, **one completed instance, 260
+  responses all equal to what was tapped, 21 section results whose colours
+  match the seeded cutoffs for their own totals (13 red, 7 green, 1 yellow),
+  the assignment closed**, no member facing response carrying a value, total,
+  cutoff or result, no number at all in any answer or body map response, all
+  14 existing routes unchanged, and zero console errors. Its four failures
+  were the lost mark and the three counts that followed from it.
+- **`review`, 7 of 7**, read only, against the deployment now serving the
+  domain: her one completed instance with 260 responses and 21 results, her
+  body map marks still standing front and back, the card on the shelf under
+  Completed, her route showing the completion with no result, colour or
+  number, all 14 existing routes exactly as the baseline recorded them, and
+  **zero console or page errors**.
+
+**What could NOT be re-verified live, and why.** The body map fix was proved
+in a real browser locally, not on production: adding marks needs an OPEN
+instance, and re-testing it on the live account would have meant either a
+second completed instance on a real member's record or discarding the one the
+brief asks to leave behind. So her finished sitting carries **two** marks
+(Abdomen, front, Discomfort and Back of right shoulder, back, Skin change)
+rather than three: one was lost to the defect above, and one was removed
+deliberately to prove removal works.
+
+**State left on production, on purpose:** the assignment (now closed by her
+completion), the one completed instance with its 260 responses, 21 section
+results and 2 body map marks, for the phone review and for Prompt 3.
+
+---
+
 ## Rooted Reset Health Appraisal Questionnaire, Prompt 1 of 3: the foundation (2026-09-17)
 
 A brand new assessment, internal id `haq`, version `haq_v1`: 21 scored
