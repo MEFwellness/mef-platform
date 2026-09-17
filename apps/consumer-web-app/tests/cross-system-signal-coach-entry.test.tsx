@@ -525,6 +525,15 @@ describe('this whole feature is coach only, structurally', () => {
       // reaches its copy, and the action establishes a coach and applies
       // the test account rule before it reads a single row.
       'app/actions/crossSystemRootFindings.ts',
+      // The Body Systems Survey question to signal mapping editor's action.
+      // Coach only, and guarded the same way:
+      // tests/questionnaire-signal-mapping.test.ts asserts every exported
+      // function establishes a coach or an administrator first.
+      'app/actions/crossSystemSignalMappings.ts',
+      // Its panel, which lives under components/ beside the Relationship
+      // Library's and is imported only by app/coach/signal-mappings, which
+      // the same test proves.
+      'components/coach-signal-mappings/SurveySignalMappingPanel.tsx',
     ];
     for (const hit of hits) {
       const isCoachSurface = hit.startsWith('app/coach/') || hit.startsWith('app/admin/');
@@ -554,7 +563,10 @@ describe('this whole feature is coach only, structurally', () => {
           hit === 'app/actions/crossSystemPatterns.ts' ||
           // The Root Noticed coach read, which is the other one: it reads
           // the Whole-Body Association Map against a member's complaint.
-          hit === 'app/actions/crossSystemRootFindings.ts',
+          hit === 'app/actions/crossSystemRootFindings.ts' ||
+          // The survey mapping editor borrows the Relationship Library's
+          // class strings so the two coach tools look like one feature.
+          hit === 'components/coach-signal-mappings/SurveySignalMappingPanel.tsx',
         `${hit} reaches the Relationship Library from outside a coach surface`
       ).toBe(true);
     }

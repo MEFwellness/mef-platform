@@ -141,6 +141,9 @@ const SEED_MIGRATIONS = [
   '00000000000253_cross_system_map_systems.sql',
   '00000000000254_cross_system_map_posture.sql',
   '00000000000255_cross_system_map_signals.sql',
+  // The survey mapping's first revision note, stored copy a coach reads in
+  // the version history and no source guard can see.
+  '00000000000258_cross_system_questionnaire_root.sql',
 ];
 
 function seededStringsIn(file: string): string[] {

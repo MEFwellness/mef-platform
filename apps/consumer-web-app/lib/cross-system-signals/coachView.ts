@@ -18,6 +18,19 @@
 
 import { findBodyArea, findCategory } from './library';
 import type { SignalLibrary, SignalRecord, SignalSide } from './types';
+import { isPresent } from '@/lib/cross-system-patterns/match';
+import {
+  CURRENT_WINDOW_DAYS,
+  compareCaptured,
+  daysBetween,
+  evidenceStateOf,
+} from '@/lib/cross-system-root/evidence';
+import {
+  STATE_LABELS,
+  SUPERSEDED_ANSWER_LINE,
+  answerBasisLine,
+  currentlySupportedByLine,
+} from '@/lib/cross-system-root/copy';
 
 /** How a side reads on the screen. Not a lookup table in a component, so every surface says it the same way. */
 export const SIDE_LABELS: Record<SignalSide, string> = {
@@ -51,6 +64,13 @@ export type SignalHistoryEntry = {
   complaintSurfaceLabel: string | null;
   sideLabel: string | null;
   entryMode: SignalRecord['entryMode'];
+  /**
+   * For a Body Systems Survey answer the survey rule judged: why it is, or
+   * is not, an active signal. Null for an Often or Almost always answer
+   * from her newest sitting, which needs no explaining, and for every row
+   * that is not a survey answer.
+   */
+  ruleLine: string | null;
 };
 
 /** One standardized signal for one member: its latest value, and everything before it. */
@@ -65,6 +85,18 @@ export type SignalGroupRow = {
   history: SignalHistoryEntry[];
   /** Every distinct source this signal has ever come from, in the order first seen. */
   sourceLabels: string[];
+  /**
+   * Its state on her timeline today, in Root's own words ("Current",
+   * "Reported before, not current"), or null when the view was built with
+   * no reference day or she has only ever said it is absent.
+   */
+  stateLabel: string | null;
+  /**
+   * "Currently supported by: ..." naming every source whose own latest word
+   * on this signal is present, recent, and not closed by a later answer.
+   * Null when no source currently supports it.
+   */
+  supportLine: string | null;
 };
 
 /** One category's rows. */
@@ -103,7 +135,49 @@ function entryOf(record: SignalRecord): SignalHistoryEntry {
     complaintSurfaceLabel: record.complaintSurfaceLabel,
     sideLabel: sideLabelOf(record.side),
     entryMode: record.entryMode,
+    ruleLine: ruleLineOf(record),
   };
+}
+
+function ruleLineOf(record: SignalRecord): string | null {
+  const verdict = record.questionnaire;
+  if (!verdict) return null;
+  if (verdict.superseded) return SUPERSEDED_ANSWER_LINE;
+  if (verdict.basis === 'often_or_more') return null;
+  return answerBasisLine(verdict.basis, {
+    supportingSourceLabels: verdict.supportingSourceLabels,
+    relatedTitles: [],
+  });
+}
+
+/**
+ * THE SOURCES THAT SUPPORT A SIGNAL NOW.
+ *
+ * Per source, that source's own latest row. It supports the signal when it
+ * is present, it is within Root's current window of the reference day, and
+ * no row from ANY source captured after it says the signal is absent. That
+ * last condition is what keeps "she wrote about headaches last week, and
+ * her survey since says Never" from claiming both.
+ */
+export function currentSupportingSources(
+  rows: readonly SignalRecord[],
+  referenceDay: string
+): string[] {
+  const ordered = [...rows].sort(compareCaptured);
+  let lastClosing: SignalRecord | null = null;
+  for (const row of ordered) if (!isPresent(row)) lastClosing = row;
+
+  const latestBySource = new Map<string, SignalRecord>();
+  for (const row of ordered) latestBySource.set(row.sourceKey, row);
+
+  const labels: string[] = [];
+  for (const row of latestBySource.values()) {
+    if (!isPresent(row)) continue;
+    if (daysBetween(row.capturedOn, referenceDay) > CURRENT_WINDOW_DAYS) continue;
+    if (lastClosing && compareCaptured(row, lastClosing) < 0) continue;
+    if (!labels.includes(row.sourceLabel)) labels.push(row.sourceLabel);
+  }
+  return labels;
 }
 
 /**
@@ -123,9 +197,9 @@ export function sideLabelOf(side: SignalSide | null): string | null {
  * happened.
  */
 function newestFirst(a: SignalRecord, b: SignalRecord): number {
-  if (a.capturedOn !== b.capturedOn) return a.capturedOn < b.capturedOn ? 1 : -1;
-  if (a.capturedAt !== b.capturedAt) return a.capturedAt < b.capturedAt ? 1 : -1;
-  return 0;
+  // The exact reverse of Root's own order, tie break included, so the row
+  // this list calls latest is the row Root's evidence reads as latest.
+  return compareCaptured(b, a);
 }
 
 /**
@@ -138,7 +212,8 @@ function newestFirst(a: SignalRecord, b: SignalRecord): number {
  */
 export function buildCoachSignalsView(
   records: readonly SignalRecord[],
-  library: SignalLibrary
+  library: SignalLibrary,
+  options: { referenceDay?: string } = {}
 ): CoachSignalsView {
   if (records.length === 0) return EMPTY_VIEW;
 
@@ -168,6 +243,24 @@ export function buildCoachSignalsView(
       if (!sourceLabels.includes(record.sourceLabel)) sourceLabels.push(record.sourceLabel);
     }
 
+    let stateLabel: string | null = null;
+    let supportLine: string | null = null;
+    if (options.referenceDay) {
+      const oldestFirst = [...group].sort(compareCaptured);
+      const state = evidenceStateOf(
+        {
+          signalSlug: latest.signalSlug,
+          side: latest.side,
+          rows: oldestFirst,
+          latest: oldestFirst[oldestFirst.length - 1]!,
+        },
+        options.referenceDay
+      );
+      stateLabel = state ? STATE_LABELS[state] : null;
+      const supporting = currentSupportingSources(group, options.referenceDay);
+      supportLine = supporting.length > 0 ? currentlySupportedByLine(supporting) : null;
+    }
+
     const row: SignalGroupRow = {
       signalSlug: latest.signalSlug,
       signalName: latest.signalName,
@@ -176,6 +269,8 @@ export function buildCoachSignalsView(
       latest: entryOf(latest),
       history: ordered.slice(1).map(entryOf),
       sourceLabels,
+      stateLabel,
+      supportLine,
     };
 
     const held = byCategory.get(latest.categoryKey);

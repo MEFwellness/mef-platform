@@ -35,9 +35,24 @@
 
 import { useState } from 'react';
 import { ChevronDown, Search, ShieldAlert, Sparkles } from 'lucide-react';
-import { FINDING_HEADINGS, EMPTY_BODY, EMPTY_HEADING } from '@/lib/cross-system-root/copy';
+import {
+  FINDING_HEADINGS,
+  EMPTY_BODY,
+  EMPTY_HEADING,
+  QUESTIONNAIRE_HEADING,
+  TRACE_HEADING,
+  TRACE_LEAD,
+  moreQuestionnaireFindingsLabel,
+} from '@/lib/cross-system-root/copy';
 import type { FindingAreaView, FindingRowLine, RootFindingView } from '@/lib/cross-system-root/view';
+import type {
+  QuestionnaireNoticedView,
+  QuestionnaireTraceSection,
+} from '@/lib/cross-system-root/noticedView';
 import type { RootNoticedPanelState } from '@/app/actions/crossSystemRootFindings';
+
+/** How many survey connections show before the rest are folded. */
+const QUESTIONNAIRE_FINDINGS_SHOWN = 5;
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const BLOCK_TITLE = 'text-[11px] font-semibold uppercase tracking-[0.12em] text-[#854D0E]';
@@ -130,16 +145,33 @@ function Finding({ finding }: { finding: RootFindingView }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <article className="rounded-2xl border border-[#1B3A2D]/10 bg-white p-4">
-      <div>
-        <p className={BLOCK_TITLE}>{FINDING_HEADINGS.presentingComplaint}</p>
-        <blockquote className="mt-1 border-l-2 border-[#854D0E]/30 pl-3 text-[14px] italic text-[#1B3A2D]">
-          {finding.complaintText}
-        </blockquote>
-        <p className="mt-1 text-[11px] text-[#1B3A2D]/55">
-          {finding.complaintSurface}, {finding.complaintOnDisplay}
-        </p>
-      </div>
+    <article
+      className="rounded-2xl border border-[#1B3A2D]/10 bg-white p-4"
+      data-root-finding-origin={finding.origin}
+    >
+      {finding.origin === 'questionnaire' ? (
+        // A SURVEY CARD HAS NO SENTENCE OF HERS TO QUOTE. It names the
+        // signals her answers currently support, and it names no score.
+        <div>
+          <p className="text-[13px] font-semibold text-[#1B3A2D]">{finding.triggerLine}</p>
+          <p className="mt-1 text-[11px] text-[#1B3A2D]/55">
+            {finding.complaintSurface}, {finding.complaintOnDisplay}
+          </p>
+        </div>
+      ) : (
+        <div>
+          <p className={BLOCK_TITLE}>{FINDING_HEADINGS.presentingComplaint}</p>
+          <blockquote className="mt-1 border-l-2 border-[#854D0E]/30 pl-3 text-[14px] italic text-[#1B3A2D]">
+            {finding.complaintText}
+          </blockquote>
+          <p className="mt-1 text-[11px] text-[#1B3A2D]/55">
+            {finding.complaintSurface}, {finding.complaintOnDisplay}
+          </p>
+          {finding.alsoSupportedBy ? (
+            <p className="mt-1 text-[12px] text-[#1B3A2D]/70">{finding.alsoSupportedBy}</p>
+          ) : null}
+        </div>
+      )}
 
       {finding.suppressed ? (
         <div className="mt-3 rounded-2xl border border-[#B45309]/25 bg-[#FEF3C7]/50 p-4">
@@ -218,11 +250,133 @@ function Finding({ finding }: { finding: RootFindingView }) {
   );
 }
 
+/** One section of the trace, folded until she opens it. */
+function TraceSection({ section }: { section: QuestionnaireTraceSection }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-t border-[#1B3A2D]/8 py-2 first:border-t-0">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 text-left text-[13px] font-semibold text-[#1B3A2D]"
+      >
+        <span>
+          {section.sectionName}
+          <span className="ml-2 text-[11px] font-normal text-[#1B3A2D]/55">
+            {section.activeCount === 1 ? '1 active signal' : `${section.activeCount} active signals`}
+          </span>
+        </span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        <ul className="mt-2 space-y-2">
+          {section.rows.map((row) => (
+            <li key={row.questionRef} className="rounded-xl bg-[#FAFAF8] p-3" data-trace-question={row.questionRef}>
+              <p className="text-[12px] italic text-[#1B3A2D]/75">{row.prompt}</p>
+              <p className="mt-1 text-[13px] text-[#1B3A2D]">
+                <span className="font-semibold">{row.answerLabel ?? 'No answer'}</span>
+                {row.signalName ? <span className="text-[#1B3A2D]/70">, signal: {row.signalName}</span> : null}
+              </p>
+              <p className="mt-0.5 text-[12px] text-[#1B3A2D]/75">{row.decision}</p>
+              {row.stateLabel ? (
+                <p className="mt-0.5 text-[11px] text-[#1B3A2D]/55">On her timeline today: {row.stateLabel}</p>
+              ) : null}
+              <p className="mt-0.5 text-[11px] text-[#1B3A2D]/55">{row.ledTo}</p>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/** Everything Root read from her newest Body Systems Survey. */
+function QuestionnaireBlock({ block }: { block: QuestionnaireNoticedView }) {
+  const [showAll, setShowAll] = useState(false);
+  const [traceOpen, setTraceOpen] = useState(false);
+  const shown = showAll ? block.findings : block.findings.slice(0, QUESTIONNAIRE_FINDINGS_SHOWN);
+  const hidden = block.findings.length - shown.length;
+
+  return (
+    <section className="mt-5" data-root-noticed-questionnaire>
+      <p className={BLOCK_TITLE}>{QUESTIONNAIRE_HEADING}</p>
+      <p className="mt-1 text-[13px] text-[#1B3A2D]/80">{block.intro}</p>
+      {block.supportsLine ? (
+        <p className="mt-1 text-[13px] font-semibold text-[#1B3A2D]">{block.supportsLine}</p>
+      ) : null}
+
+      {block.suppressed ? (
+        <div className="mt-3 rounded-2xl border border-[#B45309]/25 bg-[#FEF3C7]/50 p-4">
+          <p className="flex items-center gap-2 text-[13px] font-semibold text-[#854D0E]">
+            <ShieldAlert className="h-4 w-4" aria-hidden />
+            {block.suppressedHeading}
+          </p>
+          <p className="mt-1 text-[13px] text-[#1B3A2D]/80">{block.suppressedBody}</p>
+          {block.suppressedSignalNames.length > 0 ? (
+            <p className="mt-1 text-[12px] text-[#1B3A2D]/65">
+              Responses involved: {block.suppressedSignalNames.join(', ')}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {shown.length > 0 ? (
+        <div className="mt-3 space-y-4">
+          {shown.map((finding) => (
+            <Finding key={`${finding.relationshipId}:${block.sittingId}`} finding={finding} />
+          ))}
+        </div>
+      ) : null}
+      {hidden > 0 ? (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="mt-3 text-[12px] font-semibold text-[#854D0E]"
+        >
+          {moreQuestionnaireFindingsLabel(hidden)}
+        </button>
+      ) : null}
+
+      {block.trace.length > 0 ? (
+        <div className={`mt-4 ${BLOCK}`}>
+          <button
+            type="button"
+            onClick={() => setTraceOpen((value) => !value)}
+            aria-expanded={traceOpen}
+            className="flex w-full items-center justify-between gap-2 text-left"
+          >
+            <span className={BLOCK_TITLE}>{TRACE_HEADING}</span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 text-[#854D0E] transition-transform ${traceOpen ? 'rotate-180' : ''}`}
+              aria-hidden
+            />
+          </button>
+          {traceOpen ? (
+            <>
+              <p className="mt-1 text-[12px] text-[#1B3A2D]/65">{TRACE_LEAD}</p>
+              <div className="mt-2">
+                {block.trace.map((section) => (
+                  <TraceSection key={section.sectionKey} section={section} />
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function RootNoticedPanel({ state }: { state: RootNoticedPanelState }) {
   if (!state.allowed) return null;
   const { view } = state;
+  const questionnaire = view.questionnaire ?? null;
 
-  if (view.findings.length === 0) {
+  if (view.findings.length === 0 && !questionnaire) {
     return (
       <div className={`${CARD} p-5`}>
         <p className="text-[14px] font-semibold text-[#1B3A2D]">{EMPTY_HEADING}</p>
@@ -237,12 +391,14 @@ export function RootNoticedPanel({ state }: { state: RootNoticedPanelState }) {
 
   return (
     <div className={`${CARD} p-5`}>
-      <p className="flex items-center gap-2 text-[13px] font-semibold text-[#1B3A2D]">
-        <Sparkles className="h-4 w-4 text-[#854D0E]" aria-hidden />
-        Root read {view.complaintCount}{' '}
-        {view.complaintCount === 1 ? 'report' : 'reports'} from this client and checked her
-        whole-body data against your Association Map.
-      </p>
+      {view.complaintCount > 0 ? (
+        <p className="flex items-center gap-2 text-[13px] font-semibold text-[#1B3A2D]">
+          <Sparkles className="h-4 w-4 text-[#854D0E]" aria-hidden />
+          Root read {view.complaintCount}{' '}
+          {view.complaintCount === 1 ? 'report' : 'reports'} from this client and checked her
+          whole-body data against your Association Map.
+        </p>
+      ) : null}
 
       {view.convergences.length > 0 ? (
         <div className="mt-3 rounded-2xl border border-[#854D0E]/20 bg-[#FEF9F0] p-4">
@@ -265,6 +421,8 @@ export function RootNoticedPanel({ state }: { state: RootNoticedPanelState }) {
           />
         ))}
       </div>
+
+      {questionnaire ? <QuestionnaireBlock block={questionnaire} /> : null}
 
       {view.unclassifiedCount > 0 ? (
         <p className="mt-4 flex items-center gap-1.5 text-[11px] text-[#1B3A2D]/50">

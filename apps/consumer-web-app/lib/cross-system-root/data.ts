@@ -32,30 +32,140 @@ export type FindingTrigger =
   | 'backfill';
 
 /**
- * Replaces every finding for one complaint.
+ * WHAT CAUSED A SET OF FINDINGS. A sentence she wrote, or a survey sitting
+ * she completed. Every finding has exactly one, and the database refuses a
+ * row naming both or neither (migration 258).
+ */
+export type FindingCause =
+  | { kind: 'report'; reportId: string }
+  | { kind: 'sitting'; sourceKey: string; sessionId: string };
+
+/** The most rows one insert carries. A survey sitting can reach dozens of entries at once. */
+export const FINDING_INSERT_CHUNK = 500;
+
+/**
+ * A STABLE DESCRIPTION OF WHAT ONE FINDING CONTAINS.
  *
- * The delete runs first and is scoped to this report, so a map entry that
+ * The map entry and the exact version read, whether it was withheld, the
+ * rows that triggered it, and every area's state with the exact rows under
+ * it. Two runs over unchanged data produce the same string, and any change
+ * a coach could see produces a different one. It is a fingerprint of
+ * content and nothing else: no number in it is shown, graded or combined.
+ */
+export function findingDigest(finding: RootFindingDraft): string {
+  const parts = [
+    finding.head.id,
+    finding.version.id,
+    finding.safetyWithheld ? 'withheld' : 'open',
+    finding.triggerRecords.map((record) => record.id).sort().join(','),
+    ...finding.areas.map(
+      (area) =>
+        `${area.refKind}:${area.refKey}:${area.state}:${area.rows
+          .map((row) => `${row.record.id}=${row.state}`)
+          .sort()
+          .join(',')}`
+    ),
+  ];
+  return hashText(parts.join('|'));
+}
+
+/** A 53 bit string hash (cyrb53), as sixteen hex digits. Deterministic and dependency free. */
+function hashText(text: string): string {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    h1 = Math.imul(h1 ^ code, 2654435761);
+    h2 = Math.imul(h2 ^ code, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const high = (h2 >>> 0).toString(16).padStart(8, '0');
+  const low = (h1 >>> 0).toString(16).padStart(8, '0');
+  return `${high}${low}`;
+}
+
+function chunks<T>(rows: readonly T[], size = FINDING_INSERT_CHUNK): T[][] {
+  const out: T[][] = [];
+  for (let index = 0; index < rows.length; index += size) out.push(rows.slice(index, index + size));
+  return out;
+}
+
+/**
+ * Replaces every finding for one cause.
+ *
+ * The delete runs first and is scoped to this cause, so a map entry that
  * has been deactivated since, or one whose primary no longer matches after
  * an edit, loses the row it wrote rather than leaving it standing.
+ *
+ * A SURVEY SITTING WHOSE FINDINGS HAVE NOT CHANGED IS LEFT EXACTLY AS IT IS.
+ * When every stored finding for the sitting carries the digest the new run
+ * computed, under the same rule revision, nothing is deleted and nothing is
+ * written, so running the backfill twice leaves the same rows with the same
+ * ids rather than an equal number of new ones.
  */
 export async function replaceFindings(
   supabase: SupabaseClient,
   input: {
     memberId: string;
-    reportId: string;
+    /** The complaint, for a finding a sentence caused. Kept for every existing caller. */
+    reportId?: string;
+    /** The cause, when it is not a complaint. Wins over reportId when both are given. */
+    cause?: FindingCause;
     findings: readonly RootFindingDraft[];
     trigger: FindingTrigger;
     noticedOn: string;
     noticedAt: string;
+    /** The survey rule revision that decided the triggers, for a survey finding. */
+    ruleRevision?: string | null;
   }
-): Promise<{ ok: boolean; written: number }> {
-  const existing = await supabase
-    .from('cross_system_root_findings')
-    .select('id, relationship_id, reviewed_at, reviewed_by, dismissed_at, dismissed_by')
-    .eq('report_id', input.reportId);
+): Promise<{ ok: boolean; written: number; unchanged?: boolean }> {
+  const cause: FindingCause | null =
+    input.cause ?? (input.reportId ? { kind: 'report', reportId: input.reportId } : null);
+  if (!cause) return { ok: false, written: 0 };
+
+  // THE SAME SCOPE FOR THE READ AND THE DELETE, written once, so the rows
+  // compared are exactly the rows replaced. Typed structurally because a
+  // PostgREST builder's generics are far deeper than the one method used.
+  type Filterable = { eq: (column: string, value: string) => Filterable };
+  const scoped = <Q>(query: Q): Q => {
+    const filterable = query as unknown as Filterable;
+    const narrowed =
+      cause.kind === 'report'
+        ? filterable.eq('report_id', cause.reportId)
+        : filterable
+            .eq('member_id', input.memberId)
+            .eq('source_key', cause.sourceKey)
+            .eq('source_session_id', cause.sessionId);
+    return narrowed as unknown as Q;
+  };
+
+  const existing = await scoped(
+    supabase
+      .from('cross_system_root_findings')
+      .select(
+        'id, relationship_id, reviewed_at, reviewed_by, dismissed_at, dismissed_by, evidence_digest, rule_revision'
+      )
+  );
   if (existing.error) {
     console.error('replaceFindings could not read existing rows', existing.error);
     return { ok: false, written: 0 };
+  }
+
+  const surfacedNow = input.findings.filter((finding) => finding.surfaced);
+  if (cause.kind === 'sitting') {
+    const stored = (existing.data ?? []) as Array<Record<string, unknown>>;
+    const storedDigest = new Map(
+      stored.map((row) => [row.relationship_id as string, row.evidence_digest as string | null])
+    );
+    const sameRevision = stored.every(
+      (row) => (row.rule_revision as string | null) === (input.ruleRevision ?? null)
+    );
+    const unchanged =
+      sameRevision &&
+      stored.length === surfacedNow.length &&
+      surfacedNow.every((finding) => storedDigest.get(finding.head.id) === findingDigest(finding));
+    if (unchanged) return { ok: true, written: 0, unchanged: true };
   }
 
   // HER REVIEW STATE SURVIVES A RECOMPUTE. A coach who marked a finding
@@ -73,10 +183,7 @@ export async function replaceFindings(
     ])
   );
 
-  const removal = await supabase
-    .from('cross_system_root_findings')
-    .delete()
-    .eq('report_id', input.reportId);
+  const removal = await scoped(supabase.from('cross_system_root_findings').delete());
   if (removal.error) {
     console.error('replaceFindings delete failed', removal.error);
     return { ok: false, written: 0 };
@@ -105,14 +212,18 @@ export async function replaceFindings(
     one. Her result is already saved and this block is best effort, so it
     can never cost her the check-in, but it holds her request open.
   */
-  const surfaced = input.findings.filter((finding) => finding.surfaced);
+  const surfaced = surfacedNow;
   if (surfaced.length === 0) return { ok: true, written: 0 };
 
   const findingRows = surfaced.map((finding) => {
     const state = carried.get(finding.head.id);
     return {
       member_id: input.memberId,
-      report_id: input.reportId,
+      report_id: cause.kind === 'report' ? cause.reportId : null,
+      source_key: cause.kind === 'sitting' ? cause.sourceKey : null,
+      source_session_id: cause.kind === 'sitting' ? cause.sessionId : null,
+      evidence_digest: findingDigest(finding),
+      rule_revision: cause.kind === 'sitting' ? (input.ruleRevision ?? null) : null,
       relationship_id: finding.head.id,
       version_id: finding.version.id,
       classification_id: null,
@@ -167,18 +278,43 @@ export async function replaceFindings(
     }))
   );
 
+  // WHICH ROWS TRIGGERED EACH FINDING, for a survey finding, where several
+  // answers can reach one entry together. A complaint finding already joins
+  // its trigger through the classification table. A withheld finding stores
+  // none, for the same reason it stores no areas.
+  if (cause.kind === 'sitting') {
+    const triggerRows = withAreas.flatMap((finding) =>
+      finding.triggerRecords.map((record, position) => ({
+        finding_id: findingIdByRelationship.get(finding.head.id)!,
+        signal_id: record.id,
+        position,
+      }))
+    );
+    for (const batch of chunks(triggerRows)) {
+      const linked = await supabase.from('cross_system_root_finding_triggers').insert(batch);
+      if (linked.error) {
+        console.error('replaceFindings trigger link failed', linked.error);
+        break;
+      }
+    }
+  }
+
   if (areaRows.length > 0) {
-    const insertedAreas = await supabase
-      .from('cross_system_root_finding_areas')
-      .insert(areaRows)
-      .select('id, finding_id, position');
-    if (insertedAreas.error) {
-      console.error('replaceFindings area insert failed', insertedAreas.error);
-      return { ok: true, written: findingRows.length };
+    const insertedAreaRows: Array<Record<string, unknown>> = [];
+    for (const batch of chunks(areaRows)) {
+      const insertedAreas = await supabase
+        .from('cross_system_root_finding_areas')
+        .insert(batch)
+        .select('id, finding_id, position');
+      if (insertedAreas.error) {
+        console.error('replaceFindings area insert failed', insertedAreas.error);
+        return { ok: true, written: findingRows.length };
+      }
+      insertedAreaRows.push(...((insertedAreas.data ?? []) as Array<Record<string, unknown>>));
     }
 
     const areaIdByKey = new Map(
-      (insertedAreas.data ?? []).map((row: Record<string, unknown>) => [
+      insertedAreaRows.map((row) => [
         `${row.finding_id as string}::${row.position as number}`,
         row.id as string,
       ])
@@ -198,9 +334,12 @@ export async function replaceFindings(
       });
     });
 
-    if (signalRows.length > 0) {
-      const linked = await supabase.from('cross_system_root_finding_signals').insert(signalRows);
-      if (linked.error) console.error('replaceFindings signal link failed', linked.error);
+    for (const batch of chunks(signalRows)) {
+      const linked = await supabase.from('cross_system_root_finding_signals').insert(batch);
+      if (linked.error) {
+        console.error('replaceFindings signal link failed', linked.error);
+        break;
+      }
     }
   }
 
@@ -210,7 +349,12 @@ export async function replaceFindings(
 export type StoredFinding = {
   id: string;
   memberId: string;
-  reportId: string;
+  /** Null on a survey finding. */
+  reportId: string | null;
+  /** Set on a survey finding, null on a complaint finding. */
+  sourceKey: string | null;
+  sourceSessionId: string | null;
+  ruleRevision: string | null;
   relationshipId: string;
   versionId: string;
   currentFindingCount: number;
@@ -229,7 +373,10 @@ function toStored(row: Record<string, unknown>): StoredFinding {
   return {
     id: row.id as string,
     memberId: row.member_id as string,
-    reportId: row.report_id as string,
+    reportId: (row.report_id as string | null) ?? null,
+    sourceKey: (row.source_key as string | null) ?? null,
+    sourceSessionId: (row.source_session_id as string | null) ?? null,
+    ruleRevision: (row.rule_revision as string | null) ?? null,
     relationshipId: row.relationship_id as string,
     versionId: row.version_id as string,
     currentFindingCount: row.current_finding_count as number,

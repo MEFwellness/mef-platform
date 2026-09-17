@@ -18,10 +18,9 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { listSignalsForMember } from '@/lib/cross-system-signals/data';
+import { listAllSignalsForMember } from '@/lib/cross-system-signals/data';
 import { listRelationships } from '@/lib/cross-system-relationships/data';
-import { listBodySystemsSessions } from '@/lib/body-systems/data';
-import { loadMemberContent } from '@/lib/body-systems/contentData';
+import { judgeRecords, loadQuestionnaire } from '@/lib/cross-system-signals/questionnaireFacts';
 import { flaggedSittingIds, redFlaggedSignalIds } from '@/lib/cross-system-patterns/safety';
 import { signalLibraryServiceRoleClient } from '@/lib/cross-system-signals/serviceRole';
 import { replaceFindings, type FindingTrigger } from './data';
@@ -53,16 +52,22 @@ export async function runComplaintLookup(input: {
   if (!supabase) return { findings: 0, skipped: 'no_service_role' };
 
   try {
-    const [signalRead, relationshipRead, sittingRead, content] = await Promise.all([
-      listSignalsForMember(supabase, input.memberId),
+    const [signalRead, relationshipRead, questionnaire] = await Promise.all([
+      listAllSignalsForMember(supabase, input.memberId),
       listRelationships(supabase),
-      listBodySystemsSessions(supabase, input.memberId),
-      loadMemberContent(supabase),
+      loadQuestionnaire(supabase, input.memberId),
     ]);
     if (!signalRead.ok || !relationshipRead.ok) return { findings: 0, skipped: 'read_failed' };
+    const { content } = questionnaire;
+    const sittingRead = { records: questionnaire.sittings };
+
+    // HER SURVEY ANSWERS, JUDGED BY THE SURVEY RULE, so an unsupported
+    // Sometimes or an answer a newer sitting replaced is never counted as
+    // current evidence in an area this complaint sends Root to.
+    const records = judgeRecords(signalRead.records, questionnaire);
 
     const triggerIds = new Set(
-      signalRead.records
+      records
         .filter(
           (record) =>
             record.ingestFingerprint !== null &&
@@ -81,12 +86,12 @@ export async function runComplaintLookup(input: {
       content.redFlags,
       content.safetyLevels
     );
-    const flaggedSignals = redFlaggedSignalIds(signalRead.records, flaggedSittings);
+    const flaggedSignals = redFlaggedSignalIds(records, flaggedSittings);
 
     const findings = lookupForComplaint(
       relationshipRead.summaries,
       triggerIds,
-      signalRead.records,
+      records,
       input.noticedOn,
       flaggedSignals
     );

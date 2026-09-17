@@ -361,10 +361,13 @@ export type RootNoticedDigestInput = {
   complaints: number;
   /** Entries switched on in the Association Map, so an empty section can say why. */
   mapEntries: number;
+  /** True when Root has read a completed Body Systems Survey for this client. */
+  questionnaireRead?: boolean;
 };
 
 export function rootNoticedDigest(input: RootNoticedDigestInput): SectionDigest {
   const { findings, suppressed, complaints, mapEntries } = input;
+  const heardSomething = complaints > 0 || input.questionnaireRead === true;
   if (suppressed > 0) {
     return {
       text: line(
@@ -379,7 +382,7 @@ export function rootNoticedDigest(input: RootNoticedDigestInput): SectionDigest 
   }
   if (findings === 0) {
     if (mapEntries === 0) return { text: 'No association map entry is active yet', dot: 'grey' };
-    if (complaints === 0) return { text: 'Nothing reported yet', dot: 'grey' };
+    if (!heardSomething) return { text: 'Nothing reported yet', dot: 'grey' };
     return { text: 'Nothing to review', dot: 'grey' };
   }
   return { text: plural(findings, 'connection to review', 'connections to review'), dot: 'green' };

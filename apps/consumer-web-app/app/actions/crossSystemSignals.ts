@@ -35,11 +35,11 @@ import { forgetSignalLibrary, loadSignalLibrary } from '@/lib/cross-system-signa
 import {
   ensureSignalName,
   insertCoachSignal,
-  listSignalsForMember,
 } from '@/lib/cross-system-signals/data';
+import { readCoachSignalsView } from '@/lib/cross-system-signals/coachRead';
 import { resolveCoachSignal, type CoachSignalInput } from '@/lib/cross-system-signals/entry';
 import { sourceLabel } from '@/lib/cross-system-signals/library';
-import { buildCoachSignalsView, type CoachSignalsView } from '@/lib/cross-system-signals/coachView';
+import type { CoachSignalsView } from '@/lib/cross-system-signals/coachView';
 import { evaluateMember } from '@/lib/cross-system-patterns/evaluate';
 import type {
   SignalBodyArea,
@@ -95,14 +95,14 @@ export async function getClientSignalsPanelAction(
   if (!(await isCoachOrAdmin(supabase, user.id))) return EMPTY_PANEL;
   if (!(await isMemberVisibleToStaff(supabase, clientId, user.id))) return EMPTY_PANEL;
 
-  const [library, signalRead] = await Promise.all([
+  const [library, view] = await Promise.all([
     loadSignalLibrary(supabase),
-    listSignalsForMember(supabase, clientId),
+    readCoachSignalsView(supabase, clientId),
   ]);
 
   return {
     memberId: clientId,
-    view: buildCoachSignalsView(signalRead.records, library),
+    view,
     categories: [...library.categories.values()].sort((a, b) => a.position - b.position),
     bodyAreas: [...library.bodyAreas.values()].sort((a, b) => a.position - b.position),
     symptoms: [...library.symptoms.values()].sort((a, b) => a.position - b.position),

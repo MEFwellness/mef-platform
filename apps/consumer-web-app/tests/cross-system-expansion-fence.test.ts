@@ -24,12 +24,17 @@ import * as ts from 'typescript';
 import {
   FINDING_HEADINGS,
   NOT_A_DIAGNOSIS,
+  QUESTIONNAIRE_HEADING,
   RESOLUTION_SUFFIX,
   ROOT_NOTICED_LABEL,
   SAFETY_WITHHELD_BODY,
   SAFETY_WITHHELD_HEADING,
   STATE_EXPLANATIONS,
   STATE_LABELS,
+  SUPERSEDED_ANSWER_LINE,
+  TRACE_HEADING,
+  TRACE_LEAD,
+  TRACE_NO_SIGNAL,
 } from '@/lib/cross-system-root/copy';
 
 const ROOT = path.resolve(__dirname, '..');
@@ -51,6 +56,13 @@ const MEMBER_SURFACES = [
   'components/checkin/OptionalFollowUpNote.tsx',
   'components/health-intake/IntakeFieldView.tsx',
   'app/dashboard/page.tsx',
+  // The Body Systems Survey, whose submit now also lets Root read the
+  // sitting (tests/questionnaire-root-flow.test.ts). Her screens and the
+  // action behind them.
+  'app/actions/bodySystems.ts',
+  'app/body-systems/page.tsx',
+  'components/body-systems/BodySystemsExperience.tsx',
+  'components/body-systems/BodySystemsResults.tsx',
 ];
 
 /** The coach only half: the words, the cards and the library. */
@@ -62,6 +74,16 @@ const COACH_ONLY = [
   'app/actions/crossSystemRelationships.ts',
   'app/coach/clients/[id]/RootNoticedPanel.tsx',
   'components/coach-relationships/RelationshipLibraryPanel.tsx',
+  // What Root read from a survey, as a coach reads it, and the mapping
+  // editor. None of it may be reachable from her survey screens.
+  'lib/cross-system-root/noticedView.ts',
+  'lib/cross-system-root/noticedRead.ts',
+  'lib/cross-system-signals/coachView.ts',
+  'lib/cross-system-signals/coachRead.ts',
+  'lib/cross-system-signals/surveyMapping.ts',
+  'app/actions/crossSystemSignalMappings.ts',
+  'components/coach-signal-mappings/SurveySignalMappingPanel.tsx',
+  'lib/body-systems/associations.ts',
 ];
 
 /**
@@ -95,6 +117,19 @@ const REACHABLE_HALF = [
   */
   'lib/cross-system-relationships/data.ts',
   'lib/cross-system-relationships/types.ts',
+  /*
+    AND THE SURVEY'S TURN AT THE SAME LOOKUP. Her finished sitting is read
+    by Root inside her own submit, so the engine that does it, the survey
+    rule it applies and the wordless trigger evaluation behind that rule are
+    on this side. They reach a basis key and a set of row ids; every word a
+    coach reads about them is built in noticedView.ts and copy.ts, which the
+    first list above holds out of reach.
+  */
+  'lib/cross-system-root/questionnaireEngine.ts',
+  'lib/cross-system-signals/questionnaireRules.ts',
+  'lib/cross-system-signals/questionnaireState.ts',
+  'lib/cross-system-signals/questionnaireFacts.ts',
+  'lib/body-systems/triggerEvaluation.ts',
 ];
 
 /**
@@ -231,6 +266,17 @@ describe('NOT ONE WORD A COACH READS is reachable from a member surface', () => 
     'worth reviewing',
     'may be relevant',
     'observed alongside',
+    QUESTIONNAIRE_HEADING,
+    TRACE_HEADING,
+    TRACE_LEAD,
+    SUPERSEDED_ANSWER_LINE,
+    ...Object.values(TRACE_NO_SIGNAL),
+    'currently supports:',
+    'currently supported by',
+    'Active: answered',
+    'Not active: answered',
+    'strongly elevated',
+    'Led Root to',
   ].filter((phrase) => phrase.includes(' '));
 
   it('every file a member surface can reach ships none of them', () => {
@@ -240,7 +286,9 @@ describe('NOT ONE WORD A COACH READS is reachable from a member surface', () => 
         if (
           file.startsWith('lib/cross-system-complaints/') ||
           file.startsWith('lib/cross-system-root/') ||
-          file.startsWith('lib/cross-system-relationships/')
+          file.startsWith('lib/cross-system-relationships/') ||
+          file.startsWith('lib/cross-system-signals/') ||
+          file === 'lib/body-systems/triggerEvaluation.ts'
         ) {
           reachable.add(file);
         }
@@ -262,7 +310,7 @@ describe('NOT ONE WORD A COACH READS is reachable from a member surface', () => 
     const coachStrings = ['lib/cross-system-root/copy.ts', 'lib/cross-system-root/view.ts']
       .flatMap(renderedStrings)
       .join('\n');
-    for (const phrase of [ROOT_NOTICED_LABEL, NOT_A_DIAGNOSIS, RESOLUTION_SUFFIX]) {
+    for (const phrase of [ROOT_NOTICED_LABEL, NOT_A_DIAGNOSIS, RESOLUTION_SUFFIX, QUESTIONNAIRE_HEADING, 'currently supports:', 'Not active: answered']) {
       expect(coachStrings, phrase).toContain(phrase);
     }
   });

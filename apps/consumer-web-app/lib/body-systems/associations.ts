@@ -24,8 +24,8 @@
  */
 
 import { optionFor } from './scoring';
+import { evaluateTrigger, isElevatedAnswer } from './triggerEvaluation';
 import {
-  DNA_VALUE,
   type FiredAssociation,
   type WhySurfacedAnswer,
   type WhySurfacedSection,
@@ -67,9 +67,7 @@ export function isElevated(
   answers: BodySystemsAnswers,
   questionRef: string
 ): boolean {
-  const raw = answers[questionRef];
-  if (!raw || raw === DNA_VALUE) return false;
-  return optionFor(scale, raw)?.isElevated === true;
+  return isElevatedAnswer(scale, answers, questionRef);
 }
 
 function citeAnswer(context: Context, questionRef: string): WhySurfacedAnswer | null {
@@ -101,102 +99,27 @@ function citeSection(context: Context, sectionKey: string): WhySurfacedSection |
   };
 }
 
-function bandRank(bands: readonly BodySystemsBand[], bandKey: string): number | null {
-  const band = bands.find((entry) => entry.bandKey === bandKey);
-  return band ? band.position : null;
-}
-
-function sectionAtBand(context: Context, sectionKey: string, bandKey: string): boolean {
-  const result = context.results.sections.find((entry) => entry.sectionKey === sectionKey);
-  if (!result) return false;
-  const actual = bandRank(context.bands, result.bandKey);
-  const floor = bandRank(context.bands, bandKey);
-  if (actual === null || floor === null) return false;
-  return actual >= floor;
-}
-
 /**
- * Evaluate one trigger, collecting every answer and section it actually
- * read on the way through.
+ * Evaluate one trigger, and cite every answer and section it actually read.
  *
- * COLLECTION HAPPENS ONLY ON A TRUE BRANCH. A nested condition that did
- * not hold contributes no citation, so a fired `any_of` never cites the
- * half of itself that was false.
+ * WHETHER IT HOLDS IS DECIDED IN ./triggerEvaluation.ts, the one
+ * implementation the Signal Library also reads. This function only turns
+ * what that evaluation collected into citations, in the order it was
+ * collected, so the card's "why this surfaced" is exactly what the
+ * evaluation counted and nothing it did not.
  */
 function evaluate(context: Context, trigger: AssociationTrigger, into: Collected): boolean {
-  switch (trigger.type) {
-    case 'cluster':
-    case 'min_elevated': {
-      const fired = trigger.questions.filter((ref) => isElevated(context.scale, context.answers, ref));
-      if (fired.length < trigger.min) return false;
-      for (const ref of fired) {
-        const cited = citeAnswer(context, ref);
-        if (cited) into.answers.push(cited);
-      }
-      return true;
-    }
-    case 'all_elevated': {
-      const every = trigger.questions.every((ref) => isElevated(context.scale, context.answers, ref));
-      if (!every) return false;
-      for (const ref of trigger.questions) {
-        const cited = citeAnswer(context, ref);
-        if (cited) into.answers.push(cited);
-      }
-      return true;
-    }
-    case 'any_elevated': {
-      const fired = trigger.questions.filter((ref) => isElevated(context.scale, context.answers, ref));
-      if (fired.length === 0) return false;
-      for (const ref of fired) {
-        const cited = citeAnswer(context, ref);
-        if (cited) into.answers.push(cited);
-      }
-      return true;
-    }
-    case 'all_of': {
-      const scratch: Collected = { answers: [], sections: [] };
-      for (const condition of trigger.conditions) {
-        if (!evaluate(context, condition, scratch)) return false;
-      }
-      into.answers.push(...scratch.answers);
-      into.sections.push(...scratch.sections);
-      return true;
-    }
-    case 'any_of': {
-      let any = false;
-      for (const condition of trigger.conditions) {
-        const scratch: Collected = { answers: [], sections: [] };
-        if (evaluate(context, condition, scratch)) {
-          any = true;
-          into.answers.push(...scratch.answers);
-          into.sections.push(...scratch.sections);
-        }
-      }
-      return any;
-    }
-    case 'sections_at_band': {
-      const every = trigger.sections.every((key) => sectionAtBand(context, key, trigger.band));
-      if (!every) return false;
-      for (const key of trigger.sections) {
-        const cited = citeSection(context, key);
-        if (cited) into.sections.push(cited);
-      }
-      return true;
-    }
-    case 'sections_count_at_band': {
-      const matching = context.results.sections.filter((result) =>
-        sectionAtBand(context, result.sectionKey, trigger.band)
-      );
-      if (matching.length < trigger.min) return false;
-      for (const result of matching) {
-        const cited = citeSection(context, result.sectionKey);
-        if (cited) into.sections.push(cited);
-      }
-      return true;
-    }
-    default:
-      return false;
+  const outcome = evaluateTrigger(context, trigger);
+  if (!outcome.held) return false;
+  for (const ref of outcome.answerRefs) {
+    const cited = citeAnswer(context, ref);
+    if (cited) into.answers.push(cited);
   }
+  for (const key of outcome.sectionKeys) {
+    const cited = citeSection(context, key);
+    if (cited) into.sections.push(cited);
+  }
+  return true;
 }
 
 function dedupeAnswers(answers: WhySurfacedAnswer[]): WhySurfacedAnswer[] {

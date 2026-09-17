@@ -30,7 +30,7 @@
  * time, and the whole engine is driven from literals in its tests.
  */
 
-import { signalSatisfies } from '@/lib/cross-system-patterns/match';
+import { isPresent, signalSatisfies } from '@/lib/cross-system-patterns/match';
 import type { SignalRecord } from '@/lib/cross-system-signals/types';
 import type {
   RelationshipComponent,
@@ -214,11 +214,18 @@ function satisfiesIgnoringPresence(
   component: RelationshipComponent
 ): boolean {
   if (signalSatisfies(record, component)) return true;
-  // The row said nought. Ask every other condition, and let the evidence
-  // layer decide what a nought means.
+  // The row is not saying yes now: it said nought, or it is a survey answer
+  // the survey rule does not treat as current. Ask every other condition,
+  // and let the evidence layer decide what that means. A row that IS
+  // present and still failed has failed on something else.
+  if (isPresent(record)) return false;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { questionnaire: _verdict, ...plain } = record;
   const numeric = record.valueNumeric;
-  if (numeric === null || numeric > 0) return false;
-  const probe = { ...record, valueNumeric: 1 } as SignalRecord;
+  const probe: SignalRecord = {
+    ...plain,
+    valueNumeric: numeric === null || numeric <= 0 ? 1 : numeric,
+  };
   // A floor the coach set is about how loud a live signal has to be, and a
   // settled row cannot clear it, so a component carrying one takes the
   // strict reading and a settled row does not belong to it.

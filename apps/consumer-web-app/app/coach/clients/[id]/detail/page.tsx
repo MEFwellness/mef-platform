@@ -589,6 +589,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
       suppressed: rootNoticedPanel.view.suppressedCount,
       complaints: rootNoticedPanel.view.complaintCount,
       mapEntries: rootNoticedPanel.view.mapEntryCount,
+      questionnaireRead: Boolean(rootNoticedPanel.view.questionnaire),
     }),
     patterns: patternsDigest({
       // The same three numbers the card's own view already computed, so a

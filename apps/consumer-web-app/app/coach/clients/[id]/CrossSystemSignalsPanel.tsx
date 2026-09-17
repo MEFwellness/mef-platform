@@ -71,6 +71,9 @@ function EntryLine({ entry }: { entry: SignalHistoryEntry }) {
       {entry.note ? (
         <p className="mt-0.5 text-xs leading-relaxed text-[#3E5C46]">{entry.note}</p>
       ) : null}
+      {entry.ruleLine ? (
+        <p className="mt-0.5 text-xs leading-relaxed text-[#6B7A72]">{entry.ruleLine}</p>
+      ) : null}
     </div>
   );
 }
@@ -88,6 +91,14 @@ function SignalRow({ row }: { row: SignalGroupRow }) {
             {row.sideLabel ? (
               <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2 py-0.5 text-[11px] font-medium text-[#3E5C46]">
                 {row.sideLabel}
+              </span>
+            ) : null}
+            {row.stateLabel ? (
+              <span
+                className="rounded-full border border-[#1B3A2D]/10 px-2 py-0.5 text-[11px] font-medium text-[#6B7A72]"
+                data-signal-state
+              >
+                {row.stateLabel}
               </span>
             ) : null}
           </span>
@@ -110,6 +121,14 @@ function SignalRow({ row }: { row: SignalGroupRow }) {
         ) : null}
         {row.latest.note ? (
           <p className="mt-0.5 text-xs leading-relaxed text-[#3E5C46]">{row.latest.note}</p>
+        ) : null}
+        {row.latest.ruleLine ? (
+          <p className="mt-0.5 text-xs leading-relaxed text-[#6B7A72]">{row.latest.ruleLine}</p>
+        ) : null}
+        {row.supportLine ? (
+          <p className="mt-0.5 text-xs font-medium leading-relaxed text-[#3E5C46]" data-signal-support>
+            {row.supportLine}
+          </p>
         ) : null}
 
         {historyCount > 0 ? (

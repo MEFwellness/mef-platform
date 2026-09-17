@@ -13,6 +13,8 @@
  * than a table.
  */
 
+import type { QuestionnaireBasis } from './questionnaireRules';
+
 /** Which side of the body, when the question has one. */
 export type SignalSide = 'left' | 'right' | 'both' | 'not_applicable';
 
@@ -199,4 +201,33 @@ export type SignalRecord = {
   /** The free text surface this row's words arrived on, or null. */
   complaintSurfaceKey: string | null;
   complaintSurfaceLabel: string | null;
+  /**
+   * WHETHER A BODY SYSTEMS SURVEY ANSWER IS AN ACTIVE SIGNAL, decided when
+   * the row is read rather than stored on it.
+   *
+   * Absent on every row a read did not pass through
+   * applyQuestionnaireActivation (./questionnaireState.ts), and absent on
+   * every row that is not a survey answer, so every reader that never asked
+   * behaves exactly as it did before. See ./questionnaireRules.ts for the
+   * rule itself.
+   */
+  questionnaire?: QuestionnaireActivation;
+};
+
+/** The survey rule's verdict on one stored answer. */
+export type QuestionnaireActivation = {
+  basis: QuestionnaireBasis;
+  /** Whether the answer qualified as an active signal in the sitting it came from. */
+  activeAtCapture: boolean;
+  /** True when a newer completed sitting has replaced the one this answer came from. */
+  superseded: boolean;
+  /** activeAtCapture, and not superseded. What "present" means for this row now. */
+  current: boolean;
+  /** The survey section the question belongs to, when the sitting could be read. */
+  sectionKey: string | null;
+  /** For support from another source: the labels of the sources that gave it. */
+  supportingSourceLabels: string[];
+  /** For support from a related survey association: the entries that fired. */
+  relatedEntryCodes: string[];
+  ruleRevision: string;
 };

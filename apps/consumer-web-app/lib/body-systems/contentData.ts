@@ -18,6 +18,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseTrigger } from './trigger';
+import type { AssociationTriggerRow } from './triggerEvaluation';
 import { DEFAULT_MIN_DELTA_PERCENT } from './retake';
 import type {
   BodySystemsAssociation,
@@ -295,6 +296,43 @@ async function fetchLibrary(supabase: SupabaseClient): Promise<BodySystemsAssoci
       trigger,
       associationText: row.association_text as string,
       nextStep: row.next_step as string,
+    });
+  }
+  return out;
+}
+
+/**
+ * Every active association's TRIGGER, and nothing a coach reads.
+ *
+ * THE SIGNAL LIBRARY'S READ, and why it is not fetchLibrary. The Signal
+ * Library asks which coach approved clusters held on a sitting, and it asks
+ * while a member's own submit is completing. This read never selects a
+ * title, an association text or a next step, so nothing it returns could
+ * carry coach wording anywhere, whoever calls it. The table itself still
+ * has no member policy: a member session reading it gets nothing, and the
+ * callers use the trusted connection or a coach's own session.
+ */
+export async function loadAssociationTriggers(
+  supabase: SupabaseClient
+): Promise<AssociationTriggerRow[]> {
+  const { data, error } = await supabase
+    .from('body_systems_associations')
+    .select('entry_code, position, branch, trigger')
+    .eq('is_active', true)
+    .order('position', { ascending: true });
+  if (error) {
+    console.error('loadAssociationTriggers failed', error);
+    return [];
+  }
+  const out: AssociationTriggerRow[] = [];
+  for (const row of data ?? []) {
+    const trigger = parseTrigger(row.trigger);
+    if (!trigger) continue;
+    out.push({
+      entryCode: row.entry_code as string,
+      position: row.position as number,
+      branch: branchOf(row.branch),
+      trigger,
     });
   }
   return out;

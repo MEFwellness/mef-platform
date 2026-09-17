@@ -45,6 +45,22 @@ const FEATURE_FILES = [
   'lib/cross-system-complaints/types.ts',
   'app/coach/clients/[id]/RootNoticedPanel.tsx',
   'app/actions/crossSystemRootFindings.ts',
+  // What Root reads from a Body Systems Survey, and every line a coach
+  // reads about it: the survey block, the trace, the Signals section's
+  // state and support lines, and the mapping editor.
+  'lib/cross-system-root/noticedView.ts',
+  'lib/cross-system-root/noticedRead.ts',
+  'lib/cross-system-root/questionnaireEngine.ts',
+  'lib/cross-system-root/questionnaireBackfill.ts',
+  'lib/cross-system-signals/questionnaireRules.ts',
+  'lib/cross-system-signals/questionnaireState.ts',
+  'lib/cross-system-signals/coachView.ts',
+  'lib/cross-system-signals/surveyMapping.ts',
+  'lib/cross-system-signals/surveyMappingData.ts',
+  'app/coach/clients/[id]/CrossSystemSignalsPanel.tsx',
+  'app/actions/crossSystemSignalMappings.ts',
+  'app/coach/signal-mappings/page.tsx',
+  'components/coach-signal-mappings/SurveySignalMappingPanel.tsx',
 ];
 
 /**

@@ -18,7 +18,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { selectAllRows } from '@/lib/data/pagedSelect';
+import { selectAllRows, selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import type { SignalSide } from '@/lib/cross-system-signals/types';
 import type { ResolvedRelationshipDraft } from './draft';
 import type {
@@ -186,27 +186,27 @@ async function hydrateVersions(
     errored. See lib/data/pagedSelect.ts.
   */
   const [components, levels, considerations] = await Promise.all([
-    selectAllRows<ComponentRow>(() =>
+    selectAllRowsInChunks<ComponentRow>(ids, (chunk) =>
       supabase
         .from('cross_system_relationship_components')
         .select(COMPONENT_COLUMNS)
-        .in('version_id', ids)
+        .in('version_id', chunk)
         .order('version_id', { ascending: true })
         .order('position', { ascending: true })
     ),
-    selectAllRows<LevelRow>(() =>
+    selectAllRowsInChunks<LevelRow>(ids, (chunk) =>
       supabase
         .from('cross_system_relationship_strength_levels')
         .select(LEVEL_COLUMNS)
-        .in('version_id', ids)
+        .in('version_id', chunk)
         .order('version_id', { ascending: true })
         .order('position', { ascending: true })
     ),
-    selectAllRows<ConsiderationRow>(() =>
+    selectAllRowsInChunks<ConsiderationRow>(ids, (chunk) =>
       supabase
         .from('cross_system_relationship_considerations')
         .select(CONSIDERATION_COLUMNS)
-        .in('version_id', ids)
+        .in('version_id', chunk)
         .order('version_id', { ascending: true })
         .order('position', { ascending: true })
     ),
@@ -283,16 +283,15 @@ export async function listRelationships(
     components read below was in exactly this state a week ago, and it was
     already over the cap by the time anybody noticed.
   */
-  const versions = await selectAllRows<VersionRow>(() =>
-    supabase
-      .from('cross_system_relationship_versions')
-      .select(VERSION_COLUMNS)
-      .in(
-        'relationship_id',
-        headRows.map((row) => row.id)
-      )
-      .order('relationship_id', { ascending: true })
-      .order('version_number', { ascending: true })
+  const versions = await selectAllRowsInChunks<VersionRow>(
+    headRows.map((row) => row.id),
+    (chunk) =>
+      supabase
+        .from('cross_system_relationship_versions')
+        .select(VERSION_COLUMNS)
+        .in('relationship_id', chunk)
+        .order('relationship_id', { ascending: true })
+        .order('version_number', { ascending: true })
   );
   if (!versions.ok) {
     console.error('listRelationships versions failed', versions.error);

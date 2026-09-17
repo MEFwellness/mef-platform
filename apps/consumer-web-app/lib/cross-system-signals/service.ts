@@ -28,7 +28,7 @@ import { memberTimezone } from '../time/memberToday';
 import { evaluateMember } from '../cross-system-patterns/evaluate';
 import { SIGNAL_ADAPTER_REGISTRY } from './adapters';
 import { loadSignalLibrary } from './contentData';
-import { insertSignals, knownSignalSlugs } from './data';
+import { insertSignals, listAllSignalsForMember } from './data';
 import { signalLibraryServiceRoleClient } from './serviceRole';
 import type { AdapterRegistry } from './registry';
 
@@ -75,9 +75,9 @@ export async function ingestSitting(input: {
     const loaded = await adapter.load(supabase, input.memberId, input.sittingId);
     if (loaded === null) return { written: 0, skipped: 'sitting_not_readable' };
 
-    const [library, knownSlugs, timezone] = await Promise.all([
+    const [library, history, timezone] = await Promise.all([
       loadSignalLibrary(supabase),
-      knownSignalSlugs(supabase, input.memberId),
+      listAllSignalsForMember(supabase, input.memberId),
       memberTimezone(supabase, input.memberId),
     ]);
 
@@ -87,7 +87,14 @@ export async function ingestSitting(input: {
     const completedAt = completedAtOf(loaded);
     const capturedOn = localDateStringFor(completedAt, timezone);
 
-    const drafts = adapter.build(loaded, { library, capturedOn, knownSlugs });
+    // WHAT SHE HAD SAID BY THEN, and nothing she said afterwards. At a live
+    // submit that is everything; in a backfill walking March it keeps April
+    // out, so a signal is only ever carried across after it was first
+    // reported, which is what oldest first was always meant to guarantee.
+    const before = history.records.filter((record) => record.capturedAt <= completedAt);
+    const knownSlugs = new Set(before.map((record) => record.signalSlug));
+
+    const drafts = adapter.build(loaded, { library, capturedOn, knownSlugs, records: before });
     if (drafts.length === 0) return { written: 0, skipped: 'nothing_to_map' };
 
     const write = await insertSignals(supabase, input.memberId, drafts);

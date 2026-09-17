@@ -84,3 +84,36 @@ export async function selectAllRows<T>(
     if (rows.length >= 50_000) return { ok: true, rows, error: null };
   }
 }
+
+/**
+ * AND A LIST OF IDS THAT IS LONGER THAN A URL MAY BE.
+ *
+ * THE SECOND SILENT CEILING, found by running Root against a real local
+ * database. An `.in('column', ids)` filter travels in the request URL, one
+ * id after another. The Association Map's read named all 240 versions in one
+ * filter, about nine thousand characters, and the local gateway refused it
+ * with "URI too long". Production's gateway accepted that length, which is
+ * why nothing had failed there yet, but it has a ceiling too, and a map
+ * that keeps growing reaches it: every Root lookup would then read nothing
+ * and quietly report nothing to review.
+ *
+ * So a long id list is sent in chunks, each chunk read in full through
+ * `selectAllRows`, and the rows returned together. `build` receives the
+ * chunk and must apply the same filters and the same order for every page.
+ */
+export const ID_CHUNK_SIZE = 100;
+
+export async function selectAllRowsInChunks<T>(
+  ids: readonly string[],
+  build: (chunk: string[]) => RangeableQuery
+): Promise<{ ok: boolean; rows: T[]; error: unknown }> {
+  const rows: T[] = [];
+  for (let index = 0; index < ids.length; index += ID_CHUNK_SIZE) {
+    const chunk = ids.slice(index, index + ID_CHUNK_SIZE);
+    const read = await selectAllRows<T>(() => build(chunk));
+    if (!read.ok) return { ok: false, rows, error: read.error };
+    rows.push(...read.rows);
+  }
+  return { ok: true, rows, error: null };
+}
+

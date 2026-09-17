@@ -18,6 +18,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import type { SignalDraft, SignalRecord, SignalSide, SignalValueKind, SignalEntryMode } from './types';
 
 const SIGNAL_COLUMNS = `
@@ -120,27 +121,64 @@ export async function listSignalsForMember(
 }
 
 /**
+ * EVERY signal for one member, in pages.
+ *
+ * WHY THIS EXISTS BESIDE listSignalsForMember. That read stops at a limit,
+ * which is right for a screen and wrong for a decision. Root's lookup, the
+ * survey rule and the backfill each decide something about her whole
+ * history, and a member who checks in daily crosses a thousand rows inside
+ * three years; PostgREST would then hand back the first thousand and say
+ * nothing (lib/data/pagedSelect.ts). The order is total, id last, so no row
+ * can fall between two pages.
+ */
+export async function listAllSignalsForMember(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<{ ok: boolean; records: SignalRecord[] }> {
+  const { ok, rows, error } = await selectAllRows<SignalRow>(() =>
+    supabase
+      .from('cross_system_signals')
+      .select(SIGNAL_COLUMNS)
+      .eq('member_id', memberId)
+      .order('captured_on', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
+  if (!ok) {
+    console.error('listAllSignalsForMember failed', error);
+    return { ok: false, records: [] };
+  }
+  return { ok: true, records: rows.map(fromRow) };
+}
+
+/**
  * The standardized names this member already has at least one signal for.
  *
  * Handed to every adapter as `knownSlugs`, so one that has settled can be
  * written as settled rather than quietly disappearing off her timeline.
+ *
+ * PAGED, because it is a full read of her history: before it was, a member
+ * past a thousand rows had her oldest signals silently left out of the set.
  */
 export async function knownSignalSlugs(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from('cross_system_signals')
-    .select('signal_slug')
-    .eq('member_id', memberId);
-  if (error) {
+  const { ok, rows, error } = await selectAllRows<{ signal_slug: string }>(() =>
+    supabase
+      .from('cross_system_signals')
+      .select('signal_slug')
+      .eq('member_id', memberId)
+      .order('id', { ascending: true })
+  );
+  if (!ok) {
     // Fail towards writing fewer rows rather than towards writing rows for
     // things she has never reported: an unreadable history is not evidence
     // that a signal exists.
     console.error('knownSignalSlugs failed', error);
     return new Set();
   }
-  return new Set((data ?? []).map((row: { signal_slug: string }) => row.signal_slug));
+  return new Set(rows.map((row) => row.signal_slug));
 }
 
 /**

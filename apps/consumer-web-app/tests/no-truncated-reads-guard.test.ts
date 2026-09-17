@@ -24,7 +24,7 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { PAGE_SIZE, selectAllRows } from '@/lib/data/pagedSelect';
+import { ID_CHUNK_SIZE, PAGE_SIZE, selectAllRows, selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -42,6 +42,14 @@ const UNBOUNDED_TABLES: Array<[string, number]> = [
   ['cross_system_relationships', 240],
   ['cross_system_signal_names', 211],
   ['cross_system_signal_source_map', 164],
+  // This build's reads. The survey mapping's revisions grow with every edit,
+  // the backfill scans every finished sitting and every member it names
+  // across the whole membership, and a member's own signal history is read
+  // in full wherever Root decides something about it.
+  ['cross_system_signal_source_map_revisions', 111],
+  ['member_body_systems_sessions', 2],
+  ['profiles', 0],
+  ['cross_system_signals', 125],
 ];
 
 /** The files allowed to read one of those tables at all. */
@@ -49,6 +57,10 @@ const READERS = [
   'lib/cross-system-relationships/data.ts',
   'lib/cross-system-complaints/lexiconData.ts',
   'lib/cross-system-signals/contentData.ts',
+  'lib/cross-system-signals/surveyMappingData.ts',
+  'lib/cross-system-signals/data.ts',
+  'lib/cross-system-root/questionnaireBackfill.ts',
+  'lib/body-systems/data.ts',
 ];
 
 function read(relative: string): string {
@@ -185,3 +197,46 @@ describe('the paged helper itself', () => {
     expect(result.rows).toHaveLength(0);
   });
 });
+
+describe('a long id list never travels in one URL', () => {
+  it('the Association Map read chunks every id list it filters on', () => {
+    const source = read('lib/cross-system-relationships/data.ts');
+    for (const match of source.matchAll(/\.in\('(\w+)', (\w+)\)/g)) {
+      const before = source.slice(Math.max(0, match.index! - 400), match.index!);
+      // Either a single id the caller named, or a chunk handed in by the helper.
+      expect(match[2], `${match[0]} is not chunked`).toBe('chunk');
+      expect(before).toContain('selectAllRowsInChunks');
+    }
+    expect([...source.matchAll(/selectAllRowsInChunks</g)].length).toBe(4);
+  });
+
+  it('no request carries more than a chunk of ids, and every row still comes back', async () => {
+    const ids = Array.from({ length: 2400 }, (_, index) => `id-${String(index).padStart(5, '0')}`);
+    let widest = 0;
+    const result = await selectAllRowsInChunks<{ id: string }>(ids, (chunk) => {
+      widest = Math.max(widest, chunk.length);
+      return {
+        range: async (from: number, to: number) => ({
+          data: chunk.slice(from, Math.min(to + 1, from + 1000)).map((id) => ({ id })),
+          error: null,
+        }),
+      };
+    });
+    expect(ID_CHUNK_SIZE).toBeLessThanOrEqual(100);
+    expect(widest).toBe(ID_CHUNK_SIZE);
+    expect(result.rows.map((row) => row.id)).toEqual(ids);
+  });
+
+  it('stops and reports the first failed chunk', async () => {
+    let calls = 0;
+    const result = await selectAllRowsInChunks(['a', 'b'], () => ({
+      range: async () => {
+        calls += 1;
+        return { data: null, error: { message: 'URI too long' } };
+      },
+    }));
+    expect(result.ok).toBe(false);
+    expect(calls).toBe(1);
+  });
+});
+

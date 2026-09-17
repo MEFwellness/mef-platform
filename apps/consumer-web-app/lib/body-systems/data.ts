@@ -19,6 +19,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import { BODY_SYSTEMS_DEFINITION_ID } from './constants';
 import type {
   BodySystemsAnswers,
@@ -187,6 +188,33 @@ export async function listBodySystemsSessions(
     return { ok: false, records: [] };
   }
   return { ok: true, records: ((data ?? []) as unknown as SessionRow[]).map(fromRow) };
+}
+
+/**
+ * EVERY finished sitting, oldest first, in pages.
+ *
+ * For the reads that decide something about her whole survey history (the
+ * Signal Library's survey rule and Root's red flag override), where a limit
+ * would quietly drop the oldest sittings rather than fail.
+ */
+export async function listAllBodySystemsSessions(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<{ ok: boolean; records: BodySystemsSessionRecord[] }> {
+  const { ok, rows, error } = await selectAllRows<SessionRow>(() =>
+    supabase
+      .from('member_body_systems_sessions')
+      .select(SESSION_COLUMNS)
+      .eq('member_id', memberId)
+      .not('completed_at', 'is', null)
+      .order('completed_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
+  if (!ok) {
+    console.error('listAllBodySystemsSessions failed', error);
+    return { ok: false, records: [] };
+  }
+  return { ok: true, records: rows.map(fromRow) };
 }
 
 /** The sitting answering one assignment, finished or not. This is what resume reads. */

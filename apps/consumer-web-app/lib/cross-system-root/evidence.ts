@@ -29,7 +29,7 @@
  * into "resolved" would invent a symptom she never had.
  */
 
-import { isPresent } from '@/lib/cross-system-patterns/match';
+import { isPresent, wasPresentWhenCaptured } from '@/lib/cross-system-patterns/match';
 import type { SignalRecord } from '@/lib/cross-system-signals/types';
 
 /** The five states, kept apart rather than blended into one status. */
@@ -92,9 +92,24 @@ export function groupHistories(records: readonly SignalRecord[]): SignalHistory[
   return out;
 }
 
-function compareCaptured(a: SignalRecord, b: SignalRecord): number {
+/**
+ * Oldest first, and a TIE IS BROKEN THE SAME WAY EVERY TIME.
+ *
+ * Two rows can share an instant: every answer in one survey sitting is
+ * captured at the moment the sitting completed, and two of the survey's
+ * questions map to the same canonical signal. Left to the order rows came
+ * back from the database, a "Never" to one of them could be read as the
+ * latest word on a signal the other one answered "Often" in the same
+ * breath. On a tie the row that is not present sorts first and the louder
+ * row last, so the latest row of a tie is always its loudest present one.
+ */
+export function compareCaptured(a: SignalRecord, b: SignalRecord): number {
   if (a.capturedOn !== b.capturedOn) return a.capturedOn.localeCompare(b.capturedOn);
-  return a.capturedAt.localeCompare(b.capturedAt);
+  if (a.capturedAt !== b.capturedAt) return a.capturedAt.localeCompare(b.capturedAt);
+  const presentA = isPresent(a) ? 1 : 0;
+  const presentB = isPresent(b) ? 1 : 0;
+  if (presentA !== presentB) return presentA - presentB;
+  return (a.valueNumeric ?? 0) - (b.valueNumeric ?? 0);
 }
 
 /**
@@ -113,7 +128,7 @@ export function evidenceStateOf(
     // THE LATEST ROW SAYS NO. If an earlier one said yes, that is a
     // resolution and it belongs in history. If none ever did, she has
     // simply always said no and there is nothing to report.
-    const everPresent = history.rows.some((row) => isPresent(row));
+    const everPresent = history.rows.some((row) => wasPresentWhenCaptured(row));
     return everPresent ? 'resolved' : null;
   }
 

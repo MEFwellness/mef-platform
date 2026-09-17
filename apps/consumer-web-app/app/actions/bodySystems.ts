@@ -67,6 +67,7 @@ import { buildSteps, clampStepIndex, lastQuestionStepIndex } from '@/lib/body-sy
 import { buildBodySystemsRegistryDrafts } from '@/lib/body-systems/rootMap';
 import { ingestSitting } from '@/lib/cross-system-signals/service';
 import { SOURCE_BODY_SYSTEMS } from '@/lib/cross-system-signals/constants';
+import { runQuestionnaireLookup } from '@/lib/cross-system-root/questionnaireEngine';
 import { buildMemberResultsView, type MemberResultsView } from '@/lib/body-systems/memberView';
 import { memberCopy } from '@/lib/body-systems/copyKeys';
 import {
@@ -339,6 +340,17 @@ export async function submitBodySystemsSurveyAction(
     memberId: user.id,
     sourceKey: SOURCE_BODY_SYSTEMS,
     sittingId: record.id,
+  });
+
+  // ROOT READS THE SITTING THAT WAS JUST FILED. The answers the survey rule
+  // treats as active signals consult the Whole-Body Association Map, the
+  // same way a sentence she writes does, and what Root noticed is stored
+  // for her coach. Coach only, best effort, never throws, and it changes
+  // nothing about the result already built for her above.
+  await runQuestionnaireLookup({
+    memberId: user.id,
+    sittingId: record.id,
+    trigger: 'sitting_ingested',
   });
 
   // The pop-up for this assignment can never be due again, which makes any

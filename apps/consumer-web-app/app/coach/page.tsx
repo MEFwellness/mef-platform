@@ -58,6 +58,7 @@ import {
   Beef,
   Compass,
   Share2,
+  Route,
 } from 'lucide-react';
 import { listAssignedClients } from '@/app/actions/coach';
 import { listCoachReviewQueue } from '@/app/actions/safety';
@@ -74,6 +75,10 @@ import { timeContextInTimezone } from '@/lib/feed/timeContext';
 import { ChangePasswordLink } from '@/components/auth/ChangePasswordLink';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { RELATIONSHIP_LIBRARY_HREF } from '@/lib/cross-system-relationships/constants';
+import {
+  SURVEY_SIGNAL_MAPPING_HREF,
+  SURVEY_SIGNAL_MAPPING_LABEL,
+} from '@/lib/cross-system-signals/surveyMapping';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -192,6 +197,7 @@ export default async function CoachPage() {
     { label: 'Generate', href: '/coach/generate', Icon: Sparkles },
     { label: 'Question Bank', href: '/coach/questions', Icon: ListChecks },
     { label: 'Relationship Library', href: RELATIONSHIP_LIBRARY_HREF, Icon: Share2 },
+    { label: SURVEY_SIGNAL_MAPPING_LABEL, href: SURVEY_SIGNAL_MAPPING_HREF, Icon: Route },
     { label: 'Exercise Library', href: '/exercises', Icon: Dumbbell },
     { label: 'Movement Profile', href: '/movement/profile', Icon: Compass },
   ];

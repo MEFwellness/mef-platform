@@ -86,8 +86,27 @@ function newer(candidate: SignalRecord, held: SignalRecord): boolean {
  * that level, and nought means it was reported as absent.
  */
 export function isPresent(record: SignalRecord): boolean {
+  // A BODY SYSTEMS SURVEY ANSWER THE SURVEY RULE HAS JUDGED. Present only
+  // when it is an active signal now: Often or more, or a supported
+  // Sometimes, from her newest sitting. Every other row, and every survey
+  // row a read did not pass through the rule, carries no verdict and falls
+  // through to the plain reading below exactly as before.
+  if (record.questionnaire) return record.questionnaire.current;
   if (record.valueNumeric === null) return true;
   return record.valueNumeric > 0;
+}
+
+/**
+ * Whether a row said the thing was happening ON THE DAY IT WAS CAPTURED.
+ *
+ * Different from `isPresent` only for a judged survey answer: an Often from
+ * a sitting a newer one has replaced was a real report on its day and is
+ * not current now. That difference is what lets a retake answered Never
+ * read as "reported before, not current" rather than as nothing at all.
+ */
+export function wasPresentWhenCaptured(record: SignalRecord): boolean {
+  if (record.questionnaire) return record.questionnaire.activeAtCapture;
+  return isPresent(record);
 }
 
 /**

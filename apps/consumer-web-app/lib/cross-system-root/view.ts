@@ -58,7 +58,14 @@ export type FindingRowLine = {
   sourceLabel: string;
   capturedOn: string;
   capturedOnDisplay: string;
-  /** Exactly what she was answering, where the source recorded it. */
+  /**
+   * Exactly what she was answering, where the source recorded it.
+   *
+   * NEVER A SECTION ROLLUP'S PROMPT. A Body Systems Survey section row
+   * records its prompt as the section name and its percentage, and a Root
+   * card carries no survey percentage, so that one kind of prompt is left
+   * off the card. The band word beside it still says how loud it was.
+   */
   sourceQuestionPrompt: string | null;
   /** Her own words, where this row came from a sentence. */
   note: string | null;
@@ -84,6 +91,16 @@ export type FindingAreaView = {
 
 /** One finding a coach reads. */
 export type RootFindingView = {
+  /**
+   * WHAT CAUSED IT. A sentence she wrote, or her newest Body Systems Survey.
+   * The card's opening block is drawn from the matching half: her words for
+   * a complaint, the signals her answers support for a survey.
+   */
+  origin: 'complaint' | 'questionnaire';
+  /** For a survey finding: "<survey> currently supports: <signals>." Null for a complaint. */
+  triggerLine: string | null;
+  /** For a complaint finding her newest survey also reaches: who else supports it now. */
+  alsoSupportedBy: string | null;
   relationshipId: string;
   patternKey: string;
   patternName: string | null;
@@ -147,7 +164,7 @@ function rowLine(record: SignalRecord, state: EvidenceState): FindingRowLine {
     sourceLabel: record.sourceLabel,
     capturedOn: record.capturedOn,
     capturedOnDisplay: formatDisplayDate(record.capturedOn, DAY_FORMAT),
-    sourceQuestionPrompt: record.sourceQuestionPrompt,
+    sourceQuestionPrompt: record.valueKind === 'band' ? null : record.sourceQuestionPrompt,
     note: record.note,
     state,
     stateLabel: STATE_LABELS[state],
@@ -190,6 +207,9 @@ export function buildFindingView(input: {
   const { finding, report } = input;
 
   const base = {
+    origin: 'complaint' as const,
+    triggerLine: null,
+    alsoSupportedBy: null,
     relationshipId: finding.head.id,
     patternKey: finding.head.patternKey,
     isSeeded: finding.head.isSeeded,
@@ -257,6 +277,51 @@ export function buildFindingView(input: {
       .sort((a, b) => a.position - b.position)
       .map((entry) => entry.body),
   };
+}
+
+/**
+ * One finding her newest Body Systems Survey caused.
+ *
+ * THE SAME CARD, WITH A DIFFERENT OPENING. Everything below the opening is
+ * built by `buildFindingView` from the same draft the same lookup made, so
+ * a survey card and a complaint card about one map entry read the same
+ * areas, the same association and the same considerations. What changes is
+ * what caused it: there is no sentence of hers to quote, so the card names
+ * the signals her answers currently support, and it names no score.
+ */
+export function buildQuestionnaireFindingView(input: {
+  finding: RootFindingDraft;
+  sourceLabel: string;
+  sittingOn: string;
+  supportsLine: string;
+}): RootFindingView {
+  const report: ComplaintReportRecord = {
+    id: '',
+    memberId: '',
+    surfaceKey: '',
+    surfaceLabel: input.sourceLabel,
+    rawText: '',
+    fieldRef: null,
+    fieldPrompt: null,
+    sourceRecordId: null,
+    reportedOn: input.sittingOn,
+    reportedAt: input.sittingOn,
+    authorRole: 'member',
+    authoredBy: null,
+    classifierKind: 'deterministic_lexicon',
+    classifierRevision: '',
+    ingestFingerprint: null,
+    lookupCompletedAt: null,
+    createdAt: input.sittingOn,
+  };
+  const view = buildFindingView({
+    finding: input.finding,
+    report,
+    classifications: [],
+    nameFor: (slug) => slug,
+    areaFor: (key) => key,
+  });
+  return { ...view, origin: 'questionnaire', triggerLine: input.supportsLine, interpretation: [] };
 }
 
 /** The headings, exported so a test can assert their order on the rendered card. */

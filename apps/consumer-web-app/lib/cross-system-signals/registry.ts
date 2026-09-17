@@ -30,7 +30,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { SignalDraft, SignalLibrary } from './types';
+import type { SignalDraft, SignalLibrary, SignalRecord } from './types';
 
 /** One completed sitting an adapter can be asked to ingest. */
 export type IngestibleSitting = {
@@ -47,6 +47,14 @@ export type BuildContext = {
   capturedOn: string;
   /** Standardized names this member already has at least one signal for. */
   knownSlugs: ReadonlySet<string>;
+  /**
+   * Her rows captured at or before this sitting, from every source.
+   *
+   * Only the Body Systems Survey reads it today, to ask whether another
+   * source currently supports an answer (./questionnaireRules.ts). Optional,
+   * so an adapter or a test that has no use for it passes nothing.
+   */
+  records?: readonly SignalRecord[];
 };
 
 /**
