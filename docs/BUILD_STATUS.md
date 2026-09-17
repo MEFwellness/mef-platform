@@ -145,6 +145,77 @@ and the shelf card test, which now says that four of the five coach assigned
 questionnaires show a finished sitting at their own one address and only the
 Health Appraisal names a separate results page.
 
+### LIVE VERIFICATION, PRODUCTION, 2026-09-17
+
+Repo `MEFwellness/mef-platform`, branch `main`, commit `1d901c6`. Vercel
+project `mef-platform`, team `mef-wellness`: deployment
+`mef-platform-2ws81uq9f`, target production, Ready, aliased to
+`https://app.mefwellness.com` (read with `vercel inspect`). Migration 264
+pushed before the deploy; a dry run afterwards reported the remote database
+up to date.
+
+`scripts/verify-haq-results-live.ts`, five modes, as 8weeks2fab@gmail.com at
+390 x 844 and as her own assigned coach at 1280 x 900, sessions minted and
+retired. **86 of 87 checks passed**, and the one failure was the script's own
+pacing, proved below.
+
+- **`routes`**: where all 14 existing questionnaire routes land, recorded
+  outside the repository.
+- **`before`, 30 of 30.** Her finished card on the shelf pointing at
+  `/health-appraisal/results`; the completion screen's "See your results"
+  button; the title, the approved intro, **High Attention 13 areas, Needs
+  Attention 1 area, Doing Well 7 areas**, 21 cards Red then Yellow then
+  Green, each with its section name, its label and the approved explanation
+  for its colour; **no number on the page but her own three counts**; no
+  trend chip and no comparison line, because she had one sitting. The coach:
+  the sitting listed with those same counts, completion date and `haq_v1`,
+  all 21 sections with **every raw total, label and priority equal to the
+  database row**, all 260 answers between them, **highest value first and
+  summing to each section's own stored total**, and both body map marks with
+  the front and back figures drawn. Zero console or page errors.
+- **`retake`.** The coach re-assigned through his own real Assign control,
+  Begin opened a NEW instance beside the first, and she walked it: **the Part
+  name and Section name header correct on all 94 screens with no roman
+  numeral, all ten Part names read**, and a Part holding one section named
+  once. Then the body map, then Complete: 260 responses, 21 results, the
+  second sitting finished.
+- **`after`, 28 of 28.** Two completed sittings, neither replacing the other.
+  Her results page with the comparison line word for word, **a chip on every
+  one of the 21 cards, all three of Quieter, Unchanged and Louder occurring,
+  and every chip matching the two sittings' own stored colours**. The coach's
+  card listing both sittings newest first, the newest naming the one it is
+  compared with and every section showing the previous raw total and label
+  beside the current ones with its chip, and the first sitting still carrying
+  no comparison. **The first sitting's stored data byte for byte identical to
+  before the retake.** No member facing payload carrying a hidden value, all
+  14 existing routes exactly as recorded, zero console or page errors.
+
+**THE ONE FAILURE, AND WHAT IT ACTUALLY WAS.** The retake marked four areas
+and the check found three. It looked like the Prompt 2 defect returning, so
+it was tested properly rather than explained away: a **third** instance was
+opened through the real flow, its answers seeded, and six areas marked across
+the front and the back **one at a time with each write watched**. All six
+stored, and **every POST to `/api/haq/body-map` returned 200, including the
+first write on a fresh instance**, with no failure line on screen. That probe
+instance and its assignment were then deleted and both real sittings
+re-checked as unchanged. The lost mark was the script tapping an area while
+the category sheet was still closing, so the mark was never attempted. The
+script now confirms each mark before making the next, and its removal check
+counts down from what was really there rather than from what was intended;
+the old check could be satisfied by a stale read taken before the delete
+committed.
+
+**WHAT THAT MEANS FOR THE BODY MAP.** Writing is verified on production:
+six marks across both views, first write included. **Removal is verified on
+production too**: the retake's own marks went from three to two on one
+Remove, exactly one. The retake sitting therefore carries **two** marks
+rather than three, and both are on the back view.
+
+**State left on production, on purpose:** both completed sittings, for the
+phone review. The first (13 Red, 1 Yellow, 7 Green, two marks) is untouched;
+the second (10 Red, 4 Yellow, 7 Green, two marks) is the retake.
+
+
 ---
 
 ## Rooted Reset Health Appraisal Questionnaire, Prompt 2 of 3: the member experience, the body map, and who it opens for (2026-09-17)
