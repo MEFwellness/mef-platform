@@ -63,6 +63,29 @@ All five behavioural tests were proved to FAIL with the three map lines
 removed, so none of them passes vacuously. Full suite 13,339 passing.
 Nothing member-facing was touched.
 
+### LIVE-SITE VERIFICATION, 23 of 23 CHECKS PASSED
+
+`scripts/verify-completed-view-results-live.mjs`, run against
+`app.mefwellness.com` on a 390px phone, signed in as the coach through a
+one-time minted session retired afterwards with scope 'local'. **The run
+writes nothing**: it presses controls that only scroll, so it is safe
+against a real client's ledger.
+
+On a client holding two finished sittings: the Health Appraisal row is in
+Completed carrying **View results BESIDE Assign Again**, pressing it opens
+the section and puts `detail-card-health-appraisal` really in the viewport,
+and the card's top entry links to the exact session id the database returns
+as newest. The Fuel Pattern and the Intake land on their own cards, the
+Intake across a section boundary into Health Context.
+
+**Four Doctors was Completed on this client and correctly offered no link**,
+which is the "left alone" half confirmed on the real site rather than only
+in a test. Zero console errors and zero em dashes on every screen.
+
+The member side was walked in the same run: `/questionnaires` and
+`/health-appraisal/results` render with no coach control anywhere on them,
+which is what "nothing member-facing changed" looks like from her side.
+
 ## Rooted Reset Health Appraisal Questionnaire, Prompt 3 of 3: her results, the coach's reading, retakes and history (2026-09-17)
 
 The HAQ is finished. She can now read what her sitting showed, her coach can
