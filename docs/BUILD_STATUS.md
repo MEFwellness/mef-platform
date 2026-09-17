@@ -45,6 +45,8 @@ short or send a list too long for one request as data grows.
   1,000 of 1,150 / 1,500 / 1,100 and 0 of 1,153 against the pre-fix code).
 - CLAUDE.md: "Standing rules from the 2026-09-17 data scale sweep".
 - `scripts/verify-data-scale-live.ts`: the screen-versus-database live check.
+  Live run on e87c101: 20 of 20 passed (details in the audit doc); the test
+  member was recounted back to her starting state afterwards.
 
 No migration.
 ## Root Noticed: the coach briefing (2026-09-17)

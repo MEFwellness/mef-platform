@@ -1282,6 +1282,56 @@ bounded and exempted in code with the reason shown.
 | `scripts/verify-your-own-company-live.mjs:1333` | script (verification harness) | `lifestyle_experiments` select | unpaged-read | 5 | b | paged (selectAllRows) |
 | `scripts/verify-your-own-company-live.mjs:1343` | script (verification harness) | `member_root_popup_dismissals` select | unpaged-read | 29 | b | paged (selectAllRows) |
 
-## Live verification
+## Live verification (app.mefwellness.com, 2026-09-17)
 
-(Recorded after the deploy; see below.)
+Deployment: Vercel project mef-platform, Production, commit e87c101 on
+MEFwellness/mef-platform main, confirmed as the deployment
+app.mefwellness.com serves through the Vercel API. Method: one-time sessions
+minted for the standing staff account (coach and administrator) and the test
+member, retired afterwards; every number read off the real screen and
+compared with the database counted independently with the service role.
+`scripts/verify-data-scale-live.ts`, one end-to-end run: **20 of 20 passed.**
+
+| check | on screen | database |
+| --- | --- | --- |
+| Exercise library total | 861 | 861 rows |
+| Exercise library, category "core" (largest filter): total | 120 | 120 rows |
+| Exercise library, "core": cards reachable with Load more | 120 | 120 rows |
+| Relationship Library | 240 of 240 patterns | 240 entries |
+| Relationship Library, every entry's primary / related / supporting counts | 240 rows, 0 mismatches | 2,511 components |
+| Broad musculoskeletal entry opened in the editor ("Musculoskeletal findings, body areas worth reviewing in return") | 1 primary, 10 related, 1 supporting | same |
+| Coach question bank | 87 active questions | 87 active of 88 |
+| Admin Users, test accounts hidden / shown | 10 shown, 2 hidden / 12 shown | 12 profiles, 2 test |
+| Assignment history, test accounts hidden / shown | 1 shown, 1 hidden / 2 shown | 2 pairings, 1 with a test account |
+| Test-account toggle | present both ways | |
+| Test member's Signals list (coach view) | 62 signals, 176 entries | 62 distinct, 176 rows |
+| Her check-in History (designed to show the latest 30) | 11 rows | 11 rows |
+| Her Health Timeline (designed to show the latest 200) | 27 check-ins + 12 milestones | 39 rows |
+| Admin analytics member timeline, 30 and 90 days | 1,872 actions on 19 days, truncation notice shown | cap rule applied to 2,111 / 3,241 events gives 1,872 on 19 days |
+| Coach-only phrases in her 181 response bodies over 8 routes | 0 | |
+| Console errors on her 8 screens | 0 | |
+
+**What the analytics timeline showed before this build**, measured against
+her events as of the start of the run: 1,000 actions on 10 days (from
+2026-09-08) in BOTH the 30 and 90 day views, with no truncation notice. The
+truth was 2,103 actions on 24 days (30 days) and 3,233 actions on 31 days
+(90 days). It now shows the most recent 2,000 actions less the day that cap
+falls inside, and says that older days are left out.
+
+**Two check bugs were found and fixed on the way, neither in the app:** the
+first run read the Relationship Library rows with `textContent`, which runs a
+date into the count ("2026" + "2 primary"), and counted exercise cards inside
+`<main>`, where the cards are not, before the debounced search had settled.
+
+**Cleanup.** The test member's rows were snapshotted before the run
+(89 tables, 7,629 rows). Another session was live-testing the Root briefing
+on the same member at the same time, so cleanup was split by time: this run
+deleted its own 20 rows written before 13:35:11Z (7 page-view events, 9
+rotating probe selections, 3 profile snapshots, 1 coaching insight), and that
+session's restore removes every row created after it, including this run's
+later page views.
+
+**Final recount (read only, independent of either cleanup):** every table
+holding a row for the test member or the staff account matches the
+13:27:20Z snapshot row for row in count, and no session minted by the run
+is still open. She is back at her starting state.

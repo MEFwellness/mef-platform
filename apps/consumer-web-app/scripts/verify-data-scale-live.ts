@@ -117,16 +117,21 @@ async function exerciseLibrary(staff: BrowserContext): Promise<void> {
   const page = await staff.newPage();
   await go(page, '/exercises');
   await page.getByLabel('Category').selectOption(largest);
-  await page.waitForLoadState('networkidle', { timeout: 25_000 }).catch(() => {});
-  await pause(1500);
+  // Every card links to its own exercise page; the navigation links to /exercises only.
+  const cardLinks = page.locator('a[href^="/exercises/"]');
+  // The grid shows placeholder cards while it loads; count only real ones.
+  await cardLinks.first().waitFor({ timeout: 60_000 });
+  // The search is debounced; a click before it settles is superseded by it.
+  await pause(3000);
   for (let i = 0; i < 80; i += 1) {
     const more = page.getByRole('button', { name: /load more/i });
     if (!(await more.isVisible().catch(() => false))) break;
+    const before = await cardLinks.count();
     await more.click();
-    await page.waitForLoadState('networkidle', { timeout: 25_000 }).catch(() => {});
-    await pause(800);
+    for (let wait = 0; wait < 60 && (await cardLinks.count()) === before; wait += 1) await pause(500);
   }
-  const cards = await page.locator('main a[href^="/exercises/"]').count();
+  await pause(1000);
+  const cards = await cardLinks.count();
   await page.screenshot({ path: `${OUT}/1-exercises-${largest.replace(/\W+/g, '-')}.png`, fullPage: false });
   record(`1. Filter "${largest}": every card can be reached on screen`, cards === largestCount, `${cards} cards after Load more`, `${largestCount} rows`);
   await page.close();
@@ -176,11 +181,16 @@ async function relationshipLibrary(staff: BrowserContext): Promise<void> {
     const truth = byName.get(name);
     if (!truth) continue;
     checked += 1;
-    const text = (await row.textContent()) ?? '';
+    // innerText keeps the line breaks between elements; textContent runs a
+    // date straight into the count ("2026" + "2 primary" reads as 20262).
+    const text = await row.innerText();
+    // "2 primary, 11 related. At least 1 supporting signals before it may
+    // surface." The minimum after "At least" is a rule, not a count.
+    const countLine = (text.split('\n').find((line) => /\b\d+ (primary|related|supporting)\b/.test(line)) ?? '').split('At least')[0]!;
     const shown: RoleCounts = {
-      primary: num(/(\d+) primary/.exec(text)?.[1] ?? '0'),
-      related: num(/(\d+) related/.exec(text)?.[1] ?? '0'),
-      support: num(/(\d+) supporting\./.exec(text)?.[1] ?? '0'),
+      primary: num(/\b(\d+) primary/.exec(countLine)?.[1] ?? '0'),
+      related: num(/\b(\d+) related/.exec(countLine)?.[1] ?? '0'),
+      support: num(/\b(\d+) supporting/.exec(countLine)?.[1] ?? '0'),
     };
     if (shown.primary !== truth.primary || shown.related !== truth.related || shown.support !== truth.support) {
       mismatches.push(`${name}: screen ${JSON.stringify(shown)} vs db ${JSON.stringify(truth)}`);
@@ -389,6 +399,7 @@ async function main(): Promise<void> {
   try {
     staff = await mintSessionContext(browser, STAFF_EMAIL, { baseUrl: BASE });
     if (!staff) throw new Error('could not mint the staff session');
+    const only = process.env.ONLY?.split(',');
     for (const [name, check] of [
       ['exercise library', () => exerciseLibrary(staff!.context)],
       ['relationship library', () => relationshipLibrary(staff!.context)],
@@ -397,18 +408,21 @@ async function main(): Promise<void> {
       ['signals list', () => signalsList(staff!.context)],
       ['analytics timeline', () => analyticsTimeline(staff!.context)],
     ] as const) {
+      if (only && !only.includes(name)) continue;
       try {
         await check();
       } catch (error) {
         record(`${name} completed without throwing`, false, String(error).slice(0, 300), 'n/a');
       }
     }
+    if (only && !only.some((name) => name.startsWith('member'))) return;
     member = await mintSessionContext(browser, MEMBER_EMAIL, { baseUrl: BASE });
     if (!member) throw new Error('could not mint the member session');
     for (const [name, check] of [
       ['member history', () => memberHistory(member!.context)],
       ['member walk', () => memberWalk(member!.context)],
     ] as const) {
+      if (only && !only.includes(name)) continue;
       try {
         await check();
       } catch (error) {
@@ -425,4 +439,7 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
