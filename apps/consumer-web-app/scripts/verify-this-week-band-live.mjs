@@ -39,6 +39,7 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const STAFF_EMAIL = process.env.STAFF_EMAIL;
@@ -126,7 +127,9 @@ async function stateSnapshot(service, memberId) {
   const out = {};
   for (const [table, columns] of tables) {
     const column = table === 'daily_checkins' ? 'user_id' : 'member_id';
-    const { data, error } = await service.from(table).select(columns).eq(column, memberId);
+    const { rows: data, error } = await selectAllRows(() =>
+      service.from(table).select(columns).eq(column, memberId).order('id', { ascending: true })
+    );
     out[table] = error ? `ERROR ${error.message}` : JSON.stringify(data ?? []);
   }
   return JSON.stringify(out);
@@ -169,20 +172,27 @@ async function main() {
     );
 
     // ---- The database's own answers, to check the screen against ----
-    const { data: allCheckins } = await service
-      .from('daily_checkins_current')
-      .select('local_date')
-      .eq('user_id', MEMBER_ID);
+    // daily_checkins_current is one daily_checkins row per user and day, so id is unique.
+    const { rows: allCheckins } = await selectAllRows(() =>
+      service
+        .from('daily_checkins_current')
+        .select('local_date')
+        .eq('user_id', MEMBER_ID)
+        .order('id', { ascending: true })
+    );
     const allDays = new Set((allCheckins ?? []).map((r) => r.local_date));
     const inWindowDays = new Set(
       [...allDays].filter((d) => d >= win.from && d <= win.to)
     );
     note(`database says ${inWindowDays.size} of her ${allDays.size} logged days fall in the window`);
 
-    const { data: allWorkouts } = await service
-      .from('coach_assigned_workouts')
-      .select('scheduled_date, status')
-      .eq('member_id', MEMBER_ID);
+    const { rows: allWorkouts } = await selectAllRows(() =>
+      service
+        .from('coach_assigned_workouts')
+        .select('scheduled_date, status')
+        .eq('member_id', MEMBER_ID)
+        .order('id', { ascending: true })
+    );
     const workoutsInWindow = (allWorkouts ?? []).filter(
       (w) => w.scheduled_date >= win.from && w.scheduled_date <= win.to
     );
@@ -290,10 +300,13 @@ async function main() {
     check('the experiments row renders', experimentLine !== null, experimentLine ?? '');
     const assignmentLine = await rowText(page, 'assignments');
     check('the assignments row renders', assignmentLine !== null, assignmentLine ?? '');
-    const { data: shownAssignments } = await service
-      .from('assessment_assignments')
-      .select('assessment_definition_id, status')
-      .eq('member_id', MEMBER_ID);
+    const { rows: shownAssignments } = await selectAllRows(() =>
+      service
+        .from('assessment_assignments')
+        .select('assessment_definition_id, status')
+        .eq('member_id', MEMBER_ID)
+        .order('id', { ascending: true })
+    );
     const hasDeepDive = (shownAssignments ?? []).some(
       (a) => a.assessment_definition_id === '9f2c4d7e-3a51-4b86-9c0d-6e5f1a72b834'
     );
@@ -317,11 +330,14 @@ async function main() {
     note(`worth discussing reads: ${worthText}`);
     check('the merged Worth discussing section renders', worthText !== null);
 
-    const { data: openAlerts } = await service
-      .from('intelligence_coach_alerts')
-      .select('alert_key, title')
-      .eq('member_id', MEMBER_ID)
-      .in('status', ['open', 'acknowledged']);
+    const { rows: openAlerts } = await selectAllRows(() =>
+      service
+        .from('intelligence_coach_alerts')
+        .select('alert_key, title')
+        .eq('member_id', MEMBER_ID)
+        .in('status', ['open', 'acknowledged'])
+        .order('id', { ascending: true })
+    );
     const titles = [...new Set((openAlerts ?? []).map((a) => a.title))];
     for (const title of titles) {
       const occurrences = pageText.split(title).length - 1;
@@ -364,11 +380,14 @@ async function main() {
       if (!allDays.has(day)) { emptyDayInWindow = day; break; }
     }
     if (donor && emptyDayInWindow) {
-      const { data: donorRows } = await service
-        .from('daily_checkins')
-        .select('id, local_date')
-        .eq('user_id', MEMBER_ID)
-        .eq('local_date', donor);
+      const { rows: donorRows } = await selectAllRows(() =>
+        service
+          .from('daily_checkins')
+          .select('id, local_date')
+          .eq('user_id', MEMBER_ID)
+          .eq('local_date', donor)
+          .order('id', { ascending: true })
+      );
       const donorRow = (donorRows ?? [])[0];
       if (donorRow) {
         undo.push(async () => {
@@ -418,10 +437,13 @@ async function main() {
       note(`she already has a check-in for ${memberToday}`);
     }
 
-    const { data: afterCheckin } = await service
-      .from('daily_checkins_current')
-      .select('local_date')
-      .eq('user_id', MEMBER_ID);
+    const { rows: afterCheckin } = await selectAllRows(() =>
+      service
+        .from('daily_checkins_current')
+        .select('local_date')
+        .eq('user_id', MEMBER_ID)
+        .order('id', { ascending: true })
+    );
     const daysNow = new Set((afterCheckin ?? []).map((r) => r.local_date));
     const inWindowNow = [...daysNow].filter((d) => d >= win.from && d <= win.to).length;
     await openPage();

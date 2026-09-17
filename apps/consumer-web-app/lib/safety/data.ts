@@ -8,6 +8,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import {
   applyTestAccountExclusion,
   rejectTestMemberRow,
@@ -24,6 +25,7 @@ import type {
   SafetyReviewStatus,
   SafetyAuditEventType,
   SafetyActorType,
+  SafetyAuditLogEntry,
 } from '@mef/shared-types-contracts';
 
 export type InsertClassificationInput = {
@@ -258,16 +260,18 @@ export async function listReviewQueueForCoach(
 ): Promise<SafetyReviewQueueEntry[]> {
   const exclusion = await resolveTestAccountExclusion(supabase);
 
-  let query = supabase
-    .from('safety_review_queue')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (statusFilter && statusFilter.length > 0) {
-    query = query.in('status', statusFilter);
-  }
-  query = applyTestAccountExclusion(query, exclusion, 'member_id');
-
-  const { data, error } = await query;
+  const { rows: data, error } = await selectAllRows<SafetyReviewQueueEntry>(() => {
+    let query = supabase
+      .from('safety_review_queue')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true });
+    if (statusFilter && statusFilter.length > 0) {
+      // scale-exempt: statusFilter is typed SafetyReviewStatus[], a fixed union of 6 statuses
+      query = query.in('status', statusFilter);
+    }
+    return applyTestAccountExclusion(query, exclusion, 'member_id');
+  });
   if (error) {
     console.error('listReviewQueueForCoach failed', error);
     return [];
@@ -337,11 +341,14 @@ export async function insertAuditLog(
 }
 
 export async function listAuditLogForReview(supabase: SupabaseClient, reviewId: string) {
-  const { data, error } = await supabase
-    .from('safety_audit_log')
-    .select('*')
-    .eq('review_id', reviewId)
-    .order('created_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<SafetyAuditLogEntry>(() =>
+    supabase
+      .from('safety_audit_log')
+      .select('*')
+      .eq('review_id', reviewId)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listAuditLogForReview failed', error);

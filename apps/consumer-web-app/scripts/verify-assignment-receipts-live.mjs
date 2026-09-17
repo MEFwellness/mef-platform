@@ -29,6 +29,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const MEMBER_ID = process.env.MEMBER_ID;
@@ -98,12 +99,15 @@ async function main() {
     );
 
     // Nothing may be open before we start, or the assign is a no-op.
-    const { data: existing } = await service
-      .from('assessment_assignments')
-      .select('id')
-      .eq('member_id', MEMBER_ID)
-      .eq('assessment_definition_id', STRESS_LOAD_DEFINITION_ID)
-      .eq('status', 'pending');
+    const { rows: existing } = await selectAllRows(() =>
+      service
+        .from('assessment_assignments')
+        .select('id')
+        .eq('member_id', MEMBER_ID)
+        .eq('assessment_definition_id', STRESS_LOAD_DEFINITION_ID)
+        .eq('status', 'pending')
+        .order('id', { ascending: true })
+    );
     check('nothing of this kind is open before the run', (existing ?? []).length === 0);
 
     // ---- 1. The coach assigns it, on the real screen ----

@@ -25,6 +25,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const MEMBER_EMAIL = '8weeks2fab@gmail.com';
@@ -51,7 +52,7 @@ const createdScanIds = [];
 const createdLogEntryIds = [];
 
 async function memberId() {
-  const { data: users, error } = await service.auth.admin.listUsers({ perPage: 200 });
+  const { data: users, error } = await listAllAuthUsers(service.auth.admin);
   if (error) throw new Error(`listUsers failed: ${error.message}`);
   const user = users.users.find((u) => u.email === MEMBER_EMAIL);
   if (!user) throw new Error(`${MEMBER_EMAIL} not found on production`);
@@ -113,20 +114,29 @@ async function todaysProteinFromDb(uid, timezone) {
   const to = new Date(`${today}T00:00:00.000Z`);
   to.setUTCDate(to.getUTCDate() + 2);
 
-  const { data: rows } = await service
-    .from('member_food_log')
-    .select('id, product_id, servings, consumed_at, estimated_protein_g')
-    .eq('member_id', uid)
-    .gte('consumed_at', from.toISOString())
-    .lt('consumed_at', to.toISOString());
+  const { rows } = await selectAllRows(() =>
+    service
+      .from('member_food_log')
+      .select('id, product_id, servings, consumed_at, estimated_protein_g')
+      .eq('member_id', uid)
+      .gte('consumed_at', from.toISOString())
+      .lt('consumed_at', to.toISOString())
+      .order('id', { ascending: true })
+  );
 
   const inToday = (rows ?? []).filter(
     (r) => new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(r.consumed_at)) === today
   );
   const productIds = [...new Set(inToday.map((r) => r.product_id).filter(Boolean))];
-  const { data: nutrients } = productIds.length
-    ? await service.from('product_nutrients').select('product_id, protein_g').in('product_id', productIds)
-    : { data: [] };
+  const { rows: nutrients } = productIds.length
+    ? await selectAllRowsInChunks(productIds, (chunk) =>
+        service
+          .from('product_nutrients')
+          .select('product_id, protein_g')
+          .in('product_id', chunk)
+          .order('product_id', { ascending: true })
+      )
+    : { rows: [] };
   const perServing = new Map((nutrients ?? []).map((n) => [n.product_id, n.protein_g]));
 
   let total = 0;
@@ -185,6 +195,7 @@ async function main() {
       'the exact result-screen line'
     );
 
+    // scale-exempt: one row per detected item of the single scan this run just created
     const { data: itemGrams } = await service
       .from('food_lens_item_macro_estimates')
       .select('detected_item_id, protein_g, carb_g, fat_g, portion_description')
@@ -282,6 +293,7 @@ async function main() {
       `screen showed ${shownProtein}g, action counted ${countedGrams}g`
     );
 
+    // scale-exempt: the rows confirmed from the single scan this run just created, one per detected item
     const { data: writtenRows } = await service
       .from('member_food_log')
       .select('id, entry_source, servings, estimated_protein_g, estimated_carb_g, estimated_fat_g')
@@ -350,6 +362,7 @@ async function main() {
       `scan ${secondScanId}`
     );
 
+    // scale-exempt: rows for the single unconfirmed scan this run just created (expected zero)
     const { data: unconfirmedRows } = await service
       .from('member_food_log')
       .select('id')
@@ -371,10 +384,13 @@ async function main() {
   } finally {
     // Leave the account exactly as it was found.
     if (createdLogEntryIds.length > 0) {
+      // scale-exempt: ids this run inserted, the log rows of the one scan it confirmed
       await service.from('member_food_log').delete().in('id', createdLogEntryIds);
     }
     if (createdScanIds.length > 0) {
+      // scale-exempt: createdScanIds holds only the two scans this run made (runScan is called twice)
       await service.from('member_food_log').delete().in('scan_id', createdScanIds);
+      // scale-exempt: createdScanIds holds only the two scans this run made (runScan is called twice)
       await service.from('food_lens_scans').delete().in('id', createdScanIds);
     }
     await retireSession(minted);

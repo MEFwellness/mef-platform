@@ -43,6 +43,7 @@
  * NO EM DASHES, per the house rule.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows, selectAllRowsInChunks } from '../../data/pagedSelect';
 import type {
   BlueprintBlock,
   CoachProgramTemplateWithContent,
@@ -318,11 +319,14 @@ export async function loadRotationPool(
     byBlock.set(block, await loadBlockCandidates(supabase, block));
   }
 
-  const { data, error } = await supabase
-    .from('member_exercise_avoidance')
-    .select('external_id')
-    .eq('member_id', input.memberId)
-    .is('released_at', null);
+  const { rows: data, error } = await selectAllRows<Pick<MemberExerciseAvoidance, 'external_id'>>(() =>
+    supabase
+      .from('member_exercise_avoidance')
+      .select('external_id')
+      .eq('member_id', input.memberId)
+      .is('released_at', null)
+      .order('id', { ascending: true })
+  );
   if (error) {
     // A read that failed must not quietly widen what she can be given. Same
     // rule, and the same reason, as loadAvoidedExternalIds.
@@ -332,9 +336,7 @@ export async function loadRotationPool(
 
   return {
     byBlock,
-    avoidedExternalIds: new Set(
-      ((data ?? []) as Pick<MemberExerciseAvoidance, 'external_id'>[]).map((row) => row.external_id)
-    ),
+    avoidedExternalIds: new Set(data.map((row) => row.external_id)),
   };
 }
 
@@ -350,23 +352,32 @@ export async function loadRecoverySlots(supabase: SupabaseClient): Promise<Recov
     return [];
   }
 
-  const { data: slots, error: slotError } = await supabase
-    .from('movement_session_template_slots')
-    .select('provider, external_id, prescription_type, prescription_seconds, prescription_reps, rest_seconds')
-    .eq('template_id', template.id)
-    .order('slot_order', { ascending: true });
-  if (slotError || !slots) {
-    if (slotError) console.error('loadRecoverySlots (slots) failed', slotError);
+  const { rows: slots, error: slotError } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('movement_session_template_slots')
+      .select('provider, external_id, prescription_type, prescription_seconds, prescription_reps, rest_seconds')
+      .eq('template_id', template.id)
+      .order('slot_order', { ascending: true })
+  );
+  if (slotError) {
+    console.error('loadRecoverySlots (slots) failed', slotError);
     return [];
   }
 
   const externalIds = slots.map((s) => s.external_id as string);
-  const { data: catalog } = await supabase
-    .from('exercise_catalog')
-    .select('external_id, name, is_client_assignable')
-    .in('external_id', externalIds);
+  const catalogRead = await selectAllRowsInChunks<{
+    external_id: string;
+    name: string;
+    is_client_assignable: boolean;
+  }>(externalIds, (chunk) =>
+    supabase
+      .from('exercise_catalog')
+      .select('external_id, name, is_client_assignable')
+      .in('external_id', chunk)
+      .order('id', { ascending: true })
+  );
   const nameById = new Map(
-    ((catalog ?? []) as { external_id: string; name: string; is_client_assignable: boolean }[])
+    (catalogRead.error ? [] : catalogRead.rows)
       // Migration 170's one rule, applied here too: a member is only ever
       // given an exercise she can be shown how to do.
       .filter((row) => row.is_client_assignable === true)

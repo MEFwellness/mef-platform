@@ -19,6 +19,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const MEMBER_EMAIL = process.env.LIVE_MEMBER_EMAIL;
@@ -61,7 +62,7 @@ const EM_DASH = '—';
 function squash(s) { return (s || '').replace(/\s+/g, ' '); }
 
 async function idFor(email) {
-  const { data } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data } = await listAllAuthUsers(service.auth.admin);
   return data?.users?.find((u) => u.email === email)?.id ?? null;
 }
 
@@ -156,9 +157,10 @@ try {
   check('coach card now says assigned and not completed', /not completed yet/.test(coachText));
   await shot(coachPage, '03-coach-assigned');
 
-  const { data: created } = await service.from('assessment_assignments')
+  const { rows: created } = await selectAllRows(() => service.from('assessment_assignments')
     .select('id, status').eq('member_id', memberId)
-    .eq('assessment_definition_id', DEFINITION_ID);
+    .eq('assessment_definition_id', DEFINITION_ID)
+    .order('id', { ascending: true }));
   check('exactly one pending assignment row exists', (created ?? []).length === 1
     && created[0].status === 'pending', JSON.stringify(created));
 
@@ -311,8 +313,9 @@ try {
   check('and does not print a combined score', !/Overall score|Total score|Combined/i.test(reading));
   await shot(page, '08-reading');
 
-  const { data: sessions } = await service.from('member_stress_load_sessions')
-    .select('id, assignment_id, completed_at, pattern, answers').eq('member_id', memberId);
+  const { rows: sessions } = await selectAllRows(() => service.from('member_stress_load_sessions')
+    .select('id, assignment_id, completed_at, pattern, answers').eq('member_id', memberId)
+    .order('id', { ascending: true }));
   check('exactly one session row, and it is complete',
     (sessions ?? []).length === 1 && Boolean(sessions[0]?.completed_at),
     `rows=${(sessions ?? []).length}`);
@@ -324,8 +327,9 @@ try {
       && !('score' in (sessions?.[0]?.pattern ?? {})),
     JSON.stringify({ load: sessions?.[0]?.pattern?.load?.band, recovery: sessions?.[0]?.pattern?.recovery?.band }));
 
-  const { data: assignmentAfter } = await service.from('assessment_assignments')
-    .select('status').eq('member_id', memberId).eq('assessment_definition_id', DEFINITION_ID);
+  const { rows: assignmentAfter } = await selectAllRows(() => service.from('assessment_assignments')
+    .select('status').eq('member_id', memberId).eq('assessment_definition_id', DEFINITION_ID)
+    .order('id', { ascending: true }));
   check('the assignment closed itself out on completion',
     (assignmentAfter ?? []).every((a) => a.status === 'completed'), JSON.stringify(assignmentAfter));
 
@@ -350,9 +354,10 @@ try {
 
   const closing = await screenText();
   if (closing.includes(EM_DASH)) emDashScreens.push('closing');
-  const { data: experiments } = await service.from('lifestyle_experiments')
+  const { rows: experiments } = await selectAllRows(() => service.from('lifestyle_experiments')
     .select('id, title, protocol, status, source_experience_key')
-    .eq('member_id', memberId).eq('source_experience_key', 'stress-load-deep-dive');
+    .eq('member_id', memberId).eq('source_experience_key', 'stress-load-deep-dive')
+    .order('id', { ascending: true }));
   const cappedMessage = /already working on 2 experiments/i.test(closing);
   check('accepting either started it or said the 2 slot cap stopped it',
     (experiments ?? []).length === 1 || cappedMessage,
@@ -380,9 +385,10 @@ try {
   // 6. THE ROOT MAP RECEIVED TWO SEPARATE WRITES
   // ==================================================================
   console.log('\n--- 6. the Root Map ---');
-  const { data: rows } = await service.from('registry_entries')
+  const { rows } = await selectAllRows(() => service.from('registry_entries')
     .select('code, domain, severity, numeric_value, unit, status')
-    .eq('member_id', memberId).eq('source_feature', 'stress_load_deep_dive_finding');
+    .eq('member_id', memberId).eq('source_feature', 'stress_load_deep_dive_finding')
+    .order('id', { ascending: true }));
   const load = (rows ?? []).find((r) => r.code === 'stress_load_burden');
   const recovery = (rows ?? []).find((r) => r.code === 'recovery_capacity');
   check('two rows, one per dimension', (rows ?? []).length === 2 && Boolean(load) && Boolean(recovery),

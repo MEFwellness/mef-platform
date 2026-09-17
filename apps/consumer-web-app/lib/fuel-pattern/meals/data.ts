@@ -19,6 +19,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getMemberFoodPreferences } from '@/lib/food-products/data';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import {
   exclusionsForAllergyList,
   exclusionsForDietaryPattern,
@@ -65,6 +66,7 @@ export async function listFpaMealExclusions(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<FpaMealExclusion[]> {
+  // scale-exempt: unique (member_id, exclusion_key) and exclusion_key is checked against a closed set of 12 keys (migration 237)
   const { data, error } = await supabase
     .from('fuel_meal_exclusions')
     .select('exclusion_key, is_allergy, source_meal_id, created_at')
@@ -88,11 +90,14 @@ export async function listFpaMealRejections(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<FpaMealRejection[]> {
-  const { data, error } = await supabase
-    .from('fuel_meal_rejections')
-    .select('meal_id, reason, note, created_at')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('fuel_meal_rejections')
+      .select('meal_id, reason, note, created_at')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listFpaMealRejections failed', error);
     return [];
@@ -112,11 +117,14 @@ export async function listFpaMealSaves(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<FpaMealSave[]> {
-  const { data, error } = await supabase
-    .from('fuel_meal_saves')
-    .select('meal_id, pattern_at_save, created_at')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('fuel_meal_saves')
+      .select('meal_id, pattern_at_save, created_at')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listFpaMealSaves failed', error);
     return [];
@@ -132,6 +140,7 @@ export async function listFpaSlotStates(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<FpaStoredSlotState[]> {
+  // scale-exempt: primary key (member_id, meal_type) and meal_type is checked against 4 values (migration 237)
   const { data, error } = await supabase
     .from('fuel_meal_slot_state')
     .select('meal_type, pattern, current_meal_id, shown_meal_ids')

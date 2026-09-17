@@ -74,6 +74,7 @@ import { getMemberOrigin } from '../lib/public-entry/data';
 import { bindArrivalFromSignupRef, hashSignupRef } from '../lib/public-entry/signupRef';
 import { listTrialArcDeliveries } from '../lib/trial-arc/data';
 import { applyTestAccountExclusion } from '../lib/staff/testAccounts';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect';
 
 const BASE = process.env.BASE_URL || 'https://app.mefwellness.com';
 const PHONE = { width: 393, height: 852 };
@@ -232,8 +233,10 @@ async function accessOf(id: string): Promise<{ allowed: boolean; reason: string;
 }
 
 async function arcRowsFor(id: string) {
-  const [{ data: d }, { data: r }, { data: c }] = await Promise.all([
-    service.from('member_trial_arc_deliveries').select('message_key, day_number, pace_state, delivered_local_date, cta_tapped_at').eq('member_id', id).order('day_number'),
+  const [{ rows: d }, { data: r }, { data: c }] = await Promise.all([
+    selectAllRows<{ message_key: string; day_number: number; pace_state: string; delivered_local_date: string; cta_tapped_at: string | null }>(() =>
+      service.from('member_trial_arc_deliveries').select('message_key, day_number, pace_state, delivered_local_date, cta_tapped_at').eq('member_id', id).order('day_number').order('id', { ascending: true })
+    ),
     service.from('member_trial_arc_recaps').select('tier, day_number, opened_at').eq('member_id', id),
     service.from('member_trial_arc_closes').select('completion, lead_door, day_number, opened_at').eq('member_id', id),
   ]);
@@ -941,10 +944,13 @@ async function stageSuppress() {
 
 /** Every member id in production currently carrying a suppression stamp, as one string. */
 async function suppressedIds(): Promise<string> {
-  const { data } = await service
-    .from('member_subscriptions')
-    .select('member_id')
-    .not('trial_arc_suppressed_at', 'is', null);
+  const { rows: data } = await selectAllRows<{ member_id: string }>(() =>
+    service
+      .from('member_subscriptions')
+      .select('member_id')
+      .not('trial_arc_suppressed_at', 'is', null)
+      .order('member_id', { ascending: true })
+  );
   return (data ?? []).map((r) => (r as { member_id: string }).member_id).sort().join(', ');
 }
 
@@ -1197,10 +1203,13 @@ async function stageCollisions() {
   const visit = await homeFor(id, 14000);
   check('chain: Home renders with the whole pop-up chain live and no console or page error', visit.consoleErrors.length === 0, visit.consoleErrors.slice(0, 2).join(' | '));
 
-  const { data: dismissals } = await service
-    .from('member_root_popup_dismissals')
-    .select('message_key, status')
-    .eq('member_id', id);
+  const { rows: dismissals } = await selectAllRows<{ message_key: string; status: string }>(() =>
+    service
+      .from('member_root_popup_dismissals')
+      .select('message_key, status')
+      .eq('member_id', id)
+      .order('id', { ascending: true })
+  );
   const keys = (dismissals ?? []).map((d) => (d as { message_key: string }).message_key);
   check('chain: exactly one pop-up took the slot on that visit', keys.length === 1, keys.join(', ') || 'none');
   check('chain: and it was the arc, which is where it sits in the chain', keys[0] === trialArcPopupMessageKey(3), keys.join(', '));
@@ -1209,10 +1218,13 @@ async function stageCollisions() {
   // The second visit, same day: the arc must not come back.
   const again = await homeFor(id, 14000);
   check('chain: a second visit the same day renders with no console or page error', again.consoleErrors.length === 0, again.consoleErrors.slice(0, 2).join(' | '));
-  const { data: after } = await service
-    .from('member_root_popup_dismissals')
-    .select('message_key')
-    .eq('member_id', id);
+  const { rows: after } = await selectAllRows<{ message_key: string }>(() =>
+    service
+      .from('member_root_popup_dismissals')
+      .select('message_key')
+      .eq('member_id', id)
+      .order('id', { ascending: true })
+  );
   check(
     'chain: and it wrote no second dismissal, so nothing double-fired on one member-day',
     (after ?? []).length === 1,
@@ -1231,7 +1243,9 @@ async function stageUntouched() {
   heading('REAL MEMBERS: nothing about any of them has changed');
 
   const referenceIdNow = loadReference();
-  const { data: profiles } = await service.from('profiles').select('id, is_test, created_at').order('created_at');
+  const { rows: profiles } = await selectAllRows<{ id: string; is_test: boolean; created_at: string }>(() =>
+    service.from('profiles').select('id, is_test, created_at').order('created_at').order('id', { ascending: true })
+  );
   const pre = (profiles ?? []).filter((p) => new Date((p as { created_at: string }).created_at).getTime() < launch!.getTime());
   const post = (profiles ?? []).filter((p) => new Date((p as { created_at: string }).created_at).getTime() >= launch!.getTime());
 
@@ -1255,16 +1269,21 @@ async function stageUntouched() {
 
   // Zero rows, anywhere, for anybody but the reference account.
   for (const table of ['member_trial_arc_deliveries', 'member_trial_arc_recaps', 'member_trial_arc_closes'] as const) {
-    const { data } = await service.from(table).select('member_id');
+    const { rows: data } = await selectAllRows<{ member_id: string }>(() =>
+      service.from(table).select('member_id').order('id', { ascending: true })
+    );
     const owners = [...new Set((data ?? []).map((r) => (r as { member_id: string }).member_id))];
     const strangers = owners.filter((o) => o !== referenceIdNow);
     check(`${table}: holds rows for nobody but the reference account`, strangers.length === 0, strangers.join(', ') || `${owners.length} owner(s), all the reference`);
   }
 
-  const { data: suppressed } = await service
-    .from('member_subscriptions')
-    .select('member_id')
-    .not('trial_arc_suppressed_at', 'is', null);
+  const { rows: suppressed } = await selectAllRows<{ member_id: string }>(() =>
+    service
+      .from('member_subscriptions')
+      .select('member_id')
+      .not('trial_arc_suppressed_at', 'is', null)
+      .order('member_id', { ascending: true })
+  );
   check('nobody in production is left suppressed', (suppressed ?? []).length === 0, JSON.stringify(suppressed));
 
   // The welcome, unchanged for every pre-launch account.
@@ -1342,8 +1361,10 @@ async function stageHygiene() {
   }
 
   // And nothing unflagged is left behind from any of these seven prompts.
-  const { data: profiles } = await service.from('profiles').select('id, is_test, created_at');
-  const { data: users } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const { rows: profiles } = await selectAllRows<{ id: string; is_test: boolean; created_at: string }>(() =>
+    service.from('profiles').select('id, is_test, created_at').order('id', { ascending: true })
+  );
+  const { data: users } = await listAllAuthUsers(service.auth.admin);
   const emailById = new Map((users?.users ?? []).map((u) => [u.id, (u.email ?? '').toLowerCase()]));
   const unflaggedFixtures = (profiles ?? []).filter((p) => {
     const row = p as { id: string; is_test: boolean };

@@ -32,6 +32,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const COACH_EMAIL = 'oakomah66@gmail.com';
@@ -411,28 +412,37 @@ async function waitForReport(rawText, { timeoutMs = 90_000 } = {}) {
 }
 
 async function classificationsOf(reportId) {
-  const { data } = await service
-    .from('cross_system_complaint_classifications')
-    .select('*')
-    .eq('report_id', reportId)
-    .order('position');
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('cross_system_complaint_classifications')
+      .select('*')
+      .eq('report_id', reportId)
+      .order('position')
+      .order('id', { ascending: true })
+  );
   return data ?? [];
 }
 
 async function signalsOf(reportId) {
-  const { data } = await service
-    .from('cross_system_signals')
-    .select('*')
-    .eq('member_id', EBONY_ID)
-    .eq('source_record_id', reportId);
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('cross_system_signals')
+      .select('*')
+      .eq('member_id', EBONY_ID)
+      .eq('source_record_id', reportId)
+      .order('id', { ascending: true })
+  );
   return data ?? [];
 }
 
 async function findingsOf(reportId) {
-  const { data } = await service
-    .from('cross_system_root_findings')
-    .select('*, cross_system_root_finding_areas(*)')
-    .eq('report_id', reportId);
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('cross_system_root_findings')
+      .select('*, cross_system_root_finding_areas(*)')
+      .eq('report_id', reportId)
+      .order('id', { ascending: true })
+  );
   return data ?? [];
 }
 
@@ -468,24 +478,32 @@ try {
   // -----------------------------------------------------------------
   // 0. THE STARTING STATE, so every later count is a real comparison.
   // -----------------------------------------------------------------
-  const seeded = await service
-    .from('cross_system_relationships')
-    .select('id, pattern_key, is_active, is_seeded')
-    .eq('is_seeded', true);
+  const seeded = await selectAllRows(() =>
+    service
+      .from('cross_system_relationships')
+      .select('id, pattern_key, is_active, is_seeded')
+      .eq('is_seeded', true)
+      .order('id', { ascending: true })
+  );
   record(
     'The expanded map is on production, and all of it is active',
-    (seeded.data ?? []).length >= 239 && (seeded.data ?? []).every((r) => r.is_active),
-    `${(seeded.data ?? []).length} seeded entries, ${(seeded.data ?? []).filter((r) => r.is_active).length} active`
+    (seeded.rows ?? []).length >= 239 && (seeded.rows ?? []).every((r) => r.is_active),
+    `${(seeded.rows ?? []).length} seeded entries, ${(seeded.rows ?? []).filter((r) => r.is_active).length} active`
   );
 
-  const versions = await service
-    .from('cross_system_relationship_versions')
-    .select('source_type_key, surfaces_on_complaint, relationship_id')
-    .in('relationship_id', (seeded.data ?? []).map((r) => r.id));
-  const bases = new Set((versions.data ?? []).map((v) => v.source_type_key));
+  const versions = await selectAllRowsInChunks(
+    (seeded.rows ?? []).map((r) => r.id),
+    (chunk) =>
+      service
+        .from('cross_system_relationship_versions')
+        .select('source_type_key, surfaces_on_complaint, relationship_id')
+        .in('relationship_id', chunk)
+        .order('id', { ascending: true })
+  );
+  const bases = new Set((versions.rows ?? []).map((v) => v.source_type_key));
   record(
     'Every entry carries a stated basis, and more than one kind is in use',
-    (versions.data ?? []).every((v) => v.source_type_key && v.surfaces_on_complaint) && bases.size >= 4,
+    (versions.rows ?? []).every((v) => v.source_type_key && v.surfaces_on_complaint) && bases.size >= 4,
     `${bases.size} bases in use: ${[...bases].join(', ')}`
   );
 
@@ -514,14 +532,17 @@ try {
     .from('cross_system_signals')
     .select('id', { count: 'exact', head: true })
     .eq('member_id', EBONY_ID);
-  const bodySystemsBefore = await service
-    .from('member_body_systems_sessions')
-    .select('id, completed_at, results, answers')
-    .eq('member_id', EBONY_ID);
+  const bodySystemsBefore = await selectAllRows(() =>
+    service
+      .from('member_body_systems_sessions')
+      .select('id, completed_at, results, answers')
+      .eq('member_id', EBONY_ID)
+      .order('id', { ascending: true })
+  );
   record(
     'She really has a Body Systems sitting to compare, so the comparison can fail',
-    (bodySystemsBefore.data ?? []).length > 0,
-    `${(bodySystemsBefore.data ?? []).length} sittings on file`
+    (bodySystemsBefore.rows ?? []).length > 0,
+    `${(bodySystemsBefore.rows ?? []).length} sittings on file`
   );
   startingSignalCount = signalsBefore.count ?? 0;
   const activeBefore = await service
@@ -545,12 +566,15 @@ try {
     again in the cleanup.
   */
   const today = new Date().toISOString().slice(0, 10);
-  const preexisting = await service
-    .from('daily_checkins')
-    .select('id')
-    .eq('user_id', EBONY_ID)
-    .eq('local_date', today);
-  for (const row of preexisting.data ?? []) {
+  const preexisting = await selectAllRows(() =>
+    service
+      .from('daily_checkins')
+      .select('id')
+      .eq('user_id', EBONY_ID)
+      .eq('local_date', today)
+      .order('id', { ascending: true })
+  );
+  for (const row of preexisting.rows ?? []) {
     await service.from('daily_checkins').delete().eq('id', row.id);
   }
   await service
@@ -559,17 +583,20 @@ try {
     .eq('member_id', EBONY_ID)
     .eq('local_date', today);
   for (const rawText of Object.values(COMPLAINTS)) {
-    const { data } = await service
-      .from('cross_system_complaint_reports')
-      .select('id')
-      .eq('raw_text', rawText);
+    const { rows: data } = await selectAllRows(() =>
+      service
+        .from('cross_system_complaint_reports')
+        .select('id')
+        .eq('raw_text', rawText)
+        .order('id', { ascending: true })
+    );
     for (const row of data ?? []) {
       await service.from('cross_system_root_findings').delete().eq('report_id', row.id);
       await service.from('cross_system_signals').delete().eq('source_record_id', row.id);
       await service.from('cross_system_complaint_reports').delete().eq('id', row.id);
     }
   }
-  console.log(`  cleared ${(preexisting.data ?? []).length} existing check-in rows for today\n`);
+  console.log(`  cleared ${(preexisting.rows ?? []).length} existing check-in rows for today\n`);
 
   browser = await chromium.launch();
 
@@ -792,17 +819,20 @@ try {
   }
 
   // Every finding traces: report, relationship, version, and rows per area.
-  const allFindings = await service
-    .from('cross_system_root_findings')
-    .select('*')
-    .in('report_id', createdReportIds);
+  const allFindings = await selectAllRowsInChunks(createdReportIds, (chunk) =>
+    service
+      .from('cross_system_root_findings')
+      .select('*')
+      .in('report_id', chunk)
+      .order('id', { ascending: true })
+  );
   record(
     'Every finding traces back to a complaint, a relationship and the exact version it read',
-    (allFindings.data ?? []).length > 0 &&
-      (allFindings.data ?? []).every(
+    (allFindings.rows ?? []).length > 0 &&
+      (allFindings.rows ?? []).every(
         (f) => f.report_id && f.relationship_id && f.version_id && f.noticed_on
       ),
-    `${(allFindings.data ?? []).length} findings, all carrying report, relationship and version ids`
+    `${(allFindings.rows ?? []).length} findings, all carrying report, relationship and version ids`
   );
 
   // -----------------------------------------------------------------
@@ -875,18 +905,21 @@ try {
   );
 
   // Her scores did not move.
-  const bodySystemsAfter = await service
-    .from('member_body_systems_sessions')
-    .select('id, completed_at, results, answers')
-    .eq('member_id', EBONY_ID);
+  const bodySystemsAfter = await selectAllRows(() =>
+    service
+      .from('member_body_systems_sessions')
+      .select('id, completed_at, results, answers')
+      .eq('member_id', EBONY_ID)
+      .order('id', { ascending: true })
+  );
   const sameScores =
-    (bodySystemsBefore.data ?? []).length > 0 &&
-    JSON.stringify(bodySystemsBefore.data) === JSON.stringify(bodySystemsAfter.data);
+    (bodySystemsBefore.rows ?? []).length > 0 &&
+    JSON.stringify(bodySystemsBefore.rows) === JSON.stringify(bodySystemsAfter.rows);
   record(
     'Her Body Systems results are byte for byte identical before and after',
     sameScores,
     sameScores
-      ? `${(bodySystemsAfter.data ?? []).length} sittings, every stored results object unchanged`
+      ? `${(bodySystemsAfter.rows ?? []).length} sittings, every stored results object unchanged`
       : 'a stored result changed'
   );
 
@@ -1085,11 +1118,14 @@ try {
   // -----------------------------------------------------------------
   // 8. DEACTIVATING AN ENTRY REMOVES ITS FINDINGS.
   // -----------------------------------------------------------------
-  const liveFindings = await service
-    .from('cross_system_root_findings')
-    .select('id, relationship_id, report_id')
-    .in('report_id', createdReportIds);
-  const target = (liveFindings.data ?? [])[0];
+  const liveFindings = await selectAllRowsInChunks(createdReportIds, (chunk) =>
+    service
+      .from('cross_system_root_findings')
+      .select('id, relationship_id, report_id')
+      .in('report_id', chunk)
+      .order('id', { ascending: true })
+  );
+  const target = (liveFindings.rows ?? [])[0];
   if (target) {
     deactivatedRelationshipId = target.relationship_id;
     await service
@@ -1140,10 +1176,13 @@ try {
     if (coachNoteId) await service.from('coach_notes').delete().eq('id', coachNoteId);
 
     for (const rawText of Object.values(COMPLAINTS)) {
-      const { data } = await service
-        .from('cross_system_complaint_reports')
-        .select('id')
-        .eq('raw_text', rawText);
+      const { rows: data } = await selectAllRows(() =>
+        service
+          .from('cross_system_complaint_reports')
+          .select('id')
+          .eq('raw_text', rawText)
+          .order('id', { ascending: true })
+      );
       for (const row of data ?? []) {
         await service.from('cross_system_root_findings').delete().eq('report_id', row.id);
         await service.from('cross_system_signals').delete().eq('source_record_id', row.id);
@@ -1153,12 +1192,15 @@ try {
 
     // The check-in and the reflection this run created.
     const today = new Date().toISOString().slice(0, 10);
-    const todays = await service
-      .from('daily_checkins')
-      .select('id')
-      .eq('user_id', EBONY_ID)
-      .eq('local_date', today);
-    for (const row of todays.data ?? []) createdCheckinIds.push(row.id);
+    const todays = await selectAllRows(() =>
+      service
+        .from('daily_checkins')
+        .select('id')
+        .eq('user_id', EBONY_ID)
+        .eq('local_date', today)
+        .order('id', { ascending: true })
+    );
+    for (const row of todays.rows ?? []) createdCheckinIds.push(row.id);
     for (const id of [...new Set(createdCheckinIds)]) {
       /*
         AND THE SIGNAL THE CHECK-IN ITSELF PRODUCED.

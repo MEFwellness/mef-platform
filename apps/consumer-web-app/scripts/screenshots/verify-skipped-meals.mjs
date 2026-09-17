@@ -36,6 +36,7 @@
 //     node scripts/screenshots/verify-skipped-meals.mjs                  # production
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../../lib/data/pagedSelect.ts';
 import { ACCOUNTS, BASE_URL, TARGET } from './config.mjs';
 import { answerVisibleQuestions, login, wizardAdvanceButton } from './lib.mjs';
 
@@ -107,6 +108,7 @@ async function memberClient(account) {
 /** Freezes today's plan so the question under test is actually asked. See the header note on why this is arranged rather than waited for. */
 async function seedTodaysPlan({ db, memberId, localDate }, rotatingKey) {
   await db.from('member_daily_probe_selections').delete().eq('member_id', memberId).eq('local_date', localDate);
+  // scale-exempt: 7 rows, today's plan for one member (the six FIXED_CORE literal keys plus one rotating key)
   const { error } = await db.from('member_daily_probe_selections').insert([
     ...FIXED_CORE.map((questionKey) => ({
       member_id: memberId,
@@ -349,11 +351,14 @@ async function main() {
     await page.waitForTimeout(1500);
 
     // ---- what actually landed in the database ----
-    const { data: answers } = await session.db
-      .from('daily_checkin_probe_answers')
-      .select('question_key, value')
-      .eq('local_date', session.localDate)
-      .in('question_key', [COUNT_KEY, WHICH_KEY]);
+    const { rows: answers } = await selectAllRows(() =>
+      session.db
+        .from('daily_checkin_probe_answers')
+        .select('question_key, value')
+        .eq('local_date', session.localDate)
+        .in('question_key', [COUNT_KEY, WHICH_KEY])
+        .order('id', { ascending: true })
+    );
     const stored = Object.fromEntries((answers ?? []).map((row) => [row.question_key, row.value]));
     check('the count was stored', stored[COUNT_KEY] === 2, JSON.stringify(stored[COUNT_KEY]));
     check(

@@ -107,6 +107,7 @@ async function applyDataFloor(
   if (!snapshot || snapshot.root_score === null) return snapshot;
 
   const since = addDaysToLocalDate(snapshot.local_date, -(EVIDENCE_WINDOW_DAYS - 1));
+  // scale-exempt: the view is one row per (user_id, local_date) and the window is EVIDENCE_WINDOW_DAYS (21) days, so at most 21 rows
   const { data, error } = await supabase
     .from('daily_checkins_current')
     .select('local_date')

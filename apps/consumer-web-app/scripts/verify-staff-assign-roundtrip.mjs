@@ -14,6 +14,7 @@
 import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const STAFF_EMAIL = process.env.STAFF_EMAIL;
@@ -33,7 +34,7 @@ async function main() {
   const svc = staff.service;
 
   // Ebony's id, resolved from the email rather than typed.
-  const { data: { users } } = await svc.auth.admin.listUsers({ perPage: 200 });
+  const { data: { users } } = await listAllAuthUsers(svc.auth.admin);
   const member = users.find((u) => u.email === MEMBER_EMAIL);
   if (!member) throw new Error('Test member not found');
   const { data: prof } = await svc.from('profiles').select('display_name, is_test').eq('id', member.id).single();
@@ -69,8 +70,10 @@ async function main() {
     check('the assign panel is reachable on the folded detail page', true);
     await page.screenshot({ path: `${SHOTS}/assign-panel.png`, fullPage: true });
 
-    const before = await svc.from('assessment_assignments').select('id').eq('member_id', member.id);
-    const beforeIds = new Set((before.data ?? []).map((r) => r.id));
+    const before = await selectAllRows(() =>
+      svc.from('assessment_assignments').select('id').eq('member_id', member.id).order('id', { ascending: true })
+    );
+    const beforeIds = new Set((before.rows ?? []).map((r) => r.id));
 
     /*
      * Two taps, not one. The submit is `disabled` until a template is
@@ -94,12 +97,13 @@ async function main() {
 
     let fresh = null;
     for (let attempt = 0; attempt < 20 && !fresh; attempt += 1) {
-      const after = await svc.from('assessment_assignments')
+      const after = await selectAllRows(() => svc.from('assessment_assignments')
         .select('id, assessment_definition_id, status, created_at')
         .eq('member_id', member.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true }));
       if (after.error) throw new Error(`assignment read failed: ${after.error.message}`);
-      fresh = (after.data ?? []).find((r) => !beforeIds.has(r.id)) ?? null;
+      fresh = (after.rows ?? []).find((r) => !beforeIds.has(r.id)) ?? null;
       if (!fresh) await page.waitForTimeout(500);
     }
     createdId = fresh?.id ?? null;

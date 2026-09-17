@@ -2,6 +2,7 @@
 
 import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { getSupabaseEnv } from '@/lib/supabase/env';
 import { hasCompletedConsent } from './consent';
 import { fetchBaselineAssessment, type BaselineAssessment } from '@/lib/onboarding/baseline';
@@ -51,12 +52,15 @@ export async function getOnboardingQuestions(): Promise<OnboardingQuestion[]> {
 
   if (!version) return [];
 
-  const { data, error } = await supabase
-    .from('onboarding_questions')
-    .select('*')
-    .eq('assessment_version_id', version.id)
-    .eq('question_pool', 'legacy')
-    .order('display_order', { ascending: true });
+  const { rows: data, error } = await selectAllRows<OnboardingQuestion>(() =>
+    supabase
+      .from('onboarding_questions')
+      .select('*')
+      .eq('assessment_version_id', version.id)
+      .eq('question_pool', 'legacy')
+      .order('display_order', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('Failed to load onboarding questions', error);
@@ -82,11 +86,14 @@ export async function getOnboardingAssessmentBank(): Promise<OnboardingQuestion[
 
   if (!version) return [];
 
-  const { data, error } = await supabase
-    .from('onboarding_questions')
-    .select('*')
-    .eq('assessment_version_id', version.id)
-    .order('display_order', { ascending: true });
+  const { rows: data, error } = await selectAllRows<OnboardingQuestion>(() =>
+    supabase
+      .from('onboarding_questions')
+      .select('*')
+      .eq('assessment_version_id', version.id)
+      .order('display_order', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('Failed to load the onboarding assessment bank', error);
@@ -129,12 +136,15 @@ export async function getOnboardingQuestionsForGuest(): Promise<OnboardingQuesti
 
   if (!version) return [];
 
-  const { data, error } = await supabase
-    .from('onboarding_questions')
-    .select('*')
-    .eq('assessment_version_id', version.id)
-    .eq('question_pool', 'legacy')
-    .order('display_order', { ascending: true });
+  const { rows: data, error } = await selectAllRows<OnboardingQuestion>(() =>
+    supabase
+      .from('onboarding_questions')
+      .select('*')
+      .eq('assessment_version_id', version.id)
+      .eq('question_pool', 'legacy')
+      .order('display_order', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('Failed to load onboarding questions for guest', error);
@@ -155,11 +165,14 @@ export async function getOnboardingAssessmentBankForGuest(): Promise<OnboardingQ
 
   if (!version) return [];
 
-  const { data, error } = await supabase
-    .from('onboarding_questions')
-    .select('*')
-    .eq('assessment_version_id', version.id)
-    .order('display_order', { ascending: true });
+  const { rows: data, error } = await selectAllRows<OnboardingQuestion>(() =>
+    supabase
+      .from('onboarding_questions')
+      .select('*')
+      .eq('assessment_version_id', version.id)
+      .order('display_order', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('Failed to load the onboarding assessment bank for guest', error);

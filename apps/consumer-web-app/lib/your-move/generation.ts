@@ -24,6 +24,7 @@ import type {
   YourMoveGeneratedWorkout,
 } from './apiClient';
 import { getExerciseByExternalId } from './catalog';
+import { selectAllRows } from '../data/pagedSelect';
 import { normalizeCatalogName } from '../exercise-library/catalogDedupe';
 import type {
   AlternateExercises,
@@ -134,7 +135,9 @@ export async function ensureCatalogRowForGeneratedExercise(
   // precedent as scripts/exercise-media/dedupe-exercise-catalog.ts, and
   // only runs on the not-found-by-external_id path, not every call.
   const normalizedTarget = normalizeCatalogName(exercise.title);
-  const { data: allNames } = await supabase.from('exercise_catalog').select('external_id, name');
+  const { rows: allNames } = await selectAllRows<{ external_id: string; name: string }>(() =>
+    supabase.from('exercise_catalog').select('external_id, name').order('id', { ascending: true })
+  );
   const nameMatch = ((allNames as { external_id: string; name: string }[] | null) ?? []).find(
     (row) => normalizeCatalogName(row.name) === normalizedTarget
   );

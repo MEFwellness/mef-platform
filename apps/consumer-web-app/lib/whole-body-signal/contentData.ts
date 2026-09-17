@@ -36,6 +36,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import { parseCoachingTrigger, parsePatternRule } from './trigger';
 import { DEFAULT_SETTINGS, resolveSettings, type WbsSettings } from './settings';
 import type {
@@ -144,16 +145,19 @@ async function fetchSections(supabase: SupabaseClient): Promise<MemberSection[]>
 }
 
 async function fetchQuestions(supabase: SupabaseClient, columns: string): Promise<RawQuestion[]> {
-  const { data, error } = await supabase
-    .from('whole_body_signal_questions')
-    .select(columns)
-    .eq('is_active', true)
-    .order('position', { ascending: true });
+  const { rows: data, error } = await selectAllRows<RawQuestion>(() =>
+    supabase
+      .from('whole_body_signal_questions')
+      .select(columns)
+      .eq('is_active', true)
+      .order('position', { ascending: true })
+      .order('question_ref', { ascending: true })
+  );
   if (error) {
     console.error('wbs fetchQuestions failed', error);
     return [];
   }
-  return (data ?? []) as unknown as RawQuestion[];
+  return data;
 }
 
 async function fetchScale(supabase: SupabaseClient): Promise<ScaleOption[]> {
@@ -234,10 +238,13 @@ async function fetchCopy(
   supabase: SupabaseClient,
   audience: 'member' | 'coach'
 ): Promise<Record<string, string>> {
-  const { data, error } = await supabase
-    .from('whole_body_signal_copy')
-    .select('copy_key, value')
-    .eq('audience', audience);
+  const { rows: data, error } = await selectAllRows<{ copy_key: string; value: string }>(() =>
+    supabase
+      .from('whole_body_signal_copy')
+      .select('copy_key, value')
+      .eq('audience', audience)
+      .order('copy_key', { ascending: true })
+  );
   if (error) {
     console.error('wbs fetchCopy failed', audience, error);
     return {};
@@ -332,11 +339,14 @@ async function fetchPatterns(supabase: SupabaseClient): Promise<SignalPattern[]>
 }
 
 async function fetchCoachingLibrary(supabase: SupabaseClient): Promise<CoachingQuestion[]> {
-  const { data, error } = await supabase
-    .from('whole_body_signal_coaching_questions')
-    .select('question_key, position, trigger_type, trigger, question, topic')
-    .eq('is_active', true)
-    .order('position', { ascending: true });
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('whole_body_signal_coaching_questions')
+      .select('question_key, position, trigger_type, trigger, question, topic')
+      .eq('is_active', true)
+      .order('position', { ascending: true })
+      .order('question_key', { ascending: true })
+  );
   if (error) {
     console.error('wbs fetchCoachingLibrary failed', error);
     return [];

@@ -17,6 +17,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const EMAIL = process.env.LIVE_MEMBER_EMAIL;
@@ -51,17 +52,21 @@ let MEMBER_ID;
 const DEF_IDS = {};
 
 async function loadDefinitions() {
+  // scale-exempt: key is unique and KEYS is a constant list of three keys, so at most three rows
   const { data } = await service.from('unified_assessment_definitions').select('id, key').in('key', KEYS);
   for (const row of data ?? []) DEF_IDS[row.key] = row.id;
 }
 
 async function sessionsFor(key) {
-  const { data } = await service
-    .from('unified_assessment_sessions')
-    .select('id, status, started_at, completed_at')
-    .eq('member_id', MEMBER_ID)
-    .eq('assessment_definition_id', DEF_IDS[key])
-    .order('started_at');
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('unified_assessment_sessions')
+      .select('id, status, started_at, completed_at')
+      .eq('member_id', MEMBER_ID)
+      .eq('assessment_definition_id', DEF_IDS[key])
+      .order('started_at')
+      .order('id', { ascending: true })
+  );
   return data ?? [];
 }
 

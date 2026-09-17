@@ -9,6 +9,7 @@ import type { Driver, DriverDomain, DriverGoalWeight, MemberDriverState, DriverS
 import { isHydrationTracked } from '../hydration/data';
 import { HYDRATION_DRIVER_ID } from '../hydration/constants';
 import { readOnce } from '../data/readOnce';
+import { selectAllRows } from '../data/pagedSelect';
 
 type DriverDomainRow = { key: string; label: string; sort_order: number };
 
@@ -61,6 +62,7 @@ export async function listActiveDrivers(supabase: SupabaseClient): Promise<Drive
 }
 
 async function readActiveDrivers(supabase: SupabaseClient) {
+  // scale-exempt: the authored driver library (one row per driver, text primary key, seeded by migration 106 and edited only by admin screens), and it stays unordered on purpose: lib/priority/service.ts takes panel.likelyInvolved[0] from this array's order
   const { data, error } = await supabase.from('drivers').select('*').eq('active', true);
 
   if (error) {
@@ -74,7 +76,9 @@ type GoalWeightRow = { driver_id: string; goal_key: string; weight: 'high' | 'me
 
 /** Every seeded high/medium goal weighting (driver_goal_weights, migration 106). */
 export async function listDriverGoalWeights(supabase: SupabaseClient): Promise<DriverGoalWeight[]> {
-  const { data, error } = await supabase.from('driver_goal_weights').select('*');
+  const { rows: data, error } = await selectAllRows<GoalWeightRow>(() =>
+    supabase.from('driver_goal_weights').select('*').order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listDriverGoalWeights failed', error);
@@ -117,8 +121,10 @@ export async function listMemberDriverStates(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<string, MemberDriverState>> {
-  const [{ data, error }, hydrationTracked] = await Promise.all([
-    supabase.from('member_driver_states').select('*').eq('member_id', memberId),
+  const [{ rows: data, error }, hydrationTracked] = await Promise.all([
+    selectAllRows<MemberDriverStateRow>(() =>
+      supabase.from('member_driver_states').select('*').eq('member_id', memberId).order('id', { ascending: true })
+    ),
     isHydrationTracked(supabase, memberId),
   ]);
 

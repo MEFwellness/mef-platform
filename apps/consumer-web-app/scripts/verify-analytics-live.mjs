@@ -31,6 +31,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -122,14 +123,14 @@ async function fetchRawRows() {
 
 /** The same member scope the functions use: not a test account, no staff role grant. */
 async function fetchMemberScope() {
-  const { data: profiles, error: pErr } = await supabase
-    .from('profiles')
-    .select('id, display_name, created_at, is_test');
+  const { rows: profiles, error: pErr } = await selectAllRows(() =>
+    supabase.from('profiles').select('id, display_name, created_at, is_test').order('id', { ascending: true })
+  );
   if (pErr) throw new Error(`profiles: ${pErr.message}`);
 
-  const { data: roles, error: rErr } = await supabase
-    .from('user_roles')
-    .select('user_id, role, revoked_at');
+  const { rows: roles, error: rErr } = await selectAllRows(() =>
+    supabase.from('user_roles').select('user_id, role, revoked_at').order('id', { ascending: true })
+  );
   if (rErr) throw new Error(`user_roles: ${rErr.message}`);
 
   const staff = new Set(

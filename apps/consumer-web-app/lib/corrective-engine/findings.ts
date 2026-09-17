@@ -7,8 +7,9 @@
  * recordPostureFindingsAction, both of which set status: 'analyzed' only
  * once findings exist).
  */
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { BodyAssessmentFinding } from '@mef/shared-types-contracts';
+import { selectAllRows } from '../data/pagedSelect';
 
 export interface LatestPostureAssessment {
   assessmentId: string;
@@ -37,10 +38,13 @@ export async function getLatestCompletedPostureAssessment(
   }
   if (!assessment) return null;
 
-  const { data: findings, error: findingsError } = await supabase
-    .from('body_assessment_findings')
-    .select('*')
-    .eq('assessment_id', assessment.id);
+  const { rows: findings, error: findingsError } = await selectAllRows<BodyAssessmentFinding, PostgrestError | null>(() =>
+    supabase
+      .from('body_assessment_findings')
+      .select('*')
+      .eq('assessment_id', assessment.id)
+      .order('id', { ascending: true })
+  );
 
   if (findingsError) {
     throw new Error(`getLatestCompletedPostureAssessment (findings) failed: ${findingsError.message}`);

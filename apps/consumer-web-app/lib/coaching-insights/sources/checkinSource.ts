@@ -26,6 +26,7 @@ import type {
   CoachingObservationDirection,
 } from '../types';
 import { checkinHydrationTracked } from '../../hydration/gate';
+import { selectAllRows } from '../../data/pagedSelect';
 
 type CheckinRow = {
   id: string;
@@ -59,15 +60,18 @@ async function fetchObservations(
   memberId: string,
   range: CoachingDateRange
 ): Promise<CoachingObservation[]> {
-  const { data, error } = await supabase
-    .from('daily_checkins_current')
-    .select(
-      'id, local_date, digestion_rating, energy_level, stress_level, mood_level, sleep_quality, water_cups, hydration_tracked'
-    )
-    .eq('user_id', memberId)
-    .gte('local_date', range.from)
-    .lte('local_date', range.to)
-    .order('local_date', { ascending: true });
+  // One row per (user_id, local_date) in this view, so local_date is a total order here.
+  const { rows: data, error } = await selectAllRows<CheckinRow>(() =>
+    supabase
+      .from('daily_checkins_current')
+      .select(
+        'id, local_date, digestion_rating, energy_level, stress_level, mood_level, sleep_quality, water_cups, hydration_tracked'
+      )
+      .eq('user_id', memberId)
+      .gte('local_date', range.from)
+      .lte('local_date', range.to)
+      .order('local_date', { ascending: true })
+  );
 
   if (error) {
     console.error('checkinSource.fetchObservations failed', error);

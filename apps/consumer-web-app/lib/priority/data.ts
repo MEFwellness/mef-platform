@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DailyPriorityRecord, PriorityRule, PriorityStatus, SelectedPriority } from './types';
+import { selectAllRowsInChunks } from '../data/pagedSelect';
 
 const COLUMNS =
   'id, local_date, rule, priority_key, priority_title, priority_help, priority_href, status, done_at, saved_at, shown_at, decided_before_checkin, redecided_at';
@@ -69,14 +70,17 @@ export async function getDailyPrioritiesOn(
   memberId: string,
   localDates: string[]
 ): Promise<DailyPriorityRecord[]> {
-  const { data, error } = await supabase
-    .from('member_daily_priorities')
-    .select(COLUMNS)
-    .eq('member_id', memberId)
-    .in('local_date', localDates);
+  const { rows: data, error } = await selectAllRowsInChunks<Row>(localDates, (chunk) =>
+    supabase
+      .from('member_daily_priorities')
+      .select(COLUMNS)
+      .eq('member_id', memberId)
+      .in('local_date', chunk)
+      .order('id', { ascending: true })
+  );
 
-  if (error || !data) return [];
-  return (data as Row[]).map(fromRow);
+  if (error) return [];
+  return data.map(fromRow);
 }
 
 /** Today's stored priority row, or null if Root has not recorded one yet today. */

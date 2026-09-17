@@ -9,6 +9,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows, writeInChunks } from '../data/pagedSelect';
 import type { StoredVisibility } from './resolve';
 import type { FeatureKey, VisibilitySource, VisibilityState } from './types';
 
@@ -44,10 +45,13 @@ export async function fetchStoredVisibility(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<FeatureKey, StoredVisibility>> {
-  const { data, error } = await supabase
-    .from('member_feature_visibility')
-    .select('feature_key, state, source, rule_kind, reason, revealed_at, acknowledged_at')
-    .eq('member_id', memberId);
+  const { rows: data, error } = await selectAllRows<Row>(() =>
+    supabase
+      .from('member_feature_visibility')
+      .select('feature_key, state, source, rule_kind, reason, revealed_at, acknowledged_at')
+      .eq('member_id', memberId)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('fetchStoredVisibility failed', error);
@@ -98,6 +102,7 @@ export async function recordReveals(
     acknowledged_at: reveal.needsSentence ? null : now,
   }));
 
+  // scale-exempt: one row per newly revealed feature of the visibility catalog (lib/visibility/catalog.ts, 76 features), unique (member_id, feature_key)
   const { error } = await supabase
     .from('member_feature_visibility')
     .upsert(rows, { onConflict: 'member_id,feature_key', ignoreDuplicates: true });
@@ -113,12 +118,16 @@ export async function acknowledgeReveals(
 ): Promise<void> {
   if (featureKeys.length === 0) return;
 
-  const { error } = await supabase
-    .from('member_feature_visibility')
-    .update({ acknowledged_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq('member_id', memberId)
-    .in('feature_key', featureKeys)
-    .is('acknowledged_at', null);
+  // featureKeys arrives from a server action, so its length is whatever the client sends.
+  const acknowledgedAt = new Date().toISOString();
+  const { error } = await writeInChunks(featureKeys, (chunk) =>
+    supabase
+      .from('member_feature_visibility')
+      .update({ acknowledged_at: acknowledgedAt, updated_at: acknowledgedAt })
+      .eq('member_id', memberId)
+      .in('feature_key', chunk)
+      .is('acknowledged_at', null)
+  );
 
   if (error) console.error('acknowledgeReveals failed', error);
 }

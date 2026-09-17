@@ -22,6 +22,7 @@ import { getTemplateWithContent } from '../../coach-program-builder/templates';
 import { supersedePreviousPrograms } from '../../program-lifecycle/service';
 import { weeklyDayPatternFor } from '../../corrective-engine/approvalDefaults';
 import { materializeBlueprint, type BlueprintMaterializationInput } from './materialize';
+import { selectAllRowsInChunks, writeInChunks } from '../../data/pagedSelect';
 
 export interface BlueprintAssignmentIntent {
   status: BlueprintWithSlots['status'];
@@ -215,15 +216,22 @@ export async function discardBlueprintDraft(
   input: { assignmentIds: string[]; templateIds: string[] }
 ): Promise<boolean> {
   if (input.assignmentIds.length > 0) {
-    const { data: rows, error } = await supabase
-      .from('coach_program_assignments')
-      .select('id, visibility, published_at')
-      .in('id', input.assignmentIds);
+    const { rows, error } = await selectAllRowsInChunks<{
+      id: string;
+      visibility: string;
+      published_at: string | null;
+    }>(input.assignmentIds, (chunk) =>
+      supabase
+        .from('coach_program_assignments')
+        .select('id, visibility, published_at')
+        .in('id', chunk)
+        .order('id', { ascending: true })
+    );
     if (error) {
       console.error('discardBlueprintDraft (read) failed', error);
       return false;
     }
-    const published = (rows ?? []).filter(
+    const published = rows.filter(
       (r) => r.visibility === 'published' || r.published_at !== null
     );
     if (published.length > 0) {
@@ -231,21 +239,19 @@ export async function discardBlueprintDraft(
       return false;
     }
 
-    const { data: deleted, error: deleteError } = await supabase
-      .from('coach_program_assignments')
-      .delete()
-      .in('id', input.assignmentIds)
-      .select('id');
+    const { rows: deleted, error: deleteError } = await writeInChunks(input.assignmentIds, (chunk) =>
+      supabase.from('coach_program_assignments').delete().in('id', chunk).select('id')
+    );
     if (deleteError) {
       console.error('discardBlueprintDraft (assignments) failed', deleteError);
       return false;
     }
     // The rows this caller could SEE are the rows it expected to remove.
     // Anything it saw and did not delete was refused by a policy, silently.
-    const expected = (rows ?? []).length;
-    if ((deleted ?? []).length < expected) {
+    const expected = rows.length;
+    if (deleted.length < expected) {
       console.error(
-        `discardBlueprintDraft: deleted ${(deleted ?? []).length} of ${expected} assignments. ` +
+        `discardBlueprintDraft: deleted ${deleted.length} of ${expected} assignments. ` +
           'The rest were refused by row level security, which reports no error.'
       );
       return false;
@@ -253,28 +259,25 @@ export async function discardBlueprintDraft(
   }
 
   if (input.templateIds.length > 0) {
-    const { data: visible, error: readError } = await supabase
-      .from('coach_program_templates')
-      .select('id')
-      .in('id', input.templateIds);
+    const { rows: visible, error: readError } = await selectAllRowsInChunks<{ id: string }>(
+      input.templateIds,
+      (chunk) =>
+        supabase.from('coach_program_templates').select('id').in('id', chunk).order('id', { ascending: true })
+    );
     if (readError) {
       console.error('discardBlueprintDraft (template read) failed', readError);
       return false;
     }
 
-    const { data: deleted, error } = await supabase
-      .from('coach_program_templates')
-      .delete()
-      .in('id', input.templateIds)
-      .select('id');
+    const { rows: deleted, error } = await writeInChunks(input.templateIds, (chunk) =>
+      supabase.from('coach_program_templates').delete().in('id', chunk).select('id')
+    );
     if (error) {
       console.error('discardBlueprintDraft (templates) failed', error);
       return false;
     }
-    if ((deleted ?? []).length < (visible ?? []).length) {
-      console.error(
-        `discardBlueprintDraft: deleted ${(deleted ?? []).length} of ${(visible ?? []).length} templates.`
-      );
+    if (deleted.length < visible.length) {
+      console.error(`discardBlueprintDraft: deleted ${deleted.length} of ${visible.length} templates.`);
       return false;
     }
   }

@@ -27,6 +27,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks, writeInChunks } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const MEMBER_ID = process.env.MEMBER_ID;
@@ -159,10 +160,9 @@ try {
   // Give her a running program, so there is something to read.
   // -------------------------------------------------------------------
   if (db) {
-    const { data: rows } = await db
-      .from('coach_program_assignments')
-      .select('*')
-      .eq('member_id', MEMBER_ID);
+    const { rows } = await selectAllRows(() =>
+      db.from('coach_program_assignments').select('*').eq('member_id', MEMBER_ID).order('id', { ascending: true })
+    );
     allBefore = rows ?? [];
 
     const groups = new Map();
@@ -180,23 +180,28 @@ try {
       const start = addDays(today, -3);
       // Everything else goes terminal, so exactly one program is hers now
       // and the screens have one unambiguous thing to point at.
+      // scale-exempt: subject is the phases of ONE program group, and NOT IN cannot be split into chunks
       await db
         .from('coach_program_assignments')
         .update({ status: 'replaced' })
         .eq('member_id', MEMBER_ID)
         .not('id', 'in', `(${subject.map((r) => r.id).join(',')})`);
-      await db
-        .from('coach_program_assignments')
-        .update({
-          status: 'active',
-          start_date: start,
-          end_date: addDays(start, subject[0].duration_weeks * 7 - 1),
-          current_week: 1,
-          paused_days: 0,
-          paused_at: null,
-          completed_at: null,
-        })
-        .in('id', subject.map((r) => r.id));
+      await writeInChunks(
+        subject.map((r) => r.id),
+        (chunk) =>
+          db
+            .from('coach_program_assignments')
+            .update({
+              status: 'active',
+              start_date: start,
+              end_date: addDays(start, subject[0].duration_weeks * 7 - 1),
+              current_week: 1,
+              paused_days: 0,
+              paused_at: null,
+              completed_at: null,
+            })
+            .in('id', chunk)
+      );
       check('db: she is on one running program', true, `started ${start}`);
     }
   } else {
@@ -353,10 +358,15 @@ try {
         })
         .eq('id', row.id);
     }
-    const { data: restored } = await db
-      .from('coach_program_assignments')
-      .select('template_name_snapshot, status, start_date, end_date, current_week, duration_weeks')
-      .in('id', allBefore.map((r) => r.id));
+    const { rows: restored } = await selectAllRowsInChunks(
+      allBefore.map((r) => r.id),
+      (chunk) =>
+        db
+          .from('coach_program_assignments')
+          .select('template_name_snapshot, status, start_date, end_date, current_week, duration_weeks')
+          .in('id', chunk)
+          .order('id', { ascending: true })
+    );
     restoreLog = (restored ?? [])
       .map(
         (r) =>

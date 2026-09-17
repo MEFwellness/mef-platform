@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { selectAllRows, writeInChunks } from '@/lib/data/pagedSelect';
 import type {
   AiObservationStatus,
   AssessmentAiAnalysis,
@@ -161,10 +162,9 @@ export async function insertObservations(
     sort_order: index,
   }));
 
-  const { data, error } = await supabase
-    .from('assessment_ai_observations')
-    .insert(rows)
-    .select('*');
+  const { rows: data, error } = await writeInChunks(rows, (chunk) =>
+    supabase.from('assessment_ai_observations').insert(chunk).select('*')
+  );
   if (error) {
     console.error('insertObservations failed', error);
     return [];
@@ -176,11 +176,14 @@ export async function listObservations(
   supabase: SupabaseClient,
   analysisId: string
 ): Promise<AssessmentAiObservation[]> {
-  const { data, error } = await supabase
-    .from('assessment_ai_observations')
-    .select('*')
-    .eq('analysis_id', analysisId)
-    .order('sort_order', { ascending: true });
+  const { rows: data, error } = await selectAllRows<AssessmentAiObservation>(() =>
+    supabase
+      .from('assessment_ai_observations')
+      .select('*')
+      .eq('analysis_id', analysisId)
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listObservations failed', error);
@@ -254,11 +257,14 @@ export async function listReportExercises(
   supabase: SupabaseClient,
   analysisId: string
 ): Promise<AssessmentReportExercise[]> {
-  const { data, error } = await supabase
-    .from('assessment_report_exercises')
-    .select('*')
-    .eq('analysis_id', analysisId)
-    .order('sort_order', { ascending: true });
+  const { rows: data, error } = await selectAllRows<AssessmentReportExercise>(() =>
+    supabase
+      .from('assessment_report_exercises')
+      .select('*')
+      .eq('analysis_id', analysisId)
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listReportExercises failed', error);

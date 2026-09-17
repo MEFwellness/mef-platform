@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FoodProduct } from '@mef/shared-types-contracts';
+import { selectAllRows } from '../data/pagedSelect';
 
 export type FoodSearchResultSource = 'recent' | 'frequent' | 'cached' | 'external';
 
@@ -84,11 +85,16 @@ export async function listFrequentProductsForMember(
   excludeProductIds: string[],
   limit = 8
 ): Promise<FoodSearchResult[]> {
-  const { data, error } = await supabase
-    .from('member_food_log')
-    .select('product_id')
-    .eq('member_id', memberId)
-    .not('product_id', 'is', null);
+  const { rows: data, error } = await selectAllRows<{ product_id: string }>(() =>
+    supabase
+      .from('member_food_log')
+      .select('product_id')
+      .eq('member_id', memberId)
+      .not('product_id', 'is', null)
+      // Logged order, so products tied on count keep their earliest-logged-first place.
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listFrequentProductsForMember failed', error);
@@ -108,6 +114,7 @@ export async function listFrequentProductsForMember(
 
   if (ranked.length === 0) return [];
 
+  // scale-exempt: ranked is sliced to `limit` ids above, and the only caller (app/actions/food-search.ts) passes 8
   const { data: products, error: productsError } = await supabase
     .from('food_products')
     .select('id, barcode, name, brand, image_url, serving_size_text')

@@ -22,6 +22,7 @@ import type {
 } from '@mef/shared-types-contracts';
 import type { NarrativeItemDraft } from './types';
 import { forgetReads, readOnce } from '../data/readOnce';
+import { selectAllRows } from '../data/pagedSelect';
 
 export async function insertNarrativeItem(
   supabase: SupabaseClient,
@@ -138,12 +139,15 @@ export async function findActiveItemsByCategory(
   memberId: string,
   category: NarrativeCategory
 ): Promise<NarrativeItem[]> {
-  const { data, error } = await supabase
-    .from('narrative_items')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('category', category)
-    .eq('status', 'active');
+  const { rows: data, error } = await selectAllRows<NarrativeItem>(() =>
+    supabase
+      .from('narrative_items')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('category', category)
+      .eq('status', 'active')
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('findActiveItemsByCategory failed', error);
@@ -180,18 +184,21 @@ async function readNarrativeItems(
   memberId: string,
   options: { statusFilter?: NarrativeStatus[] } = {}
 ): Promise<NarrativeItem[]> {
-  let query = supabase
-    .from('narrative_items')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('is_pinned', { ascending: false })
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<NarrativeItem>(() => {
+    let query = supabase
+      .from('narrative_items')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('is_pinned', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true });
 
-  if (options.statusFilter && options.statusFilter.length > 0) {
-    query = query.in('status', options.statusFilter);
-  }
-
-  const { data, error } = await query;
+    if (options.statusFilter && options.statusFilter.length > 0) {
+      // scale-exempt: statusFilter is a subset of the closed NarrativeStatus union (4 values)
+      query = query.in('status', options.statusFilter);
+    }
+    return query;
+  });
   if (error) {
     console.error('listNarrativeItems failed', error);
     return [];

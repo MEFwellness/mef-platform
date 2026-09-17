@@ -61,6 +61,7 @@ import {
   mergeMetadataFields,
   normalizeCatalogName,
 } from '../../lib/exercise-library/catalogDedupe';
+import { selectAllRows } from '../../lib/data/pagedSelect';
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -289,11 +290,15 @@ async function main() {
   const migrationNumberArg = process.argv.find((a) => a.startsWith('--migration-number='));
   const migrationNumber = migrationNumberArg ? (migrationNumberArg.split('=')[1] ?? '121') : '121';
 
-  const { data, error } = await supabase.from('exercise_catalog').select('*');
+  const { rows: data, error } = await selectAllRows<ExerciseCatalogRow>(() =>
+    supabase.from('exercise_catalog').select('*').order('id', { ascending: true })
+  );
   if (error) throw new Error(`exercise_catalog read failed: ${error.message}`);
   const rows = (data ?? []) as ExerciseCatalogRow[];
 
-  const { data: metadataData, error: metadataError } = await supabase.from('mef_exercise_metadata').select('*');
+  const { rows: metadataData, error: metadataError } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase.from('mef_exercise_metadata').select('*').order('id', { ascending: true })
+  );
   if (metadataError) throw new Error(`mef_exercise_metadata read failed: ${metadataError.message}`);
   const metadataRows = (metadataData ?? []) as Record<string, unknown>[];
 

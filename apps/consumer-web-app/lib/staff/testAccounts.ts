@@ -50,6 +50,7 @@
  * allows.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 
 export type TestAccountExclusion = {
   /**
@@ -116,11 +117,14 @@ export async function activelyAssignedMemberIds(
   supabase: SupabaseClient,
   coachId: string
 ): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from('coach_client_assignments')
-    .select('client_id')
-    .eq('coach_id', coachId)
-    .eq('status', 'active');
+  const { rows: data, error } = await selectAllRows<{ client_id: string }>(() =>
+    supabase
+      .from('coach_client_assignments')
+      .select('client_id')
+      .eq('coach_id', coachId)
+      .eq('status', 'active')
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('activelyAssignedMemberIds failed', error);
     return new Set();
@@ -150,9 +154,11 @@ export async function resolveTestAccountExclusion(
 
   if (await viewerSeesTestAccounts(supabase, viewer)) return ALLOW_EVERYTHING;
 
-  const [assigned, { data, error }] = await Promise.all([
+  const [assigned, { rows: data, error }] = await Promise.all([
     activelyAssignedMemberIds(supabase, viewer),
-    supabase.from('profiles').select('id').eq('is_test', true),
+    selectAllRows<{ id: string }>(() =>
+      supabase.from('profiles').select('id').eq('is_test', true).order('id', { ascending: true })
+    ),
   ]);
   if (error) {
     console.error('resolveTestAccountExclusion failed', error);

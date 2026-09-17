@@ -22,6 +22,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRowsInChunks } from '../data/pagedSelect';
 
 /** Which surface actually put it in front of her. Mirrors the CHECK constraint on the column. */
 export const ASSIGNMENT_PRESENTATIONS = ['popup', 'home_card'] as const;
@@ -94,11 +95,14 @@ export async function listAssignmentDeliveries(
 ): Promise<{ ok: boolean; byAssignmentId: Map<string, AssignmentDeliveryRecord> }> {
   if (assignmentIds.length === 0) return { ok: true, byAssignmentId: new Map() };
 
-  const { data, error } = await supabase
-    .from('member_assignment_deliveries')
-    .select(DELIVERY_COLUMNS)
-    .eq('member_id', memberId)
-    .in('assignment_id', [...assignmentIds]);
+  const { rows: data, error } = await selectAllRowsInChunks<DeliveryRow>([...assignmentIds], (chunk) =>
+    supabase
+      .from('member_assignment_deliveries')
+      .select(DELIVERY_COLUMNS)
+      .eq('member_id', memberId)
+      .in('assignment_id', chunk)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listAssignmentDeliveries failed', error);
@@ -106,7 +110,7 @@ export async function listAssignmentDeliveries(
   }
 
   const byAssignmentId = new Map<string, AssignmentDeliveryRecord>();
-  for (const row of (data ?? []) as unknown as DeliveryRow[]) {
+  for (const row of data) {
     byAssignmentId.set(row.assignment_id, fromRow(row));
   }
   return { ok: true, byAssignmentId };

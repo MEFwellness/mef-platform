@@ -34,6 +34,7 @@ import {
   type AssignmentLifecycleRow,
 } from '../coach-program-builder/assignments';
 import { recordMemberEvent } from '../events/service';
+import { selectAllRowsInChunks } from '../data/pagedSelect';
 import { todaysLocalDate } from '../time/localDate';
 import { planTransition, type LifecycleTransitionKind } from './transitions';
 
@@ -76,10 +77,10 @@ export async function loadMemberTimezones(
   const unique = Array.from(new Set(memberIds));
   if (unique.length === 0) return new Map();
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, timezone')
-    .in('id', unique);
+  const { rows: data, error } = await selectAllRowsInChunks<{ id: string; timezone: string | null }>(
+    unique,
+    (chunk) => supabase.from('profiles').select('id, timezone').in('id', chunk).order('id', { ascending: true })
+  );
   if (error) {
     console.error('program lifecycle: failed to load member timezones', error);
     return new Map();

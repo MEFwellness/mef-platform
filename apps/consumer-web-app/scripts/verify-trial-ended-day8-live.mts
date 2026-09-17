@@ -51,6 +51,7 @@ import { TRIAL_ENDED_PATH, TRIAL_ENDED_WEEK_PATH } from '../lib/trial-ended/path
 import type { RenderedTrialEndedContinuation } from '../lib/trial-ended/continuationTypes';
 import { deriveRelationship } from '../lib/membership/relationship';
 import { decideMemberAccess, subscriptionFromRow } from '../lib/membership/access';
+import { selectAllRows, writeInChunks, listAllAuthUsers } from '../lib/data/pagedSelect';
 
 const BASE = process.env.BASE_URL || 'https://app.mefwellness.com';
 const PHONE = { width: 393, height: 852 };
@@ -143,11 +144,14 @@ async function stageForensics() {
   check('and no attribution row either, which the report did not mention', acq === null, acq ? JSON.stringify(acq) : 'none');
 
   // The click that produced the account, and the session it came from.
-  const { data: clicks } = await service
-    .from('public_entry_events')
-    .select('session_id, event_type, detail, occurred_at')
-    .eq('event_type', 'app_clicked')
-    .order('occurred_at');
+  const { rows: clicks } = await selectAllRows<{ session_id: string; detail: string | null; occurred_at: string }>(() =>
+    service
+      .from('public_entry_events')
+      .select('session_id, event_type, detail, occurred_at')
+      .eq('event_type', 'app_clicked')
+      .order('occurred_at')
+      .order('id', { ascending: true })
+  );
   const rows = (clicks ?? []) as { session_id: string; detail: string | null; occurred_at: string }[];
   const created = createdAt ? new Date(createdAt).getTime() : 0;
   const culprit = rows
@@ -205,7 +209,7 @@ async function stageForensics() {
 }
 
 async function findUserIdByEmail(email: string): Promise<string | null> {
-  const { data } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const { data } = await listAllAuthUsers(service.auth.admin);
   return data?.users?.find((u) => (u.email ?? '').toLowerCase() === email.toLowerCase())?.id ?? null;
 }
 
@@ -571,11 +575,14 @@ async function stageBind() {
 async function stageOrphans() {
   console.log('\n--- Task A: disposition of every unbound finished arrival in production ---\n');
 
-  const { data: sessions } = await service
-    .from('public_entry_sessions')
-    .select('id, source_code, landing_path, first_seen_at, completed_at, pattern_key, lead_email')
-    .not('completed_at', 'is', null)
-    .order('completed_at');
+  const { rows: sessions } = await selectAllRows<{ id: string }>(() =>
+    service
+      .from('public_entry_sessions')
+      .select('id, source_code, landing_path, first_seen_at, completed_at, pattern_key, lead_email')
+      .not('completed_at', 'is', null)
+      .order('completed_at')
+      .order('id', { ascending: true })
+  );
   const rows = (sessions ?? []) as {
     id: string;
     source_code: string | null;
@@ -586,7 +593,9 @@ async function stageOrphans() {
     lead_email: string | null;
   }[];
 
-  const { data: origins } = await service.from('member_public_entry_origin').select('session_id');
+  const { rows: origins } = await selectAllRows<{ session_id: string }>(() =>
+    service.from('member_public_entry_origin').select('session_id').order('member_id', { ascending: true })
+  );
   const bound = new Set(((origins ?? []) as { session_id: string }[]).map((row) => row.session_id));
 
   const orphans = rows.filter((row) => !bound.has(row.id) && !createdSessionTokens.length);
@@ -684,8 +693,10 @@ async function rigAccess(): Promise<{ allowed: boolean; reason: string; relation
     isTest: Boolean(row?.is_test),
     now: new Date(),
   });
-  const [{ data: assignments }, { data: profile }, { data: sub }] = await Promise.all([
-    service.from('coach_client_assignments').select('status').eq('client_id', rig.id),
+  const [{ rows: assignments }, { data: profile }, { data: sub }] = await Promise.all([
+    selectAllRows<{ status: string }>(() =>
+      service.from('coach_client_assignments').select('status').eq('client_id', rig.id).order('id', { ascending: true })
+    ),
     service.from('profiles').select('is_test, created_at').eq('id', rig.id).maybeSingle(),
     service
       .from('member_subscriptions')
@@ -1104,7 +1115,7 @@ async function stageNoArc() {
 async function stageLocked() {
   console.log('\n--- Task B: every really locked production account, READ ONLY ---\n');
 
-  const { data: users } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const { data: users } = await listAllAuthUsers(service.auth.admin);
   const all = users?.users ?? [];
 
   const rows: string[] = [];
@@ -1113,20 +1124,24 @@ async function stageLocked() {
 
   for (const user of all) {
     if (user.id === rig.id) continue;
-    const [{ data: facts }, { data: assignments }, { data: profile }, { data: sub }, { data: roles }] = await Promise.all([
+    const [{ data: facts }, { rows: assignments }, { data: profile }, { data: sub }, { rows: roles }] = await Promise.all([
       service
         .from('member_access_facts')
         .select('member_id, tier, source, status, full_access, trial_started_at, trial_ends_at, is_test')
         .eq('member_id', user.id)
         .maybeSingle(),
-      service.from('coach_client_assignments').select('status').eq('client_id', user.id),
+      selectAllRows<{ status: string }>(() =>
+        service.from('coach_client_assignments').select('status').eq('client_id', user.id).order('id', { ascending: true })
+      ),
       service.from('profiles').select('is_test, created_at').eq('id', user.id).maybeSingle(),
       service
         .from('member_subscriptions')
         .select('tier, source, status, full_access, trial_arc_suppressed_at')
         .eq('member_id', user.id)
         .maybeSingle(),
-      service.from('user_roles').select('role').eq('user_id', user.id).is('revoked_at', null),
+      selectAllRows<{ role: string }>(() =>
+        service.from('user_roles').select('role').eq('user_id', user.id).is('revoked_at', null).order('id', { ascending: true })
+      ),
     ]);
 
     const isStaff = ((roles ?? []) as { role: string }[]).some((r) => r.role === 'coach' || r.role === 'platform_administrator');
@@ -1190,13 +1205,15 @@ async function stageExclusion() {
       check(`${email} exists to check`, false, 'not found');
       continue;
     }
-    const [{ data: facts }, { data: assignments }, { data: profile }, { data: sub }] = await Promise.all([
+    const [{ data: facts }, { rows: assignments }, { data: profile }, { data: sub }] = await Promise.all([
       service
         .from('member_access_facts')
         .select('member_id, tier, source, status, full_access, trial_started_at, trial_ends_at, is_test')
         .eq('member_id', id)
         .maybeSingle(),
-      service.from('coach_client_assignments').select('status').eq('client_id', id),
+      selectAllRows<{ status: string }>(() =>
+        service.from('coach_client_assignments').select('status').eq('client_id', id).order('id', { ascending: true })
+      ),
       service.from('profiles').select('is_test, created_at').eq('id', id).maybeSingle(),
       service
         .from('member_subscriptions')
@@ -1296,17 +1313,24 @@ async function stageDoors() {
 async function stageQuiet() {
   console.log('\n--- Task B: the arc is still launched for no one ---\n');
 
-  const { data: users } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const { data: users } = await listAllAuthUsers(service.auth.admin);
   const all = (users?.users ?? []).filter((u) => u.id !== rig.id);
 
-  const { data: deliveries } = await service
-    .from('member_trial_arc_deliveries')
-    .select('member_id')
-    .neq('member_id', rig.id);
+  const { rows: deliveries } = await selectAllRows<{ member_id: string }>(() =>
+    service
+      .from('member_trial_arc_deliveries')
+      .select('member_id')
+      .neq('member_id', rig.id)
+      .order('id', { ascending: true })
+  );
   check('no non-rig account has a single trial arc delivery receipt', (deliveries ?? []).length === 0, String((deliveries ?? []).length));
 
-  const { data: recaps } = await service.from('member_trial_arc_recaps').select('member_id').neq('member_id', rig.id);
-  const { data: closes } = await service.from('member_trial_arc_closes').select('member_id').neq('member_id', rig.id);
+  const { rows: recaps } = await selectAllRows<{ member_id: string }>(() =>
+    service.from('member_trial_arc_recaps').select('member_id').neq('member_id', rig.id).order('id', { ascending: true })
+  );
+  const { rows: closes } = await selectAllRows<{ member_id: string }>(() =>
+    service.from('member_trial_arc_closes').select('member_id').neq('member_id', rig.id).order('id', { ascending: true })
+  );
   check('no non-rig account has a stored recap', (recaps ?? []).length === 0, String((recaps ?? []).length));
   check('no non-rig account has a stored close', (closes ?? []).length === 0, String((closes ?? []).length));
   note(`${all.length} non-rig production accounts checked.`);
@@ -1328,14 +1352,19 @@ async function stageRestore() {
   // address it left, so a stage run on its own in an earlier process still
   // gets cleaned up. No real visitor uses example.test.
   if (createdSessionTokens.length) {
-    await service.from('public_entry_sessions').delete().in('visitor_token', createdSessionTokens);
+    await writeInChunks(createdSessionTokens, (chunk) =>
+      service.from('public_entry_sessions').delete().in('visitor_token', chunk)
+    );
   }
-  const { data: leftovers } = await service
-    .from('public_entry_sessions')
-    .select('id')
-    .ilike('lead_email', '%@example.test');
+  const { rows: leftovers } = await selectAllRows<{ id: string }>(() =>
+    service
+      .from('public_entry_sessions')
+      .select('id')
+      .ilike('lead_email', '%@example.test')
+      .order('id', { ascending: true })
+  );
   const stray = ((leftovers ?? []) as { id: string }[]).map((row) => row.id);
-  if (stray.length) await service.from('public_entry_sessions').delete().in('id', stray);
+  if (stray.length) await writeInChunks(stray, (chunk) => service.from('public_entry_sessions').delete().in('id', chunk));
   check(
     'every public entry session this run created is deleted',
     true,

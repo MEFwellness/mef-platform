@@ -29,6 +29,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const MEMBER_ID = process.env.MEMBER_ID;
@@ -176,32 +177,46 @@ try {
     check(`db: ${table}.member_reasoning exists`, !error, error?.message ?? '');
   }
 
-  const { data: preexisting } = await db
-    .from('coach_program_assignments')
-    .select('id, member_explanation')
-    .not('member_explanation', 'is', null);
+  const { rows: preexisting } = await selectAllRows(() =>
+    db
+      .from('coach_program_assignments')
+      .select('id, member_explanation')
+      .not('member_explanation', 'is', null)
+      .order('id', { ascending: true })
+  );
   check('db: the migration gave no existing program an explanation', (preexisting ?? []).length === 0, `${(preexisting ?? []).length} rows`);
 
-  const { data: preexistingReasoning } = await db
-    .from('coach_assigned_workout_exercises')
-    .select('id')
-    .not('member_reasoning', 'is', null);
+  const { rows: preexistingReasoning } = await selectAllRows(() =>
+    db
+      .from('coach_assigned_workout_exercises')
+      .select('id')
+      .not('member_reasoning', 'is', null)
+      .order('id', { ascending: true })
+  );
   check('db: the migration gave no frozen exercise a member line', (preexistingReasoning ?? []).length === 0, `${(preexistingReasoning ?? []).length} rows`);
 
   // -------------------------------------------------------------------
   // 2. The catalog rename.
   // -------------------------------------------------------------------
-  const { data: renamed } = await db
-    .from('exercise_catalog')
-    .select('provider, external_id, name, equipment, is_client_assignable')
-    .in('name', ['Split Squat', 'Split squat (R)']);
+  const { rows: renamed } = await selectAllRows(() =>
+    db
+      .from('exercise_catalog')
+      .select('provider, external_id, name, equipment, is_client_assignable')
+      .in('name', ['Split Squat', 'Split squat (R)'])
+      .order('id', { ascending: true })
+  );
   check('db: exactly one row, named Split Squat', (renamed ?? []).length === 1 && renamed[0]?.name === 'Split Squat', (renamed ?? []).map((r) => r.name).join(', '));
   check('db: it is still the dumbbell one, still client assignable', renamed?.[0]?.equipment === 'dumbbell' && renamed?.[0]?.is_client_assignable === true, `${renamed?.[0]?.equipment}`);
 
-  const { data: allSlots } = await db
-    .from('program_blueprint_slots')
-    .select('exercise_name, provider, external_id, is_per_side, purpose, program_version_id');
-  const { data: allCatalog } = await db.from('exercise_catalog').select('provider, external_id, name');
+  const { rows: allSlots } = await selectAllRows(() =>
+    db
+      .from('program_blueprint_slots')
+      .select('exercise_name, provider, external_id, is_per_side, purpose, program_version_id')
+      .order('id', { ascending: true })
+  );
+  const { rows: allCatalog } = await selectAllRows(() =>
+    db.from('exercise_catalog').select('provider, external_id, name').order('id', { ascending: true })
+  );
   const catalogByKey = new Map((allCatalog ?? []).map((c) => [`${c.provider}:${c.external_id}`, c.name]));
   const disagreeing = (allSlots ?? []).filter(
     (s) => s.external_id && s.exercise_name !== catalogByKey.get(`${s.provider}:${s.external_id}`)
@@ -224,10 +239,13 @@ try {
       : '"Split squat (L)" is not in the catalog.'
   );
   const usesLeft = (allSlots ?? []).filter((s) => s.exercise_name === 'Split squat (L)');
-  const { data: frozenLeft } = await db
-    .from('coach_assigned_workout_exercises')
-    .select('id')
-    .eq('exercise_name', 'Split squat (L)');
+  const { rows: frozenLeft } = await selectAllRows(() =>
+    db
+      .from('coach_assigned_workout_exercises')
+      .select('id')
+      .eq('exercise_name', 'Split squat (L)')
+      .order('id', { ascending: true })
+  );
   check('db: nothing anywhere has given a member "Split squat (L)"', usesLeft.length === 0 && (frozenLeft ?? []).length === 0, `${usesLeft.length} slots, ${(frozenLeft ?? []).length} frozen rows`);
 
   // -------------------------------------------------------------------
@@ -236,10 +254,13 @@ try {
   before = await captureMemberScreens('before');
   check('member: opening her screens requested no video', (before.videos ?? 0) === 0, `${before.videos ?? 0} requests`);
 
-  const { data: herAssignments } = await db
-    .from('coach_program_assignments')
-    .select('id, template_name_snapshot, status, visibility, member_explanation, program_group_key')
-    .eq('member_id', MEMBER_ID);
+  const { rows: herAssignments } = await selectAllRows(() =>
+    db
+      .from('coach_program_assignments')
+      .select('id, template_name_snapshot, status, visibility, member_explanation, program_group_key')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
   note(`member currently has ${(herAssignments ?? []).length} assignment(s), ${(herAssignments ?? []).filter((a) => a.visibility === 'published').length} published`);
   check('member: none of her programs carries an explanation yet', (herAssignments ?? []).every((a) => a.member_explanation === null), '');
 
@@ -251,11 +272,13 @@ try {
     .select('id, display_name')
     .eq('key', SEED_KEY)
     .maybeSingle();
-  const { data: versions } = await db
-    .from('movement_program_versions')
-    .select('*')
-    .eq('program_id', program?.id ?? '00000000-0000-0000-0000-000000000000')
-    .order('version_number', { ascending: false });
+  const { rows: versions } = await selectAllRows(() =>
+    db
+      .from('movement_program_versions')
+      .select('*')
+      .eq('program_id', program?.id ?? '00000000-0000-0000-0000-000000000000')
+      .order('version_number', { ascending: false })
+  );
   const v2 = (versions ?? []).find((v) => v.version_number === 2);
   check('db: Home Dumbbell Foundation v2 is on production', Boolean(v2), `v2 ${v2?.status}`);
   note(`v2 status is "${v2?.status}"${v2?.approved_at ? `, approved ${v2.approved_at}` : ''}`);
@@ -380,11 +403,14 @@ try {
   const coachId = (coachLink ?? [])[0]?.coach_id;
   check('db: the member has an active coach to assign as', Boolean(coachId), coachId ? String(coachId).slice(0, 8) : 'none');
 
-  const { data: v2Slots } = await db
-    .from('program_blueprint_slots')
-    .select('*')
-    .eq('program_version_id', v2.id)
-    .order('slot_order');
+  const { rows: v2Slots } = await selectAllRows(() =>
+    db
+      .from('program_blueprint_slots')
+      .select('*')
+      .eq('program_version_id', v2.id)
+      .order('slot_order')
+      .order('id', { ascending: true })
+  );
 
   if (coachId) {
     const startDate = nextMondayOnOrAfter(addDays(new Date().toISOString().slice(0, 10), 1));
@@ -611,6 +637,7 @@ try {
 
     check('assign: three unpublished draft assignments were created', createdAssignmentIds.length === 3, `${createdAssignmentIds.length}`);
 
+    // scale-exempt: createdAssignmentIds are the assignments this run inserted, one per session of the v2 blueprint (three, asserted above)
     const { data: written } = await db
       .from('coach_program_assignments')
       .select('id, visibility, published_at, member_explanation')
@@ -619,14 +646,20 @@ try {
     check("assign: every session carries the coach's EDITED explanation", (written ?? []).every((a) => a.member_explanation === edited), '');
     check('assign: the edit really is in the stored text', (written ?? []).every((a) => (a.member_explanation ?? '').includes('Your coach added this sentence during the review.')), '');
 
+    // scale-exempt: the week 1 workouts of the assignments this run inserted, one workout per assignment (three)
     const { data: frozenIds } = await db
       .from('coach_assigned_workouts')
       .select('id')
       .in('assignment_id', createdAssignmentIds);
-    const { data: frozen } = await db
-      .from('coach_assigned_workout_exercises')
-      .select('exercise_name, member_reasoning, selection_reasoning')
-      .in('assigned_workout_id', (frozenIds ?? []).map((w) => w.id));
+    const { rows: frozen } = await selectAllRowsInChunks(
+      (frozenIds ?? []).map((w) => w.id),
+      (chunk) =>
+        db
+          .from('coach_assigned_workout_exercises')
+          .select('exercise_name, member_reasoning, selection_reasoning')
+          .in('assigned_workout_id', chunk)
+          .order('id', { ascending: true })
+    );
     check('assign: every frozen exercise carries a member line', (frozen ?? []).length === 24 && (frozen ?? []).every((r) => (r.member_reasoning ?? '').length > 20), `${(frozen ?? []).length} rows`);
     const frozenLeaks = (frozen ?? []).filter((r) => clinicalHits(r.member_reasoning).length > 0);
     check('assign: no frozen member line carries clinical language', frozenLeaks.length === 0, frozenLeaks.map((r) => r.exercise_name).join(', ') || 'all clean');
@@ -636,12 +669,14 @@ try {
     // She cannot see any of it.
     if (before.accessToken) {
       const asMember = memberClient(before.accessToken);
+      // scale-exempt: the ids are the three workouts this run inserted, one per assignment it created
       const { data: visibleWorkouts } = await asMember
         .from('coach_assigned_workouts')
         .select('id')
         .in('id', (frozenIds ?? []).map((w) => w.id));
       check('member: her own session reads none of the draft occurrences', (visibleWorkouts ?? []).length === 0, `${(visibleWorkouts ?? []).length} rows`);
 
+      // scale-exempt: createdAssignmentIds are the assignments this run inserted, one per session of the v2 blueprint (three)
       const { data: visibleLifecycle } = await asMember
         .from('member_program_lifecycle')
         .select('id, member_explanation')
@@ -678,11 +713,14 @@ try {
     await staffPage.getByRole('button', { name: 'Save', exact: true }).first().click();
     await staffPage.waitForTimeout(4000);
 
-    const { data: afterEdit } = await db
-      .from('coach_program_assignments')
-      .select('id, member_explanation')
-      .eq('member_id', MEMBER_ID)
-      .eq('visibility', 'published');
+    const { rows: afterEdit } = await selectAllRows(() =>
+      db
+        .from('coach_program_assignments')
+        .select('id, member_explanation')
+        .eq('member_id', MEMBER_ID)
+        .eq('visibility', 'published')
+        .order('id', { ascending: true })
+    );
     const written = (afterEdit ?? []).filter((a) => a.member_explanation === liveText);
     check('coach: saving wrote the explanation onto every session of the program', written.length > 0, `${written.length} of ${(afterEdit ?? []).length} rows`);
 
@@ -704,11 +742,14 @@ try {
     for (const row of explanationsToRestore) {
       await db.from('coach_program_assignments').update({ member_explanation: row.was }).eq('id', row.id);
     }
-    const { data: restored } = await db
-      .from('coach_program_assignments')
-      .select('id, member_explanation')
-      .eq('member_id', MEMBER_ID)
-      .eq('visibility', 'published');
+    const { rows: restored } = await selectAllRows(() =>
+      db
+        .from('coach_program_assignments')
+        .select('id, member_explanation')
+        .eq('member_id', MEMBER_ID)
+        .eq('visibility', 'published')
+        .order('id', { ascending: true })
+    );
     check('coach: the explanation was put back exactly as it was', (restored ?? []).every((a) => a.member_explanation === null), '');
     explanationsToRestore = [];
   } else {
@@ -724,6 +765,7 @@ try {
     await db.from('coach_program_assignments').update({ member_explanation: row.was }).eq('id', row.id);
   }
   if (createdAssignmentIds.length > 0) {
+    // scale-exempt: createdAssignmentIds are the assignments this run inserted, one per session of the v2 blueprint (three)
     const { data: stillDraft } = await db
       .from('coach_program_assignments')
       .select('id, visibility, published_at')
@@ -732,17 +774,22 @@ try {
     if (published.length > 0) {
       console.log(`FAIL  restore: refusing to delete ${published.length} PUBLISHED assignment(s)`);
     } else {
+      // scale-exempt: createdAssignmentIds are the assignments this run inserted, one per session of the v2 blueprint (three)
       await db.from('coach_program_assignments').delete().in('id', createdAssignmentIds);
     }
   }
   if (createdTemplateIds.length > 0) {
+    // scale-exempt: createdTemplateIds are the templates this run inserted, one per session of the v2 blueprint (three)
     await db.from('coach_program_templates').delete().in('id', createdTemplateIds);
   }
 
-  const { data: leftBehind } = await db
-    .from('coach_program_assignments')
-    .select('id, member_explanation, visibility')
-    .eq('member_id', MEMBER_ID);
+  const { rows: leftBehind } = await selectAllRows(() =>
+    db
+      .from('coach_program_assignments')
+      .select('id, member_explanation, visibility')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
   check('restore: nothing this run created is left on production', (leftBehind ?? []).every((a) => !createdAssignmentIds.includes(a.id)), `${(leftBehind ?? []).length} assignment(s) remain, all pre-existing`);
   check('restore: no program of hers carries an explanation, exactly as before', (leftBehind ?? []).every((a) => a.member_explanation === null), '');
   note(`what was created: ${restoreLog}`);

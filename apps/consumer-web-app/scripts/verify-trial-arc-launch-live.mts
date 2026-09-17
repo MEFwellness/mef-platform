@@ -30,6 +30,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { TRIAL_ARC_LAUNCH, trialArcLaunchInstant } from '../lib/trial-arc/config';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect';
 import { decideTrialArcEligibility, resolveTrialArcEligibility } from '../lib/trial-arc/eligibility';
 import { fetchRelationshipFacts } from '../lib/membership/relationship';
 import { resolveTrialArcDecision } from '../lib/trial-arc/engine';
@@ -66,13 +67,12 @@ if (launch === null) {
 // ---------------------------------------------------------------------
 console.log('\n== Every account in production, against the staged launch ==');
 
-const { data: profiles, error } = await service
-  .from('profiles')
-  .select('id, is_test, created_at')
-  .order('created_at');
+const { rows: profiles, error } = await selectAllRows<{ id: string; is_test: boolean; created_at: string }>(() =>
+  service.from('profiles').select('id, is_test, created_at').order('created_at').order('id', { ascending: true })
+);
 if (error) throw error;
 
-const { data: authUsers } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+const { data: authUsers } = await listAllAuthUsers(service.auth.admin);
 const emailById = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? '']));
 const label = (id: string, isTest: boolean) =>
   isTest ? `${emailById.get(id) ?? '(no email)'} [test]` : `id ${id}`;

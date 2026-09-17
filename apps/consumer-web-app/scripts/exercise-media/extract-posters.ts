@@ -23,10 +23,11 @@
  */
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type PostgrestError, type SupabaseClient } from '@supabase/supabase-js';
 import { YourMoveApiClient, YourMoveApiError } from '../../lib/your-move/apiClient';
 import { extractFrameBuffer, assessFrameQuality, pickMidpointTimestamp } from '../../lib/your-move/frameExtraction';
 import { upsertExtractedPoster, getExtractedPoster, posterStoragePath, EXERCISE_MEDIA_BUCKET } from '../../lib/your-move/posters';
+import { selectAllRows } from '../../lib/data/pagedSelect';
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -54,10 +55,9 @@ async function main() {
     requiredEnv('SEED_SUPABASE_SERVICE_ROLE_KEY')
   );
 
-  const { data, error } = await supabase
-    .from('exercise_catalog')
-    .select('external_id, name')
-    .eq('has_video', true);
+  const { rows: data, error } = await selectAllRows<{ external_id: string; name: string }, PostgrestError | null>(() =>
+    supabase.from('exercise_catalog').select('external_id, name').eq('has_video', true).order('id', { ascending: true })
+  );
   if (error) throw new Error(`exercise_catalog read failed: ${error.message}`);
   const videoExercises = (data as { external_id: string; name: string }[]) ?? [];
 

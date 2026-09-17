@@ -30,6 +30,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.VERIFY_BASE ?? 'https://app.mefwellness.com';
 const COACH_EMAIL = 'oakomah66@gmail.com';
@@ -158,7 +159,7 @@ async function readCard(card) {
 
 const run = async () => {
   // Ids from the database, not assumed.
-  const { data: users, error: uErr } = await service.auth.admin.listUsers({ perPage: 200 });
+  const { data: users, error: uErr } = await listAllAuthUsers(service.auth.admin);
   if (uErr) throw new Error(`listUsers failed: ${uErr.message}`);
   const fixture = users.users.find((u) => u.email === FIXTURE_EMAIL);
   if (!fixture) throw new Error('the fixture account was not found on production');

@@ -13,6 +13,7 @@ import { FIXED_CORE_QUESTION_KEYS } from '../daily-checkin-adaptive/constants';
 import type { DisplayStyle, DriverProbeQuestion, ProbeOption, ProbeResponseType, ProbeScreen } from '../daily-checkin-adaptive/types';
 import type { CreateQuestionInput, QuestionWithStats, RevisionEntry, UpdateQuestionInput, UpdateQuestionResult } from './types';
 import { isValidQuestionKey } from './slug';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 
 /** The fixed set of real daily_checkins columns any driver_probe_questions row can point at (storage='daily_checkins_column') — every one of them predates this admin screen (migrations 63/106/109) and none can be created fresh from here; a coach-created question is always storage='probe_answer'. */
 const DAILY_CHECKINS_PROBE_COLUMNS = [
@@ -62,7 +63,9 @@ function fromRow(row: QuestionRow): DriverProbeQuestion {
 
 /** Every question — active AND retired, since the list screen shows retired ones in a de-emphasized group rather than hiding them. */
 export async function listAllQuestions(supabase: SupabaseClient): Promise<DriverProbeQuestion[]> {
-  const { data, error } = await supabase.from('driver_probe_questions').select('*').order('question_key');
+  const { rows: data, error } = await selectAllRows<QuestionRow>(() =>
+    supabase.from('driver_probe_questions').select('*').order('question_key')
+  );
   if (error) {
     console.error('listAllQuestions failed', error);
     return [];
@@ -71,10 +74,13 @@ export async function listAllQuestions(supabase: SupabaseClient): Promise<Driver
 }
 
 async function askedCounts(supabase: SupabaseClient): Promise<Map<string, number>> {
-  const { data, error } = await supabase
-    .from('member_daily_probe_selections')
-    .select('question_key')
-    .eq('kind', 'rotating_probe');
+  const { rows: data, error } = await selectAllRows<{ question_key: string }>(() =>
+    supabase
+      .from('member_daily_probe_selections')
+      .select('question_key')
+      .eq('kind', 'rotating_probe')
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('askedCounts failed', error);
     return new Map();
@@ -87,7 +93,9 @@ async function askedCounts(supabase: SupabaseClient): Promise<Map<string, number
 }
 
 async function probeAnswerCounts(supabase: SupabaseClient): Promise<Map<string, number>> {
-  const { data, error } = await supabase.from('daily_checkin_probe_answers').select('question_key');
+  const { rows: data, error } = await selectAllRows<{ question_key: string }>(() =>
+    supabase.from('daily_checkin_probe_answers').select('question_key').order('id', { ascending: true })
+  );
   if (error) {
     console.error('probeAnswerCounts failed', error);
     return new Map();
@@ -101,9 +109,12 @@ async function probeAnswerCounts(supabase: SupabaseClient): Promise<Map<string, 
 
 /** One count per real daily_checkins column this table can point at — a single row scan, not one query per column. */
 async function dailyCheckinsColumnAnsweredCounts(supabase: SupabaseClient): Promise<Map<string, number>> {
-  const { data, error } = await supabase
-    .from('daily_checkins')
-    .select(DAILY_CHECKINS_PROBE_COLUMNS.join(','));
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('daily_checkins')
+      .select(DAILY_CHECKINS_PROBE_COLUMNS.join(','))
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('dailyCheckinsColumnAnsweredCounts failed', error);
     return new Map();
@@ -196,15 +207,6 @@ async function recordRevision(
 }
 
 export async function listRevisions(supabase: SupabaseClient, questionKey: string): Promise<RevisionEntry[]> {
-  const { data, error } = await supabase
-    .from('driver_probe_question_revisions')
-    .select('id, question_key, change_type, before, after, changed_by, changed_at')
-    .eq('question_key', questionKey)
-    .order('changed_at', { ascending: false });
-  if (error) {
-    console.error('listRevisions failed', error);
-    return [];
-  }
   type RevisionRow = {
     id: string;
     question_key: string;
@@ -214,6 +216,18 @@ export async function listRevisions(supabase: SupabaseClient, questionKey: strin
     changed_by: string | null;
     changed_at: string;
   };
+  const { rows: data, error } = await selectAllRows<RevisionRow>(() =>
+    supabase
+      .from('driver_probe_question_revisions')
+      .select('id, question_key, change_type, before, after, changed_by, changed_at')
+      .eq('question_key', questionKey)
+      .order('changed_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
+  if (error) {
+    console.error('listRevisions failed', error);
+    return [];
+  }
   const rows = data as RevisionRow[];
 
   // No direct FK from this table to `profiles` (only to auth.users, via
@@ -228,10 +242,11 @@ export async function listRevisions(supabase: SupabaseClient, questionKey: strin
   );
   const namesById = new Map<string, string>();
   if (changedByIds.length > 0) {
-    const { data: profileRows } = await supabase
-      .from('profiles')
-      .select('id, display_name')
-      .in('id', changedByIds);
+    const { rows: profileRows } = await selectAllRowsInChunks<{ id: string; display_name: string | null }>(
+      changedByIds,
+      (chunk) =>
+        supabase.from('profiles').select('id, display_name').in('id', chunk).order('id', { ascending: true })
+    );
     for (const profile of (profileRows ?? []) as { id: string; display_name: string | null }[]) {
       if (profile.display_name) namesById.set(profile.id, profile.display_name);
     }

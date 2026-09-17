@@ -19,6 +19,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const SHOTS = 'scripts/.verify/shots';
@@ -40,10 +41,13 @@ function record(item, pass, detail) {
 }
 
 async function othersUnchanged() {
-  const { data } = await service
-    .from('member_subscriptions')
-    .select('member_id, trial_ends_at')
-    .order('trial_started_at', { ascending: true });
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('member_subscriptions')
+      .select('member_id, trial_ends_at')
+      .order('trial_started_at', { ascending: true })
+      .order('member_id', { ascending: true })
+  );
   return new Map((data ?? []).map((r) => [r.member_id, r.trial_ends_at]));
 }
 

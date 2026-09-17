@@ -26,6 +26,7 @@
  * NO EM DASHES, per the house rule.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../../data/pagedSelect';
 import type {
   ProgramPhaseReview,
   ProgramRecommendedOutcome,
@@ -79,17 +80,20 @@ export async function listReviewsForProgram(
   supabase: SupabaseClient,
   input: { memberId: string; groupKey: string }
 ): Promise<ProgramPhaseReview[]> {
-  const { data, error } = await supabase
-    .from('program_phase_reviews')
-    .select('*')
-    .eq('member_id', input.memberId)
-    .eq('program_group_key', input.groupKey)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<ProgramPhaseReview>(() =>
+    supabase
+      .from('program_phase_reviews')
+      .select('*')
+      .eq('member_id', input.memberId)
+      .eq('program_group_key', input.groupKey)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listReviewsForProgram failed', error);
     return [];
   }
-  return (data ?? []) as ProgramPhaseReview[];
+  return data;
 }
 
 export interface CreateReviewInput {

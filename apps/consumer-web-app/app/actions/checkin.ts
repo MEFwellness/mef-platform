@@ -37,6 +37,7 @@ import { recomputeCoachingGrades } from '@/lib/coaching-direction/gradesService'
 import { refreshLongitudinalSignals } from '@/lib/longitudinal-intelligence';
 import { getLoggedDayTotals } from '@/lib/member-counts/checkinCounts';
 import { forgetReads, readOnce } from '@/lib/data/readOnce';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 
 /**
  * Daily Check-In redesign v2 — "the new/worsening concern control
@@ -644,11 +645,15 @@ export async function getActiveHabits(): Promise<Habit[]> {
   const user = await getCachedUser();
   if (!user) return [];
 
-  const { data, error } = await supabase
-    .from('habits')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('active', true);
+  const { rows: data, error } = await selectAllRows<Habit>(() =>
+    supabase
+      .from('habits')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('active', true)
+      .order('assigned_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('getActiveHabits failed', error);
@@ -688,11 +693,14 @@ export async function getHabitLogsForDate(localDate: string): Promise<Record<str
   const user = await getCachedUser();
   if (!user) return {};
 
-  const { data, error } = await supabase
-    .from('habit_logs')
-    .select('habit_id, completed')
-    .eq('user_id', user.id)
-    .eq('local_date', localDate);
+  const { rows: data, error } = await selectAllRows<{ habit_id: string; completed: boolean }>(() =>
+    supabase
+      .from('habit_logs')
+      .select('habit_id, completed')
+      .eq('user_id', user.id)
+      .eq('local_date', localDate)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('getHabitLogsForDate failed', error);

@@ -24,6 +24,7 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { BackButton } from '@/components/BackButton';
@@ -43,13 +44,15 @@ export default async function AcquisitionLinksPage() {
 
   const [links, existingSources] = await Promise.all([
     listTrackingLinksAction(),
-    supabase
-      .from('public_entry_sources')
-      .select('code, label, is_test')
-      .order('code'),
+    selectAllRows<{ code: string; label: string; is_test: boolean }>(() =>
+      supabase
+        .from('public_entry_sources')
+        .select('code, label, is_test')
+        .order('code')
+    ),
   ]);
 
-  const takenCodes = ((existingSources.data ?? []) as { code: string; label: string; is_test: boolean }[]).map(
+  const takenCodes = (existingSources.error ? [] : existingSources.rows).map(
     (source) => ({ code: source.code, label: source.label, isTest: source.is_test })
   );
 

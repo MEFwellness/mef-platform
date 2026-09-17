@@ -8,6 +8,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CoachingMessageRow, ConversationType } from './types';
+import { selectAllRows } from '../data/pagedSelect';
 
 function hashText(text: string): string {
   let hash = 0;
@@ -48,12 +49,15 @@ export async function listRecentCoachingMessages(
   sinceDays = 60
 ): Promise<CoachingMessageRow[]> {
   const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await supabase
-    .from('member_coaching_messages')
-    .select('id, member_id, topic_key, conversation_type, message_text, message_hash, source_state, shown_at, created_at')
-    .eq('member_id', memberId)
-    .gte('shown_at', since)
-    .order('shown_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<CoachingMessageDbRow>(() =>
+    supabase
+      .from('member_coaching_messages')
+      .select('id, member_id, topic_key, conversation_type, message_text, message_hash, source_state, shown_at, created_at')
+      .eq('member_id', memberId)
+      .gte('shown_at', since)
+      .order('shown_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listRecentCoachingMessages failed', error);

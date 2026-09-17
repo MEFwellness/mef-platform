@@ -13,6 +13,7 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { localDateStringFor } from '@/lib/time/localDate';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
@@ -423,13 +424,16 @@ export async function getClientCvsSessionsAction(clientId: string): Promise<CvsC
   const definition = await getUnifiedAssessmentDefinitionByKey(supabase, CVS_KEY);
   if (!definition) return [];
 
-  const { data: rows, error } = await supabase
-    .from('unified_assessment_sessions')
-    .select('id, completed_at, assessment_version')
-    .eq('member_id', clientId)
-    .eq('assessment_definition_id', definition.id)
-    .eq('status', 'completed')
-    .order('completed_at', { ascending: false });
+  const { rows, error } = await selectAllRows<{ id: string; completed_at: string; assessment_version: number }>(() =>
+    supabase
+      .from('unified_assessment_sessions')
+      .select('id, completed_at, assessment_version')
+      .eq('member_id', clientId)
+      .eq('assessment_definition_id', definition.id)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error || !rows || rows.length === 0) return [];
 

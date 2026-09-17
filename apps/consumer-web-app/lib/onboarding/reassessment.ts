@@ -17,6 +17,7 @@ import type {
   OnboardingSubmission,
 } from '@mef/shared-types-contracts';
 import { buildBaselineAssessment, type BaselineAssessment } from './baseline';
+import { selectAllRows } from '../data/pagedSelect';
 
 export type AssessmentSummary = {
   submissionId: string;
@@ -30,13 +31,18 @@ export async function fetchAssessmentHistory(
   supabase: SupabaseClient,
   userId: string
 ): Promise<AssessmentSummary[]> {
-  const { data, error } = await supabase
-    .from('onboarding_submissions')
-    .select('id, submitted_at, local_date, assessment_type')
-    .eq('user_id', userId)
-    .order('submitted_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<
+    Pick<OnboardingSubmission, 'id' | 'submitted_at' | 'local_date' | 'assessment_type'>
+  >(() =>
+    supabase
+      .from('onboarding_submissions')
+      .select('id, submitted_at, local_date, assessment_type')
+      .eq('user_id', userId)
+      .order('submitted_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
-  if (error || !data) return [];
+  if (error) return [];
 
   return data.map((row) => ({
     submissionId: row.id,
@@ -50,13 +56,22 @@ async function fetchAssessmentBySubmission(
   supabase: SupabaseClient,
   submission: OnboardingSubmission
 ): Promise<BaselineAssessment> {
-  const [{ data: answerRows }, { data: questions }] = await Promise.all([
-    supabase.from('onboarding_answers').select('*').eq('submission_id', submission.id),
-    supabase
-      .from('onboarding_questions')
-      .select('*')
-      .eq('assessment_version_id', submission.assessment_version_id)
-      .order('display_order', { ascending: true }),
+  const [{ rows: answerRows }, { rows: questions }] = await Promise.all([
+    selectAllRows<OnboardingAnswerRecord>(() =>
+      supabase
+        .from('onboarding_answers')
+        .select('*')
+        .eq('submission_id', submission.id)
+        .order('id', { ascending: true })
+    ),
+    selectAllRows<OnboardingQuestion>(() =>
+      supabase
+        .from('onboarding_questions')
+        .select('*')
+        .eq('assessment_version_id', submission.assessment_version_id)
+        .order('display_order', { ascending: true })
+        .order('id', { ascending: true })
+    ),
   ]);
 
   return buildBaselineAssessment(

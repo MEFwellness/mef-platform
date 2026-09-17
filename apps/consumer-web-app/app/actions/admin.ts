@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type { ActionResult } from './auth';
 import type { CoachClientAssignment, Profile } from '@mef/shared-types-contracts';
 
@@ -40,7 +41,9 @@ export interface AdminUserList {
 
 export async function listUsers(includeTest = false): Promise<AdminUserList> {
   const supabase = createClient();
-  const { data, error } = await supabase.from('profiles').select('*').order('created_at');
+  const { rows: data, error } = await selectAllRows<Profile>(() =>
+    supabase.from('profiles').select('*').order('created_at').order('id', { ascending: true })
+  );
   if (error) {
     console.error('listUsers failed — likely not platform_administrator', error);
     return { users: [], hiddenTestCount: 0 };
@@ -98,11 +101,14 @@ export async function revokeAssignment(
  */
 export async function listActiveCoachUserIds(): Promise<string[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from('user_roles')
-    .select('user_id')
-    .eq('role', 'coach')
-    .is('revoked_at', null);
+  const { rows: data, error } = await selectAllRows<{ user_id: string }>(() =>
+    supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'coach')
+      .is('revoked_at', null)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listActiveCoachUserIds failed', error);
@@ -126,10 +132,13 @@ export interface AdminAssignmentList {
 export async function listAssignmentHistory(includeTest = false): Promise<AdminAssignmentList> {
   const supabase = createClient();
 
-  const { data, error } = await supabase
-    .from('coach_client_assignments')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<CoachClientAssignment>(() =>
+    supabase
+      .from('coach_client_assignments')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listAssignmentHistory failed', error);
     return { assignments: [], hiddenTestCount: 0 };
@@ -137,10 +146,9 @@ export async function listAssignmentHistory(includeTest = false): Promise<AdminA
   const all = (data ?? []) as CoachClientAssignment[];
   if (includeTest) return { assignments: all, hiddenTestCount: 0 };
 
-  const { data: testProfiles, error: testError } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('is_test', true);
+  const { rows: testProfiles, error: testError } = await selectAllRows<{ id: string }>(() =>
+    supabase.from('profiles').select('id').eq('is_test', true).order('id', { ascending: true })
+  );
   if (testError) {
     // Fail towards showing, the same way lib/staff/testAccounts.ts does:
     // an unreadable profile list is not evidence that anybody is a fixture,

@@ -26,6 +26,7 @@ import {
 } from '../lib/membership/relationship';
 import { decideTrialArcEligibility } from '../lib/trial-arc/eligibility';
 import { TRIAL_ARC_LAUNCH } from '../lib/trial-arc/config';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect';
 
 const url = process.env.PROD_SUPABASE_URL;
 const keyFile = process.env.PROD_SERVICE_KEY_FILE;
@@ -42,13 +43,12 @@ function check(label: string, passed: boolean, detail = '') {
   console.log(`${passed ? 'PASS' : 'FAIL'}  ${label}${detail ? `  ${detail}` : ''}`);
 }
 
-const { data: profiles, error } = await service
-  .from('profiles')
-  .select('id, is_test, created_at')
-  .order('created_at');
+const { rows: profiles, error } = await selectAllRows<{ id: string; is_test: boolean; created_at: string }>(() =>
+  service.from('profiles').select('id, is_test, created_at').order('created_at').order('id', { ascending: true })
+);
 if (error) throw error;
 
-const { data: authUsers } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+const { data: authUsers } = await listAllAuthUsers(service.auth.admin);
 const emailById = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? '']));
 
 /** Only a test account's email may be printed. A real member is their row id. */

@@ -16,7 +16,7 @@
  * on instead of where they actually stopped.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { scorePrimalPattern } from './scoring';
 import type {
   InProgressPrimalPatternAssessment,
@@ -29,6 +29,7 @@ import type {
 } from './types';
 import { upsertRegistryEntryFromPrimalPatternAttempt } from '../registry/adapters/primalPattern';
 import { forgetMemberAssessmentFacts } from '../assessment-registry/facts';
+import { selectAllRows } from '../data/pagedSelect';
 
 const TABLE = 'primal_pattern_assessments';
 const ANSWERS_TABLE = 'primal_pattern_assessment_answers';
@@ -70,10 +71,14 @@ async function fetchAnswers(
   supabase: SupabaseClient,
   assessmentId: string
 ): Promise<PrimalPatternAnswers> {
-  const { data, error } = await supabase
-    .from(ANSWERS_TABLE)
-    .select('question_number, selected_letters')
-    .eq('assessment_id', assessmentId);
+  const { rows: data, error } = await selectAllRows<{ question_number: number; selected_letters: Letter[] }, PostgrestError | null>(
+    () =>
+      supabase
+        .from(ANSWERS_TABLE)
+        .select('question_number, selected_letters')
+        .eq('assessment_id', assessmentId)
+        .order('id', { ascending: true })
+  );
 
   if (error) throw new Error(`Failed to load Primal Pattern answers: ${error.message}`);
 
@@ -311,13 +316,18 @@ export async function listCompletedPrimalPatternAssessments(
   memberId: string,
   questionnaireId: string
 ): Promise<PrimalPatternAssessmentSummary[]> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select('id, completed_at, result, a_count, b_count, skipped_count, both_count')
-    .eq('member_id', memberId)
-    .eq('questionnaire_id', questionnaireId)
-    .eq('status', 'completed')
-    .order('completed_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<
+    Pick<AssessmentRow, 'id' | 'completed_at' | 'result' | 'a_count' | 'b_count' | 'skipped_count' | 'both_count'>
+  >(() =>
+    supabase
+      .from(TABLE)
+      .select('id, completed_at, result, a_count, b_count, skipped_count, both_count')
+      .eq('member_id', memberId)
+      .eq('questionnaire_id', questionnaireId)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) return [];
 

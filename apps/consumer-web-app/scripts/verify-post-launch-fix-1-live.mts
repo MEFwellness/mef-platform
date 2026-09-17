@@ -45,6 +45,7 @@ import { mintSessionCookies, retireSession } from './lib/mint-session.mjs';
 import { hashSignupRef, redeemSignupRef } from '../lib/public-entry/signupRef';
 import { TRIAL_ARC_LAUNCH } from '../lib/trial-arc/config';
 import { TOKEN_FRESHNESS_MS } from '../lib/turnstile/tokenLifecycle';
+import { selectAllRows, selectAllRowsInChunks, listAllAuthUsers } from '../lib/data/pagedSelect';
 
 const BASE = process.env.BASE_URL || 'https://app.mefwellness.com';
 const OUT = process.env.OUT_DIR || '/tmp';
@@ -566,6 +567,7 @@ async function stageOneKnock(): Promise<void> {
   check('she completed Core Values Snapshot today, on this site', true, cvs.completed_at);
 
   // The bug itself, as production recorded it before the fix.
+  // scale-exempt: unique (member_id, message_key) and free_arc_available keys are one per FREE_ARC_SEQUENCE entry (three), so at most three rows
   const { data: history } = await service
     .from('member_root_popup_dismissals')
     .select('message_key, created_at')
@@ -677,11 +679,14 @@ async function stageHousekeeping(): Promise<void> {
   const row = origin as { bind_method: string; pattern_key: string; claimed_at: string } | null;
   check('her arrival was bound by the signup link', row?.bind_method === 'signup_link', JSON.stringify(row));
 
-  const { data: delivered } = await service
-    .from('member_trial_arc_deliveries')
-    .select('message_key, day_number, pointed_step, delivered_at, delivered_local_date')
-    .eq('member_id', id)
-    .order('delivered_at', { ascending: true });
+  const { rows: delivered } = await selectAllRows<Record<string, unknown>>(() =>
+    service
+      .from('member_trial_arc_deliveries')
+      .select('message_key, day_number, pointed_step, delivered_at, delivered_local_date')
+      .eq('member_id', id)
+      .order('delivered_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
   const first = (delivered ?? [])[0] as Record<string, unknown> | undefined;
   check('and her arrival greeting was delivered', Boolean(first), JSON.stringify(first ?? null));
 }
@@ -692,13 +697,18 @@ async function stageArc(): Promise<void> {
   if (!TRIAL_ARC_LAUNCH) return;
   const launch = new Date(TRIAL_ARC_LAUNCH).toISOString();
 
-  const { data: preLaunch } = await service.auth.admin.listUsers({ page: 1, perPage: 200 });
+  const { data: preLaunch } = await listAllAuthUsers(service.auth.admin);
   const older = (preLaunch?.users ?? []).filter((u) => new Date(u.created_at).toISOString() < launch);
   const olderIds = older.map((u) => u.id);
-  const { data: rows } = await service
-    .from('member_trial_arc_deliveries')
-    .select('member_id')
-    .in('member_id', olderIds.length ? olderIds : ['00000000-0000-0000-0000-000000000000']);
+  const { rows } = await selectAllRowsInChunks<{ member_id: string }>(
+    olderIds.length ? olderIds : ['00000000-0000-0000-0000-000000000000'],
+    (chunk) =>
+      service
+        .from('member_trial_arc_deliveries')
+        .select('member_id')
+        .in('member_id', chunk)
+        .order('id', { ascending: true })
+  );
   check(
     'no account that existed before the launch has ever been sent an arc message',
     (rows ?? []).length === 0,

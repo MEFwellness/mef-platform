@@ -23,6 +23,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { selectAllRows } from '../data/pagedSelect';
 import type { PantryItem, PantryItemStatus } from '@mef/shared-types-contracts';
 
 export type InsertPantryItemInput = {
@@ -77,12 +78,15 @@ export async function listActivePantryItems(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<PantryItem[]> {
-  const { data, error } = await supabase
-    .from('pantry_items')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('status', 'active')
-    .order('added_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<PantryItem>(() =>
+    supabase
+      .from('pantry_items')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .order('added_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listActivePantryItems failed', error);
     return [];
@@ -107,14 +111,17 @@ export async function listPantryItemsExpiringSoon(
   cutoff.setUTCDate(cutoff.getUTCDate() + withinDays);
   const cutoffDate = cutoff.toISOString().slice(0, 10);
 
-  const { data, error } = await supabase
-    .from('pantry_items')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('status', 'active')
-    .not('expiration_date', 'is', null)
-    .lte('expiration_date', cutoffDate)
-    .order('expiration_date', { ascending: true });
+  const { rows: data, error } = await selectAllRows<PantryItem>(() =>
+    supabase
+      .from('pantry_items')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .not('expiration_date', 'is', null)
+      .lte('expiration_date', cutoffDate)
+      .order('expiration_date', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listPantryItemsExpiringSoon failed', error);
     return [];
@@ -126,13 +133,16 @@ export async function listFavoritePantryItems(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<PantryItem[]> {
-  const { data, error } = await supabase
-    .from('pantry_items')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('status', 'active')
-    .eq('is_favorite', true)
-    .order('added_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<PantryItem>(() =>
+    supabase
+      .from('pantry_items')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .eq('is_favorite', true)
+      .order('added_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listFavoritePantryItems failed', error);
     return [];

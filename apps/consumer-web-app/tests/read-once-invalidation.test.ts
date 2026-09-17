@@ -39,6 +39,7 @@ function fakeClient() {
   const builder = (): Record<string, unknown> => {
     const chain: Record<string, unknown> = {};
     for (const m of ['select', 'eq', 'in', 'is', 'order', 'limit', 'not']) chain[m] = () => chain;
+    chain.range = async (from: number, to: number) => ({ ...result, data: result.data.slice(from, to + 1) });
     chain.maybeSingle = async () => result;
     chain.single = async () => result;
     chain.then = (resolve: (v: typeof result) => unknown) => Promise.resolve(result).then(resolve);

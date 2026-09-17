@@ -52,6 +52,7 @@ function missingTablesClient(): SupabaseClient {
     'is',
     'order',
     'limit',
+    'range',
     'like',
     'or',
   ]) {

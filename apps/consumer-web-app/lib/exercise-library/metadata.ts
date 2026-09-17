@@ -15,6 +15,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import type { ExerciseLibraryProvider, MefExerciseMetadata } from '@mef/shared-types-contracts';
+import { selectAllRowsInChunks } from '../data/pagedSelect';
 
 /**
  * Reads are external_id-only, not (provider, external_id) — external_id is
@@ -49,13 +50,15 @@ export async function getExerciseMetadataMap(
 ): Promise<Map<string, MefExerciseMetadata>> {
   if (externalIds.length === 0) return new Map();
 
-  const { data, error } = await supabase.from('mef_exercise_metadata').select('*').in('external_id', externalIds);
+  const { rows: data, error } = await selectAllRowsInChunks<MefExerciseMetadata>(externalIds, (chunk) =>
+    supabase.from('mef_exercise_metadata').select('*').in('external_id', chunk).order('id', { ascending: true })
+  );
   if (error) {
     console.error('getExerciseMetadataMap failed', error);
     return new Map();
   }
 
-  const rows = (data as MefExerciseMetadata[]) ?? [];
+  const rows = data;
   return new Map(rows.map((row) => [row.external_id, row]));
 }
 
@@ -77,16 +80,23 @@ export async function getMemberExerciseCues(
 ): Promise<Map<string, string[]>> {
   if (externalIds.length === 0) return new Map();
 
-  const { data, error } = await supabase
-    .from('member_exercise_cues')
-    .select('external_id, coaching_cues')
-    .in('external_id', externalIds);
+  // The view has no id; (provider, external_id) is unique, as it is on mef_exercise_metadata.
+  const { rows: data, error } = await selectAllRowsInChunks<{ external_id: string; coaching_cues: string[] | null }>(
+    externalIds,
+    (chunk) =>
+      supabase
+        .from('member_exercise_cues')
+        .select('external_id, coaching_cues')
+        .in('external_id', chunk)
+        .order('provider', { ascending: true })
+        .order('external_id', { ascending: true })
+  );
   if (error) {
     console.error('getMemberExerciseCues failed', error);
     return new Map();
   }
 
-  const rows = (data as { external_id: string; coaching_cues: string[] | null }[]) ?? [];
+  const rows = data;
   return new Map(rows.map((row) => [row.external_id, row.coaching_cues ?? []]));
 }
 

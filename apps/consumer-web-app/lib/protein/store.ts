@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 import {
   applyTestAccountExclusion,
   rejectTestMemberRow,
@@ -181,31 +182,37 @@ export async function listPendingProteinTargetsForCoach(
 ): Promise<PendingProteinTargetQueueEntry[]> {
   const exclusion = await resolveTestAccountExclusion(supabase);
 
-  const { data, error } = await applyTestAccountExclusion(
-    supabase
-      .from(TARGETS_TABLE)
-      .select('*')
-      .eq('status', 'pending_coach_review')
-      .order('created_at', { ascending: true }),
-    exclusion,
-    'member_id'
+  const { rows: data, error } = await selectAllRows<TargetRow>(() =>
+    applyTestAccountExclusion(
+      supabase
+        .from(TARGETS_TABLE)
+        .select('*')
+        .eq('status', 'pending_coach_review')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true }),
+      exclusion,
+      'member_id'
+    )
   );
 
-  if (error || !data) return [];
+  if (error) return [];
 
-  const rows = data as TargetRow[];
+  const rows = data;
   const memberIds = Array.from(new Set(rows.map((r) => r.member_id)));
-  const { data: profiles } = memberIds.length
-    ? await supabase.from('profiles').select('id, display_name, is_test').in('id', memberIds)
-    : { data: [] };
+  const profileRead = await selectAllRowsInChunks<{ id: string; display_name: string | null; is_test?: boolean | null }>(
+    memberIds,
+    (chunk) =>
+      supabase.from('profiles').select('id, display_name, is_test').in('id', chunk).order('id', { ascending: true })
+  );
+  const profiles = profileRead.error ? [] : profileRead.rows;
   const nameById = new Map(
-    (profiles ?? []).map((p: { id: string; display_name: string | null }) => [
+    profiles.map((p: { id: string; display_name: string | null }) => [
       p.id,
       p.display_name ?? 'Unnamed client',
     ])
   );
   const isTestById = new Map(
-    (profiles ?? []).map((p: { id: string; is_test?: boolean | null }) => [p.id, Boolean(p.is_test)])
+    profiles.map((p: { id: string; is_test?: boolean | null }) => [p.id, Boolean(p.is_test)])
   );
 
   return rows.map((row) => ({

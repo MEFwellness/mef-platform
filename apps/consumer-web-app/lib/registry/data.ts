@@ -23,6 +23,7 @@ import { randomUUID } from 'node:crypto';
 import type { RegistryEntry, RegistryEntryStatus } from '@mef/shared-types-contracts';
 import type { RegistryEntryDraft } from './types';
 import { forgetReads, readOnce } from '../data/readOnce';
+import { selectAllRows } from '../data/pagedSelect';
 
 export async function insertRegistryEntry(
   supabase: SupabaseClient,
@@ -143,17 +144,20 @@ async function readRegistryEntriesForMember(
   memberId: string,
   options: { statusFilter?: RegistryEntryStatus[] } = {}
 ): Promise<RegistryEntry[]> {
-  let query = supabase
-    .from('registry_entries')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<RegistryEntry>(() => {
+    let query = supabase
+      .from('registry_entries')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true });
 
-  if (options.statusFilter && options.statusFilter.length > 0) {
-    query = query.in('status', options.statusFilter);
-  }
-
-  const { data, error } = await query;
+    if (options.statusFilter && options.statusFilter.length > 0) {
+      // scale-exempt: statusFilter is a subset of the closed RegistryEntryStatus union (4 values)
+      query = query.in('status', options.statusFilter);
+    }
+    return query;
+  });
   if (error) {
     console.error('listRegistryEntriesForMember failed', error);
     return [];
@@ -184,26 +188,30 @@ export async function listRegistryEntriesForMemberInRange(
     statusFilter?: RegistryEntryStatus[];
   } = {}
 ): Promise<RegistryEntry[]> {
-  let query = supabase
-    .from('registry_entries')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('recorded_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<RegistryEntry>(() => {
+    let query = supabase
+      .from('registry_entries')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('recorded_at', { ascending: false })
+      .order('id', { ascending: true });
 
-  if (options.domains && options.domains.length > 0) {
-    query = query.in('domain', options.domains);
-  }
-  if (options.sinceLocalDate) {
-    query = query.gte('recorded_at', options.sinceLocalDate);
-  }
-  if (options.untilLocalDate) {
-    query = query.lte('recorded_at', options.untilLocalDate);
-  }
-  if (options.statusFilter && options.statusFilter.length > 0) {
-    query = query.in('status', options.statusFilter);
-  }
-
-  const { data, error } = await query;
+    if (options.domains && options.domains.length > 0) {
+      // scale-exempt: domains is a subset of the closed RegistryEntry domain union
+      query = query.in('domain', options.domains);
+    }
+    if (options.sinceLocalDate) {
+      query = query.gte('recorded_at', options.sinceLocalDate);
+    }
+    if (options.untilLocalDate) {
+      query = query.lte('recorded_at', options.untilLocalDate);
+    }
+    if (options.statusFilter && options.statusFilter.length > 0) {
+      // scale-exempt: statusFilter is a subset of the closed RegistryEntryStatus union (4 values)
+      query = query.in('status', options.statusFilter);
+    }
+    return query;
+  });
   if (error) {
     console.error('listRegistryEntriesForMemberInRange failed', error);
     return [];

@@ -9,6 +9,7 @@
  * calling any of these gets an empty result rather than a filtered one.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../../data/pagedSelect';
 import type {
   BlueprintStatus,
   BlueprintWithSlots,
@@ -68,46 +69,54 @@ async function hydrate(
   program: MovementProgram,
   version: MovementProgramVersion
 ): Promise<BlueprintWithSlots> {
-  const { data: slots, error } = await supabase
-    .from('program_blueprint_slots')
-    .select('*')
-    .eq('program_version_id', version.id);
+  const { rows: slots, error } = await selectAllRows<ProgramBlueprintSlot>(() =>
+    supabase
+      .from('program_blueprint_slots')
+      .select('*')
+      .eq('program_version_id', version.id)
+      .order('id', { ascending: true })
+  );
   if (error) console.error('blueprints hydrate (slots) failed', error);
   return {
     ...version,
     program,
-    slots: sortSlots((slots as ProgramBlueprintSlot[]) ?? []),
+    slots: sortSlots(error ? [] : slots),
   };
 }
 
 export async function listBlueprintPrograms(
   supabase: SupabaseClient
 ): Promise<MovementProgram[]> {
-  const { data, error } = await supabase
-    .from('movement_programs')
-    .select('*')
-    .order('display_name', { ascending: true });
+  const { rows: data, error } = await selectAllRows<MovementProgram>(() =>
+    supabase
+      .from('movement_programs')
+      .select('*')
+      .order('display_name', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listBlueprintPrograms failed', error);
     return [];
   }
-  return (data as MovementProgram[]) ?? [];
+  return data;
 }
 
 export async function listBlueprintVersions(
   supabase: SupabaseClient,
   programId: string
 ): Promise<MovementProgramVersion[]> {
-  const { data, error } = await supabase
-    .from('movement_program_versions')
-    .select('*')
-    .eq('program_id', programId)
-    .order('version_number', { ascending: false });
+  const { rows: data, error } = await selectAllRows<MovementProgramVersion>(() =>
+    supabase
+      .from('movement_program_versions')
+      .select('*')
+      .eq('program_id', programId)
+      .order('version_number', { ascending: false })
+  );
   if (error) {
     console.error('listBlueprintVersions failed', error);
     return [];
   }
-  return (data as MovementProgramVersion[]) ?? [];
+  return data;
 }
 
 export async function getBlueprintVersion(

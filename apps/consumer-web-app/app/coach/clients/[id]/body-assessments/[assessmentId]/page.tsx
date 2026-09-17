@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import type {
@@ -137,11 +138,17 @@ export default async function CoachBodyAssessmentDetailPage({
     if (finding.coach_reviewed_by) coachIds.add(finding.coach_reviewed_by);
   const coachNames: Record<string, string> = {};
   if (coachIds.size > 0) {
-    const { data: coachProfiles } = await supabase
-      .from('profiles')
-      .select('id, display_name')
-      .in('id', Array.from(coachIds));
-    for (const profile of coachProfiles ?? []) {
+    const { rows: coachProfiles } = await selectAllRowsInChunks<{
+      id: string;
+      display_name: string | null;
+    }>(Array.from(coachIds), (chunk) =>
+      supabase
+        .from('profiles')
+        .select('id, display_name')
+        .in('id', chunk)
+        .order('id', { ascending: true })
+    );
+    for (const profile of coachProfiles) {
       if (profile.display_name) coachNames[profile.id] = profile.display_name;
     }
   }

@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { selectAllRows } from '../data/pagedSelect';
 import type {
   FoodFavoriteType,
   FoodLensDetectedItem,
@@ -41,6 +42,7 @@ export async function insertSavedMealFromDetectedItems(
   }
 
   if (input.items.length > 0) {
+    // scale-exempt: the detected items of one Food Lens scan, written whole as the one saved meal they make up
     const { error: itemsError } = await supabase.from('saved_meal_items').insert(
       input.items.map((item) => ({
         id: randomUUID(),
@@ -102,11 +104,14 @@ export async function listMySavedMeals(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<SavedMeal[]> {
-  const { data, error } = await supabase
-    .from('saved_meals')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<SavedMeal>(() =>
+    supabase
+      .from('saved_meals')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listMySavedMeals failed', error);
     return [];
@@ -118,9 +123,15 @@ export async function getSavedMealWithItems(
   supabase: SupabaseClient,
   savedMealId: string
 ): Promise<{ meal: SavedMeal; items: SavedMealItem[] } | null> {
-  const [{ data: meal, error: mealError }, { data: items, error: itemsError }] = await Promise.all([
+  const [{ data: meal, error: mealError }, { rows: items, error: itemsError }] = await Promise.all([
     supabase.from('saved_meals').select('*').eq('id', savedMealId).maybeSingle(),
-    supabase.from('saved_meal_items').select('*').eq('saved_meal_id', savedMealId),
+    selectAllRows<SavedMealItem>(() =>
+      supabase
+        .from('saved_meal_items')
+        .select('*')
+        .eq('saved_meal_id', savedMealId)
+        .order('id', { ascending: true })
+    ),
   ]);
   if (mealError || !meal) {
     if (mealError) console.error('getSavedMealWithItems failed', mealError);
@@ -153,11 +164,14 @@ export async function listMyFavorites(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<MemberFoodFavorite[]> {
-  const { data, error } = await supabase
-    .from('member_food_favorites')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<MemberFoodFavorite>(() =>
+    supabase
+      .from('member_food_favorites')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listMyFavorites failed', error);
     return [];

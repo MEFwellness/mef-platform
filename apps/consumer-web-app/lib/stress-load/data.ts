@@ -237,6 +237,7 @@ export async function countCheckinDaysForCrossReference(
   localDate: string
 ): Promise<number> {
   const since = addDaysToLocalDate(localDate, -(STRESS_LOAD_CROSS_REFERENCE_WINDOW_DAYS - 1));
+  // scale-exempt: the view is one row per (user_id, local_date) and the read is a 21-day window (STRESS_LOAD_CROSS_REFERENCE_WINDOW_DAYS)
   const { data, error } = await supabase
     .from('daily_checkins_current')
     .select('local_date')

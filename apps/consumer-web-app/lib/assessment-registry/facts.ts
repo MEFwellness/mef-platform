@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { forgetReads, readOnce } from '../data/readOnce';
+import { selectAllRows } from '../data/pagedSelect';
 import { listAssessmentRegistryEntries } from './registry';
 import { membershipKeyForAccessTier, resolveMembershipKey } from './membership';
 import type { AssessmentKey } from './types';
@@ -37,6 +38,30 @@ const FACTS_KEY_PREFIX = 'assessmentFacts:';
 export function forgetMemberAssessmentFacts(memberId: string): void {
   forgetReads(`${FACTS_KEY_PREFIX}${memberId}`);
 }
+
+type StatusViewRow = {
+  assessment_definition_id: string;
+  status: MemberAssessmentFacts['completionStatus'];
+  latest_completed_attempt_id: string | null;
+  latest_completed_at: string | null;
+};
+
+type PendingAssignmentRow = {
+  id: string;
+  assessment_definition_id: string;
+  is_required: boolean;
+  reason: string | null;
+  due_at: string | null;
+  available_at: string;
+  stage: string;
+};
+
+type PendingScheduleRow = {
+  id: string;
+  assessment_definition_id: string;
+  stage: string;
+  due_at: string;
+};
 
 async function readMemberAssessmentFacts(
   supabase: SupabaseClient,
@@ -70,22 +95,33 @@ async function readMemberAssessmentFacts(
         .order('enrolled_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
-      supabase
-        .from('assessment_status_by_member')
-        .select(
-          'assessment_definition_id, status, latest_completed_attempt_id, latest_completed_at'
-        )
-        .eq('member_id', memberId),
-      supabase
-        .from('assessment_assignments')
-        .select('id, assessment_definition_id, is_required, reason, due_at, available_at, stage')
-        .eq('member_id', memberId)
-        .eq('status', 'pending'),
-      supabase
-        .from('reassessment_schedules')
-        .select('id, assessment_definition_id, stage, due_at')
-        .eq('member_id', memberId)
-        .eq('status', 'pending'),
+      // The view is one row per (member_id, assessment_definition_id), so
+      // that pair is its total order.
+      selectAllRows<StatusViewRow>(() =>
+        supabase
+          .from('assessment_status_by_member')
+          .select(
+            'assessment_definition_id, status, latest_completed_attempt_id, latest_completed_at'
+          )
+          .eq('member_id', memberId)
+          .order('assessment_definition_id', { ascending: true })
+      ),
+      selectAllRows<PendingAssignmentRow>(() =>
+        supabase
+          .from('assessment_assignments')
+          .select('id, assessment_definition_id, is_required, reason, due_at, available_at, stage')
+          .eq('member_id', memberId)
+          .eq('status', 'pending')
+          .order('id', { ascending: true })
+      ),
+      selectAllRows<PendingScheduleRow>(() =>
+        supabase
+          .from('reassessment_schedules')
+          .select('id, assessment_definition_id, stage, due_at')
+          .eq('member_id', memberId)
+          .eq('status', 'pending')
+          .order('id', { ascending: true })
+      ),
     ]);
 
   // The subscription row is authoritative. The legacy profiles column is
@@ -111,13 +147,13 @@ async function readMemberAssessmentFacts(
     : null;
 
   const statusByDefinitionId = new Map(
-    (statusResult.data ?? []).map((row) => [row.assessment_definition_id, row])
+    statusResult.rows.map((row) => [row.assessment_definition_id, row])
   );
   const assignmentByDefinitionId = new Map(
-    (assignmentResult.data ?? []).map((row) => [row.assessment_definition_id, row])
+    assignmentResult.rows.map((row) => [row.assessment_definition_id, row])
   );
   const scheduleByDefinitionId = new Map(
-    (scheduleResult.data ?? []).map((row) => [row.assessment_definition_id, row])
+    scheduleResult.rows.map((row) => [row.assessment_definition_id, row])
   );
 
   const facts = new Map<AssessmentKey, MemberAssessmentFacts>();

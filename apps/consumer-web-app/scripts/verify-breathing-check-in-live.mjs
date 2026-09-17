@@ -72,6 +72,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.BPC_BASE_URL ?? 'http://127.0.0.1:3000';
 const SUPA = process.env.PROD_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -237,7 +238,7 @@ async function clean() {
   them.
 */
 async function assertExistingUser(email, expectedId) {
-  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const { data, error } = await listAllAuthUsers(admin.auth.admin);
   if (error) throw new Error(`could not list users: ${error.message}`);
   const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
   if (!found) throw new Error(`REFUSING TO RUN: ${email} is not an existing account`);

@@ -27,6 +27,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { selectAllRows } from '../../lib/data/pagedSelect.ts';
 
 const require = createRequire(import.meta.url);
 const { createChunks } = require('@supabase/ssr/dist/main/utils/chunker.js');
@@ -195,11 +196,14 @@ async function signInMember(page) {
 }
 
 // ----------------------------------------------------------------- staff
-const { data: roleRows, error: roleError } = await service
-  .from('user_roles')
-  .select('user_id, role')
-  .in('role', ['coach', 'platform_administrator'])
-  .is('revoked_at', null);
+const { rows: roleRows, error: roleError } = await selectAllRows(() =>
+  service
+    .from('user_roles')
+    .select('user_id, role')
+    .in('role', ['coach', 'platform_administrator'])
+    .is('revoked_at', null)
+    .order('id', { ascending: true })
+);
 if (roleError) throw new Error(`role lookup failed: ${roleError.message}`);
 
 const byUser = new Map();

@@ -21,6 +21,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../../data/pagedSelect';
 import type {
   OnboardingAnswerRecord,
   OnboardingQuestion,
@@ -76,19 +77,24 @@ async function fetchSubmissionAssessment(
     .maybeSingle();
   if (error || !submission) return null;
 
-  const [{ data: answerRows }, { data: questions }] = await Promise.all([
-    supabase.from('onboarding_answers').select('*').eq('submission_id', submissionId),
-    supabase
-      .from('onboarding_questions')
-      .select('*')
-      .eq('assessment_version_id', (submission as OnboardingSubmission).assessment_version_id),
+  const [{ rows: answerRows }, { rows: questions }] = await Promise.all([
+    selectAllRows<OnboardingAnswerRecord>(() =>
+      supabase
+        .from('onboarding_answers')
+        .select('*')
+        .eq('submission_id', submissionId)
+        .order('id', { ascending: true })
+    ),
+    selectAllRows<OnboardingQuestion>(() =>
+      supabase
+        .from('onboarding_questions')
+        .select('*')
+        .eq('assessment_version_id', (submission as OnboardingSubmission).assessment_version_id)
+        .order('id', { ascending: true })
+    ),
   ]);
 
-  return buildBaselineAssessment(
-    submission as OnboardingSubmission,
-    (questions ?? []) as OnboardingQuestion[],
-    (answerRows ?? []) as OnboardingAnswerRecord[]
-  );
+  return buildBaselineAssessment(submission as OnboardingSubmission, questions, answerRows);
 }
 
 async function upsertMetricFinding(

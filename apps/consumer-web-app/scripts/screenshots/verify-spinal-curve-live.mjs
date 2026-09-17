@@ -30,6 +30,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { listAllAuthUsers } from '../../lib/data/pagedSelect.ts';
 
 const require = createRequire(import.meta.url);
 const { createChunks } = require('@supabase/ssr/dist/main/utils/chunker.js');
@@ -69,7 +70,7 @@ const service = createClient(SUPABASE_URL, SERVICE_KEY, {
 });
 
 // ------------------------------------------- the new columns are really there
-const { data: memberRow } = await service.auth.admin.listUsers({ perPage: 200 });
+const { data: memberRow } = await listAllAuthUsers(service.auth.admin);
 const member = memberRow?.users?.find((u) => u.email === MEMBER_EMAIL);
 check('the standing test member exists in production', Boolean(member), MEMBER_EMAIL);
 if (!member) process.exit(1);

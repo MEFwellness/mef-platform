@@ -14,6 +14,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 for (const line of readFileSync(process.env.PROD_KEYS_FILE, 'utf8').split('\n')) {
   const eq = line.indexOf('=');
@@ -80,9 +81,12 @@ if (sample) {
 }
 
 // The unique constraint: one row per member per feature, ever.
-const { data: allRows } = await service
-  .from('member_feature_visibility')
-  .select('member_id, feature_key, state, source, acknowledged_at, revealed_at');
+const { rows: allRows } = await selectAllRows(() =>
+  service
+    .from('member_feature_visibility')
+    .select('member_id, feature_key, state, source, acknowledged_at, revealed_at')
+    .order('id', { ascending: true })
+);
 
 const pairs = new Set();
 let duplicates = 0;
@@ -140,11 +144,11 @@ for (const row of grandfathered) {
 }
 
 // Everyone with real history that migration 168 covers.
-const [{ data: checkinMembers }, { data: attemptMembers }, { data: submissionMembers }] =
+const [{ rows: checkinMembers }, { rows: attemptMembers }, { rows: submissionMembers }] =
   await Promise.all([
-    service.from('daily_checkins').select('user_id'),
-    service.from('assessment_attempts').select('member_id'),
-    service.from('onboarding_submissions').select('user_id'),
+    selectAllRows(() => service.from('daily_checkins').select('user_id').order('id', { ascending: true })),
+    selectAllRows(() => service.from('assessment_attempts').select('member_id').order('id', { ascending: true })),
+    selectAllRows(() => service.from('onboarding_submissions').select('user_id').order('id', { ascending: true })),
   ]);
 
 const withCheckins = new Set((checkinMembers ?? []).map((r) => r.user_id));
@@ -170,7 +174,9 @@ const expected = new Set([...withCheckins, ...withAttempts, ...withSubmissions])
  * cleared to zero rows and one page load put back 19, fifteen of them
  * grandfathered, her completed intake among them.
  */
-const { data: allProfiles } = await service.from('profiles').select('id, is_test');
+const { rows: allProfiles } = await selectAllRows(() =>
+  service.from('profiles').select('id, is_test').order('id', { ascending: true })
+);
 const testMemberIds = new Set((allProfiles ?? []).filter((p) => p.is_test).map((p) => p.id));
 
 const missing = [...expected].filter((id) => !byMember.has(id) && !testMemberIds.has(id));
@@ -204,10 +210,12 @@ check(
 );
 
 // Every assessment anyone has started or finished must be kept.
-const { data: attemptRows } = await service
-  .from('assessment_attempts')
-  .select('member_id, assessment_definition_id');
-const { data: definitions } = await service.from('assessment_definitions').select('id, key');
+const { rows: attemptRows } = await selectAllRows(() =>
+  service.from('assessment_attempts').select('member_id, assessment_definition_id').order('id', { ascending: true })
+);
+const { rows: definitions } = await selectAllRows(() =>
+  service.from('assessment_definitions').select('id, key').order('id', { ascending: true })
+);
 const keyByDefinitionId = new Map((definitions ?? []).map((d) => [d.id, d.key]));
 
 const missingAssessments = [];
@@ -247,7 +255,9 @@ void policyError;
 // The per-member picture, for the report
 // ---------------------------------------------------------------------
 console.log('\n--- Per member, what was grandfathered ---');
-const { data: profiles } = await service.from('profiles').select('id, display_name, is_test');
+const { rows: profiles } = await selectAllRows(() =>
+  service.from('profiles').select('id, display_name, is_test').order('id', { ascending: true })
+);
 const nameById = new Map((profiles ?? []).map((p) => [p.id, `${p.display_name ?? 'no name'}${p.is_test ? ' (test)' : ''}`]));
 
 const sorted = [...byMember.entries()].sort((a, b) => b[1].length - a[1].length);

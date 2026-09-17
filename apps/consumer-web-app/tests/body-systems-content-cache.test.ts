@@ -42,6 +42,7 @@ function countingClient(rows: (table: string) => unknown[]) {
       eq: () => chain,
       order: () => chain,
       limit: () => chain,
+      range: (from: number, to: number) => Promise.resolve({ data: rows(table).slice(from, to + 1), error: null }),
       maybeSingle: () => Promise.resolve({ data: (rows(table)[0] ?? null) as unknown, error: null }),
       single: () => Promise.resolve({ data: (rows(table)[0] ?? null) as unknown, error: null }),
       then: (...args: unknown[]) => (result as unknown as { then: (...a: unknown[]) => unknown }).then(...args),

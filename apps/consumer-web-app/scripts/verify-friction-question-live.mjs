@@ -30,6 +30,7 @@
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 // The service-role client is used for TWO things and nothing else: reading
 // back what the engine actually stored, and clearing this test account's own
@@ -166,12 +167,15 @@ try {
   const memberId = profileRow?.id ?? null;
   check('the throwaway account was resolvable for the read-back', Boolean(memberId), memberId ?? 'not found');
 
-  const { data: ledger } = await service
-    .from('member_coaching_decisions')
-    .select('local_date, thread_key, friction_asked_at, friction_reason, friction_answered_at')
-    .eq('member_id', memberId)
-    .not('friction_asked_at', 'is', null)
-    .order('friction_asked_at', { ascending: false });
+  const { rows: ledger } = await selectAllRows(() =>
+    service
+      .from('member_coaching_decisions')
+      .select('local_date, thread_key, friction_asked_at, friction_reason, friction_answered_at')
+      .eq('member_id', memberId)
+      .not('friction_asked_at', 'is', null)
+      .order('friction_asked_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   const latest = ledger?.[0] ?? null;
   writeFileSync(`${SHOTS}/ledger.json`, JSON.stringify(ledger ?? [], null, 2));
@@ -218,10 +222,13 @@ try {
     'asked once, ever'
   );
 
-  const { data: threadRows } = await service
-    .from('member_coaching_threads')
-    .select('thread_key, approach, approach_changes, consecutive_ignored')
-    .eq('member_id', memberId);
+  const { rows: threadRows } = await selectAllRows(() =>
+    service
+      .from('member_coaching_threads')
+      .select('thread_key, approach, approach_changes, consecutive_ignored')
+      .eq('member_id', memberId)
+      .order('id', { ascending: true })
+  );
   writeFileSync(`${SHOTS}/threads.json`, JSON.stringify(threadRows ?? [], null, 2));
 
   // APPROACH_SMALLER is 1 (lib/coaching-direction/adaptation.ts). "Too much

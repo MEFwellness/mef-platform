@@ -56,6 +56,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const COACH_EMAIL = 'oakomah66@gmail.com';
@@ -97,7 +98,7 @@ function spanWeekStart(localDate) {
 }
 
 async function truth() {
-  const { data: users, error } = await service.auth.admin.listUsers({ perPage: 200 });
+  const { data: users, error } = await listAllAuthUsers(service.auth.admin);
   if (error) throw new Error(`listUsers failed: ${error.message}`);
   const byEmail = (e) => users.users.find((u) => u.email === e);
   const coach = byEmail(COACH_EMAIL);
@@ -128,6 +129,7 @@ async function truth() {
 }
 
 const rowsFor = async (table, memberId, weekStart) => {
+  // scale-exempt: every table read here is unique on (member_id, week_start) and both are filtered, so at most one row
   const { data, error } = await service
     .from(table)
     .select('*')
@@ -243,6 +245,7 @@ async function main() {
       ['member_weekly_reflection_assignments', stashedAssignments],
     ]) {
       if (rows.length === 0) continue;
+      // scale-exempt: rows is the rowsFor stash of one (member_id, week_start), unique on each of these tables, so at most one row
       const { error } = await service.from(table).insert(rows);
       if (error) problems.push(`${table} restore: ${error.message}`);
     }

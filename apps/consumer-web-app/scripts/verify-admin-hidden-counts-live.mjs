@@ -21,6 +21,7 @@
 import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
 
 const BASE = 'https://app.mefwellness.com';
@@ -45,7 +46,9 @@ function record(item, pass, detail) {
 
 /** The truth the screen is checked against, read straight from the database. */
 async function truth() {
-  const { data: profiles, error } = await service.from('profiles').select('id, is_test');
+  const { rows: profiles, error } = await selectAllRows(() =>
+    service.from('profiles').select('id, is_test').order('id', { ascending: true })
+  );
   if (error) throw new Error(`profiles read failed: ${error.message}`);
   const flagged = profiles.filter((p) => p.is_test).length;
   return { total: profiles.length, flagged, real: profiles.length - flagged };

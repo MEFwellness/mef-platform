@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CvsDailyLogRow, Day3Response } from './experiment';
+import { selectAllRows } from '../data/pagedSelect';
 
 type Row = {
   local_date: string;
@@ -26,17 +27,19 @@ export async function listCvsDailyLogs(
   supabase: SupabaseClient,
   experimentId: string
 ): Promise<CvsDailyLogRow[]> {
-  const { data, error } = await supabase
-    .from('cvs_experiment_daily_logs')
-    .select('local_date, completed, day3_response')
-    .eq('experiment_id', experimentId)
-    .order('local_date', { ascending: true });
+  const { rows: data, error } = await selectAllRows<Row>(() =>
+    supabase
+      .from('cvs_experiment_daily_logs')
+      .select('local_date, completed, day3_response')
+      .eq('experiment_id', experimentId)
+      .order('local_date', { ascending: true })
+  );
 
   if (error) {
     console.error('listCvsDailyLogs failed', error);
     return [];
   }
-  return (data as Row[]).map(fromRow);
+  return data.map(fromRow);
 }
 
 /** Upserts one calendar day's row — the evening tap and the day-3 response both land here, whichever comes first for that date. */

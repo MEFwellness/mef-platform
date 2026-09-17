@@ -408,6 +408,7 @@ export async function findLeadAcquisitionByEmail(
   const trimmed = email.trim();
   if (!trimmed) return null;
 
+  // scale-exempt: lead_acquisition_for_email ends in `limit 1` (migration 201), so it returns at most one row
   const { data, error } = await supabase.rpc('lead_acquisition_for_email', { p_email: trimmed });
   if (error) {
     console.error('findLeadAcquisitionByEmail failed', error);

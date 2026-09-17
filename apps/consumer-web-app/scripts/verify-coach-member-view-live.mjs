@@ -26,6 +26,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const COACH_EMAIL = 'oakomah66@gmail.com';
@@ -61,34 +62,47 @@ async function coachId() {
 
 /** Everything the screens are checked against, read straight from production. */
 async function truth(coach) {
-  const { data: assignments } = await service
-    .from('coach_client_assignments')
-    .select('client_id')
-    .eq('coach_id', coach);
+  const { rows: assignments } = await selectAllRows(() =>
+    service
+      .from('coach_client_assignments')
+      .select('client_id')
+      .eq('coach_id', coach)
+      .order('id', { ascending: true })
+  );
   const clientIds = (assignments ?? []).map((a) => a.client_id);
 
-  const { data: profiles } = await service
-    .from('profiles')
-    .select('id, display_name')
-    .in('id', clientIds);
+  const { rows: profiles } = await selectAllRowsInChunks(clientIds, (chunk) =>
+    service.from('profiles').select('id, display_name').in('id', chunk).order('id', { ascending: true })
+  );
 
-  const { data: checkins } = await service
-    .from('daily_checkins')
-    .select('user_id, local_date, pain_discomfort_level')
-    .in('user_id', clientIds)
-    .order('local_date', { ascending: false });
+  // Every member's rows sit in the one chunk holding her id, so her own days
+  // stay newest first.
+  const { rows: checkins } = await selectAllRowsInChunks(clientIds, (chunk) =>
+    service
+      .from('daily_checkins')
+      .select('user_id, local_date, pain_discomfort_level')
+      .in('user_id', chunk)
+      .order('local_date', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
-  const { data: painLocations } = await service
-    .from('daily_checkin_probe_answers')
-    .select('member_id, local_date, value')
-    .in('member_id', clientIds)
-    .eq('question_key', 'checkin_probe.pain_location');
+  const { rows: painLocations } = await selectAllRowsInChunks(clientIds, (chunk) =>
+    service
+      .from('daily_checkin_probe_answers')
+      .select('member_id, local_date, value')
+      .in('member_id', chunk)
+      .eq('question_key', 'checkin_probe.pain_location')
+      .order('id', { ascending: true })
+  );
 
-  const { data: alerts } = await service
-    .from('intelligence_coach_alerts')
-    .select('member_id, alert_key, title, status')
-    .in('member_id', clientIds)
-    .in('status', ['open', 'acknowledged']);
+  const { rows: alerts } = await selectAllRowsInChunks(clientIds, (chunk) =>
+    service
+      .from('intelligence_coach_alerts')
+      .select('member_id, alert_key, title, status')
+      .in('member_id', chunk)
+      .in('status', ['open', 'acknowledged'])
+      .order('id', { ascending: true })
+  );
 
   const today = new Date().toISOString().slice(0, 10);
 

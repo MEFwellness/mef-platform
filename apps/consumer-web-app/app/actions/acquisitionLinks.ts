@@ -47,6 +47,7 @@ import {
   type LinkDraft,
 } from '@/lib/acquisition/links';
 import { normalizeCountry, normalizePlaceName } from '@/lib/acquisition/normalize';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type { PublicEntrySourceChannel } from '@mef/shared-types-contracts';
 
 type SupabaseServerClient = ReturnType<typeof createClient>;
@@ -163,10 +164,13 @@ const LINK_COLUMNS =
 /** Every link ever built, newest first. Retired ones are included and marked, because a retired link is still printed on somebody's card. */
 export async function listTrackingLinksAction(): Promise<AcquisitionActionResult<TrackingLinkRow[]>> {
   return guarded('listTrackingLinksAction', async (supabase) => {
-    const { data, error } = await supabase
-      .from('public_entry_links')
-      .select(LINK_COLUMNS)
-      .order('created_at', { ascending: false });
+    const { rows: data, error } = await selectAllRows<LinkJoinRow>(() =>
+      supabase
+        .from('public_entry_links')
+        .select(LINK_COLUMNS)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+    );
     if (error) throw error;
     return ((data ?? []) as unknown as LinkJoinRow[]).map(toRow);
   });

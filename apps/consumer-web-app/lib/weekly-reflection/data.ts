@@ -188,6 +188,7 @@ export async function listCheckinDatesForRecap(
   weekStart: string
 ): Promise<string[]> {
   const range = recapRangeFor(weekStart);
+  // scale-exempt: the view is one row per (user_id, local_date) and recapRangeFor is a 7-day inclusive range, so at most 7 rows
   const { data, error } = await supabase
     .from('daily_checkins_current')
     .select('local_date')

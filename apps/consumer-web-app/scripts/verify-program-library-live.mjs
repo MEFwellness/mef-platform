@@ -32,6 +32,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
@@ -149,15 +150,21 @@ try {
   // ------------------------------------------------------------------
   // Who and what we are working with.
   // ------------------------------------------------------------------
-  const { data: users } = await db.auth.admin.listUsers({ perPage: 1000 });
+  const { data: users } = await listAllAuthUsers(db.auth.admin);
   const memberId = users.users.find((u) => u.email === MEMBER_EMAIL)?.id;
   check('the test member resolves to a real production account', Boolean(memberId));
   if (!memberId) process.exit(1);
 
-  const { data: programs } = await db.from('movement_programs').select('id, key, display_name');
-  const { data: versions } = await db
-    .from('movement_program_versions')
-    .select('id, program_id, version_number, status, member_title, approved_at, approved_by');
+  const { rows: programs } = await selectAllRows(() =>
+    db.from('movement_programs').select('id, key, display_name').order('id', { ascending: true })
+  );
+  const { rows: versions } = await selectAllRows(() =>
+    db
+      .from('movement_program_versions')
+      .select('id, program_id, version_number, status, member_title, approved_at, approved_by')
+      .order('program_id', { ascending: true })
+      .order('version_number', { ascending: true })
+  );
   const approved = (versions ?? []).filter((v) => v.status === 'approved');
   const byKey = new Map(
     (programs ?? []).map((p) => [p.key, { program: p, version: approved.find((v) => v.program_id === p.id) }])
@@ -215,10 +222,13 @@ try {
       // Every slot on this screen carries a prescription. Read the
       // database's own slot count and require that many dosed lines
       // rather than eyeballing a few.
-      const { data: slots } = await db
-        .from('program_blueprint_slots')
-        .select('exercise_name, sets, reps, hold_duration_seconds')
-        .eq('program_version_id', row.version.id);
+      const { rows: slots } = await selectAllRows(() =>
+        db
+          .from('program_blueprint_slots')
+          .select('exercise_name, sets, reps, hold_duration_seconds')
+          .eq('program_version_id', row.version.id)
+          .order('id', { ascending: true })
+      );
       // "2 sets of 10 reps", "2 sets of 30 seconds" — the shape
       // lib/coach-program-builder/prescription.ts actually writes.
       const dosedLines = (text.match(/\d+ sets? of \d+/g) ?? []).length;

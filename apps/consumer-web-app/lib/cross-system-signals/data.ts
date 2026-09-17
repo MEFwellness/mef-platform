@@ -18,7 +18,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { selectAllRows } from '../data/pagedSelect';
+import { selectAllRows, writeInChunks } from '../data/pagedSelect';
 import type { SignalDraft, SignalRecord, SignalSide, SignalValueKind, SignalEntryMode } from './types';
 
 const SIGNAL_COLUMNS = `
@@ -227,18 +227,21 @@ export async function insertSignals(
     complaint_surface_label: draft.complaintSurfaceLabel ?? null,
   }));
 
-  const { data, error } = await supabase
-    .from('cross_system_signals')
-    .upsert(rows, {
-      onConflict: 'member_id, ingest_fingerprint',
-      ignoreDuplicates: true,
-    })
-    .select('id');
+  // Chunked: a duplicate is skipped rather than failing its chunk, so a re-run after a partial write completes it.
+  const { rows: data, error } = await writeInChunks(rows, (chunk) =>
+    supabase
+      .from('cross_system_signals')
+      .upsert(chunk, {
+        onConflict: 'member_id, ingest_fingerprint',
+        ignoreDuplicates: true,
+      })
+      .select('id')
+  );
   if (error) {
     console.error('insertSignals failed', error);
     return { ok: false, written: 0 };
   }
-  return { ok: true, written: (data ?? []).length };
+  return { ok: true, written: data.length };
 }
 
 /** One signal a coach typed. Written through HER session, so her own policies decide. */

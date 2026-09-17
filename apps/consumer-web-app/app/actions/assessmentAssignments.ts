@@ -33,6 +33,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
 import type { AssessmentKey } from '@/lib/assessment-registry/types';
 import type { ActionResult } from './auth';
@@ -103,13 +104,27 @@ export async function getClientAssessmentAssignments(
   clientId: string
 ): Promise<AssessmentAssignment[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from('assessment_assignments')
-    .select(
-      'id, assessment_definition_id, assigned_by, is_required, reason, due_at, status, created_at, updated_at, cancelled_at'
-    )
-    .eq('member_id', clientId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<{
+    id: string;
+    assessment_definition_id: string;
+    assigned_by: string;
+    is_required: boolean;
+    reason: string | null;
+    due_at: string | null;
+    status: AssignmentRowStatus;
+    created_at: string;
+    updated_at: string;
+    cancelled_at: string | null;
+  }>(() =>
+    supabase
+      .from('assessment_assignments')
+      .select(
+        'id, assessment_definition_id, assigned_by, is_required, reason, due_at, status, created_at, updated_at, cancelled_at'
+      )
+      .eq('member_id', clientId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) return [];
 

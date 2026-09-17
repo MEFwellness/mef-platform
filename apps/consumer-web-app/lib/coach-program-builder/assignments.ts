@@ -35,6 +35,7 @@ import type {
   ProgramScheduleType,
 } from '@mef/shared-types-contracts';
 import { LIVE_PROGRAM_ASSIGNMENT_STATUSES } from '@mef/shared-types-contracts';
+import { selectAllRows, selectAllRowsInChunks, writeInChunks } from '@/lib/data/pagedSelect';
 import { generateScheduledDates } from './scheduling';
 import {
   DEFAULT_PROGRAM_DURATION_WEEKS,
@@ -248,6 +249,7 @@ export async function createAssignment(
 
       if (section.exercises.length === 0) continue;
 
+      // scale-exempt: the exercises of one section of one coach-authored template, written whole so a section is never half-frozen
       const { error: exercisesError } = await supabase
         .from('coach_assigned_workout_exercises')
         .insert(
@@ -414,11 +416,15 @@ export async function listAssignmentsInProgramGroup(
   if (!row) return [];
   if (!row.program_group_key) return [row];
 
-  const { data, error } = await supabase
-    .from('coach_program_assignments')
-    .select(LIFECYCLE_COLUMNS)
-    .eq('member_id', row.member_id)
-    .eq('program_group_key', row.program_group_key);
+  const groupKey = row.program_group_key;
+  const { rows: data, error } = await selectAllRows<AssignmentLifecycleRow>(() =>
+    supabase
+      .from('coach_program_assignments')
+      .select(LIFECYCLE_COLUMNS)
+      .eq('member_id', row.member_id)
+      .eq('program_group_key', groupKey)
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listAssignmentsInProgramGroup failed', error);
     return [row];
@@ -431,11 +437,14 @@ export async function listAssignmentsInProgramGroup(
 export async function listLiveAssignments(
   supabase: SupabaseClient
 ): Promise<AssignmentLifecycleRow[]> {
-  const { data, error } = await supabase
-    .from('coach_program_assignments')
-    .select(LIFECYCLE_COLUMNS)
-    .in('status', ['upcoming', 'active'])
-    .order('start_date', { ascending: true });
+  const { rows: data, error } = await selectAllRows<AssignmentLifecycleRow>(() =>
+    supabase
+      .from('coach_program_assignments')
+      .select(LIFECYCLE_COLUMNS)
+      .in('status', ['upcoming', 'active'])
+      .order('start_date', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listLiveAssignments failed', error);
     return [];
@@ -594,11 +603,14 @@ export async function replacePreviousAssignments(
   supabase: SupabaseClient,
   input: { memberId: string; newAssignmentIds: string[]; supersededBy: string }
 ): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('coach_program_assignments')
-    .select('id')
-    .eq('member_id', input.memberId)
-    .in('status', LIVE_PROGRAM_ASSIGNMENT_STATUSES as unknown as string[]);
+  const { rows: data, error } = await selectAllRows<{ id: string }>(() =>
+    supabase
+      .from('coach_program_assignments')
+      .select('id')
+      .eq('member_id', input.memberId)
+      .in('status', LIVE_PROGRAM_ASSIGNMENT_STATUSES as unknown as string[])
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('replacePreviousAssignments (read) failed', error);
     return [];
@@ -610,15 +622,17 @@ export async function replacePreviousAssignments(
   if (stale.length === 0) return [];
 
   const now = new Date().toISOString();
-  const { error: updateError } = await supabase
-    .from('coach_program_assignments')
-    .update({
-      status: 'replaced',
-      replaced_at: now,
-      replaced_by_assignment_id: input.supersededBy,
-      updated_at: now,
-    })
-    .in('id', stale);
+  const { error: updateError } = await writeInChunks(stale, (chunk) =>
+    supabase
+      .from('coach_program_assignments')
+      .update({
+        status: 'replaced',
+        replaced_at: now,
+        replaced_by_assignment_id: input.supersededBy,
+        updated_at: now,
+      })
+      .in('id', chunk)
+  );
   if (updateError) {
     console.error('replacePreviousAssignments (update) failed', updateError);
     return [];
@@ -636,10 +650,13 @@ export async function replacePreviousAssignments(
 export async function listMyProgramLifecycles(
   supabase: SupabaseClient
 ): Promise<MemberProgramLifecycle[]> {
-  const { data, error } = await supabase
-    .from('member_program_lifecycle')
-    .select('*')
-    .order('start_date', { ascending: false });
+  const { rows: data, error } = await selectAllRows<MemberProgramLifecycle>(() =>
+    supabase
+      .from('member_program_lifecycle')
+      .select('*')
+      .order('start_date', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listMyProgramLifecycles failed', error);
     return [];
@@ -666,6 +683,7 @@ export async function setProgramMemberExplanation(
 ): Promise<boolean> {
   if (input.assignmentIds.length === 0) return false;
   const trimmed = (input.explanation ?? '').trim();
+  // scale-exempt: the ids are the assignments of one program group (one member's program_group_key, two or three weekly assignments), and one statement keeps the text identical across the group
   const { error } = await supabase
     .from('coach_program_assignments')
     .update({ member_explanation: trimmed === '' ? null : trimmed, updated_at: new Date().toISOString() })
@@ -681,11 +699,14 @@ export async function listAssignmentsForMember(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<CoachProgramAssignment[]> {
-  const { data, error } = await supabase
-    .from('coach_program_assignments')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<CoachProgramAssignment>(() =>
+    supabase
+      .from('coach_program_assignments')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listAssignmentsForMember failed', error);
     return [];
@@ -701,13 +722,21 @@ export async function listAssignmentSummariesForMember(
   const assignments = await listAssignmentsForMember(supabase, memberId);
   if (assignments.length === 0) return [];
 
-  const { data: workouts, error } = await supabase
-    .from('coach_assigned_workouts')
-    .select('assignment_id, status, completed_at, scheduled_date')
-    .in(
-      'assignment_id',
-      assignments.map((a) => a.id)
-    );
+  // completed_at is read only on completed rows, as the untyped read did before.
+  const { rows: workouts, error } = await selectAllRowsInChunks<{
+    assignment_id: string;
+    status: AssignedWorkoutStatus;
+    completed_at: string;
+    scheduled_date: string;
+  }>(
+    assignments.map((a) => a.id),
+    (chunk) =>
+      supabase
+        .from('coach_assigned_workouts')
+        .select('assignment_id, status, completed_at, scheduled_date')
+        .in('assignment_id', chunk)
+        .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listAssignmentSummariesForMember failed', error);
     return assignments.map((assignment) => ({
@@ -768,11 +797,14 @@ export async function listAssignedWorkoutsForMember(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<CoachAssignedWorkout[]> {
-  const { data, error } = await supabase
-    .from('coach_assigned_workouts')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('scheduled_date', { ascending: true });
+  const { rows: data, error } = await selectAllRows<CoachAssignedWorkout>(() =>
+    supabase
+      .from('coach_assigned_workouts')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('scheduled_date', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listAssignedWorkoutsForMember failed', error);
     return [];
@@ -794,18 +826,24 @@ export async function getAssignedWorkoutWithContent(
     return null;
   }
 
-  const [{ data: sections, error: sectionsError }, { data: exercises, error: exercisesError }] =
+  const [{ rows: sections, error: sectionsError }, { rows: exercises, error: exercisesError }] =
     await Promise.all([
-      supabase
-        .from('coach_assigned_workout_sections')
-        .select('*')
-        .eq('assigned_workout_id', assignedWorkoutId)
-        .order('sequence_index', { ascending: true }),
-      supabase
-        .from('coach_assigned_workout_exercises')
-        .select('*')
-        .eq('assigned_workout_id', assignedWorkoutId)
-        .order('sequence_index', { ascending: true }),
+      selectAllRows<CoachAssignedWorkoutSection>(() =>
+        supabase
+          .from('coach_assigned_workout_sections')
+          .select('*')
+          .eq('assigned_workout_id', assignedWorkoutId)
+          .order('sequence_index', { ascending: true })
+          .order('id', { ascending: true })
+      ),
+      selectAllRows<CoachAssignedWorkoutExercise>(() =>
+        supabase
+          .from('coach_assigned_workout_exercises')
+          .select('*')
+          .eq('assigned_workout_id', assignedWorkoutId)
+          .order('sequence_index', { ascending: true })
+          .order('id', { ascending: true })
+      ),
     ]);
 
   if (sectionsError)

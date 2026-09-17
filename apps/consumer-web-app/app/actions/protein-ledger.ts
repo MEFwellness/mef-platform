@@ -41,6 +41,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows, selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import type { ActionResult } from './auth';
 import type { FoodLensMealMacroLevel, MemberFoodLogEntry } from '@mef/shared-types-contracts';
 import {
@@ -114,13 +115,16 @@ async function listProteinEntriesForLocalDateRange(
   const bufferedEnd = new Date(`${endLocalDateExclusive}T00:00:00.000Z`);
   bufferedEnd.setUTCDate(bufferedEnd.getUTCDate() + 1);
 
-  const { data, error } = await supabase
-    .from('member_food_log')
-    .select('*')
-    .eq('member_id', memberId)
-    .gte('consumed_at', bufferedStart.toISOString())
-    .lt('consumed_at', bufferedEnd.toISOString())
-    .order('consumed_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<MemberFoodLogEntry>(() =>
+    supabase
+      .from('member_food_log')
+      .select('*')
+      .eq('member_id', memberId)
+      .gte('consumed_at', bufferedStart.toISOString())
+      .lt('consumed_at', bufferedEnd.toISOString())
+      .order('consumed_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listProteinEntriesForLocalDateRange failed', error);
     return [];
@@ -147,20 +151,31 @@ async function listProteinEntriesForLocalDateRange(
     ),
   ];
 
-  const [{ data: products }, { data: nutrients }, { data: estimates }] = await Promise.all([
-    productIds.length > 0
-      ? supabase.from('food_products').select('id, name, barcode, data_source').in('id', productIds)
-      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
-    productIds.length > 0
-      ? supabase.from('product_nutrients').select('product_id, protein_g').in('product_id', productIds)
-      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
-    estimateScanIds.length > 0
-      ? supabase
-          .from('food_lens_macro_estimates')
-          .select('scan_id, protein_level, created_at')
-          .in('scan_id', estimateScanIds)
-          .order('created_at', { ascending: true })
-      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+  // An empty id list sends no request, so each read below costs nothing when it has nothing to look up.
+  const [{ rows: products }, { rows: nutrients }, { rows: estimates }] = await Promise.all([
+    selectAllRowsInChunks<Record<string, unknown>>(productIds, (chunk) =>
+      supabase
+        .from('food_products')
+        .select('id, name, barcode, data_source')
+        .in('id', chunk)
+        .order('id', { ascending: true })
+    ),
+    selectAllRowsInChunks<Record<string, unknown>>(productIds, (chunk) =>
+      supabase
+        .from('product_nutrients')
+        .select('product_id, protein_g')
+        .in('product_id', chunk)
+        .order('id', { ascending: true })
+    ),
+    // Each scan_id falls in exactly one chunk, so its estimates stay oldest first.
+    selectAllRowsInChunks<Record<string, unknown>>(estimateScanIds, (chunk) =>
+      supabase
+        .from('food_lens_macro_estimates')
+        .select('scan_id, protein_level, created_at')
+        .in('scan_id', chunk)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+    ),
   ]);
 
   const productById = new Map<string, LedgerProductFacts>(

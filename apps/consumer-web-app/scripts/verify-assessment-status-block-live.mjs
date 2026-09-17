@@ -56,6 +56,7 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
+import { selectAllRows, writeInChunks } from '../lib/data/pagedSelect.ts';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
@@ -212,15 +213,21 @@ async function main() {
   try {
     // Snapshot what was already there, so teardown can only ever remove
     // what this run made.
-    const { data: before } = await db
-      .from('assessment_assignments')
-      .select('id')
-      .eq('member_id', WRITE_CLIENT_ID);
+    const { rows: before } = await selectAllRows(() =>
+      db
+        .from('assessment_assignments')
+        .select('id')
+        .eq('member_id', WRITE_CLIENT_ID)
+        .order('id', { ascending: true })
+    );
     const preexisting = new Set((before ?? []).map((r) => r.id));
-    const { data: dismissals } = await db
-      .from('member_root_popup_dismissals')
-      .select('message_key')
-      .eq('member_id', WRITE_CLIENT_ID);
+    const { rows: dismissals } = await selectAllRows(() =>
+      db
+        .from('member_root_popup_dismissals')
+        .select('message_key')
+        .eq('member_id', WRITE_CLIENT_ID)
+        .order('id', { ascending: true })
+    );
     for (const row of dismissals ?? []) dismissalKeysBefore.add(row.message_key);
     note(`fixture starts with ${preexisting.size} assignment row(s)`);
 
@@ -479,10 +486,13 @@ async function main() {
       note(`fixture status list is ${afterBlock.statusHeight}px tall`);
     }
 
-    const { data: written } = await db
-      .from('assessment_assignments')
-      .select('id, status, due_at, reason, is_required')
-      .eq('member_id', WRITE_CLIENT_ID);
+    const { rows: written } = await selectAllRows(() =>
+      db
+        .from('assessment_assignments')
+        .select('id, status, due_at, reason, is_required')
+        .eq('member_id', WRITE_CLIENT_ID)
+        .order('id', { ascending: true })
+    );
     for (const row of written ?? [])
       if (!preexisting.has(row.id)) createdAssignmentIds.push(row.id);
     check(
@@ -534,28 +544,29 @@ async function main() {
     const db2 = serviceClient();
     const removed = [];
     if (createdAssignmentIds.length > 0) {
-      await db2
-        .from('member_assignment_deliveries')
-        .delete()
-        .in('assignment_id', createdAssignmentIds);
-      await db2.from('assessment_assignments').delete().in('id', createdAssignmentIds);
+      await writeInChunks(createdAssignmentIds, (chunk) =>
+        db2.from('member_assignment_deliveries').delete().in('assignment_id', chunk)
+      );
+      await writeInChunks(createdAssignmentIds, (chunk) =>
+        db2.from('assessment_assignments').delete().in('id', chunk)
+      );
       removed.push(`${createdAssignmentIds.length} assignment row(s)`);
     }
     // A "Maybe later" tap leaks a dismissal keyed by a string rather than
     // by a foreign key, so deleting the assignment does not take it.
-    const { data: after } = await db2
-      .from('member_root_popup_dismissals')
-      .select('id, message_key')
-      .eq('member_id', WRITE_CLIENT_ID);
+    const { rows: after } = await selectAllRows(() =>
+      db2
+        .from('member_root_popup_dismissals')
+        .select('id, message_key')
+        .eq('member_id', WRITE_CLIENT_ID)
+        .order('id', { ascending: true })
+    );
     const leaked = (after ?? []).filter((r) => !dismissalKeysBefore.has(r.message_key));
     if (leaked.length > 0) {
-      await db2
-        .from('member_root_popup_dismissals')
-        .delete()
-        .in(
-          'id',
-          leaked.map((r) => r.id)
-        );
+      await writeInChunks(
+        leaked.map((r) => r.id),
+        (chunk) => db2.from('member_root_popup_dismissals').delete().in('id', chunk)
+      );
       removed.push(`${leaked.length} pop-up dismissal(s)`);
     }
     console.log(`RESTORE: ${removed.length > 0 ? removed.join(', ') : 'nothing to remove'}`);

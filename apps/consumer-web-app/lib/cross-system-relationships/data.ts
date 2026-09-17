@@ -382,6 +382,7 @@ async function writeVersionChildren(
   draft: ResolvedRelationshipDraft
 ): Promise<boolean> {
   if (draft.components.length > 0) {
+    // scale-exempt: the inputs of one version, capped at MAX_COMPONENTS (60) by resolveRelationshipDraft, and a version is written whole
     const { error } = await supabase.from('cross_system_relationship_components').insert(
       draft.components.map((component) => ({
         version_id: versionId,
@@ -407,6 +408,7 @@ async function writeVersionChildren(
   }
 
   if (draft.strengthLevels.length > 0) {
+    // scale-exempt: the strength levels of one version, capped at MAX_STRENGTH_LEVELS (6) by resolveRelationshipDraft
     const { error } = await supabase.from('cross_system_relationship_strength_levels').insert(
       draft.strengthLevels.map((level) => ({
         version_id: versionId,
@@ -425,6 +427,7 @@ async function writeVersionChildren(
   }
 
   if (draft.considerations.length > 0) {
+    // scale-exempt: the considerations of one version, cut to MAX_CONSIDERATIONS (30) by resolveRelationshipDraft
     const { error } = await supabase.from('cross_system_relationship_considerations').insert(
       draft.considerations.map((body, index) => ({
         version_id: versionId,

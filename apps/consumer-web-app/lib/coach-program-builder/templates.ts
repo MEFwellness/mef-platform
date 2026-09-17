@@ -19,6 +19,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type {
   CoachProgramTemplate,
   CoachProgramTemplateExercise,
@@ -123,24 +124,26 @@ export async function listCoachTemplates(
   coachId: string,
   filters: TemplateListFilters = {}
 ): Promise<CoachProgramTemplate[]> {
-  let query = supabase.from('coach_program_templates').select('*').eq('coach_id', coachId);
+  const { rows: data, error } = await selectAllRows<CoachProgramTemplate>(() => {
+    let query = supabase.from('coach_program_templates').select('*').eq('coach_id', coachId);
 
-  if (filters.status) query = query.eq('status', filters.status);
-  // Default browse view excludes both archived AND pending_coach_review —
-  // an engine-generated draft (lib/corrective-engine/) has no dedicated
-  // review screen yet, so it must stay invisible in the general Program
-  // Library list until one exists (still reachable via an explicit
-  // status: 'pending_coach_review' filter).
-  else query = query.in('status', ['draft', 'active']);
-  if (filters.favoritedOnly) query = query.eq('is_favorited', true);
-  if (filters.search) query = query.ilike('name', `%${filters.search}%`);
-  if (filters.tag) {
-    query = query.or(
-      `program_tags.cs.{${filters.tag}},corrective_tags.cs.{${filters.tag}},movement_tags.cs.{${filters.tag}}`
-    );
-  }
+    if (filters.status) query = query.eq('status', filters.status);
+    // Default browse view excludes both archived AND pending_coach_review —
+    // an engine-generated draft (lib/corrective-engine/) has no dedicated
+    // review screen yet, so it must stay invisible in the general Program
+    // Library list until one exists (still reachable via an explicit
+    // status: 'pending_coach_review' filter).
+    else query = query.in('status', ['draft', 'active']);
+    if (filters.favoritedOnly) query = query.eq('is_favorited', true);
+    if (filters.search) query = query.ilike('name', `%${filters.search}%`);
+    if (filters.tag) {
+      query = query.or(
+        `program_tags.cs.{${filters.tag}},corrective_tags.cs.{${filters.tag}},movement_tags.cs.{${filters.tag}}`
+      );
+    }
 
-  const { data, error } = await query.order('updated_at', { ascending: false });
+    return query.order('updated_at', { ascending: false }).order('id', { ascending: true });
+  });
   if (error) {
     console.error('listCoachTemplates failed', error);
     return [];
@@ -168,14 +171,17 @@ export async function getTemplateWithContent(
   supabase: SupabaseClient,
   templateId: string
 ): Promise<CoachProgramTemplateWithContent | null> {
-  const [{ data: template, error: templateError }, { data: sections, error: sectionsError }] =
+  const [{ data: template, error: templateError }, { rows: sections, error: sectionsError }] =
     await Promise.all([
       supabase.from('coach_program_templates').select('*').eq('id', templateId).maybeSingle(),
-      supabase
-        .from('coach_program_template_sections')
-        .select('*')
-        .eq('template_id', templateId)
-        .order('sequence_index', { ascending: true }),
+      selectAllRows<CoachProgramTemplateSection>(() =>
+        supabase
+          .from('coach_program_template_sections')
+          .select('*')
+          .eq('template_id', templateId)
+          .order('sequence_index', { ascending: true })
+          .order('id', { ascending: true })
+      ),
     ]);
 
   if (templateError || !template) {
@@ -187,11 +193,15 @@ export async function getTemplateWithContent(
     return hydrateTemplate(template as CoachProgramTemplate, [], []);
   }
 
-  const { data: exercises, error: exercisesError } = await supabase
-    .from('coach_program_template_exercises')
-    .select('*')
-    .eq('template_id', templateId)
-    .order('sequence_index', { ascending: true });
+  const { rows: exercises, error: exercisesError } = await selectAllRows<CoachProgramTemplateExercise>(
+    () =>
+      supabase
+        .from('coach_program_template_exercises')
+        .select('*')
+        .eq('template_id', templateId)
+        .order('sequence_index', { ascending: true })
+        .order('id', { ascending: true })
+  );
 
   if (exercisesError) {
     console.error('getTemplateWithContent (exercises) failed', exercisesError);
@@ -294,6 +304,7 @@ export async function replaceTemplateContent(
     return true;
   }
 
+  // scale-exempt: the sections of one coach-authored template, inserted whole as one atomic replace (see this file's header)
   const { data: insertedSections, error: sectionsError } = await supabase
     .from('coach_program_template_sections')
     .insert(
@@ -316,11 +327,17 @@ export async function replaceTemplateContent(
   // Insert order isn't guaranteed to match array order once selected back,
   // so re-fetch ordered by sequence_index to reliably zip section rows
   // back up with their source input.
-  const { data: orderedSections, error: orderedError } = await supabase
-    .from('coach_program_template_sections')
-    .select('id, sequence_index')
-    .eq('template_id', templateId)
-    .order('sequence_index', { ascending: true });
+  const { rows: orderedSections, error: orderedError } = await selectAllRows<{
+    id: string;
+    sequence_index: number;
+  }>(() =>
+    supabase
+      .from('coach_program_template_sections')
+      .select('id, sequence_index')
+      .eq('template_id', templateId)
+      .order('sequence_index', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (orderedError || !orderedSections) {
     console.error('replaceTemplateContent (reorder fetch) failed', orderedError);
     return false;
@@ -371,6 +388,7 @@ export async function replaceTemplateContent(
   });
 
   if (exerciseRows.length > 0) {
+    // scale-exempt: the exercises of one coach-authored template (a few dozen by design, see this file's header), inserted whole so a save never leaves half a template
     const { error: exercisesError } = await supabase
       .from('coach_program_template_exercises')
       .insert(exerciseRows);

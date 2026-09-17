@@ -113,6 +113,7 @@ function fakeClient() {
         };
       }
       chain.eq = () => chain;
+      chain.range = async (from: number, to: number) => ({ ...result, data: rows.slice(from, to + 1) });
       chain.maybeSingle = async () => ({ data: rows[0] ?? null, error: null });
       chain.single = async () => ({ data: rows[0] ?? null, error: null });
       chain.then = (resolve: (value: typeof result) => unknown) =>

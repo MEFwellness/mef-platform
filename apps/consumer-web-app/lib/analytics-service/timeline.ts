@@ -40,10 +40,11 @@
  * are a completion.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { getMemberEngagementFacts } from './detections';
 import { resolveAnalyticsRange, todayUtc } from './range';
 import { AnalyticsQueryError } from './client';
+import { selectAllRows } from '../data/pagedSelect';
 import type { AnalyticsEnvelope, AnalyticsOptions } from './types';
 
 /**
@@ -186,15 +187,20 @@ export async function getMemberActivityTimeline(
     readRegistry<RegistryFlow>(supabase, 'analytics_flow_registry'),
   ]);
 
-  const { data, error } = await supabase
-    .from('product_analytics_events')
-    .select('event_type, local_date, occurred_at, payload')
-    .eq('member_id', memberId)
-    .gte('local_date', start)
-    .lte('local_date', range.end)
-    .order('local_date', { ascending: false })
-    .order('occurred_at', { ascending: false })
-    .limit(TIMELINE_ROW_CAP + 1);
+  // The view's id is member_wellness_events.id, which makes the order total for paging.
+  const { rows: data, error } = await selectAllRows<EventRow, PostgrestError | null>(
+    () =>
+      supabase
+        .from('product_analytics_events')
+        .select('event_type, local_date, occurred_at, payload')
+        .eq('member_id', memberId)
+        .gte('local_date', start)
+        .lte('local_date', range.end)
+        .order('local_date', { ascending: false })
+        .order('occurred_at', { ascending: false })
+        .order('id', { ascending: true }),
+    { limit: TIMELINE_ROW_CAP + 1 }
+  );
 
   if (error) throw new AnalyticsQueryError('product_analytics_events', error.message);
 

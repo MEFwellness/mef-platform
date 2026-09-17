@@ -8,15 +8,19 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 
 export async function listSurfacedDiscoverySignalKeys(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from('member_discovery_moments')
-    .select('signal_key')
-    .eq('member_id', memberId);
+  const { rows: data, error } = await selectAllRows<{ signal_key: string }>(() =>
+    supabase
+      .from('member_discovery_moments')
+      .select('signal_key')
+      .eq('member_id', memberId)
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) return new Set();
   return new Set(data.map((row) => row.signal_key as string));

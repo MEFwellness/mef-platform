@@ -28,6 +28,7 @@
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 // Service role, READ ONLY. Used for one thing: reading back what the wizard
 // actually stored, so this script reports what she answered rather than what
@@ -67,11 +68,14 @@ const INTAKE_KEYS = [
  * reads.
  */
 async function revealedFeatures(memberId) {
-  const { data } = await service
-    .from('member_feature_visibility')
-    .select('feature_key, state, source, rule_kind')
-    .eq('member_id', memberId)
-    .eq('state', 'revealed');
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('member_feature_visibility')
+      .select('feature_key, state, source, rule_kind')
+      .eq('member_id', memberId)
+      .eq('state', 'revealed')
+      .order('id', { ascending: true })
+  );
   return (data ?? []).map((r) => r.feature_key).sort();
 }
 
@@ -85,15 +89,21 @@ async function storedIntakeAnswers(memberId) {
     .maybeSingle();
   if (!sub) return {};
 
-  const [{ data: rows }, { data: questions }] = await Promise.all([
-    service
-      .from('onboarding_answers')
-      .select('question_id, answer_status, value_numeric, value_enum, value_multi_select, value_boolean, value_free_text')
-      .eq('submission_id', sub.id),
-    service
-      .from('onboarding_questions')
-      .select('id, question_key, answer_type')
-      .eq('assessment_version_id', sub.assessment_version_id),
+  const [{ rows }, { rows: questions }] = await Promise.all([
+    selectAllRows(() =>
+      service
+        .from('onboarding_answers')
+        .select('question_id, answer_status, value_numeric, value_enum, value_multi_select, value_boolean, value_free_text')
+        .eq('submission_id', sub.id)
+        .order('id', { ascending: true })
+    ),
+    selectAllRows(() =>
+      service
+        .from('onboarding_questions')
+        .select('id, question_key, answer_type')
+        .eq('assessment_version_id', sub.assessment_version_id)
+        .order('id', { ascending: true })
+    ),
   ]);
 
   const byId = new Map((questions ?? []).map((q) => [q.id, q]));

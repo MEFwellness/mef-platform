@@ -64,6 +64,10 @@ function buildStatefulFakeSupabase(questionRows: ReturnType<typeof buildQuestion
       order() {
         return planSelectionsQuery(memberId, localDate, true);
       },
+      range(from: number, to: number) {
+        return { then: (resolve: (v: { data: PlanRow[]; error: null }) => unknown) =>
+          query.then((v) => resolve({ ...v, data: v.data.slice(from, to + 1) })) };
+      },
       then(resolve: (v: { data: PlanRow[]; error: null }) => unknown) {
         let rows = planRows;
         if (memberId) rows = rows.filter((r) => r.member_id === memberId);
@@ -92,7 +96,15 @@ function buildStatefulFakeSupabase(questionRows: ReturnType<typeof buildQuestion
       };
     }
     if (table === 'driver_probe_questions') {
-      return { select: () => ({ eq: () => Promise.resolve({ data: questionRows, error: null }) }) };
+      const questionsQuery = {
+        eq: () => questionsQuery,
+        order: () => questionsQuery,
+        range: (from: number, to: number) =>
+          Promise.resolve({ data: questionRows.slice(from, to + 1), error: null }),
+        then: (resolve: (v: { data: typeof questionRows; error: null }) => unknown) =>
+          Promise.resolve({ data: questionRows, error: null }).then(resolve),
+      };
+      return { select: () => questionsQuery };
     }
     // member_goal_selections, driver_goal_weights, member_driver_states — no goal/state data, everything 'unknown' + broad sampling, deliberately, to isolate the recency-driven cycling behavior under test.
     const emptyChain = {
@@ -100,6 +112,7 @@ function buildStatefulFakeSupabase(questionRows: ReturnType<typeof buildQuestion
       eq: () => emptyChain,
       order: () => emptyChain,
       limit: () => emptyChain,
+      range: () => Promise.resolve({ data: [], error: null }),
       maybeSingle: () => Promise.resolve({ data: null, error: null }),
       then: (resolve: (v: { data: never[]; error: null }) => unknown) =>
         Promise.resolve({ data: [], error: null }).then(resolve),

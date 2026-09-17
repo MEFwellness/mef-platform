@@ -104,6 +104,10 @@ function fakeSupabase(
         rows = rows.filter((r) => !excluded.includes(String(r[column])));
         return chain;
       },
+      range: (from: number, to: number) => {
+        rows = rows.slice(from, to + 1);
+        return chain;
+      },
       maybeSingle: () =>
         Promise.resolve(
           failed ? { data: null, error: { message: 'unreadable' } } : { data: rows[0] ?? null, error: null }

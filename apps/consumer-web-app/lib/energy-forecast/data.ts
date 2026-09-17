@@ -16,6 +16,7 @@ import { listMemberPatternStates } from '../longitudinal-intelligence/data';
 import { buildFindings } from '../case-view/findings';
 import { listRecentCheckinsForMember } from '../coaching-engine/data';
 import { ROOT_FORECAST_MIN_HISTORY_DAYS } from './constants';
+import { selectAllRows } from '../data/pagedSelect';
 import type { DriverNudgeInput } from './rootForecast';
 
 export async function getForecastForDate(
@@ -287,12 +288,15 @@ export async function listUnscoredForecasts(
   memberId: string,
   asOfLocalDate: string
 ): Promise<EnergyForecast[]> {
-  const { data, error } = await supabase
-    .from('energy_forecasts')
-    .select('*')
-    .eq('member_id', memberId)
-    .is('scored_at', null)
-    .lt('forecast_date', asOfLocalDate);
+  const { rows: data, error } = await selectAllRows<EnergyForecast>(() =>
+    supabase
+      .from('energy_forecasts')
+      .select('*')
+      .eq('member_id', memberId)
+      .is('scored_at', null)
+      .lt('forecast_date', asOfLocalDate)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listUnscoredForecasts failed', error);
@@ -306,12 +310,15 @@ export async function listUnscoredRootForecasts(
   memberId: string,
   asOfLocalDate: string
 ): Promise<RootEnergyForecast[]> {
-  const { data, error } = await supabase
-    .from('root_energy_forecasts')
-    .select('*')
-    .eq('member_id', memberId)
-    .is('scored_at', null)
-    .lt('forecast_date', asOfLocalDate);
+  const { rows: data, error } = await selectAllRows<RootEnergyForecast>(() =>
+    supabase
+      .from('root_energy_forecasts')
+      .select('*')
+      .eq('member_id', memberId)
+      .is('scored_at', null)
+      .lt('forecast_date', asOfLocalDate)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listUnscoredRootForecasts failed', error);

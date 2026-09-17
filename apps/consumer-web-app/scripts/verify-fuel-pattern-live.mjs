@@ -39,6 +39,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const MEMBER_EMAIL = process.env.TEST_MEMBER_EMAIL;
@@ -103,6 +104,7 @@ async function waitForAnswersStored(service, memberId, definitionId, wanted, tim
   const deadline = Date.now() + timeoutMs;
   let seen = -1;
   while (Date.now() < deadline) {
+    // scale-exempt: unique index unified_assessment_sessions_one_draft_per_definition allows one in_progress row per member_id+assessment_definition_id
     const { data: sessions } = await service
       .from('unified_assessment_sessions')
       .select('id')
@@ -186,7 +188,7 @@ async function main() {
   mkdirSync(SHOTS, { recursive: true });
 
   const service = serviceClient();
-  const { data: users } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data: users } = await listAllAuthUsers(service.auth.admin);
   const member = users.users.find((u) => u.email === MEMBER_EMAIL);
   if (!member) throw new Error('Test member not found on production.');
   const memberId = member.id;
@@ -430,11 +432,14 @@ async function main() {
     check('RUN A: the reveal says the pattern is a suggestion, not an instruction', /Your responses suggest/.test(revealA));
 
     {
-      const { data: rows } = await service
-        .from('fuel_pattern_results')
-        .select('*')
-        .eq('member_id', memberId)
-        .order('created_at', { ascending: false });
+      const { rows } = await selectAllRows(() =>
+        service
+          .from('fuel_pattern_results')
+          .select('*')
+          .eq('member_id', memberId)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+      );
       const row = rows?.[0];
       for (const r of rows ?? []) createdSessionIds.add(r.session_id);
 
@@ -466,11 +471,14 @@ async function main() {
     check('RUN B: Flexible Fuel is written as a result, not as a failure', !/unclear|inconclusive|not enough/i.test(revealB));
 
     {
-      const { data: rows } = await service
-        .from('fuel_pattern_results')
-        .select('*')
-        .eq('member_id', memberId)
-        .order('created_at', { ascending: false });
+      const { rows } = await selectAllRows(() =>
+        service
+          .from('fuel_pattern_results')
+          .select('*')
+          .eq('member_id', memberId)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+      );
       for (const r of rows ?? []) createdSessionIds.add(r.session_id);
       const row = rows?.[0];
       check('RUN B: a second result row was stored, one per sitting', (rows ?? []).length === 2, `${(rows ?? []).length} rows`);
@@ -491,13 +499,16 @@ async function main() {
   } finally {
     // ---------- Cleanup ----------
     const service = serviceClient();
-    const { data: users } = await service.auth.admin.listUsers({ perPage: 1000 });
+    const { data: users } = await listAllAuthUsers(service.auth.admin);
     const member = users.users.find((u) => u.email === MEMBER_EMAIL);
     if (member) {
-      const { data: sessions } = await service
-        .from('unified_assessment_sessions')
-        .select('id, assessment_definition_id')
-        .eq('member_id', member.id);
+      const { rows: sessions } = await selectAllRows(() =>
+        service
+          .from('unified_assessment_sessions')
+          .select('id, assessment_definition_id')
+          .eq('member_id', member.id)
+          .order('id', { ascending: true })
+      );
       const { data: definition } = await service
         .from('unified_assessment_definitions')
         .select('id')
@@ -516,11 +527,14 @@ async function main() {
         .from('fuel_pattern_results')
         .select('id', { count: 'exact', head: true })
         .eq('member_id', member.id);
-      const { data: leftoverSessions } = await service
-        .from('unified_assessment_sessions')
-        .select('id')
-        .eq('member_id', member.id)
-        .eq('assessment_definition_id', definition?.id ?? '00000000-0000-0000-0000-000000000000');
+      const { rows: leftoverSessions } = await selectAllRows(() =>
+        service
+          .from('unified_assessment_sessions')
+          .select('id')
+          .eq('member_id', member.id)
+          .eq('assessment_definition_id', definition?.id ?? '00000000-0000-0000-0000-000000000000')
+          .order('id', { ascending: true })
+      );
       check('cleanup: no Fuel Pattern result row is left on production', (leftoverResults ?? 0) === 0, String(leftoverResults));
       check('cleanup: no Fuel Pattern session is left on production', (leftoverSessions ?? []).length === 0, String((leftoverSessions ?? []).length));
     }

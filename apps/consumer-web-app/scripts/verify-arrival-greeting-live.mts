@@ -30,6 +30,7 @@ import { readFileSync } from 'node:fs';
 import { mintSessionCookies, retireSession } from './lib/mint-session.mjs';
 import { bindArrivalFromSignupRef, mintSignupRef } from '../lib/public-entry/signupRef';
 import { getMemberOrigin, getSessionByToken } from '../lib/public-entry/data';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect';
 import { ROOT_WELCOME_COPY } from '../lib/public-entry/copy';
 import { CONSENT_ITEMS, CONSENT_VERSION } from '../lib/consent/copy';
 
@@ -91,6 +92,7 @@ async function createTempUser(email: string): Promise<string> {
   const grantedAt = new Date().toISOString();
   // The same rows recordAllConsents() writes, from the same list and the
   // same version constant, so the rig cannot drift from the real gate.
+  // scale-exempt: one row per entry of the CONSENT_ITEMS constant for one new account
   const { error: consentError } = await service.from('consent_records').insert(
     CONSENT_ITEMS.map((item) => ({
       user_id: id,
@@ -352,17 +354,20 @@ async function stageInvitation() {
 
 async function stageUnspent() {
   console.log('\n--- The real phone account is left alone ---\n');
-  const { data: users } = await service.auth.admin.listUsers({ page: 1, perPage: 200 });
+  const { data: users } = await listAllAuthUsers(service.auth.admin);
   const hit = (users?.users ?? []).find((u) => (u.email ?? '').toLowerCase() === QUIZTEST3);
   check('quiztest3 still exists', Boolean(hit), String(hit?.id));
   if (!hit) return;
   const origin = await getMemberOrigin(service, hit.id);
   check('still bound to its arrival through the signup link', origin?.bindMethod === 'signup_link', String(origin?.bindMethod));
-  const { data } = await service
-    .from('member_root_popup_dismissals')
-    .select('message_key')
-    .eq('member_id', hit.id)
-    .like('message_key', 'public_entry_welcome:%');
+  const { rows: data } = await selectAllRows<{ message_key: string }>(() =>
+    service
+      .from('member_root_popup_dismissals')
+      .select('message_key')
+      .eq('member_id', hit.id)
+      .like('message_key', 'public_entry_welcome:%')
+      .order('id', { ascending: true })
+  );
   check(
     'and its greeting is UNSPENT, so a real phone opening the app will see it',
     (data ?? []).length === 0,
@@ -401,9 +406,9 @@ async function stageCleanup() {
     const session = await getSessionByToken(service, token);
     if (session) mySessionIds.push(session.id);
   }
-  const { data: refs } = await service
-    .from('public_entry_signup_refs')
-    .select('id, session_id');
+  const { rows: refs } = await selectAllRows<{ id: string; session_id: string }>(() =>
+    service.from('public_entry_signup_refs').select('id, session_id').order('id', { ascending: true })
+  );
   const mine = ((refs ?? []) as { session_id: string }[]).filter((r) =>
     mySessionIds.includes(r.session_id)
   );

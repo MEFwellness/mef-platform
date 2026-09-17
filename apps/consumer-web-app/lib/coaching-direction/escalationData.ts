@@ -17,6 +17,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 import { isCoachingActionType } from './types';
 import type { CoachingActionType, MemberResponse, SignalEvidence } from './types';
 import type { EscalatedThreadDecision, EscalatedThreadRow } from './escalation';
@@ -52,11 +53,17 @@ export async function listThreadCooldowns(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<string, string>> {
-  const { data, error } = await supabase
-    .from('member_coaching_threads')
-    .select('thread_key, escalation_cooldown_until')
-    .eq('member_id', memberId)
-    .not('escalation_cooldown_until', 'is', null);
+  const { rows: data, error } = await selectAllRows<{
+    thread_key: string;
+    escalation_cooldown_until: string;
+  }>(() =>
+    supabase
+      .from('member_coaching_threads')
+      .select('thread_key, escalation_cooldown_until')
+      .eq('member_id', memberId)
+      .not('escalation_cooldown_until', 'is', null)
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) {
     if (error) console.error('listThreadCooldowns failed', error);
@@ -134,12 +141,15 @@ export async function listEscalatedThreadRows(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<EscalatedThreadRow[]> {
-  const { data, error } = await supabase
-    .from('member_coaching_threads')
-    .select(ESCALATED_COLUMNS)
-    .eq('member_id', memberId)
-    .not('coach_escalated_at', 'is', null)
-    .order('coach_escalated_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<EscalatedRow>(() =>
+    supabase
+      .from('member_coaching_threads')
+      .select(ESCALATED_COLUMNS)
+      .eq('member_id', memberId)
+      .not('coach_escalated_at', 'is', null)
+      .order('coach_escalated_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) {
     if (error) console.error('listEscalatedThreadRows failed', error);
@@ -175,11 +185,18 @@ export async function listDecisionsForThreads(
 ): Promise<EscalatedThreadDecision[]> {
   if (threadKeys.length === 0) return [];
 
-  const { data, error } = await supabase
-    .from('member_coaching_decisions')
-    .select('thread_key, member_response, signal_evidence')
-    .eq('member_id', memberId)
-    .in('thread_key', [...threadKeys]);
+  const { rows: data, error } = await selectAllRowsInChunks<{
+    thread_key: string;
+    member_response: MemberResponse | null;
+    signal_evidence: SignalEvidence | null;
+  }>([...threadKeys], (chunk) =>
+    supabase
+      .from('member_coaching_decisions')
+      .select('thread_key, member_response, signal_evidence')
+      .eq('member_id', memberId)
+      .in('thread_key', chunk)
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) {
     if (error) console.error('listDecisionsForThreads failed', error);

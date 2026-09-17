@@ -19,6 +19,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseEnv } from '@/lib/supabase/env';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { runCorrelationEngineForMember } from '@/lib/correlation-engine/service';
 
 export const dynamic = 'force-dynamic';
@@ -44,11 +45,14 @@ type MemberRow = { id: string };
 async function listActiveMembers(
   supabase: ReturnType<typeof serviceRoleClient>
 ): Promise<MemberRow[]> {
-  const { data, error } = await supabase
-    .from('user_roles')
-    .select('user_id')
-    .eq('role', 'member')
-    .is('revoked_at', null);
+  const { rows: data, error } = await selectAllRows<{ user_id: string }>(() =>
+    supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'member')
+      .is('revoked_at', null)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('correlation-engine cron: failed to list active members', error);

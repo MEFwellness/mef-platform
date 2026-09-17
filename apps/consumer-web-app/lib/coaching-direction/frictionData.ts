@@ -18,6 +18,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import { isFrictionReason, NO_FRICTION_STATE, type FrictionReason, type ThreadFrictionState } from './friction';
 
 type FrictionRow = {
@@ -42,12 +43,15 @@ export async function listThreadFriction(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<{ byThread: Map<string, ThreadFrictionState>; available: boolean }> {
-  const { data, error } = await supabase
-    .from('member_coaching_decisions')
-    .select('thread_key, local_date, friction_asked_at, friction_reason, friction_answered_at')
-    .eq('member_id', memberId)
-    .not('friction_asked_at', 'is', null)
-    .order('friction_asked_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<FrictionRow>(() =>
+    supabase
+      .from('member_coaching_decisions')
+      .select('thread_key, local_date, friction_asked_at, friction_reason, friction_answered_at')
+      .eq('member_id', memberId)
+      .not('friction_asked_at', 'is', null)
+      .order('friction_asked_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) {
     if (error) console.error('listThreadFriction failed (expected before migration 166)', error);

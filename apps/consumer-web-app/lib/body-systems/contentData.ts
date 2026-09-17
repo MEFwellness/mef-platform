@@ -18,6 +18,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseTrigger } from './trigger';
+import { selectAllRows } from '../data/pagedSelect';
 import type { AssociationTriggerRow } from './triggerEvaluation';
 import { DEFAULT_MIN_DELTA_PERCENT } from './retake';
 import type {
@@ -142,11 +143,14 @@ async function fetchSections(supabase: SupabaseClient): Promise<BodySystemsSecti
 }
 
 async function fetchQuestions(supabase: SupabaseClient): Promise<BodySystemsQuestion[]> {
-  const { data, error } = await supabase
-    .from('body_systems_questions')
-    .select('question_ref, section_key, position, prompt, branch, allows_dna, dna_label')
-    .eq('is_active', true)
-    .order('position', { ascending: true });
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('body_systems_questions')
+      .select('question_ref, section_key, position, prompt, branch, allows_dna, dna_label')
+      .eq('is_active', true)
+      .order('position', { ascending: true })
+      .order('question_ref', { ascending: true })
+  );
   if (error) {
     console.error('fetchQuestions failed', error);
     return [];
@@ -239,10 +243,13 @@ async function fetchCopy(
   supabase: SupabaseClient,
   audience: 'member' | 'coach'
 ): Promise<Record<string, string>> {
-  const { data, error } = await supabase
-    .from('body_systems_copy')
-    .select('copy_key, value')
-    .eq('audience', audience);
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('body_systems_copy')
+      .select('copy_key, value')
+      .eq('audience', audience)
+      .order('copy_key', { ascending: true })
+  );
   if (error) {
     console.error('fetchCopy failed', audience, error);
     return {};
@@ -271,11 +278,14 @@ async function fetchMinDelta(supabase: SupabaseClient): Promise<number> {
  * than firing it on every member.
  */
 async function fetchLibrary(supabase: SupabaseClient): Promise<BodySystemsAssociation[]> {
-  const { data, error } = await supabase
-    .from('body_systems_associations')
-    .select('entry_code, position, section_key, branch, title, trigger, association_text, next_step')
-    .eq('is_active', true)
-    .order('position', { ascending: true });
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('body_systems_associations')
+      .select('entry_code, position, section_key, branch, title, trigger, association_text, next_step')
+      .eq('is_active', true)
+      .order('position', { ascending: true })
+      .order('entry_code', { ascending: true })
+  );
   if (error) {
     console.error('fetchLibrary failed', error);
     return [];
@@ -315,11 +325,14 @@ async function fetchLibrary(supabase: SupabaseClient): Promise<BodySystemsAssoci
 export async function loadAssociationTriggers(
   supabase: SupabaseClient
 ): Promise<AssociationTriggerRow[]> {
-  const { data, error } = await supabase
-    .from('body_systems_associations')
-    .select('entry_code, position, branch, trigger')
-    .eq('is_active', true)
-    .order('position', { ascending: true });
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('body_systems_associations')
+      .select('entry_code, position, branch, trigger')
+      .eq('is_active', true)
+      .order('position', { ascending: true })
+      .order('entry_code', { ascending: true })
+  );
   if (error) {
     console.error('loadAssociationTriggers failed', error);
     return [];

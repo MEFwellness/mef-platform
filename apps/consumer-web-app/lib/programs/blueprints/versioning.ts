@@ -29,6 +29,7 @@ import type {
   ProgramBlueprintSlot,
 } from '@mef/shared-types-contracts';
 import { getBlueprintVersion } from './data';
+import { selectAllRows, writeInChunks } from '../../data/pagedSelect';
 
 /** The version fields an edit may change. Anything absent is left as it is. */
 export interface BlueprintVersionEdits {
@@ -68,32 +69,33 @@ async function copySlots(
   toVersionId: string
 ): Promise<boolean> {
   if (slots.length === 0) return true;
-  const { error } = await supabase.from('program_blueprint_slots').insert(
-    slots.map((slot) => ({
-      program_version_id: toVersionId,
-      session_designation: slot.session_designation,
-      slot_order: slot.slot_order,
-      block: slot.block,
-      movement_pattern: slot.movement_pattern,
-      purpose: slot.purpose,
-      priority_rank: slot.priority_rank,
-      is_required: slot.is_required,
-      equipment_requirement: slot.equipment_requirement,
-      difficulty_tier: slot.difficulty_tier,
-      eligibility_rules: slot.eligibility_rules,
-      is_locked: slot.is_locked,
-      replacement_criteria: slot.replacement_criteria,
-      is_per_side: slot.is_per_side,
-      sets: slot.sets,
-      reps: slot.reps,
-      hold_duration_seconds: slot.hold_duration_seconds,
-      tempo: slot.tempo,
-      rest_seconds: slot.rest_seconds,
-      week_overrides: slot.week_overrides,
-      provider: slot.provider,
-      external_id: slot.external_id,
-      exercise_name: slot.exercise_name,
-    }))
+  const rows = slots.map((slot) => ({
+    program_version_id: toVersionId,
+    session_designation: slot.session_designation,
+    slot_order: slot.slot_order,
+    block: slot.block,
+    movement_pattern: slot.movement_pattern,
+    purpose: slot.purpose,
+    priority_rank: slot.priority_rank,
+    is_required: slot.is_required,
+    equipment_requirement: slot.equipment_requirement,
+    difficulty_tier: slot.difficulty_tier,
+    eligibility_rules: slot.eligibility_rules,
+    is_locked: slot.is_locked,
+    replacement_criteria: slot.replacement_criteria,
+    is_per_side: slot.is_per_side,
+    sets: slot.sets,
+    reps: slot.reps,
+    hold_duration_seconds: slot.hold_duration_seconds,
+    tempo: slot.tempo,
+    rest_seconds: slot.rest_seconds,
+    week_overrides: slot.week_overrides,
+    provider: slot.provider,
+    external_id: slot.external_id,
+    exercise_name: slot.exercise_name,
+  }));
+  const { error } = await writeInChunks(rows, (chunk) =>
+    supabase.from('program_blueprint_slots').insert(chunk)
   );
   if (error) {
     console.error('copySlots failed', error);
@@ -254,15 +256,18 @@ export async function availableBlueprintKey(
   supabase: SupabaseClient,
   desired: string
 ): Promise<string> {
-  const { data, error } = await supabase
-    .from('movement_programs')
-    .select('key')
-    .like('key', `${desired}%`);
+  const { rows: data, error } = await selectAllRows<{ key: string }>(() =>
+    supabase
+      .from('movement_programs')
+      .select('key')
+      .like('key', `${desired}%`)
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('availableBlueprintKey failed', error);
     return `${desired}_${Date.now()}`;
   }
-  const taken = new Set(((data as { key: string }[] | null) ?? []).map((r) => r.key));
+  const taken = new Set(data.map((r) => r.key));
   if (!taken.has(desired)) return desired;
   for (let suffix = 2; suffix < 1000; suffix++) {
     const candidate = `${desired}_${suffix}`;

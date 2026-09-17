@@ -15,6 +15,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { recordMemberEvent } from '../events/service';
+import { ID_CHUNK_SIZE } from '../data/pagedSelect';
 
 /**
  * True when NONE of this program's assignments has ever been opened.
@@ -29,18 +30,23 @@ export async function isProgramUnopened(
 ): Promise<boolean> {
   if (assignmentIds.length === 0) return false;
 
-  const { data, error } = await supabase
-    .from('member_wellness_events')
-    .select('id')
-    .eq('event_type', 'program_opened')
-    .in('source_record_id', assignmentIds)
-    .limit(1);
+  // An existence check, so the id list goes out in chunks and the first hit ends it.
+  for (let index = 0; index < assignmentIds.length; index += ID_CHUNK_SIZE) {
+    const chunk = assignmentIds.slice(index, index + ID_CHUNK_SIZE);
+    const { data, error } = await supabase
+      .from('member_wellness_events')
+      .select('id')
+      .eq('event_type', 'program_opened')
+      .in('source_record_id', chunk)
+      .limit(1);
 
-  if (error) {
-    console.error('isProgramUnopened failed', error);
-    return false;
+    if (error) {
+      console.error('isProgramUnopened failed', error);
+      return false;
+    }
+    if ((data ?? []).length > 0) return false;
   }
-  return (data ?? []).length === 0;
+  return true;
 }
 
 /**

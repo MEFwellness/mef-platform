@@ -21,6 +21,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 
 export type FunnelRow = {
   sessionId: string;
@@ -59,11 +60,14 @@ export async function listFunnelRows(
   supabase: SupabaseClient,
   options: { includeTest?: boolean; sinceIso?: string } = {}
 ): Promise<FunnelRow[]> {
-  let query = supabase.from('public_entry_funnel').select(ROW_COLUMNS);
-  if (!options.includeTest) query = query.eq('is_test', false);
-  if (options.sinceIso) query = query.gte('first_seen_at', options.sinceIso);
+  // session_id is unique in the view: every join in it is at most one row per session.
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() => {
+    let query = supabase.from('public_entry_funnel').select(ROW_COLUMNS);
+    if (!options.includeTest) query = query.eq('is_test', false);
+    if (options.sinceIso) query = query.gte('first_seen_at', options.sinceIso);
 
-  const { data, error } = await query.order('first_seen_at', { ascending: false });
+    return query.order('first_seen_at', { ascending: false }).order('session_id', { ascending: true });
+  });
   if (error) {
     console.error('listFunnelRows failed', error);
     return [];
@@ -96,10 +100,13 @@ export async function listFunnelRows(
  * know that.
  */
 export async function engagedSessionIds(supabase: SupabaseClient): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from('public_entry_events')
-    .select('session_id')
-    .eq('event_type', 'result_engaged');
+  const { rows: data, error } = await selectAllRows<{ session_id: string }>(() =>
+    supabase
+      .from('public_entry_events')
+      .select('session_id')
+      .eq('event_type', 'result_engaged')
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('engagedSessionIds failed', error);
     return new Set();

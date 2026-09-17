@@ -15,6 +15,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import type { FpaConfidence, FpaScoring, FuelPattern } from './types';
 
 export type FuelPatternResultRow = {
@@ -122,11 +123,14 @@ export async function listFuelPatternResults(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<FuelPatternResultRow[]> {
-  const { data, error } = await supabase
-    .from('fuel_pattern_results')
-    .select(COLUMNS)
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<RawRow>(() =>
+    supabase
+      .from('fuel_pattern_results')
+      .select(COLUMNS)
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listFuelPatternResults failed', error);
     return [];

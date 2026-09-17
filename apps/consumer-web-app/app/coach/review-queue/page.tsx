@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldAlert } from 'lucide-react';
@@ -36,9 +37,17 @@ export default async function ReviewQueuePage() {
   const entries = await listCoachReviewQueue();
 
   const memberIds = Array.from(new Set(entries.map((e) => e.member_id)));
-  const { data: profiles } = memberIds.length
-    ? await supabase.from('profiles').select('id, display_name, is_test').in('id', memberIds)
-    : { data: [] };
+  const { rows: profiles } = await selectAllRowsInChunks<{
+    id: string;
+    display_name: string | null;
+    is_test: boolean | null;
+  }>(memberIds, (chunk) =>
+    supabase
+      .from('profiles')
+      .select('id, display_name, is_test')
+      .in('id', chunk)
+      .order('id', { ascending: true })
+  );
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.display_name ?? 'Unnamed client']));
   const isTestById = new Map((profiles ?? []).map((p) => [p.id, Boolean(p.is_test)]));
 

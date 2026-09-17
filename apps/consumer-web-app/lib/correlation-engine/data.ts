@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CandidatePair, CorrelationFindingRow } from './types';
 import { HYDRATION_CORRELATION_VARIABLE, HYDRATION_DRIVER_ID } from '../hydration/constants';
+import { selectAllRows } from '../data/pagedSelect';
 
 type CandidatePairRow = {
   pair_key: string;
@@ -32,10 +33,13 @@ function fromCandidatePairRow(row: CandidatePairRow): CandidatePair {
 
 /** Every active seeded candidate pair (correlation_candidate_pairs, migration 105) — reference data, not member data. */
 export async function listActiveCandidatePairs(supabase: SupabaseClient): Promise<CandidatePair[]> {
-  const { data, error } = await supabase
-    .from('correlation_candidate_pairs')
-    .select('*')
-    .eq('active', true);
+  const { rows: data, error } = await selectAllRows<CandidatePairRow>(() =>
+    supabase
+      .from('correlation_candidate_pairs')
+      .select('*')
+      .eq('active', true)
+      .order('pair_key', { ascending: true })
+  );
 
   if (error) {
     console.error('listActiveCandidatePairs failed', error);
@@ -122,10 +126,13 @@ export async function listMemberCorrelationFindings(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<string, CorrelationFindingRow>> {
-  const { data, error } = await supabase
-    .from('member_correlation_findings')
-    .select('*')
-    .eq('member_id', memberId);
+  const { rows: data, error } = await selectAllRows<FindingRow>(() =>
+    supabase
+      .from('member_correlation_findings')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('pair_key', { ascending: true })
+  );
 
   if (error) {
     console.error('listMemberCorrelationFindings failed', error);

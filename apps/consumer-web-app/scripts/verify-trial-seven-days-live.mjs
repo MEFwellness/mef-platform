@@ -32,6 +32,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const ADMIN_EMAIL = 'info@mefwellness.com';
@@ -60,10 +61,13 @@ function record(item, pass, detail) {
  * snapshot the admin screen is checked against.
  */
 async function snapshotExistingWindows() {
-  const { data, error } = await service
-    .from('member_subscriptions')
-    .select('member_id, tier, trial_started_at, trial_ends_at')
-    .order('trial_started_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows(() =>
+    service
+      .from('member_subscriptions')
+      .select('member_id, tier, trial_started_at, trial_ends_at')
+      .order('trial_started_at', { ascending: true })
+      .order('member_id', { ascending: true })
+  );
   if (error) throw new Error(`subscription read failed: ${error.message}`);
   return data.map((row) => ({
     ...row,

@@ -117,10 +117,17 @@ const TARGET_ROWS = [
 function fakeSupabase(tables: Record<string, Record<string, unknown>[]>, viewerId: string | null) {
   function builder(table: string) {
     let rows = [...(tables[table] ?? [])];
+    // Like PostgREST, a range applies to the filtered result, whatever order the chain named it in.
+    let window: [number, number] | null = null;
+    const windowed = () => (window ? rows.slice(window[0], window[1] + 1) : rows);
     const chain: Record<string, unknown> = {
       select: () => chain,
       order: () => chain,
       limit: () => chain,
+      range: (from: number, to: number) => {
+        window = [from, to];
+        return chain;
+      },
       eq: (column: string, value: unknown) => {
         rows = rows.filter((r) => r[column] === value);
         return chain;
@@ -138,7 +145,7 @@ function fakeSupabase(tables: Record<string, Record<string, unknown>[]>, viewerI
       maybeSingle: () => Promise.resolve({ data: rows[0] ?? null, error: null }),
       single: () => Promise.resolve({ data: rows[0] ?? null, error: null }),
       then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
-        Promise.resolve({ data: rows, error: null }).then(resolve),
+        Promise.resolve({ data: windowed(), error: null }).then(resolve),
     };
     return chain;
   }

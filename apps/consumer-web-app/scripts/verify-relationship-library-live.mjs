@@ -28,6 +28,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, mintSessionCookies, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const COACH_EMAIL = 'oakomah66@gmail.com';
@@ -121,25 +122,31 @@ const run = async () => {
     // -----------------------------------------------------------------
     // 0. What the database holds before anything is touched.
     // -----------------------------------------------------------------
-    const seeded = await service
-      .from('cross_system_relationships')
-      .select('id, pattern_key, is_active, is_example, current_version');
+    const seeded = await selectAllRows(() =>
+      service
+        .from('cross_system_relationships')
+        .select('id, pattern_key, is_active, is_example, current_version')
+        .order('id', { ascending: true })
+    );
     if (seeded.error) throw new Error(`relationship read failed: ${seeded.error.message}`);
-    const examples = seeded.data.filter((row) => row.is_example);
+    const examples = seeded.rows.filter((row) => row.is_example);
     record(
       'the library ships empty except for one inactive example',
-      seeded.data.length === 1 && examples.length === 1 && examples[0].is_active === false,
-      `${seeded.data.length} relationship(s) on production, ${examples.length} flagged as an example, active: ${examples.map((row) => row.is_active).join(', ')}`
+      seeded.rows.length === 1 && examples.length === 1 && examples[0].is_active === false,
+      `${seeded.rows.length} relationship(s) on production, ${examples.length} flagged as an example, active: ${examples.map((row) => row.is_active).join(', ')}`
     );
 
-    const exampleVersion = await service
-      .from('cross_system_relationship_versions')
-      .select('id, version_number, pattern_name')
-      .eq('relationship_id', examples[0]?.id ?? '00000000-0000-0000-0000-000000000000');
+    const exampleVersion = await selectAllRows(() =>
+      service
+        .from('cross_system_relationship_versions')
+        .select('id, version_number, pattern_name')
+        .eq('relationship_id', examples[0]?.id ?? '00000000-0000-0000-0000-000000000000')
+        .order('id', { ascending: true })
+    );
     record(
       'the example names itself an Example',
-      (exampleVersion.data ?? []).every((row) => row.pattern_name.startsWith('Example')),
-      (exampleVersion.data ?? []).map((row) => `v${row.version_number}: ${row.pattern_name}`).join(' | ')
+      (exampleVersion.rows ?? []).every((row) => row.pattern_name.startsWith('Example')),
+      (exampleVersion.rows ?? []).map((row) => `v${row.version_number}: ${row.pattern_name}`).join(' | ')
     );
 
     // The Prompt 1 vocabulary, read straight from the database, which is
@@ -147,10 +154,16 @@ const run = async () => {
     const [categories, areas, names] = await Promise.all([
       service.from('cross_system_signal_categories').select('category_key, display_name').eq('is_active', true),
       service.from('cross_system_body_areas').select('area_key, display_name').eq('is_active', true),
-      service.from('cross_system_signal_names').select('signal_slug, display_name').eq('is_active', true),
+      selectAllRows(() =>
+        service
+          .from('cross_system_signal_names')
+          .select('signal_slug, display_name')
+          .eq('is_active', true)
+          .order('signal_slug', { ascending: true })
+      ),
     ]);
     console.log(
-      `\nPrompt 1 vocabulary on production: ${categories.data.length} categories, ${areas.data.length} body areas, ${names.data.length} standardized signal names.\n`
+      `\nPrompt 1 vocabulary on production: ${categories.data.length} categories, ${areas.data.length} body areas, ${names.rows.length} standardized signal names.\n`
     );
 
     // -----------------------------------------------------------------
@@ -240,17 +253,20 @@ const run = async () => {
     });
     await library.page.waitForTimeout(1500);
 
-    const created = await service
-      .from('cross_system_relationships')
-      .select('id, pattern_key, is_active, current_version')
-      .eq('is_example', false);
+    const created = await selectAllRows(() =>
+      service
+        .from('cross_system_relationships')
+        .select('id, pattern_key, is_active, current_version')
+        .eq('is_example', false)
+        .order('id', { ascending: true })
+    );
     if (created.error) console.error('created read failed', created.error);
-    createdId = created.data?.[0]?.id ?? null;
+    createdId = created.rows?.[0]?.id ?? null;
     record(
       'a pattern created through the real form is stored, inactive, at version 1',
-      created.data?.length === 1 && created.data[0].is_active === false && created.data[0].current_version === 1,
-      created.data?.length
-        ? `pattern_key ${created.data[0].pattern_key}, active ${created.data[0].is_active}, version ${created.data[0].current_version}`
+      created.rows?.length === 1 && created.rows[0].is_active === false && created.rows[0].current_version === 1,
+      created.rows?.length
+        ? `pattern_key ${created.rows[0].pattern_key}, active ${created.rows[0].is_active}, version ${created.rows[0].current_version}`
         : 'nothing was written'
     );
 
@@ -260,12 +276,15 @@ const run = async () => {
       .eq('relationship_id', createdId ?? '00000000-0000-0000-0000-000000000000')
       .eq('version_number', 1)
       .maybeSingle();
-    const v1Components = await service
-      .from('cross_system_relationship_components')
-      .select('role, ref_kind, ref_key, ref_label')
-      .eq('version_id', v1.data?.id ?? '00000000-0000-0000-0000-000000000000')
-      .order('position');
-    const mine = v1Components.data ?? [];
+    const v1Components = await selectAllRows(() =>
+      service
+        .from('cross_system_relationship_components')
+        .select('role, ref_kind, ref_key, ref_label')
+        .eq('version_id', v1.data?.id ?? '00000000-0000-0000-0000-000000000000')
+        .order('position')
+        .order('id', { ascending: true })
+    );
+    const mine = v1Components.rows ?? [];
     record(
       'its inputs carry the labels the library reads today, resolved on the server',
       mine.some((row) => row.role === 'primary' && row.ref_kind === 'body_area' && row.ref_label === 'Hip') &&
@@ -289,11 +308,13 @@ const run = async () => {
     });
     await library.page.waitForTimeout(1500);
 
-    const versions = await service
-      .from('cross_system_relationship_versions')
-      .select('version_number, min_supporting_signals, change_summary')
-      .eq('relationship_id', createdId)
-      .order('version_number');
+    const versions = await selectAllRows(() =>
+      service
+        .from('cross_system_relationship_versions')
+        .select('version_number, min_supporting_signals, change_summary')
+        .eq('relationship_id', createdId)
+        .order('version_number')
+    );
     const head = await service
       .from('cross_system_relationships')
       .select('current_version')
@@ -301,11 +322,11 @@ const run = async () => {
       .maybeSingle();
     record(
       'an edit writes a second version and leaves the first one exactly as it was',
-      versions.data?.length === 2 &&
-        versions.data[0].min_supporting_signals === 2 &&
-        versions.data[1].min_supporting_signals === 3 &&
+      versions.rows?.length === 2 &&
+        versions.rows[0].min_supporting_signals === 2 &&
+        versions.rows[1].min_supporting_signals === 3 &&
         head.data?.current_version === 2,
-      (versions.data ?? [])
+      (versions.rows ?? [])
         .map((row) => `v${row.version_number} floor ${row.min_supporting_signals}`)
         .join(', ') + `, head points at v${head.data?.current_version}`
     );
@@ -369,17 +390,22 @@ const run = async () => {
     await library.page.waitForTimeout(400);
     await library.page.click('button:has-text("Delete it and every version")');
     await library.page.waitForTimeout(2500);
-    const after = await service.from('cross_system_relationships').select('id, is_example');
-    const leftoverVersions = await service
-      .from('cross_system_relationship_versions')
-      .select('id')
-      .eq('relationship_id', createdId ?? '00000000-0000-0000-0000-000000000000');
+    const after = await selectAllRows(() =>
+      service.from('cross_system_relationships').select('id, is_example').order('id', { ascending: true })
+    );
+    const leftoverVersions = await selectAllRows(() =>
+      service
+        .from('cross_system_relationship_versions')
+        .select('id')
+        .eq('relationship_id', createdId ?? '00000000-0000-0000-0000-000000000000')
+        .order('id', { ascending: true })
+    );
     record(
       'the test pattern and every version under it are gone from production',
-      after.data?.length === 1 && after.data[0].is_example === true && leftoverVersions.data?.length === 0,
-      `${after.data?.length} relationship(s) left, all examples: ${after.data?.every((row) => row.is_example)}, ${leftoverVersions.data?.length} orphan version(s)`
+      after.rows?.length === 1 && after.rows[0].is_example === true && leftoverVersions.rows?.length === 0,
+      `${after.rows?.length} relationship(s) left, all examples: ${after.rows?.every((row) => row.is_example)}, ${leftoverVersions.rows?.length} orphan version(s)`
     );
-    if (after.data?.length === 1) createdId = null;
+    if (after.rows?.length === 1) createdId = null;
 
     record(
       'no console error and no page error anywhere in the coach walk',

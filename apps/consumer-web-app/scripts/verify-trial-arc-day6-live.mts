@@ -47,6 +47,7 @@ import { AREA_LABEL, CVS_KEY } from '../lib/core-values-snapshot/constants';
 import { LSC_KEY, SIGNAL_LABEL } from '../lib/life-signal-check/constants';
 import { RPL_KEY, READINESS_PATTERN_LABEL } from '../lib/readiness-pulse/constants';
 import { ENERGY_PATTERN_COPY } from '../lib/public-entry/copy';
+import { selectAllRows, writeInChunks } from '../lib/data/pagedSelect';
 
 const BASE = process.env.BASE_URL || 'https://app.mefwellness.com';
 const PHONE = { width: 393, height: 852 };
@@ -316,18 +317,24 @@ async function answersFor(key: string): Promise<Record<string, never> | null> {
     .maybeSingle();
   if (!session) return null;
 
-  const { data: questions } = await service
-    .from('unified_assessment_questions')
-    .select('id, question_key')
-    .eq('assessment_definition_id', definition.id);
+  const { rows: questions } = await selectAllRows<{ id: string; question_key: string }>(() =>
+    service
+      .from('unified_assessment_questions')
+      .select('id, question_key')
+      .eq('assessment_definition_id', definition.id)
+      .order('id', { ascending: true })
+  );
   const keyById = new Map(
     ((questions ?? []) as { id: string; question_key: string }[]).map((q) => [q.id, q.question_key])
   );
 
-  const { data: rows, error } = await service
-    .from('unified_assessment_answers')
-    .select('question_id, value')
-    .eq('session_id', session.id);
+  const { rows, error } = await selectAllRows<{ question_id: string; value: unknown }>(() =>
+    service
+      .from('unified_assessment_answers')
+      .select('question_id, value')
+      .eq('session_id', session.id)
+      .order('id', { ascending: true })
+  );
   if (error) {
     check(`could read ${key}'s stored answers`, false, error.message);
     return null;
@@ -440,13 +447,16 @@ async function withConversationsSetAside<T>(fn: () => Promise<T>): Promise<T> {
       .maybeSingle();
     if (!definition) continue;
 
-    const { data } = await service
-      .from('unified_assessment_sessions')
-      .select('id, completed_at')
-      .eq('member_id', rig.id)
-      .eq('assessment_definition_id', definition.id)
-      .eq('status', 'completed')
-      .order('completed_at', { ascending: false });
+    const { rows: data } = await selectAllRows<{ id: string; completed_at: string }>(() =>
+      service
+        .from('unified_assessment_sessions')
+        .select('id, completed_at')
+        .eq('member_id', rig.id)
+        .eq('assessment_definition_id', definition.id)
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false })
+        .order('id', { ascending: true })
+    );
     const rows = (data ?? []) as { id: string; completed_at: string }[];
     if (rows.length === 0) continue;
 
@@ -462,10 +472,10 @@ async function withConversationsSetAside<T>(fn: () => Promise<T>): Promise<T> {
     const [newest, ...duplicates] = rows;
     kept.push(newest!);
     if (duplicates.length > 0) {
-      const { error } = await service
-        .from('unified_assessment_sessions')
-        .delete()
-        .in('id', duplicates.map((d) => d.id));
+      const { error } = await writeInChunks(
+        duplicates.map((d) => d.id),
+        (chunk) => service.from('unified_assessment_sessions').delete().in('id', chunk)
+      );
       if (!error) removedDuplicates += duplicates.length;
     }
   }
@@ -485,11 +495,15 @@ async function withConversationsSetAside<T>(fn: () => Promise<T>): Promise<T> {
     // finished. The second wrote a legal status and left completed_at where
     // it was, which the table's own `unified_assessment_sessions_completed_fields`
     // check constraint refuses, correctly.
-    const { data: moved, error } = await service
-      .from('unified_assessment_sessions')
-      .update({ status: 'in_progress', completed_at: null })
-      .in('id', kept.map((k) => k.id))
-      .select('id');
+    const { rows: moved, error } = await writeInChunks(
+      kept.map((k) => k.id),
+      (chunk) =>
+        service
+          .from('unified_assessment_sessions')
+          .update({ status: 'in_progress', completed_at: null })
+          .in('id', chunk)
+          .select('id')
+    );
     check(
       'her conversations really were set aside for this stage',
       error === null && (moved ?? []).length === kept.length,
@@ -692,10 +706,13 @@ async function stageDay6() {
   // cannot honestly have one, so this run asserts the absence rather than
   // pretending to have seen the card. Its selection rules are proven by
   // fixtures in tests/trial-arc-recap.test.ts.
-  const { data: signals } = await service
-    .from('member_pattern_states')
-    .select('signal_key')
-    .eq('member_id', rig.id);
+  const { rows: signals } = await selectAllRows<{ signal_key: string }>(() =>
+    service
+      .from('member_pattern_states')
+      .select('signal_key')
+      .eq('member_id', rig.id)
+      .order('id', { ascending: true })
+  );
   check(
     'Day 6: she has no published signal, so there is honestly no observation card',
     (signals ?? []).length === 0 && !stored.cards.some((c) => c.kind === 'checkin_observation'),
@@ -961,7 +978,9 @@ async function stageExclusion() {
   console.log('\n== The arc is still launched for no one ==');
 
   const { resolveTrialArcDecision } = await import('../lib/trial-arc/engine');
-  const { data: profiles } = await service.from('profiles').select('id');
+  const { rows: profiles } = await selectAllRows<{ id: string }>(() =>
+    service.from('profiles').select('id').order('id', { ascending: true })
+  );
   let spoke = 0;
   const reasons = new Map<string, number>();
   for (const profile of (profiles ?? []) as { id: string }[]) {
@@ -978,7 +997,9 @@ async function stageExclusion() {
     [...reasons.entries()].map(([r, n]) => `${r}=${n}`).join(' ')
   );
 
-  const { data: recaps } = await service.from('member_trial_arc_recaps').select('member_id');
+  const { rows: recaps } = await selectAllRows<{ member_id: string }>(() =>
+    service.from('member_trial_arc_recaps').select('member_id').order('id', { ascending: true })
+  );
   const others = (recaps ?? []).filter((r: { member_id: string }) => r.member_id !== rig.id);
   check('no recap row exists for anybody but the rig', others.length === 0, `${(recaps ?? []).length} row(s) total`);
 }

@@ -23,6 +23,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type {
   LeadConversation,
   LeadConversationStage,
@@ -191,11 +192,14 @@ export async function listLeadMessages(
   supabase: SupabaseClient,
   conversationId: string
 ): Promise<LeadMessage[]> {
-  const { data, error } = await supabase
-    .from('lead_messages')
-    .select('*')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<LeadMessage>(() =>
+    supabase
+      .from('lead_messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listLeadMessages failed', error);

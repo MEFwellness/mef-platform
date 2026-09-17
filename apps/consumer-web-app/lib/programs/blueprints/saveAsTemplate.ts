@@ -26,6 +26,7 @@ import type { BlueprintPeriodization, BlueprintWithSlots, MovementProgram, Movem
 import { getBlueprintVersion } from './data';
 import { availableBlueprintKey, blueprintKeyFromName } from './versioning';
 import type { PlannedSession } from './plan';
+import { writeInChunks } from '../../data/pagedSelect';
 
 export interface SaveAsBlueprintInput {
   sessions: PlannedSession[];
@@ -165,7 +166,9 @@ export async function saveProgramAsBlueprintDraft(
     }));
   });
 
-  const { error: slotError } = await supabase.from('program_blueprint_slots').insert(rows);
+  const { error: slotError } = await writeInChunks(rows, (chunk) =>
+    supabase.from('program_blueprint_slots').insert(chunk)
+  );
   if (slotError) {
     console.error('saveProgramAsBlueprintDraft (slots) failed', slotError);
     // No half a blueprint. Deleting the program cascades the version and

@@ -20,6 +20,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionCookies, retireSession, canMintSessions } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.BASE_URL || 'https://app.mefwellness.com';
 const SOURCE = process.env.SOURCE_CODE || 'partner-01';
@@ -171,14 +172,12 @@ check('14. the analytics row carries the source and nothing else',
   JSON.stringify(claimEvent?.payload));
 
 // Nothing was laundered into member data.
-const { data: checkins } = await service
-  .from('daily_checkins')
-  .select('id')
-  .eq('user_id', memberId);
-const { data: submissions } = await service
-  .from('onboarding_submissions')
-  .select('id')
-  .eq('user_id', memberId);
+const { rows: checkins } = await selectAllRows(() =>
+  service.from('daily_checkins').select('id').eq('user_id', memberId).order('id', { ascending: true })
+);
+const { rows: submissions } = await selectAllRows(() =>
+  service.from('onboarding_submissions').select('id').eq('user_id', memberId).order('id', { ascending: true })
+);
 check('15. no check-in was created from the public answers', (checkins ?? []).length === 0,
   `${(checkins ?? []).length} rows`);
 check('16. no onboarding submission was created from them', (submissions ?? []).length === 0,

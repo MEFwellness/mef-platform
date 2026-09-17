@@ -12,6 +12,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { FALLBACK_TIMEZONE } from '../time/memberToday';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 import type { Cadence, PastDelivery } from './cadence';
 import { openedWithin24h } from './cadence';
 
@@ -94,12 +95,15 @@ function fromDeliveryRow(row: DeliveryRow): PushDeliveryRecord {
 export async function listNotifiableMembers(
   supabase: SupabaseClient
 ): Promise<NotifiableMember[]> {
-  const { data: devices, error: deviceError } = await supabase
-    .from('member_push_subscriptions')
-    .select('member_id')
-    .is('revoked_at', null);
+  const { rows: devices, error: deviceError } = await selectAllRows<{ member_id: string }>(() =>
+    supabase
+      .from('member_push_subscriptions')
+      .select('member_id')
+      .is('revoked_at', null)
+      .order('id', { ascending: true })
+  );
 
-  if (deviceError || !devices || devices.length === 0) {
+  if (deviceError || devices.length === 0) {
     if (deviceError) console.error('listNotifiableMembers: devices read failed', deviceError);
     return [];
   }
@@ -110,13 +114,24 @@ export async function listNotifiableMembers(
     counts.set(id, (counts.get(id) ?? 0) + 1);
   }
 
-  const { data: profiles, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, timezone, is_test, push_notifications_enabled, push_send_hour_local')
-    .in('id', [...counts.keys()])
-    .eq('push_notifications_enabled', true);
+  const { rows: profiles, error: profileError } = await selectAllRowsInChunks<{
+    id: string;
+    timezone: string | null;
+    is_test: boolean | null;
+    push_notifications_enabled: boolean;
+    push_send_hour_local: number | null;
+  }>(
+    [...counts.keys()],
+    (chunk) =>
+      supabase
+        .from('profiles')
+        .select('id, timezone, is_test, push_notifications_enabled, push_send_hour_local')
+        .in('id', chunk)
+        .eq('push_notifications_enabled', true)
+        .order('id', { ascending: true })
+  );
 
-  if (profileError || !profiles) {
+  if (profileError) {
     if (profileError) console.error('listNotifiableMembers: profiles read failed', profileError);
     return [];
   }

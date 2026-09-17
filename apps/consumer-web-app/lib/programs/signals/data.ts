@@ -25,6 +25,7 @@ import type {
   MemberExerciseFeedback,
 } from '@mef/shared-types-contracts';
 import { blockForSectionType } from '../feedback/candidates';
+import { selectAllRows, selectAllRowsInChunks } from '../../data/pagedSelect';
 import { buildProgramSignals, type ProgramSignals } from './aggregate';
 import { programInsights, type SignalInsight } from './insights';
 
@@ -57,16 +58,19 @@ export async function listAssignmentsForGroup(
   memberId: string,
   groupKey: string
 ): Promise<CoachProgramAssignment[]> {
-  const { data, error } = await supabase
-    .from('coach_program_assignments')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('program_group_key', groupKey);
+  const { rows: data, error } = await selectAllRows<CoachProgramAssignment>(() =>
+    supabase
+      .from('coach_program_assignments')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('program_group_key', groupKey)
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listAssignmentsForGroup failed', error);
     return [];
   }
-  if ((data ?? []).length > 0) return data as CoachProgramAssignment[];
+  if (data.length > 0) return data;
 
   if (!UUID_PATTERN.test(groupKey)) return [];
   const { data: single, error: singleError } = await supabase
@@ -96,55 +100,72 @@ export async function loadProgramSignals(
   if (assignments.length === 0) return null;
   const assignmentIds = assignments.map((a) => a.id);
 
-  const { data: workoutRows, error: workoutError } = await supabase
-    .from('coach_assigned_workouts')
-    .select('*')
-    .eq('member_id', input.memberId)
-    .in('assignment_id', assignmentIds)
-    .order('scheduled_date', { ascending: true });
+  const { rows: workoutRows, error: workoutError } = await selectAllRowsInChunks<CoachAssignedWorkout>(
+    assignmentIds,
+    (chunk) =>
+      supabase
+        .from('coach_assigned_workouts')
+        .select('*')
+        .eq('member_id', input.memberId)
+        .in('assignment_id', chunk)
+        .order('scheduled_date', { ascending: true })
+        .order('id', { ascending: true })
+  );
   if (workoutError) {
     console.error('loadProgramSignals (workouts) failed', workoutError);
     return null;
   }
-  const workouts = (workoutRows ?? []) as CoachAssignedWorkout[];
+  // Each chunk arrives in date order; a stable sort restores it across chunks.
+  const workouts = workoutRows.sort((a, b) =>
+    a.scheduled_date < b.scheduled_date ? -1 : a.scheduled_date > b.scheduled_date ? 1 : 0
+  );
   const workoutIds = workouts.map((w) => w.id);
 
   const [sectionResult, exerciseResult, feedbackResult, avoidanceResult] = await Promise.all([
-    workoutIds.length === 0
-      ? Promise.resolve({ data: [], error: null })
-      : supabase
-          .from('coach_assigned_workout_sections')
-          .select('id, section_type')
-          .in('assigned_workout_id', workoutIds),
-    workoutIds.length === 0
-      ? Promise.resolve({ data: [], error: null })
-      : supabase
-          .from('coach_assigned_workout_exercises')
-          .select('*')
-          .in('assigned_workout_id', workoutIds)
-          .order('sequence_index', { ascending: true }),
+    selectAllRowsInChunks<Pick<CoachAssignedWorkoutSection, 'id' | 'section_type'>>(workoutIds, (chunk) =>
+      supabase
+        .from('coach_assigned_workout_sections')
+        .select('id, section_type')
+        .in('assigned_workout_id', chunk)
+        .order('id', { ascending: true })
+    ),
+    selectAllRowsInChunks<CoachAssignedWorkoutExercise>(workoutIds, (chunk) =>
+      supabase
+        .from('coach_assigned_workout_exercises')
+        .select('*')
+        .in('assigned_workout_id', chunk)
+        .order('sequence_index', { ascending: true })
+        .order('id', { ascending: true })
+    ),
     // Her reports about THIS program. Matched on the group key she was in
     // when she made them, so a report from a program she has since finished
     // never lands on this one's panel.
-    supabase
-      .from('member_exercise_feedback')
-      .select('*')
-      .eq('member_id', input.memberId)
-      // assignment_id is a uuid column and every id here is a real uuid,
-      // so this branch is safe. The group key is NOT compared against a
-      // uuid column anywhere: see listAssignmentsForGroup's header.
-      .or(
-        `program_group_key.eq.${input.groupKey},assignment_id.in.(${assignmentIds.join(',')})`
-      )
-      .order('created_at', { ascending: false }),
+    // scale-exempt: assignmentIds are the phases of ONE program group for one member
+    selectAllRows<MemberExerciseFeedback>(() =>
+      supabase
+        .from('member_exercise_feedback')
+        .select('*')
+        .eq('member_id', input.memberId)
+        // assignment_id is a uuid column and every id here is a real uuid,
+        // so this branch is safe. The group key is NOT compared against a
+        // uuid column anywhere: see listAssignmentsForGroup's header.
+        .or(
+          `program_group_key.eq.${input.groupKey},assignment_id.in.(${assignmentIds.join(',')})`
+        )
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+    ),
     // The avoidance list is a property of the MEMBER, not of one program,
     // so it is read whole. A coach releasing an entry is releasing it
     // everywhere, which is what it means.
-    supabase
-      .from('member_exercise_avoidance')
-      .select('*')
-      .eq('member_id', input.memberId)
-      .order('created_at', { ascending: false }),
+    selectAllRows<MemberExerciseAvoidance>(() =>
+      supabase
+        .from('member_exercise_avoidance')
+        .select('*')
+        .eq('member_id', input.memberId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+    ),
   ]);
 
   if (sectionResult.error) console.error('loadProgramSignals (sections) failed', sectionResult.error);
@@ -153,16 +174,16 @@ export async function loadProgramSignals(
   if (avoidanceResult.error) console.error('loadProgramSignals (avoidance) failed', avoidanceResult.error);
 
   const blockBySectionId = new Map<string, BlueprintBlock>();
-  for (const section of (sectionResult.data ?? []) as Pick<
-    CoachAssignedWorkoutSection,
-    'id' | 'section_type'
-  >[]) {
+  for (const section of sectionResult.error ? [] : sectionResult.rows) {
     blockBySectionId.set(section.id, blockForSectionType(section.section_type));
   }
 
-  const exercises = (exerciseResult.data ?? []) as CoachAssignedWorkoutExercise[];
-  const feedback = (feedbackResult.data ?? []) as MemberExerciseFeedback[];
-  const avoidance = (avoidanceResult.data ?? []) as MemberExerciseAvoidance[];
+  // Each chunk arrives in sequence order; a stable sort restores it across chunks.
+  const exercises = (exerciseResult.error ? [] : exerciseResult.rows).sort(
+    (a, b) => a.sequence_index - b.sequence_index
+  );
+  const feedback = feedbackResult.error ? [] : feedbackResult.rows;
+  const avoidance = avoidanceResult.error ? [] : avoidanceResult.rows;
 
   const signals = buildProgramSignals({
     groupKey: input.groupKey,

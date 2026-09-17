@@ -36,6 +36,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks, writeInChunks } from '../lib/data/pagedSelect.ts';
 
 process.stdout.on('error', (err) => {
   if (err.code === 'EPIPE') return;
@@ -212,11 +213,14 @@ try {
   // -------------------------------------------------------------------
   // 1. Her real program, and the three exercises the run needs.
   // -------------------------------------------------------------------
-  const { data: assignments } = await db
-    .from('coach_program_assignments')
-    .select('id, program_group_key, coach_id, template_name_snapshot')
-    .eq('member_id', MEMBER_ID)
-    .eq('visibility', 'published');
+  const { rows: assignments } = await selectAllRows(() =>
+    db
+      .from('coach_program_assignments')
+      .select('id, program_group_key, coach_id, template_name_snapshot')
+      .eq('member_id', MEMBER_ID)
+      .eq('visibility', 'published')
+      .order('id', { ascending: true })
+  );
   const groupKey = (assignments ?? []).find((a) => a.program_group_key)?.program_group_key;
   const groupAssignments = (assignments ?? []).filter((a) => a.program_group_key === groupKey);
   check('member: one published program group to review', Boolean(groupKey), groupKey ?? 'none');
@@ -226,20 +230,25 @@ try {
   const assignmentIds = groupAssignments.map((a) => a.id);
   const coachId = groupAssignments[0]?.coach_id ?? null;
 
-  const { data: workouts } = await db
-    .from('coach_assigned_workouts')
-    .select('id, scheduled_date, program_week, status')
-    .in('assignment_id', assignmentIds)
-    .order('scheduled_date', { ascending: true });
+  const { rows: workouts } = await selectAllRowsInChunks(assignmentIds, (chunk) =>
+    db
+      .from('coach_assigned_workouts')
+      .select('id, scheduled_date, program_week, status')
+      .in('assignment_id', chunk)
+      .order('scheduled_date', { ascending: true })
+      .order('id', { ascending: true })
+  );
   note(`${(workouts ?? []).length} occurrences in this program`);
 
-  const { data: allExercises } = await db
-    .from('coach_assigned_workout_exercises')
-    .select('id, assigned_workout_id, external_id, exercise_name, status, reps, rep_range_low, hold_duration_seconds')
-    .in(
-      'assigned_workout_id',
-      (workouts ?? []).map((w) => w.id)
-    );
+  const { rows: allExercises } = await selectAllRowsInChunks(
+    (workouts ?? []).map((w) => w.id),
+    (chunk) =>
+      db
+        .from('coach_assigned_workout_exercises')
+        .select('id, assigned_workout_id, external_id, exercise_name, status, reps, rep_range_low, hold_duration_seconds')
+        .in('assigned_workout_id', chunk)
+        .order('id', { ascending: true })
+  );
 
   // Strength-shaped, so a weight field is the honest control for it. Same
   // rule weightLogging.ts applies.
@@ -279,13 +288,10 @@ try {
   for (const workout of workouts ?? []) {
     await rememberWorkout(workout.id);
   }
-  await db
-    .from('coach_assigned_workouts')
-    .update({ status: 'completed' })
-    .in(
-      'id',
-      (workouts ?? []).map((w) => w.id)
-    );
+  await writeInChunks(
+    (workouts ?? []).map((w) => w.id),
+    (chunk) => db.from('coach_assigned_workouts').update({ status: 'completed' }).in('id', chunk)
+  );
   note(`seeded: all ${(workouts ?? []).length} occurrences marked completed`);
 
   // --- seed: the qualifying exercise, 20 then 22.5 then 22.5 ---
@@ -602,13 +608,13 @@ try {
   console.log(`restored ${restore.workoutRows.size} occurrence rows`);
 
   if (restore.reviewIds.length > 0) {
-    await db.from('program_phase_reviews').delete().in('id', restore.reviewIds);
+    await writeInChunks(restore.reviewIds, (chunk) => db.from('program_phase_reviews').delete().in('id', chunk));
   }
   // Belt and braces: the screen creates a review as a side effect of
   // rendering, so remove any this member has at all.
   await db.from('program_phase_reviews').delete().eq('member_id', MEMBER_ID);
   if (restore.feedbackIds.length > 0) {
-    await db.from('member_exercise_feedback').delete().in('id', restore.feedbackIds);
+    await writeInChunks(restore.feedbackIds, (chunk) => db.from('member_exercise_feedback').delete().in('id', chunk));
   }
   await db
     .from('member_wellness_events')

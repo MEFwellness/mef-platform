@@ -8,21 +8,25 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import type { ExerciseLibraryProvider, MemberExerciseFavorite } from '@mef/shared-types-contracts';
+import { selectAllRows } from '../data/pagedSelect';
 
 export async function listMyExerciseFavorites(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<MemberExerciseFavorite[]> {
-  const { data, error } = await supabase
-    .from('member_exercise_favorites')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<MemberExerciseFavorite>(() =>
+    supabase
+      .from('member_exercise_favorites')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listMyExerciseFavorites failed', error);
     return [];
   }
-  return data as MemberExerciseFavorite[];
+  return data;
 }
 
 /** Just the external ids, as a Set, for cheaply marking hearts in a search-results grid. */
@@ -31,16 +35,19 @@ export async function listMyExerciseFavoriteIds(
   memberId: string,
   provider: ExerciseLibraryProvider
 ): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from('member_exercise_favorites')
-    .select('external_id')
-    .eq('member_id', memberId)
-    .eq('provider', provider);
+  const { rows: data, error } = await selectAllRows<{ external_id: string }>(() =>
+    supabase
+      .from('member_exercise_favorites')
+      .select('external_id')
+      .eq('member_id', memberId)
+      .eq('provider', provider)
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listMyExerciseFavoriteIds failed', error);
     return new Set();
   }
-  return new Set((data as { external_id: string }[]).map((row) => row.external_id));
+  return new Set(data.map((row) => row.external_id));
 }
 
 export async function isExerciseFavorited(

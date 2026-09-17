@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import type { ExerciseExtractedPoster } from '@mef/shared-types-contracts';
+import { selectAllRows, selectAllRowsInChunks, writeInChunks } from '../data/pagedSelect';
 
 export const EXERCISE_MEDIA_BUCKET = 'exercise-media';
 
@@ -37,7 +38,13 @@ export async function getExtractedPosterMap(
 ): Promise<Map<string, ExerciseExtractedPoster>> {
   if (externalIds.length === 0) return new Map();
 
-  const { data, error } = await supabase.from('exercise_extracted_posters').select('*').in('external_id', externalIds);
+  const { rows: data, error } = await selectAllRowsInChunks<ExerciseExtractedPoster>(externalIds, (chunk) =>
+    supabase
+      .from('exercise_extracted_posters')
+      .select('*')
+      .in('external_id', chunk)
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('getExtractedPosterMap failed', error);
     return new Map();
@@ -89,23 +96,24 @@ export async function upsertExtractedPoster(
 export async function removeYourMoveExtractedPosters(
   supabase: SupabaseClient
 ): Promise<{ removed: number; storagePaths: string[] }> {
-  const { data, error } = await supabase.from('exercise_extracted_posters').select('id, storage_path');
+  const { rows: data, error } = await selectAllRows<{ id: string; storage_path: string }>(() =>
+    supabase.from('exercise_extracted_posters').select('id, storage_path').order('id', { ascending: true })
+  );
   if (error) {
     console.error('removeYourMoveExtractedPosters: list failed', error);
     return { removed: 0, storagePaths: [] };
   }
 
   const rows = (data as { id: string; storage_path: string }[]) ?? [];
-  const { error: deleteError } = await supabase
-    .from('exercise_extracted_posters')
-    .delete()
-    .in(
-      'id',
-      rows.map((row) => row.id)
-    );
+  const { rows: deleted, error: deleteError } = await writeInChunks<string, { id: string; storage_path: string }>(
+    rows.map((row) => row.id),
+    (chunk) => supabase.from('exercise_extracted_posters').delete().in('id', chunk).select('id, storage_path')
+  );
   if (deleteError) {
+    // Chunks before the failure are already gone, so their files are still
+    // handed back for removal; a re-run could not find those rows again.
     console.error('removeYourMoveExtractedPosters: delete failed', deleteError);
-    return { removed: 0, storagePaths: [] };
+    return { removed: deleted.length, storagePaths: deleted.map((row) => row.storage_path) };
   }
 
   return { removed: rows.length, storagePaths: rows.map((row) => row.storage_path) };

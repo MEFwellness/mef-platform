@@ -42,6 +42,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 import { FPA_SECTION_HEADERS, fpaWatchForCopy } from '../lib/fuel-pattern/copy.ts';
 import { FPA_MEALS_SECTION_HEADER } from '../lib/fuel-pattern/meals/copy.ts';
 import { fpaMealById } from '../lib/fuel-pattern/meals/library.ts';
@@ -274,7 +275,7 @@ async function main() {
   mkdirSync(SHOTS, { recursive: true });
 
   const service = serviceClient();
-  const { data: users } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data: users } = await listAllAuthUsers(service.auth.admin);
   const member = users.users.find((u) => u.email === MEMBER_EMAIL);
   const coach = users.users.find((u) => u.email === COACH_EMAIL);
   if (!member) throw new Error('Test member not found on production.');
@@ -577,10 +578,13 @@ async function main() {
     for (let i = 0; i < 6; i++) {
       await logCheck(mine, { energy: 'Steady', hunger: 'Comfortable', clarity: 'Clear' });
     }
-    const { data: allChecks } = await service
-      .from('fuel_experiment_checks')
-      .select('energy, hunger')
-      .eq('member_id', memberId);
+    const { rows: allChecks } = await selectAllRows(() =>
+      service
+        .from('fuel_experiment_checks')
+        .select('energy, hunger')
+        .eq('member_id', memberId)
+        .order('id', { ascending: true })
+    );
     const steady = (allChecks ?? []).filter((r) => r.energy !== 'low').length;
     const comfortable = (allChecks ?? []).filter((r) => r.hunger === 'comfortable').length;
     const total = (allChecks ?? []).length;
@@ -704,11 +708,14 @@ async function main() {
       await countLine(mine)
     );
 
-    const { data: afterRestart } = await service
-      .from('fuel_experiments')
-      .select('id, archived_at, archived_reason')
-      .eq('member_id', memberId)
-      .order('created_at', { ascending: true });
+    const { rows: afterRestart } = await selectAllRows(() =>
+      service
+        .from('fuel_experiments')
+        .select('id, archived_at, archived_reason')
+        .eq('member_id', memberId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+    );
     const archivedFirst = (afterRestart ?? []).find((r) => r.id === firstRunId);
     check(
       'the previous run is archived, and it says she restarted',
@@ -926,7 +933,7 @@ async function main() {
   } finally {
     // ---------- Cleanup, then an independent query that says it worked ----------
     const service2 = serviceClient();
-    const { data: users2 } = await service2.auth.admin.listUsers({ perPage: 1000 });
+    const { data: users2 } = await listAllAuthUsers(service2.auth.admin);
     const member2 = users2.users.find((u) => u.email === MEMBER_EMAIL);
     const { data: definition2 } = await service2
       .from('unified_assessment_definitions')
@@ -945,11 +952,14 @@ async function main() {
       await service2.from('fuel_meal_slot_state').delete().eq('member_id', member2.id);
 
       if (definition2) {
-        const { data: sessions } = await service2
-          .from('unified_assessment_sessions')
-          .select('id')
-          .eq('member_id', member2.id)
-          .eq('assessment_definition_id', definition2.id);
+        const { rows: sessions } = await selectAllRows(() =>
+          service2
+            .from('unified_assessment_sessions')
+            .select('id')
+            .eq('member_id', member2.id)
+            .eq('assessment_definition_id', definition2.id)
+            .order('id', { ascending: true })
+        );
         await service2.from('fuel_pattern_results').delete().eq('member_id', member2.id);
         for (const s of sessions ?? []) {
           await service2.from('assessment_attempts').delete().eq('source_id', s.id);
@@ -975,11 +985,14 @@ async function main() {
       }
 
       if (definition2) {
-        const { data: leftoverSessions } = await service2
-          .from('unified_assessment_sessions')
-          .select('id')
-          .eq('member_id', member2.id)
-          .eq('assessment_definition_id', definition2.id);
+        const { rows: leftoverSessions } = await selectAllRows(() =>
+          service2
+            .from('unified_assessment_sessions')
+            .select('id')
+            .eq('member_id', member2.id)
+            .eq('assessment_definition_id', definition2.id)
+            .order('id', { ascending: true })
+        );
         check(
           'cleanup: no Fuel Pattern session is left on production',
           (leftoverSessions ?? []).length === 0,

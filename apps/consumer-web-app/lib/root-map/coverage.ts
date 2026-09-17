@@ -33,6 +33,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { addDaysToLocalDate } from '../feed/dateMath';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 import type { CoachingDomain } from '../investigation-engine/domains';
 import { listActiveDrivers } from '../driver-library/data';
 import { listActiveDriverProbeQuestions } from '../daily-checkin-adaptive/data';
@@ -139,20 +140,25 @@ async function fetchNutritionCoverage(
 
   if (nutritionQuestionKeys.length === 0) return null;
 
-  const { data, error } = await supabase
-    .from('daily_checkin_probe_answers')
-    .select('local_date')
-    .eq('member_id', memberId)
-    .in('question_key', nutritionQuestionKeys)
-    .gte('local_date', since)
-    .lte('local_date', asOfLocalDate);
+  const { rows: data, error } = await selectAllRowsInChunks<{ local_date: string }>(
+    nutritionQuestionKeys,
+    (chunk) =>
+      supabase
+        .from('daily_checkin_probe_answers')
+        .select('local_date')
+        .eq('member_id', memberId)
+        .in('question_key', chunk)
+        .gte('local_date', since)
+        .lte('local_date', asOfLocalDate)
+        .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('fetchNutritionCoverage failed', error);
     return null;
   }
 
-  return computeNutritionCoverage((data ?? []).map((row) => (row as { local_date: string }).local_date));
+  return computeNutritionCoverage(data.map((row) => row.local_date));
 }
 
 export async function fetchDomainCoverage(
@@ -163,12 +169,16 @@ export async function fetchDomainCoverage(
   const since = addDaysToLocalDate(asOfLocalDate, -(COVERAGE_WINDOW_DAYS - 1));
 
   const [checkinResult, nutritionCoverage] = await Promise.all([
-    supabase
-      .from('daily_checkins_current')
-      .select(CHECKIN_COVERAGE_COLUMNS)
-      .eq('user_id', memberId)
-      .gte('local_date', since)
-      .lte('local_date', asOfLocalDate),
+    // One row per (user_id, local_date) in this view, so local_date is a total order here.
+    selectAllRows<CheckinCoverageRow>(() =>
+      supabase
+        .from('daily_checkins_current')
+        .select(CHECKIN_COVERAGE_COLUMNS)
+        .eq('user_id', memberId)
+        .gte('local_date', since)
+        .lte('local_date', asOfLocalDate)
+        .order('local_date', { ascending: true })
+    ),
     fetchNutritionCoverage(supabase, memberId, since, asOfLocalDate),
   ]);
 
@@ -177,7 +187,7 @@ export async function fetchDomainCoverage(
     console.error('fetchDomainCoverage failed', checkinResult.error);
     result = {};
   } else {
-    result = computeAllDomainCoverage((checkinResult.data ?? []) as CheckinCoverageRow[]);
+    result = computeAllDomainCoverage(checkinResult.rows);
   }
 
   if (nutritionCoverage) result.nutrition_metabolic_health = nutritionCoverage;

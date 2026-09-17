@@ -26,6 +26,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.BASE_URL ?? 'https://app.mefwellness.com';
 const EMAIL = process.env.MEMBER_EMAIL ?? '8weeks2fab@gmail.com';
@@ -46,7 +47,7 @@ const service = createClient(
   readFileSync(process.env.PROD_SERVICE_KEY_FILE, 'utf8').trim(),
   { auth: { persistSession: false, autoRefreshToken: false } }
 );
-const { data: userPage } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+const { data: userPage } = await listAllAuthUsers(service.auth.admin);
 const member = userPage.users.find((u) => u.email === EMAIL);
 if (!member) {
   console.error('no such member on production:', EMAIL);
@@ -54,11 +55,14 @@ if (!member) {
 }
 
 async function patternStates() {
-  const { data, error } = await service
-    .from('member_pattern_states')
-    .select('signal_key,state,tier,occurrence_count,updated_at')
-    .eq('member_id', member.id)
-    .order('signal_key');
+  const { rows: data, error } = await selectAllRows(() =>
+    service
+      .from('member_pattern_states')
+      .select('signal_key,state,tier,occurrence_count,updated_at')
+      .eq('member_id', member.id)
+      .order('signal_key')
+      .order('id', { ascending: true })
+  );
   if (error) throw new Error(`member_pattern_states read failed: ${error.message}`);
   return data ?? [];
 }

@@ -137,6 +137,7 @@ export async function completedAnExperienceToday(
     if (definitionIds.length === 0) return false;
 
     const since = new Date(Date.now() - ONE_KNOCK_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
+    // scale-exempt: definitionIds is at most one id per key of FREE_ARC_SEQUENCE, a constant list of 3, and the read is capped by .limit(ROW_LIMIT) (20)
     const { data, error } = await supabase
       .from('unified_assessment_sessions')
       .select('completed_at')

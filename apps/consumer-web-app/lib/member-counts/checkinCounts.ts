@@ -35,6 +35,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { addDaysToLocalDate } from '@/lib/feed/dateMath';
 import { EVIDENCE_WINDOW_DAYS } from '@/lib/member-interpretation/config';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 
 /**
  * Distinct days with a check-in, from rows already in hand.
@@ -107,12 +108,16 @@ export async function getMemberCheckinCounts(
   const since = addDaysToLocalDate(todayLocalDate, -(windowDays - 1));
   const [totals, windowResult] = await Promise.all([
     getLoggedDayTotals(supabase, memberId),
-    supabase
-      .from('daily_checkins_current')
-      .select('local_date')
-      .eq('user_id', memberId)
-      .gte('local_date', since)
-      .lte('local_date', todayLocalDate),
+    // The view holds one row per member per local_date, so that order is total.
+    selectAllRows<{ local_date: string }>(() =>
+      supabase
+        .from('daily_checkins_current')
+        .select('local_date')
+        .eq('user_id', memberId)
+        .gte('local_date', since)
+        .lte('local_date', todayLocalDate)
+        .order('local_date', { ascending: true })
+    ),
   ]);
 
   if (windowResult.error) {
@@ -122,7 +127,7 @@ export async function getMemberCheckinCounts(
 
   return {
     ...totals,
-    windowLoggedDays: countLoggedDays((windowResult.data ?? []) as Array<{ local_date: string }>),
+    windowLoggedDays: countLoggedDays(windowResult.rows),
     windowDays,
   };
 }

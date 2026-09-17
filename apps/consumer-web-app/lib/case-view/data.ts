@@ -7,6 +7,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 
 export type GoalProgressCheckinRow = { localDate: string; rating: number };
 
@@ -14,11 +15,14 @@ export async function listGoalProgressCheckins(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<GoalProgressCheckinRow[]> {
-  const { data, error } = await supabase
-    .from('member_goal_progress_checkins')
-    .select('local_date, rating')
-    .eq('member_id', memberId)
-    .order('local_date', { ascending: true });
+  // (member_id, local_date) is unique, so local_date alone is a total order here.
+  const { rows: data, error } = await selectAllRows<{ local_date: string; rating: number }>(() =>
+    supabase
+      .from('member_goal_progress_checkins')
+      .select('local_date, rating')
+      .eq('member_id', memberId)
+      .order('local_date', { ascending: true })
+  );
 
   if (error) {
     console.error('listGoalProgressCheckins failed', error);

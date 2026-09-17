@@ -51,6 +51,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const STAFF_EMAIL = process.env.STAFF_EMAIL;
@@ -288,11 +289,14 @@ async function shot(page, name) {
 /** Removes only one template's rows. Eight templates share this table. */
 async function clearTemplate(service, memberId, template) {
   await service.from(TABLE).delete().eq('member_id', memberId).eq('experience_key', template.key);
-  const { data: experiments } = await service
-    .from('lifestyle_experiments')
-    .select('id')
-    .eq('member_id', memberId)
-    .eq('source_experience_key', template.key);
+  const { rows: experiments } = await selectAllRows(() =>
+    service
+      .from('lifestyle_experiments')
+      .select('id')
+      .eq('member_id', memberId)
+      .eq('source_experience_key', template.key)
+      .order('id', { ascending: true })
+  );
   for (const row of experiments ?? []) {
     await service.from('cvs_experiment_daily_logs').delete().eq('experiment_id', row.id);
   }
@@ -301,11 +305,14 @@ async function clearTemplate(service, memberId, template) {
     .delete()
     .eq('member_id', memberId)
     .eq('source_experience_key', template.key);
-  const { data: rows } = await service
-    .from('assessment_assignments')
-    .select('id')
-    .eq('member_id', memberId)
-    .eq('assessment_definition_id', template.definitionId);
+  const { rows } = await selectAllRows(() =>
+    service
+      .from('assessment_assignments')
+      .select('id')
+      .eq('member_id', memberId)
+      .eq('assessment_definition_id', template.definitionId)
+      .order('id', { ascending: true })
+  );
   for (const row of rows ?? []) {
     await service.from('member_assignment_deliveries').delete().eq('assignment_id', row.id);
   }
@@ -625,13 +632,16 @@ async function driveSitting(ctx, { followUp }) {
   // -------------------------------------------------------------------
   // Save and resume, across a genuinely closed tab.
   // -------------------------------------------------------------------
-  const { data: draftRows } = await service
-    .from(TABLE)
-    .select(
-      'id, answers, slider_positions, completed_at, first_stone, forward_sentence, experience_key, follow_up_source_experience_key'
-    )
-    .eq('member_id', memberId)
-    .eq('experience_key', TLYB.key);
+  const { rows: draftRows } = await selectAllRows(() =>
+    service
+      .from(TABLE)
+      .select(
+        'id, answers, slider_positions, completed_at, first_stone, forward_sentence, experience_key, follow_up_source_experience_key'
+      )
+      .eq('member_id', memberId)
+      .eq('experience_key', TLYB.key)
+      .order('id', { ascending: true })
+  );
   const draft = draftRows?.[0];
   check(
     'draft: one row exists, unfinished',
@@ -866,13 +876,16 @@ async function driveSitting(ctx, { followUp }) {
   // -------------------------------------------------------------------
   // What was stored.
   // -------------------------------------------------------------------
-  const { data: finishedRows } = await service
-    .from(TABLE)
-    .select(
-      'id, first_stone, forward_sentence, slider_positions, answers, completed_at, follow_up_source_experience_key'
-    )
-    .eq('member_id', memberId)
-    .eq('experience_key', TLYB.key);
+  const { rows: finishedRows } = await selectAllRows(() =>
+    service
+      .from(TABLE)
+      .select(
+        'id, first_stone, forward_sentence, slider_positions, answers, completed_at, follow_up_source_experience_key'
+      )
+      .eq('member_id', memberId)
+      .eq('experience_key', TLYB.key)
+      .order('id', { ascending: true })
+  );
   const finished = finishedRows?.[0];
   check('storage: the sitting is completed', Boolean(finished?.completed_at));
   check('storage: exactly one sitting exists, not two', (finishedRows ?? []).length === 1);
@@ -937,11 +950,14 @@ async function driveSitting(ctx, { followUp }) {
   await shot(page, `${ctx.tag}-12-done`);
   if (await emDashOn(page)) dashes++;
 
-  const { data: experiments } = await service
-    .from('lifestyle_experiments')
-    .select('id, title, protocol, duration_days, status, start_date')
-    .eq('member_id', memberId)
-    .eq('source_experience_key', TLYB.key);
+  const { rows: experiments } = await selectAllRows(() =>
+    service
+      .from('lifestyle_experiments')
+      .select('id, title, protocol, duration_days, status, start_date')
+      .eq('member_id', memberId)
+      .eq('source_experience_key', TLYB.key)
+      .order('id', { ascending: true })
+  );
   check('experiment: exactly one row was written', (experiments ?? []).length === 1);
   check('experiment: it runs seven days', experiments?.[0]?.duration_days === 7);
   check('experiment: it starts on HER calendar day', experiments?.[0]?.start_date === memberToday);
@@ -1035,12 +1051,15 @@ async function coachAssigns(ctx, { first }) {
   await panel.getByRole('button', { name: new RegExp(`Assign ${TLYB.label}`) }).click();
   await coachPage.waitForTimeout(4000);
 
-  const { data: assignments } = await service
-    .from('assessment_assignments')
-    .select('id, status, due_at')
-    .eq('member_id', memberId)
-    .eq('assessment_definition_id', TLYB.definitionId)
-    .eq('status', 'pending');
+  const { rows: assignments } = await selectAllRows(() =>
+    service
+      .from('assessment_assignments')
+      .select('id, status, due_at')
+      .eq('member_id', memberId)
+      .eq('assessment_definition_id', TLYB.definitionId)
+      .eq('status', 'pending')
+      .order('id', { ascending: true })
+  );
   check(
     'ledger: exactly one assignment row was written',
     (assignments ?? []).length === 1,
@@ -1208,11 +1227,14 @@ async function completeOwningYourValue(ctx) {
   if (await decline.count()) await decline.first().click();
   await page.waitForTimeout(3000);
 
-  const { data: rows } = await service
-    .from(TABLE)
-    .select('id, held_sentence, completed_at')
-    .eq('member_id', memberId)
-    .eq('experience_key', OYV.key);
+  const { rows } = await selectAllRows(() =>
+    service
+      .from(TABLE)
+      .select('id, held_sentence, completed_at')
+      .eq('member_id', memberId)
+      .eq('experience_key', OYV.key)
+      .order('id', { ascending: true })
+  );
   check(
     'set-up: one Owning Your Value sitting is completed, with her sentence in its own column',
     (rows ?? []).length === 1 &&
@@ -1220,11 +1242,14 @@ async function completeOwningYourValue(ctx) {
       rows?.[0]?.held_sentence === HELD_SENTENCE,
     String(rows?.[0]?.held_sentence ?? null)
   );
-  const { data: oyvExperiments } = await service
-    .from('lifestyle_experiments')
-    .select('id')
-    .eq('member_id', memberId)
-    .eq('source_experience_key', OYV.key);
+  const { rows: oyvExperiments } = await selectAllRows(() =>
+    service
+      .from('lifestyle_experiments')
+      .select('id')
+      .eq('member_id', memberId)
+      .eq('source_experience_key', OYV.key)
+      .order('id', { ascending: true })
+  );
   check(
     'set-up: its experiment was declined, so the cap is free for this template’s',
     (oyvExperiments ?? []).length === 0
@@ -1341,21 +1366,27 @@ async function main() {
     untouchedBefore[key] = count ?? 0;
   }
 
-  const { data: experimentsBefore } = await service
-    .from('lifestyle_experiments')
-    .select('id, title, source_experience_key, status')
-    .eq('member_id', memberId);
+  const { rows: experimentsBefore } = await selectAllRows(() =>
+    service
+      .from('lifestyle_experiments')
+      .select('id, title, source_experience_key, status')
+      .eq('member_id', memberId)
+      .order('id', { ascending: true })
+  );
   check(
     'fixture: the account carries no leftover experiment before the run',
     (experimentsBefore ?? []).length === 0,
     JSON.stringify(experimentsBefore ?? [])
   );
 
-  const { data: oyvBefore } = await service
-    .from(TABLE)
-    .select('id')
-    .eq('member_id', memberId)
-    .eq('experience_key', OYV.key);
+  const { rows: oyvBefore } = await selectAllRows(() =>
+    service
+      .from(TABLE)
+      .select('id')
+      .eq('member_id', memberId)
+      .eq('experience_key', OYV.key)
+      .order('id', { ascending: true })
+  );
   check(
     'fixture: the account carries no Owning Your Value sitting, so run A is genuinely standalone',
     (oyvBefore ?? []).length === 0,
@@ -1453,52 +1484,67 @@ async function main() {
   // ---------------- THE ACCOUNT IS LEFT AS IT WAS FOUND ----------------
   phase = 'cleanup';
   for (const template of [TLYB, OYV]) {
-    const { data: leftSittings } = await service
-      .from(TABLE)
-      .select('id')
-      .eq('member_id', memberId)
-      .eq('experience_key', template.key);
+    const { rows: leftSittings } = await selectAllRows(() =>
+      service
+        .from(TABLE)
+        .select('id')
+        .eq('member_id', memberId)
+        .eq('experience_key', template.key)
+        .order('id', { ascending: true })
+    );
     check(
       `cleanup: no ${template.label} sitting from this run is left on production`,
       (leftSittings ?? []).length === 0,
       JSON.stringify(leftSittings ?? [])
     );
 
-    const { data: leftAssignments } = await service
-      .from('assessment_assignments')
-      .select('id')
-      .eq('member_id', memberId)
-      .eq('assessment_definition_id', template.definitionId);
+    const { rows: leftAssignments } = await selectAllRows(() =>
+      service
+        .from('assessment_assignments')
+        .select('id')
+        .eq('member_id', memberId)
+        .eq('assessment_definition_id', template.definitionId)
+        .order('id', { ascending: true })
+    );
     check(
       `cleanup: no ${template.label} assignment from this run is left`,
       (leftAssignments ?? []).length === 0
     );
 
-    const { data: leftAttempts } = await service
-      .from('assessment_attempts')
-      .select('id')
-      .eq('member_id', memberId)
-      .eq('assessment_definition_id', template.definitionId);
+    const { rows: leftAttempts } = await selectAllRows(() =>
+      service
+        .from('assessment_attempts')
+        .select('id')
+        .eq('member_id', memberId)
+        .eq('assessment_definition_id', template.definitionId)
+        .order('id', { ascending: true })
+    );
     check(
       `cleanup: no ${template.label} attempt row from this run is left`,
       (leftAttempts ?? []).length === 0
     );
 
-    const { data: leftDismissals } = await service
-      .from('member_root_popup_dismissals')
-      .select('message_key')
-      .eq('member_id', memberId)
-      .like('message_key', `${template.dismissalPrefix}:%`);
+    const { rows: leftDismissals } = await selectAllRows(() =>
+      service
+        .from('member_root_popup_dismissals')
+        .select('message_key')
+        .eq('member_id', memberId)
+        .like('message_key', `${template.dismissalPrefix}:%`)
+        .order('id', { ascending: true })
+    );
     check(
       `cleanup: no ${template.label} pop-up dismissal row from this run is left`,
       (leftDismissals ?? []).length === 0
     );
   }
 
-  const { data: leftExperiments } = await service
-    .from('lifestyle_experiments')
-    .select('id, source_experience_key')
-    .eq('member_id', memberId);
+  const { rows: leftExperiments } = await selectAllRows(() =>
+    service
+      .from('lifestyle_experiments')
+      .select('id, source_experience_key')
+      .eq('member_id', memberId)
+      .order('id', { ascending: true })
+  );
   check(
     'cleanup: the account holds no experiment at all',
     (leftExperiments ?? []).length === 0,

@@ -40,6 +40,7 @@
  */
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 import { readFileSync } from 'node:fs';
 import { mintSessionCookies, retireSession, canMintSessions } from './lib/mint-session.mjs';
 
@@ -340,11 +341,13 @@ async function readSession(service, visitorToken) {
 
 async function readAnswers(service, sessionId) {
   if (!sessionId) return [];
-  const { data } = await service
-    .from('guest_wellness_check_answers')
-    .select('question_key, answer_value')
-    .eq('session_id', sessionId)
-    .order('question_key');
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('guest_wellness_check_answers')
+      .select('question_key, answer_value')
+      .eq('session_id', sessionId)
+      .order('question_key')
+  );
   return data ?? [];
 }
 
@@ -422,7 +425,9 @@ async function submitRealCheckin(page, base, service, memberId, knownBefore) {
 }
 
 async function checkinIds(service, memberId) {
-  const { data } = await service.from('daily_checkins').select('id').eq('user_id', memberId);
+  const { rows: data } = await selectAllRows(() =>
+    service.from('daily_checkins').select('id').eq('user_id', memberId).order('id', { ascending: true })
+  );
   return (data ?? []).map((row) => row.id);
 }
 

@@ -32,6 +32,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionCookies, retireSession } from './lib/mint-session.mjs';
+import { listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.BASE_URL || 'https://app.mefwellness.com';
 const PHONE = { width: 390, height: 844 };
@@ -79,7 +80,7 @@ async function closeAs(session) {
 }
 
 async function memberIdFor(email) {
-  const { data } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const { data } = await listAllAuthUsers(service.auth.admin);
   const user = data.users.find((u) => (u.email || '').toLowerCase() === email.toLowerCase());
   if (!user) throw new Error(`no account for ${email}`);
   return user.id;

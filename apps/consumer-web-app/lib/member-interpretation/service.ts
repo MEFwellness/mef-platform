@@ -63,6 +63,7 @@ export async function fetchInterpretationCheckins(
   localDate: string
 ): Promise<InterpretationCheckin[]> {
   const since = addDaysToLocalDate(localDate, -(EVIDENCE_WINDOW_DAYS - 1));
+  // scale-exempt: the view is distinct on (user_id, local_date), so one member over the EVIDENCE_WINDOW_DAYS (21) day window is at most 21 rows
   const { data, error } = await supabase
     .from('daily_checkins_current')
     .select(INTERPRETATION_CHECKIN_COLUMNS)

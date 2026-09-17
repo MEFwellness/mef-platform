@@ -32,6 +32,7 @@ import { getExercisesByExternalIds } from '../your-move/catalog';
 import { getMemberExerciseCues } from '../exercise-library/metadata';
 import { getExtractedPosterMap, toPublicMediaUrl } from '../your-move/posters';
 import { estimateSessionSeconds } from './duration';
+import { selectAllRows } from '../data/pagedSelect';
 
 const TEMPLATE_COLUMNS =
   'id, session_key, name, description, target_duration_min_minutes, target_duration_max_minutes, sort_order, is_active';
@@ -78,11 +79,14 @@ export async function listTemplateSlots(
   supabase: SupabaseClient,
   templateId: string
 ): Promise<MovementSessionTemplateSlot[]> {
-  const { data, error } = await supabase
-    .from('movement_session_template_slots')
-    .select(SLOT_COLUMNS)
-    .eq('template_id', templateId)
-    .order('slot_order', { ascending: true });
+  // unique (template_id, slot_order), so slot_order is already a total order here
+  const { rows: data, error } = await selectAllRows<MovementSessionTemplateSlot>(() =>
+    supabase
+      .from('movement_session_template_slots')
+      .select(SLOT_COLUMNS)
+      .eq('template_id', templateId)
+      .order('slot_order', { ascending: true })
+  );
 
   if (error) {
     console.error('listTemplateSlots failed', error);
@@ -283,12 +287,16 @@ export async function getSessionLastCompletedMap(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<string, string>> {
-  const { data, error } = await supabase
-    .from('member_movement_session_runs')
-    .select('session_key, completed_at')
-    .eq('member_id', memberId)
-    .not('completed_at', 'is', null)
-    .order('completed_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<{ session_key: string; completed_at: string }>(
+    () =>
+      supabase
+        .from('member_movement_session_runs')
+        .select('session_key, completed_at')
+        .eq('member_id', memberId)
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false })
+        .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('getSessionLastCompletedMap failed', error);

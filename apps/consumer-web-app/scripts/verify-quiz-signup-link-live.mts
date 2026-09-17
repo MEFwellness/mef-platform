@@ -43,6 +43,7 @@ import {
 } from '../lib/public-entry/signupRef';
 import { getMemberOrigin, getSessionByToken } from '../lib/public-entry/data';
 import { TRIAL_ARC_LAUNCH } from '../lib/trial-arc/config';
+import { selectAllRows } from '../lib/data/pagedSelect';
 
 const BASE = process.env.BASE_URL || 'https://app.mefwellness.com';
 const PHONE = { width: 393, height: 852 };
@@ -309,6 +310,7 @@ async function stageMint() {
   mintedSessionId = run.sessionId;
 
   if (run.sessionId) {
+    // scale-exempt: references for the single arrival this run just finished, expected exactly one
     const { data } = await service
       .from('public_entry_signup_refs')
       .select('id, ref_hash, issued_at, expires_at, used_at')
@@ -557,10 +559,13 @@ async function stageCleanup() {
 
   // And anything an earlier run of any of these scripts left behind. No
   // real visitor uses example.test.
-  const { data: strays } = await service
-    .from('public_entry_sessions')
-    .select('id, captured_lead_id')
-    .ilike('lead_email', '%@example.test');
+  const { rows: strays } = await selectAllRows<{ id: string; captured_lead_id: string | null }>(() =>
+    service
+      .from('public_entry_sessions')
+      .select('id, captured_lead_id')
+      .ilike('lead_email', '%@example.test')
+      .order('id', { ascending: true })
+  );
   const strayRows = (strays ?? []) as { id: string; captured_lead_id: string | null }[];
   for (const row of strayRows) {
     if (row.captured_lead_id) {
@@ -575,10 +580,13 @@ async function stageCleanup() {
     }
     await service.from('public_entry_sessions').delete().eq('id', row.id);
   }
-  const { data: stillStray } = await service
-    .from('public_entry_sessions')
-    .select('id')
-    .ilike('lead_email', '%@example.test');
+  const { rows: stillStray } = await selectAllRows<{ id: string }>(() =>
+    service
+      .from('public_entry_sessions')
+      .select('id')
+      .ilike('lead_email', '%@example.test')
+      .order('id', { ascending: true })
+  );
   check(
     'and no test-address arrival is left anywhere in production, from this run or an earlier one',
     (stillStray ?? []).length === 0,
@@ -591,7 +599,9 @@ async function stageCleanup() {
   }
   check('no temporary account is left behind', leftoverUsers.length === 0, leftoverUsers.join(', '));
 
-  const { data: refsLeft } = await service.from('public_entry_signup_refs').select('id');
+  const { rows: refsLeft } = await selectAllRows<{ id: string }>(() =>
+    service.from('public_entry_signup_refs').select('id').order('id', { ascending: true })
+  );
   check(
     'no reference row is left behind anywhere, so the table is back to empty',
     (refsLeft ?? []).length === 0,

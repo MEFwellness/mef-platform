@@ -14,6 +14,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listSnapshotHistory } from '@/lib/scoring/data';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type { ScoreConfidenceLevel } from '@mef/shared-types-contracts';
 import type {
   CoachingDataSourceProvider,
@@ -63,12 +64,16 @@ async function loggedDatesIn(
   memberId: string,
   range: CoachingDateRange
 ): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from('daily_checkins_current')
-    .select('local_date')
-    .eq('user_id', memberId)
-    .gte('local_date', range.from)
-    .lte('local_date', range.to);
+  // One row per (user_id, local_date) in this view, so local_date is a total order here.
+  const { rows: data, error } = await selectAllRows<{ local_date: string }>(() =>
+    supabase
+      .from('daily_checkins_current')
+      .select('local_date')
+      .eq('user_id', memberId)
+      .gte('local_date', range.from)
+      .lte('local_date', range.to)
+      .order('local_date', { ascending: true })
+  );
 
   if (error) {
     console.error('progressSource loggedDatesIn failed', error);

@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type {
   ConversationSession,
   ConversationSessionStatus,
@@ -335,12 +336,15 @@ export async function findSimilarActiveMemory(
   memoryType: ConversationMemoryType,
   content: string
 ): Promise<ConversationMemoryItem | null> {
-  const { data, error } = await supabase
-    .from('conversation_memory')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('memory_type', memoryType)
-    .eq('is_active', true);
+  const { rows: data, error } = await selectAllRows<ConversationMemoryItem>(() =>
+    supabase
+      .from('conversation_memory')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('memory_type', memoryType)
+      .eq('is_active', true)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('findSimilarActiveMemory failed', error);
@@ -408,11 +412,14 @@ export async function listHandoffsForMember(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<ConversationHandoff[]> {
-  const { data, error } = await supabase
-    .from('conversation_handoffs')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<ConversationHandoff>(() =>
+    supabase
+      .from('conversation_handoffs')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listHandoffsForMember failed', error);
@@ -425,11 +432,14 @@ export async function listHandoffsForSession(
   supabase: SupabaseClient,
   sessionId: string
 ): Promise<ConversationHandoff[]> {
-  const { data, error } = await supabase
-    .from('conversation_handoffs')
-    .select('*')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<ConversationHandoff>(() =>
+    supabase
+      .from('conversation_handoffs')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listHandoffsForSession failed', error);

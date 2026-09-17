@@ -11,6 +11,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 
 /** The browser's own PushSubscription, exactly as `subscription.toJSON()` produces it. */
 export type PushSubscriptionJson = {
@@ -189,12 +190,15 @@ export async function listLivePushDevices(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<PushDevice[]> {
-  const { data, error } = await supabase
-    .from('member_push_subscriptions')
-    .select('id, member_id, endpoint, subscription, device_label, created_at')
-    .eq('member_id', memberId)
-    .is('revoked_at', null)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('member_push_subscriptions')
+      .select('id, member_id, endpoint, subscription, device_label, created_at')
+      .eq('member_id', memberId)
+      .is('revoked_at', null)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) return [];
 
@@ -218,10 +222,13 @@ export async function listLivePushDevices(
 export async function countLiveDevicesByMember(
   supabase: SupabaseClient
 ): Promise<Map<string, number>> {
-  const { data, error } = await supabase
-    .from('member_push_subscriptions')
-    .select('member_id')
-    .is('revoked_at', null);
+  const { rows: data, error } = await selectAllRows<{ member_id: string }>(() =>
+    supabase
+      .from('member_push_subscriptions')
+      .select('member_id')
+      .is('revoked_at', null)
+      .order('id', { ascending: true })
+  );
 
   const counts = new Map<string, number>();
   if (error || !data) return counts;

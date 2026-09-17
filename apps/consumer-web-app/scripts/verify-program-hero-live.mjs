@@ -35,6 +35,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const MEMBER_ID = process.env.MEMBER_ID;
@@ -160,6 +161,7 @@ async function shoot(page, name) {
 
 /** Puts the seeded program into one status and reloads Home. */
 async function setStatus(fields) {
+  // scale-exempt: created.assignmentIds holds the one assignment this run inserted
   const { error } = await db
     .from('coach_program_assignments')
     .update(fields)
@@ -172,19 +174,28 @@ try {
   // 0. What she has before anything is touched. This is the number the
   //    restore has to land back on.
   // -------------------------------------------------------------------
-  const { data: beforeAssignments } = await db
-    .from('coach_program_assignments')
-    .select('id')
-    .eq('member_id', MEMBER_ID);
-  const { data: beforeWorkouts } = await db
-    .from('coach_assigned_workouts')
-    .select('id')
-    .eq('member_id', MEMBER_ID);
-  const { data: beforeEvents } = await db
-    .from('member_wellness_events')
-    .select('id')
-    .eq('member_id', MEMBER_ID)
-    .eq('event_type', 'program_opened');
+  const { rows: beforeAssignments } = await selectAllRows(() =>
+    db
+      .from('coach_program_assignments')
+      .select('id')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
+  const { rows: beforeWorkouts } = await selectAllRows(() =>
+    db
+      .from('coach_assigned_workouts')
+      .select('id')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
+  const { rows: beforeEvents } = await selectAllRows(() =>
+    db
+      .from('member_wellness_events')
+      .select('id')
+      .eq('member_id', MEMBER_ID)
+      .eq('event_type', 'program_opened')
+      .order('id', { ascending: true })
+  );
   existingBefore = {
     assignments: (beforeAssignments ?? []).length,
     workouts: (beforeWorkouts ?? []).length,
@@ -335,6 +346,7 @@ try {
 
   // The write happens after paint, so give it a beat before asking.
   await page.waitForTimeout(2500);
+  // scale-exempt: events for the one assignment this run inserted (created.assignmentIds), expected exactly one
   const { data: openEvents } = await db
     .from('member_wellness_events')
     .select('id, source_record_id, payload')
@@ -359,6 +371,7 @@ try {
   check('open: the mark is gone from Movement too', !/New from your coach/.test(movementAfter), '');
   await page.goto(`${BASE}/programs`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
+  // scale-exempt: events for the one assignment this run inserted (created.assignmentIds), expected exactly one
   const { data: openEventsAgain } = await db
     .from('member_wellness_events')
     .select('id')
@@ -465,31 +478,43 @@ try {
   // -------------------------------------------------------------------
   try {
     if (created.assignmentIds.length > 0) {
+      // scale-exempt: created.assignmentIds holds the one assignment this run inserted
       await db
         .from('member_wellness_events')
         .delete()
         .in('source_record_id', created.assignmentIds);
     }
     if (created.workoutIds.length > 0) {
+      // scale-exempt: created.workoutIds holds the two sessions this run inserted
       await db.from('coach_assigned_workouts').delete().in('id', created.workoutIds);
     }
     if (created.assignmentIds.length > 0) {
+      // scale-exempt: created.assignmentIds holds the one assignment this run inserted
       await db.from('coach_program_assignments').delete().in('id', created.assignmentIds);
     }
 
-    const { data: afterAssignments } = await db
-      .from('coach_program_assignments')
-      .select('id')
-      .eq('member_id', MEMBER_ID);
-    const { data: afterWorkouts } = await db
-      .from('coach_assigned_workouts')
-      .select('id')
-      .eq('member_id', MEMBER_ID);
-    const { data: afterEvents } = await db
-      .from('member_wellness_events')
-      .select('id')
-      .eq('member_id', MEMBER_ID)
-      .eq('event_type', 'program_opened');
+    const { rows: afterAssignments } = await selectAllRows(() =>
+      db
+        .from('coach_program_assignments')
+        .select('id')
+        .eq('member_id', MEMBER_ID)
+        .order('id', { ascending: true })
+    );
+    const { rows: afterWorkouts } = await selectAllRows(() =>
+      db
+        .from('coach_assigned_workouts')
+        .select('id')
+        .eq('member_id', MEMBER_ID)
+        .order('id', { ascending: true })
+    );
+    const { rows: afterEvents } = await selectAllRows(() =>
+      db
+        .from('member_wellness_events')
+        .select('id')
+        .eq('member_id', MEMBER_ID)
+        .eq('event_type', 'program_opened')
+        .order('id', { ascending: true })
+    );
 
     const after = {
       assignments: (afterAssignments ?? []).length,

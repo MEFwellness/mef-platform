@@ -27,6 +27,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.VERIFY_BASE_URL ?? 'https://app.mefwellness.com';
 const STANDING_MEMBER = process.env.TEST_MEMBER_EMAIL;
@@ -105,7 +106,7 @@ async function main() {
     // member who could not be deleted, so this run makes one. The coach is
     // the SEEDED TEST coach, never a real one, and the assignment goes with
     // the throwaway account when it is deleted below.
-    const { data: accounts } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const { data: accounts } = await listAllAuthUsers(admin.auth.admin);
     const testCoach = accounts.users.find((u) => u.email === 'test.coach@example.test');
     check('the seeded test coach was found to assign against', Boolean(testCoach));
     if (testCoach) {

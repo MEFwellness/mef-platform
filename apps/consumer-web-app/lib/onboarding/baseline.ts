@@ -25,6 +25,7 @@ import type {
 } from '@mef/shared-types-contracts';
 import { numericRange } from './scale';
 import { readOnce } from '../data/readOnce';
+import { selectAllRows } from '../data/pagedSelect';
 
 export type BaselineAnswer = {
   questionKey: string;
@@ -160,13 +161,22 @@ async function readBaselineAssessment(
 
   if (submissionError || !submission) return null;
 
-  const [{ data: answerRows }, { data: questions }] = await Promise.all([
-    supabase.from('onboarding_answers').select('*').eq('submission_id', submission.id),
-    supabase
-      .from('onboarding_questions')
-      .select('*')
-      .eq('assessment_version_id', submission.assessment_version_id)
-      .order('display_order', { ascending: true }),
+  const [{ rows: answerRows }, { rows: questions }] = await Promise.all([
+    selectAllRows<OnboardingAnswerRecord>(() =>
+      supabase
+        .from('onboarding_answers')
+        .select('*')
+        .eq('submission_id', submission.id)
+        .order('id', { ascending: true })
+    ),
+    selectAllRows<OnboardingQuestion>(() =>
+      supabase
+        .from('onboarding_questions')
+        .select('*')
+        .eq('assessment_version_id', submission.assessment_version_id)
+        .order('display_order', { ascending: true })
+        .order('id', { ascending: true })
+    ),
   ]);
 
   return buildBaselineAssessment(

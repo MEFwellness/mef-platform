@@ -33,6 +33,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { BackButton } from '@/components/BackButton';
@@ -111,21 +112,19 @@ export default async function AcquisitionReportPage({
       includeTest: view.includeTestAccounts,
     }),
     readKnownGroups(supabase, { includeTest: view.includeTestAccounts }),
-    supabase
-      .from('public_entry_sources')
-      .select('code, label, is_test, active')
-      .eq('active', true)
-      .order('channel')
-      .order('code'),
+    selectAllRows<{ code: string; label: string; is_test: boolean }>(() =>
+      supabase
+        .from('public_entry_sources')
+        .select('code, label, is_test, active')
+        .eq('active', true)
+        .order('channel')
+        .order('code')
+    ),
   ]);
 
   const groups = rollUp(read.rows, view.groupBy, known[view.groupBy]);
   const totals = totalsOf(groups);
-  const sources = (sourcesResult.data ?? []) as {
-    code: string;
-    label: string;
-    is_test: boolean;
-  }[];
+  const sources = sourcesResult.error ? [] : sourcesResult.rows;
   const producing = groups.filter((row) => row.kind === 'named' && row.visits > 0).length;
   const silent = groups.filter((row) => row.kind === 'named' && row.visits === 0).length;
 

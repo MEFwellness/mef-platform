@@ -21,6 +21,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows, selectAllRowsInChunks, writeInChunks } from '@/lib/data/pagedSelect';
 import type { PatternStrength, EvaluationReason } from './constants';
 import type { PatternMatch } from './types';
 
@@ -75,11 +76,14 @@ export async function listMatchesForMember(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<{ ok: boolean; records: PatternMatchRecord[] }> {
-  const { data, error } = await supabase
-    .from('cross_system_pattern_matches')
-    .select(MATCH_COLUMNS)
-    .eq('member_id', memberId)
-    .order('evaluated_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<MatchRow>(() =>
+    supabase
+      .from('cross_system_pattern_matches')
+      .select(MATCH_COLUMNS)
+      .eq('member_id', memberId)
+      .order('evaluated_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listMatchesForMember failed', error);
     return { ok: false, records: [] };
@@ -87,18 +91,20 @@ export async function listMatchesForMember(
   const rows = (data ?? []) as unknown as MatchRow[];
   if (rows.length === 0) return { ok: true, records: [] };
 
-  const contributions = await supabase
-    .from('cross_system_pattern_match_signals')
-    .select('match_id, signal_id')
-    .in(
-      'match_id',
-      rows.map((row) => row.id)
-    );
+  const contributions = await selectAllRowsInChunks<{ match_id: string; signal_id: string }>(
+    rows.map((row) => row.id),
+    (chunk) =>
+      supabase
+        .from('cross_system_pattern_match_signals')
+        .select('match_id, signal_id')
+        .in('match_id', chunk)
+        .order('id', { ascending: true })
+  );
   if (contributions.error) {
     console.error('listMatchesForMember contributions failed', contributions.error);
   }
   const byMatch = new Map<string, string[]>();
-  for (const row of (contributions.data ?? []) as { match_id: string; signal_id: string }[]) {
+  for (const row of contributions.error ? [] : contributions.rows) {
     const held = byMatch.get(row.match_id);
     if (held) held.push(row.signal_id);
     else byMatch.set(row.match_id, [row.signal_id]);
@@ -152,11 +158,13 @@ export async function replaceMatches(
 ): Promise<{ ok: boolean; written: number }> {
   if (input.consideredRelationshipIds.length === 0) return { ok: true, written: 0 };
 
-  const cleared = await supabase
-    .from('cross_system_pattern_matches')
-    .delete()
-    .eq('member_id', input.memberId)
-    .in('relationship_id', [...input.consideredRelationshipIds]);
+  const cleared = await writeInChunks([...input.consideredRelationshipIds], (chunk) =>
+    supabase
+      .from('cross_system_pattern_matches')
+      .delete()
+      .eq('member_id', input.memberId)
+      .in('relationship_id', chunk)
+  );
   if (cleared.error) {
     console.error('replaceMatches delete failed', cleared.error);
     return { ok: false, written: 0 };
@@ -165,26 +173,24 @@ export async function replaceMatches(
   const surfaced = input.matches.filter((match) => match.surfaced);
   if (surfaced.length === 0) return { ok: true, written: 0 };
 
-  const { data, error } = await supabase
-    .from('cross_system_pattern_matches')
-    .insert(
-      surfaced.map((match) => ({
-        member_id: input.memberId,
-        relationship_id: match.head.id,
-        version_id: match.version.id,
-        version_number: match.version.versionNumber,
-        level_key: match.levelKey,
-        level_label: match.levelLabel,
-        strength: match.strength,
-        supporting_count: match.supportingCount,
-        related_count: match.relatedCount,
-        distinct_category_count: match.distinctCategoryCount,
-        source_count: match.sourceCount,
-        evaluated_at: input.evaluatedAt,
-        evaluated_reason: input.reason,
-      }))
-    )
-    .select('id, relationship_id');
+  const { rows: data, error } = await writeInChunks(
+    surfaced.map((match) => ({
+      member_id: input.memberId,
+      relationship_id: match.head.id,
+      version_id: match.version.id,
+      version_number: match.version.versionNumber,
+      level_key: match.levelKey,
+      level_label: match.levelLabel,
+      strength: match.strength,
+      supporting_count: match.supportingCount,
+      related_count: match.relatedCount,
+      distinct_category_count: match.distinctCategoryCount,
+      source_count: match.sourceCount,
+      evaluated_at: input.evaluatedAt,
+      evaluated_reason: input.reason,
+    })),
+    (chunk) => supabase.from('cross_system_pattern_matches').insert(chunk).select('id, relationship_id')
+  );
   if (error || !data) {
     console.error('replaceMatches insert failed', error);
     return { ok: false, written: 0 };
@@ -215,9 +221,10 @@ export async function replaceMatches(
     }
   }
   if (contributions.length > 0) {
-    const written = await supabase
-      .from('cross_system_pattern_match_signals')
-      .insert(contributions);
+    // Grows with matches times the signals behind each, so it goes in chunks.
+    const written = await writeInChunks(contributions, (chunk) =>
+      supabase.from('cross_system_pattern_match_signals').insert(chunk)
+    );
     if (written.error) {
       console.error('replaceMatches contributions failed', written.error);
       return { ok: false, written: surfaced.length };
@@ -247,11 +254,15 @@ export async function membersHoldingAny(
   if (refs.bodyAreaKeys.length > 0) clauses.push(`body_area_key.in.(${quoted(refs.bodyAreaKeys)})`);
   if (clauses.length === 0) return [];
 
-  const { data, error } = await supabase
-    .from('cross_system_signals')
-    .select('member_id')
-    .or(clauses.join(','))
-    .limit(limit * 40);
+  // `limit * 40` rows is above PostgREST's 1,000 row cap from a limit of 26,
+  // and the default pass asks for 200 members, so the rows are paged up to
+  // that number rather than asked for in one request that returns 1,000.
+  const { rows: data, error } = await selectAllRows<{ member_id: string }>(
+    () =>
+      // scale-exempt: the clauses name the signal, category and area keys of ONE map entry
+      supabase.from('cross_system_signals').select('member_id').or(clauses.join(',')).order('id', { ascending: true }),
+    { limit: limit * 40 }
+  );
   if (error) {
     console.error('membersHoldingAny failed', error);
     return [];

@@ -21,6 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BlueprintBlock, ProgramDifficulty } from '@mef/shared-types-contracts';
 import type { SwapCandidate } from './swap';
+import { selectAllRowsInChunks } from '../../data/pagedSelect';
 
 /**
  * Which corrective roles do the job of each MEF block. The same mapping
@@ -88,18 +89,17 @@ export async function loadBlockCandidates(
   if (metadata.length === 0) return [];
 
   const ids = metadata.map((row) => row.external_id);
-  const catalog: CatalogRow[] = [];
-  for (let offset = 0; offset < ids.length; offset += PAGE_SIZE) {
-    const { data, error } = await supabase
+  const { rows: catalog, error: catalogError } = await selectAllRowsInChunks<CatalogRow>(ids, (chunk) =>
+    supabase
       .from('exercise_catalog')
       .select('provider, external_id, name, equipment, difficulty, is_client_assignable')
       .eq('is_client_assignable', true)
-      .in('external_id', ids.slice(offset, offset + PAGE_SIZE));
-    if (error) {
-      console.error('loadBlockCandidates (catalog) failed', error);
-      return [];
-    }
-    catalog.push(...((data ?? []) as unknown as CatalogRow[]));
+      .in('external_id', chunk)
+      .order('id', { ascending: true })
+  );
+  if (catalogError) {
+    console.error('loadBlockCandidates (catalog) failed', catalogError);
+    return [];
   }
 
   const roleByKey = new Map(metadata.map((row) => [`${row.provider}:${row.external_id}`, row]));

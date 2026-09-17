@@ -149,6 +149,11 @@ class FakeQuery {
     return Promise.resolve({ data: result.data?.[0] ?? null, error: result.error });
   }
 
+  range(from: number, to: number) {
+    const result = this.run();
+    return Promise.resolve(result.data ? { ...result, data: result.data.slice(from, to + 1) } : result);
+  }
+
   then(resolve: (value: { data: Row[] | null; error: { message: string } | null }) => unknown) {
     return Promise.resolve(this.run()).then(resolve);
   }

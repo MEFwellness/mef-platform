@@ -46,6 +46,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, writeInChunks, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.RA_BASE_URL ?? 'http://127.0.0.1:3000';
 const SUPA = process.env.PROD_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -72,14 +73,19 @@ const admin = createClient(SUPA, readFileSync(process.env.PROD_SERVICE_KEY_FILE,
 
 /** Everything either instrument could have left behind, removed. */
 async function clean() {
-  const { data: wbsSittings } = await admin
-    .from('member_whole_body_signal_sessions')
-    .select('id')
-    .eq('member_id', MEMBER);
+  const { rows: wbsSittings } = await selectAllRows(() =>
+    admin
+      .from('member_whole_body_signal_sessions')
+      .select('id')
+      .eq('member_id', MEMBER)
+      .order('id', { ascending: true })
+  );
   const wbsIds = (wbsSittings ?? []).map((row) => row.id);
   if (wbsIds.length > 0) {
-    await admin.from('member_whole_body_signal_question_actions').delete().in('session_id', wbsIds);
-    await admin.from('member_whole_body_signal_focus').delete().in('session_id', wbsIds);
+    await writeInChunks(wbsIds, (chunk) =>
+      admin.from('member_whole_body_signal_question_actions').delete().in('session_id', chunk)
+    );
+    await writeInChunks(wbsIds, (chunk) => admin.from('member_whole_body_signal_focus').delete().in('session_id', chunk));
   }
   await admin.from('member_whole_body_signal_sessions').delete().eq('member_id', MEMBER);
   await admin.from('unified_assessment_sessions').delete().eq('member_id', MEMBER);
@@ -106,7 +112,7 @@ async function clean() {
   mint a session for a brand new stranger and walk as them.
 */
 async function assertExistingUser(email, expectedId) {
-  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const { data, error } = await listAllAuthUsers(admin.auth.admin);
   if (error) throw new Error(`could not list users: ${error.message}`);
   const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
   if (!found) throw new Error(`REFUSING TO RUN: ${email} is not an existing account`);
@@ -198,12 +204,15 @@ async function openFolds(page) {
 
 /** Every assignment row this client has for one instrument, newest first. */
 async function assignmentRows(definitionId) {
-  const { data } = await admin
-    .from('assessment_assignments')
-    .select('id, status, due_at, created_at, assigned_by')
-    .eq('member_id', MEMBER)
-    .eq('assessment_definition_id', definitionId)
-    .order('created_at', { ascending: false });
+  const { rows: data } = await selectAllRows(() =>
+    admin
+      .from('assessment_assignments')
+      .select('id, status, due_at, created_at, assigned_by')
+      .eq('member_id', MEMBER)
+      .eq('assessment_definition_id', definitionId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   return data ?? [];
 }
 
@@ -393,10 +402,13 @@ try {
   let page = await minted.context.newPage();
   watch(page, 'member');
 
-  const { data: dismissalsBefore } = await admin
-    .from('member_root_popup_dismissals')
-    .select('message_key')
-    .eq('member_id', MEMBER);
+  const { rows: dismissalsBefore } = await selectAllRows(() =>
+    admin
+      .from('member_root_popup_dismissals')
+      .select('message_key')
+      .eq('member_id', MEMBER)
+      .order('id', { ascending: true })
+  );
   knownDismissals = new Set((dismissalsBefore ?? []).map((row) => row.message_key));
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
@@ -803,19 +815,20 @@ try {
   if (failed.length) console.log('FAILED:\n' + failed.map((f) => `  ${f.name} ${f.note}`).join('\n'));
 
   if (knownDismissals) {
-    const { data: after } = await admin
-      .from('member_root_popup_dismissals')
-      .select('message_key')
-      .eq('member_id', MEMBER);
+    const { rows: after } = await selectAllRows(() =>
+      admin
+        .from('member_root_popup_dismissals')
+        .select('message_key')
+        .eq('member_id', MEMBER)
+        .order('id', { ascending: true })
+    );
     const added = (after ?? [])
       .map((row) => row.message_key)
       .filter((key) => !knownDismissals.has(key));
     if (added.length > 0) {
-      await admin
-        .from('member_root_popup_dismissals')
-        .delete()
-        .eq('member_id', MEMBER)
-        .in('message_key', added);
+      await writeInChunks(added, (chunk) =>
+        admin.from('member_root_popup_dismissals').delete().eq('member_id', MEMBER).in('message_key', chunk)
+      );
       console.log(`removed ${added.length} dismissal row(s) this run created`);
     }
   }
@@ -827,20 +840,30 @@ try {
   // STATE LEFT BEHIND: NONE. Removed, then confirmed absent by an
   // independent read rather than by trusting the delete.
   await clean();
-  const [{ data: leftSittings }, { data: leftAssignments }, { data: leftAttempts }, { data: leftUnified }] =
+  const [{ rows: leftSittings }, { rows: leftAssignments }, { rows: leftAttempts }, { rows: leftUnified }] =
     await Promise.all([
-      admin.from('member_whole_body_signal_sessions').select('id').eq('member_id', MEMBER),
-      admin
-        .from('assessment_assignments')
-        .select('id')
-        .eq('member_id', MEMBER)
-        .in('assessment_definition_id', [WBS_DEFINITION, WBSA_DEFINITION]),
-      admin
-        .from('assessment_attempts')
-        .select('id')
-        .eq('member_id', MEMBER)
-        .in('assessment_definition_id', [WBS_DEFINITION, WBSA_DEFINITION]),
-      admin.from('unified_assessment_sessions').select('id').eq('member_id', MEMBER),
+      selectAllRows(() =>
+        admin.from('member_whole_body_signal_sessions').select('id').eq('member_id', MEMBER).order('id', { ascending: true })
+      ),
+      selectAllRows(() =>
+        admin
+          .from('assessment_assignments')
+          .select('id')
+          .eq('member_id', MEMBER)
+          .in('assessment_definition_id', [WBS_DEFINITION, WBSA_DEFINITION])
+          .order('id', { ascending: true })
+      ),
+      selectAllRows(() =>
+        admin
+          .from('assessment_attempts')
+          .select('id')
+          .eq('member_id', MEMBER)
+          .in('assessment_definition_id', [WBS_DEFINITION, WBSA_DEFINITION])
+          .order('id', { ascending: true })
+      ),
+      selectAllRows(() =>
+        admin.from('unified_assessment_sessions').select('id').eq('member_id', MEMBER).order('id', { ascending: true })
+      ),
     ]);
   const leftovers =
     (leftSittings?.length ?? 0) +

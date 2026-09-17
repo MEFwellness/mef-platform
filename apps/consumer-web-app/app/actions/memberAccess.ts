@@ -32,6 +32,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { isAccessStatus, isAccessTier } from '@/lib/membership/types';
@@ -133,9 +134,16 @@ export async function listMemberAccessAction(
   includeTest = false
 ): Promise<MemberAccessActionResult<MemberAccessRow[]>> {
   return guarded('listMemberAccessAction', async (supabase) => {
-    const { data, error } = await supabase.rpc('admin_list_member_access', {
-      p_include_test: includeTest,
-    });
+    // The function orders by account creation; the same order is repeated here, with member_id
+    // (one row per profile) to make it total, because a page is only stable over a total order.
+    const { rows: data, error } = await selectAllRows<RawRow>(() =>
+      supabase
+        .rpc('admin_list_member_access', {
+          p_include_test: includeTest,
+        })
+        .order('account_created_at', { ascending: true })
+        .order('member_id', { ascending: true })
+    );
     if (error) throw error;
     return ((data ?? []) as RawRow[]).map(toRow);
   });

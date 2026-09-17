@@ -31,6 +31,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks, writeInChunks } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const MEMBER_ID = process.env.MEMBER_ID;
@@ -164,11 +165,13 @@ try {
     .maybeSingle();
   check('db: Home Dumbbell Foundation exists', Boolean(program), program?.display_name ?? 'missing');
 
-  const { data: versions } = await db
-    .from('movement_program_versions')
-    .select('*')
-    .eq('program_id', program?.id ?? '00000000-0000-0000-0000-000000000000')
-    .order('version_number', { ascending: false });
+  const { rows: versions } = await selectAllRows(() =>
+    db
+      .from('movement_program_versions')
+      .select('*')
+      .eq('program_id', program?.id ?? '00000000-0000-0000-0000-000000000000')
+      .order('version_number', { ascending: false })
+  );
   const v2 = (versions ?? []).find((v) => v.version_number === 2);
   const v1 = (versions ?? []).find((v) => v.version_number === 1);
 
@@ -177,23 +180,34 @@ try {
   check('db: v2 records linear periodization', v2?.periodization === 'linear', String(v2?.periodization));
   check('db: v1 is still there, still a draft', v1?.status === 'draft' && v1?.approved_at === null, `v1 ${v1?.status}`);
 
-  const { data: v1Slots } = await db
-    .from('program_blueprint_slots')
-    .select('id')
-    .eq('program_version_id', v1?.id ?? '');
+  const { rows: v1Slots } = await selectAllRows(() =>
+    db
+      .from('program_blueprint_slots')
+      .select('id')
+      .eq('program_version_id', v1?.id ?? '')
+      .order('id', { ascending: true })
+  );
   check('db: v1 still has its original 26 slots', (v1Slots ?? []).length === 26, `${(v1Slots ?? []).length}`);
 
-  const { data: slots } = await db
-    .from('program_blueprint_slots')
-    .select('*')
-    .eq('program_version_id', v2?.id ?? '');
+  const { rows: slots } = await selectAllRows(() =>
+    db
+      .from('program_blueprint_slots')
+      .select('*')
+      .eq('program_version_id', v2?.id ?? '')
+      .order('id', { ascending: true })
+  );
   const sessions = [...new Set((slots ?? []).map((s) => s.session_designation))].sort();
   check('db: v2 has 24 slots across three sessions', (slots ?? []).length === 24 && sessions.length === 3, `${(slots ?? []).length} slots, ${sessions.join('/')}`);
 
-  const { data: catalog } = await db
-    .from('exercise_catalog')
-    .select('provider, external_id, is_client_assignable')
-    .in('external_id', (slots ?? []).map((s) => s.external_id).filter(Boolean));
+  const { rows: catalog } = await selectAllRowsInChunks(
+    (slots ?? []).map((s) => s.external_id).filter(Boolean),
+    (chunk) =>
+      db
+        .from('exercise_catalog')
+        .select('provider, external_id, is_client_assignable')
+        .in('external_id', chunk)
+        .order('id', { ascending: true })
+  );
   const assignable = new Map(
     (catalog ?? []).map((c) => [`${c.provider}:${c.external_id}`, c.is_client_assignable])
   );
@@ -246,10 +260,13 @@ try {
     }
   }
 
-  const { data: memberAssignmentsBefore } = await db
-    .from('coach_program_assignments')
-    .select('id, template_name_snapshot, status, visibility')
-    .eq('member_id', MEMBER_ID);
+  const { rows: memberAssignmentsBefore } = await selectAllRows(() =>
+    db
+      .from('coach_program_assignments')
+      .select('id, template_name_snapshot, status, visibility')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
   note(`member currently has ${(memberAssignmentsBefore ?? []).length} assignment(s)`);
 
   // -------------------------------------------------------------------
@@ -337,6 +354,7 @@ try {
 
   if (!throwawayProgramId) throw new Error('the throwaway duplicate was never created, so nothing downstream can run');
 
+  // scale-exempt: the versions of the throwaway program this run just duplicated, which Duplicate creates with exactly one version (read as [0] below)
   const { data: throwawayVersions } = await db
     .from('movement_program_versions')
     .select('*')
@@ -344,10 +362,13 @@ try {
   const copy = (throwawayVersions ?? [])[0];
   check('admin: the duplicate is version 1, in draft', copy?.version_number === 1 && copy?.status === 'draft', `v${copy?.version_number} ${copy?.status}`);
 
-  const { data: copySlots } = await db
-    .from('program_blueprint_slots')
-    .select('*')
-    .eq('program_version_id', copy?.id ?? '');
+  const { rows: copySlots } = await selectAllRows(() =>
+    db
+      .from('program_blueprint_slots')
+      .select('*')
+      .eq('program_version_id', copy?.id ?? '')
+      .order('id', { ascending: true })
+  );
   check('admin: every slot came across', (copySlots ?? []).length === 24, `${(copySlots ?? []).length}`);
   check('admin: v2 itself is untouched by the duplicate', (await db.from('movement_program_versions').select('status').eq('id', v2.id).single()).data.status === 'draft', '');
 
@@ -682,45 +703,56 @@ try {
 
     check('assign: three unpublished draft assignments were created', createdAssignmentIds.length === 3, `${createdAssignmentIds.length}`);
 
-    const { data: writtenAssignments } = await db
-      .from('coach_program_assignments')
-      .select('id, visibility, published_at, source_blueprint_version_id, duration_weeks, program_group_key')
-      .in('id', createdAssignmentIds);
+    const { rows: writtenAssignments } = await selectAllRowsInChunks(createdAssignmentIds, (chunk) =>
+      db
+        .from('coach_program_assignments')
+        .select('id, visibility, published_at, source_blueprint_version_id, duration_weeks, program_group_key')
+        .in('id', chunk)
+        .order('id', { ascending: true })
+    );
     check('assign: none of them is published', (writtenAssignments ?? []).every((a) => a.visibility !== 'published' && a.published_at === null), '');
     check('assign: every one records the blueprint version it came from', (writtenAssignments ?? []).every((a) => a.source_blueprint_version_id === copy.id), '');
     check('assign: they share one program group and one duration', new Set((writtenAssignments ?? []).map((a) => a.program_group_key)).size === 1 && new Set((writtenAssignments ?? []).map((a) => a.duration_weeks)).size === 1, '');
 
-    const { data: frozenWorkouts } = await db
-      .from('coach_assigned_workouts')
-      .select('id, program_week, published_at')
-      .in('assignment_id', createdAssignmentIds);
+    const { rows: frozenWorkouts } = await selectAllRowsInChunks(createdAssignmentIds, (chunk) =>
+      db
+        .from('coach_assigned_workouts')
+        .select('id, program_week, published_at')
+        .in('assignment_id', chunk)
+        .order('id', { ascending: true })
+    );
     check('assign: twelve frozen weekly occurrences, none published', (frozenWorkouts ?? []).length === 12 && (frozenWorkouts ?? []).every((w) => w.published_at === null), `${(frozenWorkouts ?? []).length}`);
 
     const weekById = new Map((frozenWorkouts ?? []).map((w) => [w.id, w.program_week]));
     const mainLift = (copySlots ?? []).find((s) => s.session_designation === 'A' && s.priority_rank === 1);
-    const { data: frozenMain } = await db
-      .from('coach_assigned_workout_exercises')
-      .select('assigned_workout_id, sets')
-      .in('assigned_workout_id', [...weekById.keys()])
-      .eq('external_id', mainLift.external_id);
+    const { rows: frozenMain } = await selectAllRowsInChunks([...weekById.keys()], (chunk) =>
+      db
+        .from('coach_assigned_workout_exercises')
+        .select('assigned_workout_id, sets')
+        .in('assigned_workout_id', chunk)
+        .eq('external_id', mainLift.external_id)
+        .order('id', { ascending: true })
+    );
     const setsByWeek = {};
     for (const row of frozenMain ?? []) setsByWeek[weekById.get(row.assigned_workout_id)] = row.sets;
     check('assign: the main lift gains its set in week 3 and nowhere else', setsByWeek[1] === mainLift.sets && setsByWeek[2] === mainLift.sets && setsByWeek[3] === mainLift.sets + 1 && setsByWeek[4] === mainLift.sets, JSON.stringify(setsByWeek));
 
-    const { data: frozenPerSide } = await db
-      .from('coach_assigned_workout_exercises')
-      .select('exercise_name, unilateral')
-      .in('assigned_workout_id', [...weekById.keys()])
-      .eq('exercise_name', 'Single Arm Dumbbell Row');
+    const { rows: frozenPerSide } = await selectAllRowsInChunks([...weekById.keys()], (chunk) =>
+      db
+        .from('coach_assigned_workout_exercises')
+        .select('exercise_name, unilateral')
+        .in('assigned_workout_id', chunk)
+        .eq('exercise_name', 'Single Arm Dumbbell Row')
+        .order('id', { ascending: true })
+    );
     check('assign: the row is frozen as per side', (frozenPerSide ?? []).length > 0 && (frozenPerSide ?? []).every((r) => r.unilateral === true), `${(frozenPerSide ?? []).length} rows`);
 
     // The member cannot see any of it.
     if (before.accessToken) {
       const asMember = memberClient(before.accessToken);
-      const { data: visible } = await asMember
-        .from('coach_assigned_workouts')
-        .select('id')
-        .in('id', [...weekById.keys()]);
+      const { rows: visible } = await selectAllRowsInChunks([...weekById.keys()], (chunk) =>
+        asMember.from('coach_assigned_workouts').select('id').in('id', chunk).order('id', { ascending: true })
+      );
       check('assign: the member can read none of the unpublished occurrences', (visible ?? []).length === 0, `${(visible ?? []).length} visible`);
     }
   }
@@ -733,39 +765,48 @@ try {
   const removed = [];
 
   if (createdAssignmentIds.length > 0) {
-    const { data: published } = await db
-      .from('coach_program_assignments')
-      .select('id, visibility, published_at')
-      .in('id', createdAssignmentIds);
+    const { rows: published } = await selectAllRowsInChunks(createdAssignmentIds, (chunk) =>
+      db
+        .from('coach_program_assignments')
+        .select('id, visibility, published_at')
+        .in('id', chunk)
+        .order('id', { ascending: true })
+    );
     const anyPublished = (published ?? []).some((a) => a.visibility === 'published' || a.published_at !== null);
     if (anyPublished) {
       check('restore: refused to delete a published assignment', false, 'something got published, left in place for a human');
     } else {
-      await db.from('coach_program_assignments').delete().in('id', createdAssignmentIds);
+      await writeInChunks(createdAssignmentIds, (chunk) => db.from('coach_program_assignments').delete().in('id', chunk));
       removed.push(`${createdAssignmentIds.length} assignment(s)`);
     }
   }
   if (createdTemplateIds.length > 0) {
-    await db.from('coach_program_templates').delete().in('id', createdTemplateIds);
+    await writeInChunks(createdTemplateIds, (chunk) => db.from('coach_program_templates').delete().in('id', chunk));
     removed.push(`${createdTemplateIds.length} template(s)`);
   }
   if (throwawayProgramId) {
     // Archived first, so the archive path itself is exercised on a real
     // approved version, then deleted because it was only ever a fixture.
-    const { data: throwawayVersions } = await db
-      .from('movement_program_versions')
-      .select('id')
-      .eq('program_id', throwawayProgramId);
+    const { rows: throwawayVersions } = await selectAllRows(() =>
+      db
+        .from('movement_program_versions')
+        .select('id')
+        .eq('program_id', throwawayProgramId)
+        .order('id', { ascending: true })
+    );
     for (const version of throwawayVersions ?? []) {
       await db
         .from('movement_program_versions')
         .update({ status: 'archived', archived_at: new Date().toISOString() })
         .eq('id', version.id);
     }
-    const { data: archived } = await db
-      .from('movement_program_versions')
-      .select('status')
-      .eq('program_id', throwawayProgramId);
+    const { rows: archived } = await selectAllRows(() =>
+      db
+        .from('movement_program_versions')
+        .select('status')
+        .eq('program_id', throwawayProgramId)
+        .order('id', { ascending: true })
+    );
     check('restore: the throwaway archived cleanly before deletion', (archived ?? []).every((v) => v.status === 'archived'), (archived ?? []).map((v) => v.status).join(','));
 
     await db.from('movement_programs').delete().eq('id', throwawayProgramId);
@@ -775,15 +816,18 @@ try {
   console.log(`\nRESTORE: ${removed.length > 0 ? `removed ${removed.join(', ')}` : restoreLog}`);
 
   // The member's own state, after.
-  const { data: memberAfter } = await db
-    .from('coach_program_assignments')
-    .select('id, status, visibility')
-    .eq('member_id', MEMBER_ID);
+  const { rows: memberAfter } = await selectAllRows(() =>
+    db
+      .from('coach_program_assignments')
+      .select('id, status, visibility')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
   console.log(`END STATE: the member has ${(memberAfter ?? []).length} assignment(s), none created by this run.`);
 
-  const { data: blueprintsAfter } = await db
-    .from('movement_programs')
-    .select('key, display_name');
+  const { rows: blueprintsAfter } = await selectAllRows(() =>
+    db.from('movement_programs').select('key, display_name').order('id', { ascending: true })
+  );
   console.log(`END STATE: production holds ${(blueprintsAfter ?? []).length} named program(s): ${(blueprintsAfter ?? []).map((p) => p.display_name).join(', ')}`);
 
   const { data: seedProgram } = await db
@@ -791,11 +835,13 @@ try {
     .select('id')
     .eq('key', SEED_KEY)
     .maybeSingle();
-  const { data: seedVersions } = await db
-    .from('movement_program_versions')
-    .select('version_number, status, approved_at')
-    .eq('program_id', seedProgram?.id ?? '')
-    .order('version_number', { ascending: true });
+  const { rows: seedVersions } = await selectAllRows(() =>
+    db
+      .from('movement_program_versions')
+      .select('version_number, status, approved_at')
+      .eq('program_id', seedProgram?.id ?? '')
+      .order('version_number', { ascending: true })
+  );
   for (const v of seedVersions ?? []) {
     console.log(`END STATE: Home Dumbbell Foundation v${v.version_number} is ${v.status}${v.approved_at ? ' (approved)' : ''}`);
   }

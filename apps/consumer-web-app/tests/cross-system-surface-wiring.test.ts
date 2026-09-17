@@ -274,29 +274,42 @@ describe('classification can never block, delay or fail a submission', () => {
 describe('the writes stay batched, which matters more at this scale', () => {
   it('findings, their areas and their rows are batched for the whole cause, never per finding', () => {
     const data = read('lib/cross-system-root/data.ts');
-    // The findings in one insert.
-    expect(data).toContain("from('cross_system_root_findings')\n    .insert(findingRows)");
-    // Areas, row links and survey triggers in batches of a FIXED SIZE, not
-    // one per finding. A complaint's handful of areas is one batch, exactly
-    // as before; a survey sitting reaching dozens of entries at once is a
-    // few, rather than one request carrying thousands of rows.
-    expect(data).toContain('for (const batch of chunks(areaRows))');
-    expect(data).toContain('for (const batch of chunks(signalRows))');
-    expect(data).toContain('for (const batch of chunks(triggerRows))');
+    // The findings, their areas, their row links and their survey triggers
+    // each go out through writeInChunks in batches of a FIXED SIZE, not one
+    // per finding. A complaint's handful of findings or areas is one batch,
+    // exactly as before; a survey sitting reaching dozens of entries at once
+    // is a few, rather than one request carrying thousands of rows.
     expect(data).toMatch(/export const FINDING_INSERT_CHUNK = \d{3,};/);
+    const batchedWrites: [rows: string, table: string][] = [
+      ['findingRows', 'cross_system_root_findings'],
+      ['areaRows', 'cross_system_root_finding_areas'],
+      ['signalRows', 'cross_system_root_finding_signals'],
+      ['triggerRows', 'cross_system_root_finding_triggers'],
+    ];
+    for (const [rows, table] of batchedWrites) {
+      expect(data).toMatch(
+        new RegExp(
+          `writeInChunks(?:<.*>)?\\(\\s*${rows},\\s*\\(chunk\\) =>\\s*supabase\\.from\\('${table}'\\)\\.insert\\(chunk\\)[^\\n]*,\\s*FINDING_INSERT_CHUNK\\s*\\)`
+        )
+      );
+    }
     const body = data.slice(data.indexOf('const surfaced ='), data.indexOf('export type StoredFinding'));
-    // The only loops that await a write are those batch loops: none walks
-    // the findings, the areas or the rows one at a time.
+    // Every insert in the pass is one of those chunks: none sends a single
+    // finding, area or row on its own.
+    expect([...body.matchAll(/\.insert\((\w+)\)/g)].map((match) => match[1])).toEqual([
+      'chunk',
+      'chunk',
+      'chunk',
+      'chunk',
+    ]);
+    // And no loop awaits a write: nothing walks the findings, the areas or
+    // the rows one request at a time.
     const loops = [...body.matchAll(/for \(const (\w+) of ([^)]+)\)/g)];
     const awaitingLoops = loops.filter((loop) => {
       const after = body.slice(loop.index!, loop.index! + 500);
       return /await supabase/.test(after.slice(0, after.indexOf('\n    }') + 1 || 500));
     });
-    for (const loop of awaitingLoops) {
-      expect(loop[1], loop[0]).toBe('batch');
-      expect(loop[2]).toMatch(/^chunks\(/);
-    }
-    expect(awaitingLoops.length).toBeGreaterThanOrEqual(3);
+    expect(awaitingLoops.map((loop) => loop[0])).toEqual([]);
   });
 
   it('ids come back by a key the caller chose, never by insertion order', () => {

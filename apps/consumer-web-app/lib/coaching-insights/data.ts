@@ -16,6 +16,7 @@ export async function listCoachingInsightsForDate(
   memberId: string,
   localDate: string
 ): Promise<CoachingInsight[]> {
+  // scale-exempt: unique (member_id, local_date, category) and category is check-constrained to 5 values, so one date is at most 5 rows
   const { data, error } = await supabase
     .from('coaching_insights')
     .select('*')

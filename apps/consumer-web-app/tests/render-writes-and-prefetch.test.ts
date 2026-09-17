@@ -60,6 +60,7 @@ function fakeClient(patternRows: unknown[] = []) {
     for (const method of ['select', 'eq', 'in', 'is', 'neq', 'gte', 'lte', 'order', 'limit', 'not']) {
       chain[method] = () => chain;
     }
+    chain.range = async (from: number, to: number) => ({ ...result, data: rowsFor.slice(from, to + 1) });
     chain.maybeSingle = async () => ({ data: rowsFor[0] ?? null, error: null });
     chain.single = async () => ({ data: rowsFor[0] ?? null, error: null });
     chain.then = (resolve: (value: typeof result) => unknown) => Promise.resolve(result).then(resolve);

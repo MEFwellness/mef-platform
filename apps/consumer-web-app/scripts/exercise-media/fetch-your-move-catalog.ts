@@ -80,6 +80,7 @@ async function main() {
   let written = 0;
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
+    // scale-exempt: already chunked by hand, each upsert is one rows.slice of at most BATCH_SIZE (200) rows
     const { error } = await supabase.from('exercise_catalog').upsert(batch, { onConflict: 'provider,external_id' });
     if (error) {
       throw new Error(`Failed to upsert exercise_catalog batch starting at ${i}: ${error.message}`);

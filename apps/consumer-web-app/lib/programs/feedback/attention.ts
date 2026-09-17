@@ -24,6 +24,7 @@
  * NO EM DASHES, per the house rule.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRowsInChunks } from '../../data/pagedSelect';
 
 export const PAIN_STOP_REASON = 'Exercise stopped, member reported pain';
 export const READY_TO_PROGRESS_REASON = 'An exercise felt too easy, ready to progress';
@@ -57,19 +58,22 @@ export async function loadFeedbackAttention(
   const byMember = new Map<string, string[]>();
   if (memberIds.length === 0) return byMember;
 
-  const { data, error } = await supabase
-    .from('member_exercise_feedback')
-    .select('member_id, branch, coach_reviewed_at')
-    .in('member_id', memberIds)
-    .is('coach_reviewed_at', null)
-    .in('branch', ['safety', 'progression_note']);
+  const { rows: data, error } = await selectAllRowsInChunks<FeedbackAttentionRow>(memberIds, (chunk) =>
+    supabase
+      .from('member_exercise_feedback')
+      .select('member_id, branch, coach_reviewed_at')
+      .in('member_id', chunk)
+      .is('coach_reviewed_at', null)
+      .in('branch', ['safety', 'progression_note'])
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('loadFeedbackAttention failed', error);
     return byMember;
   }
 
   const rowsByMember = new Map<string, FeedbackAttentionRow[]>();
-  for (const row of (data ?? []) as FeedbackAttentionRow[]) {
+  for (const row of data) {
     const list = rowsByMember.get(row.member_id) ?? [];
     list.push(row);
     rowsByMember.set(row.member_id, list);

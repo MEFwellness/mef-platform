@@ -35,6 +35,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks, writeInChunks } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const MEMBER_ID = process.env.MEMBER_ID;
@@ -167,30 +168,40 @@ try {
     .maybeSingle();
   check('db: the named program exists', !programError && Boolean(program), program?.display_name ?? String(programError?.message ?? 'missing'));
 
-  const { data: versions } = await db
-    .from('movement_program_versions')
-    .select('*')
-    .eq('program_id', program?.id ?? '00000000-0000-0000-0000-000000000000')
-    .order('version_number', { ascending: false });
+  const { rows: versions } = await selectAllRows(() =>
+    db
+      .from('movement_program_versions')
+      .select('*')
+      .eq('program_id', program?.id ?? '00000000-0000-0000-0000-000000000000')
+      .order('version_number', { ascending: false })
+  );
   const version = (versions ?? [])[0];
   check('db: it has a version 1 in DRAFT', version?.version_number === 1 && version?.status === 'draft', `v${version?.version_number} ${version?.status}`);
   check('db: nothing has approved it', version?.approved_at === null && version?.approved_by === null, '');
   note(`title "${version?.member_title}", ${version?.duration_weeks} weeks, ${version?.sessions_per_week} sessions a week, ${version?.equipment_mode} equipment`);
 
-  const { data: slots } = await db
-    .from('program_blueprint_slots')
-    .select('*')
-    .eq('program_version_id', version?.id ?? '00000000-0000-0000-0000-000000000000');
+  const { rows: slots } = await selectAllRows(() =>
+    db
+      .from('program_blueprint_slots')
+      .select('*')
+      .eq('program_version_id', version?.id ?? '00000000-0000-0000-0000-000000000000')
+      .order('id', { ascending: true })
+  );
   const sessions = [...new Set((slots ?? []).map((s) => s.session_designation))].sort();
   check('db: 26 slots across three weekly sessions', (slots ?? []).length === 26 && sessions.length === 3, `${(slots ?? []).length} slots, sessions ${sessions.join('/')}`);
 
   const unfilled = (slots ?? []).filter((s) => !s.external_id);
   check('db: every slot is filled', unfilled.length === 0, `${unfilled.length} unfilled`);
 
-  const { data: catalog } = await db
-    .from('exercise_catalog')
-    .select('provider, external_id, name, is_client_assignable')
-    .in('external_id', (slots ?? []).map((s) => s.external_id).filter(Boolean));
+  const { rows: catalog } = await selectAllRowsInChunks(
+    (slots ?? []).map((s) => s.external_id).filter(Boolean),
+    (chunk) =>
+      db
+        .from('exercise_catalog')
+        .select('provider, external_id, name, is_client_assignable')
+        .in('external_id', chunk)
+        .order('id', { ascending: true })
+  );
   const assignable = new Map((catalog ?? []).map((c) => [`${c.provider}:${c.external_id}`, c.is_client_assignable]));
   const notAssignable = (slots ?? []).filter(
     (s) => s.external_id && assignable.get(`${s.provider}:${s.external_id}`) !== true
@@ -223,10 +234,13 @@ try {
     console.log('SKIP  member RLS checks (no minted session)');
   }
 
-  const { data: existingPrograms } = await db
-    .from('coach_program_assignments')
-    .select('id, template_name_snapshot, status, visibility, program_group_key, source_blueprint_version_id')
-    .eq('member_id', MEMBER_ID);
+  const { rows: existingPrograms } = await selectAllRows(() =>
+    db
+      .from('coach_program_assignments')
+      .select('id, template_name_snapshot, status, visibility, program_group_key, source_blueprint_version_id')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
   note(`member currently has ${(existingPrograms ?? []).length} assignment(s) on record`);
   for (const row of existingPrograms ?? []) {
     note(`  ${row.template_name_snapshot} :: ${row.status}/${row.visibility}`);
@@ -330,6 +344,7 @@ try {
           .single();
         if (sectionError) throw new Error(`section insert failed: ${sectionError.message}`);
 
+        // scale-exempt: the slots of one block of one session of one blueprint version, kept whole so a section is all-or-nothing
         const { error: exerciseError } = await db.from('coach_program_template_exercises').insert(
           grouped[s].slots.map((slot, index) => ({
             section_id: sectionRow.id,
@@ -427,6 +442,7 @@ try {
             .single();
           if (sectionError) throw new Error(`assigned section insert failed: ${sectionError.message}`);
 
+          // scale-exempt: the slots of one block of one session of one blueprint version, kept whole so a section is all-or-nothing
           const { error: exerciseError } = await db
             .from('coach_assigned_workout_exercises')
             .insert(
@@ -488,16 +504,20 @@ try {
       check('db: a corrective assignment exists to compare shape against', false, 'none on production, comparison skipped');
     }
 
-    const { data: namedWorkouts } = await db
-      .from('coach_assigned_workouts')
-      .select('id, program_week, published_at, template_name, description')
-      .eq('assignment_id', createdAssignmentIds[0])
-      .order('program_week', { ascending: true });
+    const { rows: namedWorkouts } = await selectAllRows(() =>
+      db
+        .from('coach_assigned_workouts')
+        .select('id, program_week, published_at, template_name, description')
+        .eq('assignment_id', createdAssignmentIds[0])
+        .order('program_week', { ascending: true })
+        .order('id', { ascending: true })
+    );
     check('db: four occurrences, weeks 1 to 4, none published', (namedWorkouts ?? []).length === 4 && (namedWorkouts ?? []).every((w) => w.published_at === null) && JSON.stringify((namedWorkouts ?? []).map((w) => w.program_week)) === '[1,2,3,4]', `${(namedWorkouts ?? []).length} occurrences`);
 
     const mainLift = (slots ?? []).find((s) => s.session_designation === 'A' && s.priority_rank === 1);
     const setsByWeek = {};
     for (const workout of namedWorkouts ?? []) {
+      // scale-exempt: one exercise of one workout this run just inserted, at most one row per blueprint slot of that session
       const { data: rows } = await db
         .from('coach_assigned_workout_exercises')
         .select('sets')
@@ -535,24 +555,23 @@ try {
   // Restore. Every row this run created is removed, pass or fail.
   // -------------------------------------------------------------------
   if (createdAssignmentIds.length > 0) {
-    await db.from('coach_program_assignments').delete().in('id', createdAssignmentIds);
+    await writeInChunks(createdAssignmentIds, (chunk) => db.from('coach_program_assignments').delete().in('id', chunk));
   }
   if (createdTemplateIds.length > 0) {
-    await db.from('coach_program_templates').delete().in('id', createdTemplateIds);
+    await writeInChunks(createdTemplateIds, (chunk) => db.from('coach_program_templates').delete().in('id', chunk));
   }
 
-  const { data: leftoverAssignments } = await db
-    .from('coach_program_assignments')
-    .select('id')
-    .in('id', createdAssignmentIds.length > 0 ? createdAssignmentIds : ['00000000-0000-0000-0000-000000000000']);
-  const { data: leftoverTemplates } = await db
-    .from('coach_program_templates')
-    .select('id')
-    .in('id', createdTemplateIds.length > 0 ? createdTemplateIds : ['00000000-0000-0000-0000-000000000000']);
-  const { data: pending } = await db
-    .from('coach_program_templates')
-    .select('id')
-    .eq('status', 'pending_coach_review');
+  const { rows: leftoverAssignments } = await selectAllRowsInChunks(
+    createdAssignmentIds.length > 0 ? createdAssignmentIds : ['00000000-0000-0000-0000-000000000000'],
+    (chunk) => db.from('coach_program_assignments').select('id').in('id', chunk).order('id', { ascending: true })
+  );
+  const { rows: leftoverTemplates } = await selectAllRowsInChunks(
+    createdTemplateIds.length > 0 ? createdTemplateIds : ['00000000-0000-0000-0000-000000000000'],
+    (chunk) => db.from('coach_program_templates').select('id').in('id', chunk).order('id', { ascending: true })
+  );
+  const { rows: pending } = await selectAllRows(() =>
+    db.from('coach_program_templates').select('id').eq('status', 'pending_coach_review').order('id', { ascending: true })
+  );
 
   check('restore: every row this run created is gone', (leftoverAssignments ?? []).length === 0 && (leftoverTemplates ?? []).length === 0, `${(leftoverAssignments ?? []).length} assignments, ${(leftoverTemplates ?? []).length} templates left`);
   note(`pending_coach_review templates now on production: ${(pending ?? []).length}`);

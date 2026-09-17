@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows, selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import { fetchBaselineAssessment, type BaselineAssessment } from '@/lib/onboarding/baseline';
 import {
   fetchAssessmentHistory,
@@ -38,11 +39,15 @@ export async function listAssignedClients(): Promise<Profile[]> {
   const user = await getCachedUser();
   if (!user) return [];
 
-  const { data: assignments, error: assignmentError } = await supabase
-    .from('coach_client_assignments')
-    .select('client_id')
-    .eq('coach_id', user.id)
-    .eq('status', 'active');
+  const { rows: assignments, error: assignmentError } = await selectAllRows<{ client_id: string }>(
+    () =>
+      supabase
+        .from('coach_client_assignments')
+        .select('client_id')
+        .eq('coach_id', user.id)
+        .eq('status', 'active')
+        .order('id', { ascending: true })
+  );
 
   if (assignmentError || !assignments || assignments.length === 0) return [];
 
@@ -59,10 +64,12 @@ export async function listAssignedClients(): Promise<Profile[]> {
   // reason it is a no-op. If this list ever widens beyond one coach's own
   // active assignments, the rule is already applied at the query.
   const exclusion = await resolveTestAccountExclusion(supabase, user.id);
-  const { data: profiles, error } = await applyTestAccountExclusion(
-    supabase.from('profiles').select('*').in('id', clientIds),
-    exclusion,
-    'id'
+  const { rows: profiles, error } = await selectAllRowsInChunks<Profile>(clientIds, (chunk) =>
+    applyTestAccountExclusion(
+      supabase.from('profiles').select('*').in('id', chunk),
+      exclusion,
+      'id'
+    ).order('id', { ascending: true })
   );
 
   if (error) {
@@ -94,11 +101,15 @@ export async function getClientCheckins(clientId: string): Promise<DailyCheckin[
 /** Same coach_read_assigned_habits RLS as everything else here — zero rows for an unassigned client. */
 export async function getClientHabits(clientId: string): Promise<Habit[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from('habits')
-    .select('*')
-    .eq('user_id', clientId)
-    .eq('active', true);
+  const { rows: data, error } = await selectAllRows<Habit>(() =>
+    supabase
+      .from('habits')
+      .select('*')
+      .eq('user_id', clientId)
+      .eq('active', true)
+      .order('assigned_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('getClientHabits failed', error);
@@ -113,11 +124,14 @@ export async function getClientHabitLogs(
   localDate: string
 ): Promise<Record<string, boolean>> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from('habit_logs')
-    .select('habit_id, completed')
-    .eq('user_id', clientId)
-    .eq('local_date', localDate);
+  const { rows: data, error } = await selectAllRows<{ habit_id: string; completed: boolean }>(() =>
+    supabase
+      .from('habit_logs')
+      .select('habit_id, completed')
+      .eq('user_id', clientId)
+      .eq('local_date', localDate)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('getClientHabitLogs failed', error);
@@ -139,12 +153,13 @@ export async function getClientHabitLogs(
  */
 export async function getCoachNotes(clientId: string, submissionId?: string): Promise<CoachNote[]> {
   const supabase = createClient();
-  let query = supabase.from('coach_notes').select('*').eq('client_id', clientId);
-  if (submissionId !== undefined) {
-    query = query.eq('onboarding_submission_id', submissionId);
-  }
-
-  const { data, error } = await query.order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<CoachNote>(() => {
+    let query = supabase.from('coach_notes').select('*').eq('client_id', clientId);
+    if (submissionId !== undefined) {
+      query = query.eq('onboarding_submission_id', submissionId);
+    }
+    return query.order('created_at', { ascending: false }).order('id', { ascending: true });
+  });
 
   if (error) {
     console.error('getCoachNotes failed', error);

@@ -17,6 +17,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import type { SignalDraft, SignalLibrary } from '@/lib/cross-system-signals/types';
 import { SOURCE_MEMBER_REPORTED, SOURCE_COACH_REPORTED } from './constants';
 import type {
@@ -100,6 +101,7 @@ export async function insertClassifications(
     frequency_label: draft.frequencyLabel,
     frequency_numeric: draft.frequencyNumeric,
   }));
+  // scale-exempt: the classifications of one report, which the only caller caps at MAX_CLASSIFICATIONS_PER_REPORT (24), written all-or-nothing
   const { error } = await supabase
     .from('cross_system_complaint_classifications')
     .upsert(rows, { onConflict: 'report_id, position', ignoreDuplicates: true });
@@ -257,6 +259,7 @@ export async function linkClassificationSignals(
   if (drafts.length === 0) return;
 
   const fingerprints = drafts.map((draft) => complaintSignalFingerprint(reportId, draft));
+  // scale-exempt: one fingerprint per draft of one report (the only caller caps drafts at MAX_CLASSIFICATIONS_PER_REPORT, 24), unique (member_id, ingest_fingerprint)
   const { data, error } = await supabase
     .from('cross_system_signals')
     .select('id, ingest_fingerprint')
@@ -358,14 +361,17 @@ export async function loadClassifications(
 ): Promise<Map<string, ComplaintClassificationRecord[]>> {
   const out = new Map<string, ComplaintClassificationRecord[]>();
   if (reportIds.length === 0) return out;
-  const { data, error } = await supabase
-    .from('cross_system_complaint_classifications')
-    .select('*')
-    .in('report_id', reportIds)
-    .order('position');
-  if (error || !data) return out;
+  const { rows: data, error } = await selectAllRowsInChunks<Record<string, unknown>>(reportIds, (chunk) =>
+    supabase
+      .from('cross_system_complaint_classifications')
+      .select('*')
+      .in('report_id', chunk)
+      .order('position')
+      .order('id', { ascending: true })
+  );
+  if (error) return out;
 
-  for (const raw of data as Array<Record<string, unknown>>) {
+  for (const raw of data) {
     const record: ComplaintClassificationRecord = {
       id: raw.id as string,
       reportId: raw.report_id as string,

@@ -24,6 +24,7 @@ import type {
   MemberWellnessEventType,
 } from '@mef/shared-types-contracts';
 import { nowInTimezone, toLocalDateString } from '../time/localDate';
+import { selectAllRows } from '../data/pagedSelect';
 
 export type RecordMemberEventInput = {
   memberId: string;
@@ -71,12 +72,15 @@ export async function listMemberEventsForDate(
   memberId: string,
   localDate: string
 ): Promise<MemberWellnessEvent[]> {
-  const { data, error } = await supabase
-    .from('member_wellness_events')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('local_date', localDate)
-    .order('occurred_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<MemberWellnessEvent>(() =>
+    supabase
+      .from('member_wellness_events')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('local_date', localDate)
+      .order('occurred_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listMemberEventsForDate failed', error);

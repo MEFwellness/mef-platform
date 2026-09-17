@@ -284,6 +284,7 @@ async function seedCheckinHistory(memberId, numDays, salt) {
   }
 
   await supabase.from('daily_checkins').delete().eq('user_id', memberId).gte('local_date', startDate);
+  // scale-exempt: one row per seeded day, numDays is a MEMBER_CONFIGS constant (at most 40)
   const { error } = await supabase.from('daily_checkins').insert(rows);
   if (error) throw new Error(`seeding check-in history failed: ${error.message}`);
   console.log(`  seeded ${rows.length} days of check-in history (${startDate} .. ${today})`);
@@ -354,10 +355,12 @@ async function seedForecastHistory(memberId, dates, energyByDate, numForecastDay
   }
 
   if (herRows.length > 0) {
+    // scale-exempt: one row per scored day, forecastDays is a MEMBER_CONFIGS constant (at most 35)
     const { error: herError } = await supabase.from('energy_forecasts').insert(herRows);
     if (herError) throw new Error(`seeding her forecast history failed: ${herError.message}`);
   }
   if (rootRows.length > 0) {
+    // scale-exempt: one row per scored day, forecastDays is a MEMBER_CONFIGS constant (at most 35)
     const { error: rootError } = await supabase.from('root_energy_forecasts').insert(rootRows);
     if (rootError) throw new Error(`seeding Root forecast history failed: ${rootError.message}`);
   }

@@ -23,10 +23,11 @@
  * member.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { DailyCheckin } from '@mef/shared-types-contracts';
 import { ruleSatisfied } from '../adaptive-assessment-engine/select';
 import type { AnsweredMap, Rule } from '../adaptive-assessment-engine/types';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 import { answeredMapForDay } from '../daily-checkin-adaptive/answeredMap';
 import {
   anyAnswered,
@@ -111,13 +112,16 @@ export async function readCheckins(
   start: string,
   end: string
 ): Promise<SectionResult<CheckinEntry>> {
-  const { data: checkinRows, error: checkinError } = await supabase
-    .from('daily_checkins_current')
-    .select('*')
-    .eq('user_id', memberId)
-    .gte('local_date', start)
-    .lte('local_date', end)
-    .order('local_date', { ascending: false });
+  // The view is one row per (user_id, local_date), so local_date is already a total order here.
+  const { rows: checkinRows, error: checkinError } = await selectAllRows<DailyCheckin, PostgrestError | null>(() =>
+    supabase
+      .from('daily_checkins_current')
+      .select('*')
+      .eq('user_id', memberId)
+      .gte('local_date', start)
+      .lte('local_date', end)
+      .order('local_date', { ascending: false })
+  );
 
   if (checkinError) {
     return { available: false, reason: checkinError.message };
@@ -130,12 +134,19 @@ export async function readCheckins(
   // actually asked. Read from the same table the check-in screen renders
   // from, so a question edited by /coach/questions cannot be labelled one way
   // to her and another way to her coach.
-  const { data: probeRows } = await supabase
-    .from('daily_checkin_probe_answers')
-    .select('local_date, question_key, value')
-    .eq('member_id', memberId)
-    .gte('local_date', start)
-    .lte('local_date', end);
+  const { rows: probeRows } = await selectAllRows<{
+    local_date: string;
+    question_key: string;
+    value: unknown;
+  }>(() =>
+    supabase
+      .from('daily_checkin_probe_answers')
+      .select('local_date, question_key, value')
+      .eq('member_id', memberId)
+      .gte('local_date', start)
+      .lte('local_date', end)
+      .order('id', { ascending: true })
+  );
 
   const questionKeys = [...new Set((probeRows ?? []).map((row) => row.question_key as string))];
   const questions = new Map<
@@ -143,10 +154,15 @@ export async function readCheckins(
     { prompt: string; responseType: string; options: unknown; requires: Rule[]; excludes: Rule[] }
   >();
   if (questionKeys.length > 0) {
-    const { data: questionRows } = await supabase
-      .from('driver_probe_questions')
-      .select('question_key, prompt, response_type, options, requires, excludes')
-      .in('question_key', questionKeys);
+    const { rows: questionRows } = await selectAllRowsInChunks<Record<string, unknown>>(
+      questionKeys,
+      (chunk) =>
+        supabase
+          .from('driver_probe_questions')
+          .select('question_key, prompt, response_type, options, requires, excludes')
+          .in('question_key', chunk)
+          .order('question_key', { ascending: true })
+    );
     for (const row of questionRows ?? []) {
       questions.set(row.question_key as string, {
         prompt: row.prompt as string,
@@ -248,11 +264,14 @@ export async function readGoals(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<SectionResult<GoalEntry>> {
-  const { data, error } = await supabase
-    .from('member_goal_selections')
-    .select('id, goals, primary_goal, goals_other, source, created_at')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>, PostgrestError | null>(() =>
+    supabase
+      .from('member_goal_selections')
+      .select('id, goals, primary_goal, goals_other, source, created_at')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) return { available: false, reason: error.message };
 
@@ -290,11 +309,18 @@ export async function readSubmissions(
 ): Promise<SectionResult<CompletedSubmission>> {
   const items: CompletedSubmission[] = [];
 
-  const { data: onboarding, error: onboardingError } = await supabase
-    .from('onboarding_submissions')
-    .select('id, submitted_at, assessment_type')
-    .eq('user_id', memberId)
-    .order('submitted_at', { ascending: false });
+  const { rows: onboarding, error: onboardingError } = await selectAllRows<
+    Record<string, unknown>,
+    PostgrestError | null
+  >(
+    () =>
+      supabase
+        .from('onboarding_submissions')
+        .select('id, submitted_at, assessment_type')
+        .eq('user_id', memberId)
+        .order('submitted_at', { ascending: false })
+        .order('id', { ascending: true })
+  );
 
   if (onboardingError) return { available: false, reason: onboardingError.message };
 
@@ -314,13 +340,19 @@ export async function readSubmissions(
   // appears here the day it is published without this file changing. The
   // definition's `key` is also its coach route segment, which is why the
   // link can be built without a second lookup table of paths.
-  const { data: sessions, error: sessionError } = await supabase
-    .from('unified_assessment_sessions')
-    .select('id, completed_at, unified_assessment_definitions!inner(key, title)')
-    .eq('member_id', memberId)
-    .eq('status', 'completed')
-    .not('completed_at', 'is', null)
-    .order('completed_at', { ascending: false });
+  const { rows: sessions, error: sessionError } = await selectAllRows<
+    Record<string, unknown>,
+    PostgrestError | null
+  >(() =>
+    supabase
+      .from('unified_assessment_sessions')
+      .select('id, completed_at, unified_assessment_definitions!inner(key, title)')
+      .eq('member_id', memberId)
+      .eq('status', 'completed')
+      .not('completed_at', 'is', null)
+      .order('completed_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (sessionError) return { available: false, reason: sessionError.message };
 
@@ -372,13 +404,21 @@ export async function readConversations(
   if ((sessions ?? []).length === 0) return { available: true, items: [] };
 
   const sessionIds = (sessions ?? []).map((session) => session.id as string);
-  const { data: messages, error: messageError } = await supabase
-    .from('conversation_messages')
-    .select('id, session_id, role, content, created_at')
-    .in('session_id', sessionIds)
-    .eq('member_visible', true)
-    .eq('is_archived', false)
-    .order('created_at', { ascending: false });
+  const { rows: messages, error: messageError } = await selectAllRowsInChunks<
+    Record<string, unknown>,
+    PostgrestError | null
+  >(
+    sessionIds,
+    (chunk) =>
+      supabase
+        .from('conversation_messages')
+        .select('id, session_id, role, content, created_at')
+        .in('session_id', chunk)
+        .eq('member_visible', true)
+        .eq('is_archived', false)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+  );
 
   if (messageError) return { available: false, reason: messageError.message };
 

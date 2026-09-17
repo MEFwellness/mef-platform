@@ -23,6 +23,7 @@ import type {
   RegistryEntry,
 } from '@mef/shared-types-contracts';
 import { addDaysToLocalDate } from '@/lib/feed/dateMath';
+import { selectAllRows, selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import { RESILIENCE_LOOKBACK_DAYS, ROOT_WINDOW_DAYS } from './config';
 import type { MealQualityEvent } from './domains';
 
@@ -33,6 +34,7 @@ export async function fetchCheckinsForScoring(
   asOfLocalDate: string
 ): Promise<DailyCheckin[]> {
   const since = addDaysToLocalDate(asOfLocalDate, -(RESILIENCE_LOOKBACK_DAYS - 1));
+  // scale-exempt: the view is one row per (user_id, local_date) and the window is RESILIENCE_LOOKBACK_DAYS (90) days, so at most 90 rows
   const { data, error } = await supabase
     .from('daily_checkins_current')
     .select('*')
@@ -79,11 +81,18 @@ export async function fetchMealQualityEventsForScoring(
     if (!scans || scans.length === 0) return [];
 
     const scanIds = (scans as Array<{ id: string }>).map((s) => s.id);
-    const { data: ratings, error: ratingError } = await supabase
-      .from('food_lens_meal_quality_ratings')
-      .select('scan_id, rating, created_at')
-      .in('scan_id', scanIds)
-      .order('created_at', { ascending: false });
+    // Chunked by scan_id, so every rating of one scan arrives in one chunk, newest first.
+    const { rows: ratings, error: ratingError } = await selectAllRowsInChunks<{
+      scan_id: string;
+      rating: 'green' | 'yellow' | 'red';
+    }>(scanIds, (chunk) =>
+      supabase
+        .from('food_lens_meal_quality_ratings')
+        .select('scan_id, rating, created_at')
+        .in('scan_id', chunk)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+    );
 
     if (ratingError) {
       console.error('fetchMealQualityEventsForScoring (ratings) failed', ratingError);
@@ -117,13 +126,16 @@ export async function fetchMovementSessionsForScoring(
   asOfLocalDate: string
 ): Promise<MovementSession[]> {
   const since = addDaysToLocalDate(asOfLocalDate, -(ROOT_WINDOW_DAYS - 1));
-  const { data, error } = await supabase
-    .from('movement_sessions')
-    .select('*')
-    .eq('member_id', memberId)
-    .gte('local_date', since)
-    .lte('local_date', asOfLocalDate)
-    .order('local_date', { ascending: true });
+  const { rows: data, error } = await selectAllRows<MovementSession>(() =>
+    supabase
+      .from('movement_sessions')
+      .select('*')
+      .eq('member_id', memberId)
+      .gte('local_date', since)
+      .lte('local_date', asOfLocalDate)
+      .order('local_date', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('fetchMovementSessionsForScoring failed', error);
@@ -139,15 +151,18 @@ export async function fetchBodyAssessmentsForScoring(
   asOfLocalDate: string
 ): Promise<BodyAssessment[]> {
   const since = addDaysToLocalDate(asOfLocalDate, -(ROOT_WINDOW_DAYS - 1));
-  const { data, error } = await supabase
-    .from('body_assessments')
-    .select('*')
-    .eq('member_id', memberId)
-    .not('completed_at', 'is', null)
-    .neq('status', 'archived')
-    .gte('local_date', since)
-    .lte('local_date', asOfLocalDate)
-    .order('local_date', { ascending: true });
+  const { rows: data, error } = await selectAllRows<BodyAssessment>(() =>
+    supabase
+      .from('body_assessments')
+      .select('*')
+      .eq('member_id', memberId)
+      .not('completed_at', 'is', null)
+      .neq('status', 'archived')
+      .gte('local_date', since)
+      .lte('local_date', asOfLocalDate)
+      .order('local_date', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('fetchBodyAssessmentsForScoring failed', error);
@@ -168,12 +183,15 @@ export async function fetchActiveRegistryFindingsForScoring(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<RegistryEntry[]> {
-  const { data, error } = await supabase
-    .from('registry_entries')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('status', 'active')
-    .eq('entry_kind', 'finding');
+  const { rows: data, error } = await selectAllRows<RegistryEntry>(() =>
+    supabase
+      .from('registry_entries')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .eq('entry_kind', 'finding')
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('fetchActiveRegistryFindingsForScoring failed', error);

@@ -38,6 +38,10 @@ function fakeSupabase(responses: Record<string, TableResponse>): SupabaseClient 
       eq: () => chain,
       order: () => chain,
       limit: () => chain,
+      range: (from: number, to: number) =>
+        Promise.resolve(
+          Array.isArray(response.data) ? { ...response, data: response.data.slice(from, to + 1) } : response
+        ),
       maybeSingle: () => Promise.resolve(response),
       upsert: () => Promise.resolve({ error: response.error ?? null }),
       then: (resolve: (value: TableResponse) => void) => Promise.resolve(response).then(resolve),

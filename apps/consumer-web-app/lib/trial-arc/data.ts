@@ -14,6 +14,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import { isTrialArcStep, type TrialArcStep } from './constants';
 import { isTrialArcPaceState, type TrialArcDeliveryFact, type TrialArcPaceState } from './state';
 
@@ -56,17 +57,21 @@ export async function listTrialArcDeliveries(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<{ ok: boolean; deliveries: TrialArcDeliveryFact[] }> {
-  const { data, error } = await supabase
-    .from('member_trial_arc_deliveries')
-    .select(COLUMNS)
-    .eq('member_id', memberId)
-    .order('day_number', { ascending: true });
+  // unique (member_id, message_key), so message_key completes the order.
+  const { rows: data, error } = await selectAllRows<Row>(() =>
+    supabase
+      .from('member_trial_arc_deliveries')
+      .select(COLUMNS)
+      .eq('member_id', memberId)
+      .order('day_number', { ascending: true })
+      .order('message_key', { ascending: true })
+  );
 
   if (error) {
     console.error('listTrialArcDeliveries failed', error);
     return { ok: false, deliveries: [] };
   }
-  return { ok: true, deliveries: ((data ?? []) as unknown as Row[]).map(fromRow) };
+  return { ok: true, deliveries: data.map(fromRow) };
 }
 
 /**
@@ -196,18 +201,22 @@ export async function listTrialArcCheckinDates(
   fromLocalDate: string,
   toLocalDate: string
 ): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('daily_checkins_current')
-    .select('local_date')
-    .eq('user_id', memberId)
-    .gte('local_date', fromLocalDate)
-    .lte('local_date', toLocalDate);
+  // One row per (user_id, local_date) in this view, so local_date is a total order here.
+  const { rows: data, error } = await selectAllRows<{ local_date: string }>(() =>
+    supabase
+      .from('daily_checkins_current')
+      .select('local_date')
+      .eq('user_id', memberId)
+      .gte('local_date', fromLocalDate)
+      .lte('local_date', toLocalDate)
+      .order('local_date', { ascending: true })
+  );
 
   if (error) {
     console.error('listTrialArcCheckinDates failed', error);
     return [];
   }
-  return ((data ?? []) as Array<{ local_date: string }>).map((row) => row.local_date);
+  return data.map((row) => row.local_date);
 }
 
 /**
@@ -231,16 +240,19 @@ export async function listTrialArcExperimentLogDates(
   fromLocalDate: string,
   toLocalDate: string
 ): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('cvs_experiment_daily_logs')
-    .select('local_date')
-    .eq('member_id', memberId)
-    .gte('local_date', fromLocalDate)
-    .lte('local_date', toLocalDate);
+  const { rows: data, error } = await selectAllRows<{ local_date: string }>(() =>
+    supabase
+      .from('cvs_experiment_daily_logs')
+      .select('local_date')
+      .eq('member_id', memberId)
+      .gte('local_date', fromLocalDate)
+      .lte('local_date', toLocalDate)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listTrialArcExperimentLogDates failed', error);
     return [];
   }
-  return ((data ?? []) as Array<{ local_date: string }>).map((row) => row.local_date);
+  return data.map((row) => row.local_date);
 }

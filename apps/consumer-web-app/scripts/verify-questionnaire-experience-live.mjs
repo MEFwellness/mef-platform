@@ -55,6 +55,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { ID_CHUNK_SIZE, selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.QUESTIONNAIRE_BASE_URL ?? 'http://127.0.0.1:3000';
 const SUPA = process.env.PROD_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -98,11 +99,14 @@ console.log(`target is the test account "${targetProfile.display_name}"`);
 
 /** Every draft this walk could have created, removed. Run before and after. */
 async function clean() {
-  const { data: rows } = await admin
-    .from('wellness_assessments')
-    .select('id')
-    .eq('member_id', MEMBER)
-    .eq('status', 'in_progress');
+  const { rows } = await selectAllRows(() =>
+    admin
+      .from('wellness_assessments')
+      .select('id')
+      .eq('member_id', MEMBER)
+      .eq('status', 'in_progress')
+      .order('id', { ascending: true })
+  );
   for (const row of rows ?? []) {
     await admin.from('wellness_assessment_answers').delete().eq('assessment_id', row.id);
     await admin.from('wellness_assessments').delete().eq('id', row.id);
@@ -119,18 +123,24 @@ async function clean() {
  */
 const routerRowsBefore = new Set();
 {
-  const { data } = await admin
-    .from('investigation_router_decisions')
-    .select('id')
-    .eq('member_id', MEMBER);
+  const { rows: data } = await selectAllRows(() =>
+    admin
+      .from('investigation_router_decisions')
+      .select('id')
+      .eq('member_id', MEMBER)
+      .order('id', { ascending: true })
+  );
   for (const row of data ?? []) routerRowsBefore.add(row.id);
 }
 
 async function cleanRouterRows() {
-  const { data } = await admin
-    .from('investigation_router_decisions')
-    .select('id')
-    .eq('member_id', MEMBER);
+  const { rows: data } = await selectAllRows(() =>
+    admin
+      .from('investigation_router_decisions')
+      .select('id')
+      .eq('member_id', MEMBER)
+      .order('id', { ascending: true })
+  );
   const mine = (data ?? []).filter((row) => !routerRowsBefore.has(row.id));
   for (const row of mine) {
     await admin.from('investigation_router_decisions').delete().eq('id', row.id);
@@ -185,20 +195,26 @@ const screenKey = (target = page) =>
 
 /** How many of her answers the database actually holds right now. */
 async function storedAnswerCount() {
-  const { data: rows } = await admin
-    .from('wellness_assessments')
-    .select('id')
-    .eq('member_id', MEMBER)
-    .eq('status', 'in_progress');
+  const { rows } = await selectAllRows(() =>
+    admin
+      .from('wellness_assessments')
+      .select('id')
+      .eq('member_id', MEMBER)
+      .eq('status', 'in_progress')
+      .order('id', { ascending: true })
+  );
   if (!rows?.length) return 0;
-  const { count } = await admin
-    .from('wellness_assessment_answers')
-    .select('assessment_id', { count: 'exact', head: true })
-    .in(
-      'assessment_id',
-      rows.map((row) => row.id)
-    );
-  return count ?? 0;
+  const ids = rows.map((row) => row.id);
+  let total = 0;
+  for (let index = 0; index < ids.length; index += ID_CHUNK_SIZE) {
+    const chunk = ids.slice(index, index + ID_CHUNK_SIZE);
+    const { count } = await admin
+      .from('wellness_assessment_answers')
+      .select('assessment_id', { count: 'exact', head: true })
+      .in('assessment_id', chunk);
+    total += count ?? 0;
+  }
+  return total;
 }
 
 async function waitForStoredAnswers(target, timeoutMs = 20000) {
@@ -537,11 +553,14 @@ try {
   await clean();
   const routerRemoved = await cleanRouterRows();
   console.log(`cleanup: ${routerRemoved} router decision row(s) this walk wrote, removed`);
-  const { data: left } = await admin
-    .from('wellness_assessments')
-    .select('id')
-    .eq('member_id', MEMBER)
-    .eq('status', 'in_progress');
+  const { rows: left } = await selectAllRows(() =>
+    admin
+      .from('wellness_assessments')
+      .select('id')
+      .eq('member_id', MEMBER)
+      .eq('status', 'in_progress')
+      .order('id', { ascending: true })
+  );
   console.log(
     left?.length ? `cleanup: ${left.length} draft(s) STILL PRESENT` : 'cleanup: nothing left behind'
   );

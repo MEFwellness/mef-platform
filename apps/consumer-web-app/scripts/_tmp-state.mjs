@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 const admin = createClient(process.env.PROD_SUPABASE_URL, readFileSync(process.env.PROD_SERVICE_KEY_FILE,'utf8').trim(), { auth:{persistSession:false} });
-const { data: prof } = await admin.from('profiles').select('id, display_name, is_test').eq('id', (await admin.auth.admin.listUsers({page:1,perPage:1000})).data.users.find(u=>u.email==='8weeks2fab@gmail.com').id).maybeSingle();
+const { data: prof } = await admin.from('profiles').select('id, display_name, is_test').eq('id', (await listAllAuthUsers(admin.auth.admin)).data.users.find(u=>u.email==='8weeks2fab@gmail.com').id).maybeSingle();
 console.log('member', prof);
 const id = prof.id;
 const { data: assigns } = await admin.from('assessment_assignments').select('id, assessment_definition_id, status, created_at').eq('member_id', id).order('created_at',{ascending:false}).limit(20);
@@ -9,7 +10,7 @@ console.log('assignments:'); for (const a of assigns??[]) console.log(' ', a.sta
 const { data: defs } = await admin.from('assessment_definitions').select('id, slug, title').limit(60);
 const byId = new Map((defs??[]).map(d=>[d.id,d]));
 console.log('definition names:'); for (const a of assigns??[]) console.log(' ', a.status, byId.get(a.assessment_definition_id)?.slug ?? a.assessment_definition_id);
-const { data: bs } = await admin.from('member_body_systems_sessions').select('id, completed_at, created_at').eq('member_id', id);
+const { rows: bs } = await selectAllRows(() => admin.from('member_body_systems_sessions').select('id, completed_at, created_at').eq('member_id', id).order('id', { ascending: true }));
 console.log('body systems sessions:', bs);
 const { data: dis } = await admin.from('member_root_popup_dismissals').select('message_key, created_at').eq('member_id', id).order('created_at',{ascending:false}).limit(15);
 console.log('recent dismissals:', dis?.map(d=>d.message_key));

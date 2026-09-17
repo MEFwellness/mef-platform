@@ -1,3 +1,52 @@
+## Data scale sweep: no read comes back short, no request carries a list that can outgrow it (2026-09-17)
+
+A correctness sweep, not a feature. No screen, copy, score or behaviour
+changes beyond making numbers true. Full inventory, method, per-site outcome
+and the live verification are in `docs/DATA_SCALE_AUDIT.md`.
+
+### WHAT WAS WRONG
+
+The database returns at most 1,000 rows per request and reports success.
+2,778 database requests were read from the syntax tree; 919 could come back
+short or send a list too long for one request as data grows.
+
+- **Short on production today:** the admin analytics member timeline asked
+  for 2,001 rows, received 1,000, and silently dropped every older day for the
+  test member (3,233 analytics events in 90 days) without ever showing its
+  truncation notice. One verification harness read all 2,511 map components
+  in one request.
+- **Future traps, now fixed (819):** every other full read of a growing
+  table, long id lists in `.in()` and filter strings, bulk writes of growing
+  arrays, set-returning functions, and 46 scripts that searched one page of
+  auth accounts. The closest to the cap were the exercise catalog reads at
+  861.
+- **Provably bounded (98):** exempted in code with the reason beside the
+  query.
+
+### THE FIX
+
+- `lib/data/pagedSelect.ts` is the one shared helper: `selectAllRows` (with
+  `limit` for "up to N"), `selectAllRowsInChunks`, `writeInChunks`,
+  `listAllAuthUsers`. A read that walks 200,000 rows is refused with an error
+  rather than returned short. Scripts import the same file.
+- Filters, columns and existing orders unchanged; a unique tiebreaker is
+  appended. Displayed lists that had no order use creation order.
+
+### GUARDS
+
+- `tests/data-scale-guard.test.ts` + `tests/support/dataScaleScan.ts` +
+  `tests/support/dataScaleRegistry.ts`: fails the suite on any new unpaged
+  read, over-cap limit, unbatched list or bulk write, unknown rpc, single-page
+  auth listing, or unlimited storage listing. Exemption is
+  `// scale-exempt: <what bounds it>`.
+- `tests/data-scale-past-the-cap.test.ts`: seeds past 1,000 rows for events,
+  the analytics timeline, signals, lexicon, map, exercise library and
+  check-ins and proves each consumer sees every row (the same tests report
+  1,000 of 1,150 / 1,500 / 1,100 and 0 of 1,153 against the pre-fix code).
+- CLAUDE.md: "Standing rules from the 2026-09-17 data scale sweep".
+- `scripts/verify-data-scale-live.ts`: the screen-versus-database live check.
+
+No migration.
 ## Root Noticed: the coach briefing (2026-09-17)
 
 The top of Root Noticed on the coach's Client Detail page is now a short

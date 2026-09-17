@@ -42,6 +42,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const URL_ = process.env.PROD_SUPABASE_URL;
 const ANON = readFileSync(process.env.PROD_ANON_KEY_FILE, 'utf8').trim();
@@ -149,7 +150,14 @@ try {
         .maybeSingle()
     );
     await record('consent', () =>
-      sb.from('consent_records').select('consent_type').eq('user_id', userId).is('revoked_at', null)
+      selectAllRows(() =>
+        sb
+          .from('consent_records')
+          .select('consent_type')
+          .eq('user_id', userId)
+          .is('revoked_at', null)
+          .order('id', { ascending: true })
+      )
     );
     await record('onboarding', () =>
       sb.from('onboarding_submissions').select('id').eq('user_id', userId).limit(1)
@@ -184,7 +192,14 @@ try {
           .select('display_name, timezone, welcome_flow_eligible, welcome_flow_completed_at')
           .eq('id', userId)
           .maybeSingle(),
-        sb.from('consent_records').select('consent_type').eq('user_id', userId).is('revoked_at', null),
+        selectAllRows(() =>
+          sb
+            .from('consent_records')
+            .select('consent_type')
+            .eq('user_id', userId)
+            .is('revoked_at', null)
+            .order('id', { ascending: true })
+        ),
         sb.from('onboarding_submissions').select('id').eq('user_id', userId).limit(1),
       ])
     );
@@ -201,7 +216,14 @@ try {
           .maybeSingle(),
       ]);
       await Promise.all([
-        sb.from('consent_records').select('consent_type').eq('user_id', userId).is('revoked_at', null),
+        selectAllRows(() =>
+          sb
+            .from('consent_records')
+            .select('consent_type')
+            .eq('user_id', userId)
+            .is('revoked_at', null)
+            .order('id', { ascending: true })
+        ),
         sb.from('onboarding_submissions').select('id').eq('user_id', userId).limit(1),
       ]);
     });

@@ -54,6 +54,7 @@
  */
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
 
 import { readFileSync } from 'node:fs';
@@ -115,7 +116,7 @@ async function clean() {
   both addresses have been resolved to the exact user ids this run expects.
 */
 async function assertExistingUser(email, expectedId) {
-  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const { data, error } = await listAllAuthUsers(admin.auth.admin);
   if (error) throw new Error(`could not list users: ${error.message}`);
   const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
   if (!found) throw new Error(`REFUSING TO RUN: ${email} is not an existing account`);
@@ -663,10 +664,13 @@ try {
   check('the closing card carries her way on', res.includes('Back to home'));
 
   // ---- What actually landed in the database.
-  const { data: sessions } = await admin
-    .from('member_body_systems_sessions')
-    .select('id, branch, answers, red_flag_answers, results, completed_at')
-    .eq('member_id', MEMBER);
+  const { rows: sessions } = await selectAllRows(() =>
+    admin
+      .from('member_body_systems_sessions')
+      .select('id, branch, answers, red_flag_answers, results, completed_at')
+      .eq('member_id', MEMBER)
+      .order('id', { ascending: true })
+  );
   check('exactly one sitting was written', sessions?.length === 1, `got ${sessions?.length}`);
   const sitting = sessions?.[0];
   check('it is finished', Boolean(sitting?.completed_at));
@@ -678,11 +682,14 @@ try {
   const liver = sitting?.results?.sections?.find((s) => s.sectionKey === 'liver');
   check('the skipped question left the Liver denominator', liver?.dnaCount === 1 && liver?.answeredCount === 8);
 
-  const { data: attempts } = await admin
-    .from('assessment_attempts')
-    .select('id, attempt_type')
-    .eq('member_id', MEMBER)
-    .eq('assessment_definition_id', DEFINITION);
+  const { rows: attempts } = await selectAllRows(() =>
+    admin
+      .from('assessment_attempts')
+      .select('id, attempt_type')
+      .eq('member_id', MEMBER)
+      .eq('assessment_definition_id', DEFINITION)
+      .order('id', { ascending: true })
+  );
   check('the attempt ledger row was written', attempts?.length === 1, attempts?.[0]?.attempt_type);
 
   const { data: assignment } = await admin
@@ -693,11 +700,14 @@ try {
     .single();
   check('the assignment closed itself out', assignment?.status === 'completed');
 
-  const { data: registry } = await admin
-    .from('registry_entries')
-    .select('code, severity, numeric_value')
-    .eq('member_id', MEMBER)
-    .eq('source_feature', 'body_systems_survey_finding');
+  const { rows: registry } = await selectAllRows(() =>
+    admin
+      .from('registry_entries')
+      .select('code, severity, numeric_value')
+      .eq('member_id', MEMBER)
+      .eq('source_feature', 'body_systems_survey_finding')
+      .order('id', { ascending: true })
+  );
   check('eleven Root Map rows were published', registry?.length === 11, `got ${registry?.length}`);
   check(
     'the loud section is significant on the map',
@@ -893,19 +903,27 @@ try {
   // STATE LEFT BEHIND: NONE. Removed, then confirmed absent by an
   // independent read rather than by trusting the delete.
   await clean();
-  const [{ data: leftSessions }, { data: leftAssignments }, { data: leftRegistry }] =
+  const [{ rows: leftSessions }, { rows: leftAssignments }, { rows: leftRegistry }] =
     await Promise.all([
-      admin.from('member_body_systems_sessions').select('id').eq('member_id', MEMBER),
-      admin
-        .from('assessment_assignments')
-        .select('id')
-        .eq('member_id', MEMBER)
-        .eq('assessment_definition_id', DEFINITION),
-      admin
-        .from('registry_entries')
-        .select('id')
-        .eq('member_id', MEMBER)
-        .eq('source_feature', 'body_systems_survey_finding'),
+      selectAllRows(() =>
+        admin.from('member_body_systems_sessions').select('id').eq('member_id', MEMBER).order('id', { ascending: true })
+      ),
+      selectAllRows(() =>
+        admin
+          .from('assessment_assignments')
+          .select('id')
+          .eq('member_id', MEMBER)
+          .eq('assessment_definition_id', DEFINITION)
+          .order('id', { ascending: true })
+      ),
+      selectAllRows(() =>
+        admin
+          .from('registry_entries')
+          .select('id')
+          .eq('member_id', MEMBER)
+          .eq('source_feature', 'body_systems_survey_finding')
+          .order('id', { ascending: true })
+      ),
     ]);
   const leftovers =
     (leftSessions?.length ?? 0) + (leftAssignments?.length ?? 0) + (leftRegistry?.length ?? 0);

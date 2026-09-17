@@ -19,6 +19,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRowsInChunks } from '../data/pagedSelect';
 import { getMemberFrictionSignals } from '../analytics-service/friction';
 import type { FrictionSignal } from '../analytics-service/types';
 import { coachingServiceRoleClient } from './serviceRole';
@@ -87,12 +88,17 @@ export async function loadUnresolvedSafetyFlag(
 
   const ids = (data as { id: string }[]).map((row) => row.id);
 
-  const { data: acknowledged, error: ackError } = await supabase
-    .from('safety_acknowledgments')
-    .select('classification_id')
-    .eq('member_id', memberId)
-    .eq('status', 'acknowledged')
-    .in('classification_id', ids);
+  const { rows: acknowledged, error: ackError } = await selectAllRowsInChunks<{
+    classification_id: string;
+  }>(ids, (chunk) =>
+    supabase
+      .from('safety_acknowledgments')
+      .select('classification_id')
+      .eq('member_id', memberId)
+      .eq('status', 'acknowledged')
+      .in('classification_id', chunk)
+      .order('id', { ascending: true })
+  );
 
   if (ackError) {
     // Fail closed toward showing the safety card. An acknowledgment read

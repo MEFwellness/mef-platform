@@ -46,6 +46,7 @@ import {
 } from '../lib/trial-arc/copy';
 import { TRIAL_ARC_ROUTES, trialArcPopupMessageKey } from '../lib/trial-arc/constants';
 import { resolveExperimentOfferHref } from '../lib/trial-arc/experimentOffer';
+import { selectAllRows, writeInChunks, listAllAuthUsers } from '../lib/data/pagedSelect';
 
 const BASE = process.env.BASE_URL || 'https://app.mefwellness.com';
 const PHONE = { width: 393, height: 852 };
@@ -424,11 +425,14 @@ async function stageExperiments() {
   // one-time kinds retire themselves the instant they mount. Nothing here
   // reaches past the chain or writes a dismissal by hand.
   for (let open = 0; open < 8; open += 1) {
-    const { data: already } = await service
-      .from('member_root_popup_dismissals')
-      .select('message_key')
-      .eq('member_id', rig.id)
-      .or('message_key.like.cvs_offer:%,message_key.like.lsc_offer:%');
+    const { rows: already } = await selectAllRows(() =>
+      service
+        .from('member_root_popup_dismissals')
+        .select('message_key')
+        .eq('member_id', rig.id)
+        .or('message_key.like.cvs_offer:%,message_key.like.lsc_offer:%')
+        .order('id', { ascending: true })
+    );
     if ((already ?? []).length > 0) break;
 
     let sawTitle = '';
@@ -447,11 +451,14 @@ async function stageExperiments() {
   // lib/root-popup-messages/data.ts reads cvs_offer, lsc_offer and rpl_offer
   // alike, because a decline is a decline whichever conversation produced
   // the theory.
-  const { data: dismissals } = await service
-    .from('member_root_popup_dismissals')
-    .select('message_key, status')
-    .eq('member_id', rig.id)
-    .or('message_key.like.cvs_offer:%,message_key.like.lsc_offer:%,message_key.like.rpl_offer:%');
+  const { rows: dismissals } = await selectAllRows(() =>
+    service
+      .from('member_root_popup_dismissals')
+      .select('message_key, status')
+      .eq('member_id', rig.id)
+      .or('message_key.like.cvs_offer:%,message_key.like.lsc_offer:%,message_key.like.rpl_offer:%')
+      .order('id', { ascending: true })
+  );
   check(
     'the seven day offer was genuinely shown and left, which is the decline the app records',
     (dismissals ?? []).length > 0,
@@ -486,11 +493,14 @@ async function startExperiment(): Promise<boolean> {
     await start.waitFor({ timeout: 30000 });
     await start.click();
     await page.waitForTimeout(4000);
-    const { data } = await service
-      .from('lifestyle_experiments')
-      .select('id, status')
-      .eq('member_id', rig.id)
-      .eq('status', 'active');
+    const { rows: data } = await selectAllRows(() =>
+      service
+        .from('lifestyle_experiments')
+        .select('id, status')
+        .eq('member_id', rig.id)
+        .eq('status', 'active')
+        .order('id', { ascending: true })
+    );
     return (data ?? []).length > 0;
   } finally {
     await context.close();
@@ -550,12 +560,15 @@ async function stageDay5() {
   console.log('\n   -- the missing-half branch, with her Life Signal Check set aside --');
   const lscDefinitionId = await lscCatalogDefinitionId();
   const lscIds = await lscSessionIds();
-  const { data: attemptRows } = await service
-    .from('assessment_attempts')
-    .select('id, completed_at')
-    .eq('member_id', rig.id)
-    .eq('assessment_definition_id', lscDefinitionId)
-    .eq('status', 'completed');
+  const { rows: attemptRows } = await selectAllRows<{ id: string; completed_at: string }>(() =>
+    service
+      .from('assessment_attempts')
+      .select('id, completed_at')
+      .eq('member_id', rig.id)
+      .eq('assessment_definition_id', lscDefinitionId)
+      .eq('status', 'completed')
+      .order('id', { ascending: true })
+  );
   const attempts = (attemptRows ?? []) as { id: string; completed_at: string }[];
 
   if (lscIds.length === 0 || attempts.length === 0) {
@@ -570,16 +583,22 @@ async function stageDay5() {
     // had not. Exactly the "no error is not it worked" shape, in the
     // verification script rather than in the app. The error is checked now,
     // both ways.
-    const setAside = await service
-      .from('assessment_attempts')
-      .update({ status: 'in_progress', completed_at: null })
-      .in('id', attempts.map((a) => a.id))
-      .select('id');
-    await service.from('unified_assessment_sessions').update({ status: 'abandoned' }).in('id', lscIds);
+    const setAside = await writeInChunks(
+      attempts.map((a) => a.id),
+      (chunk) =>
+        service
+          .from('assessment_attempts')
+          .update({ status: 'in_progress', completed_at: null })
+          .in('id', chunk)
+          .select('id')
+    );
+    await writeInChunks(lscIds, (chunk) =>
+      service.from('unified_assessment_sessions').update({ status: 'abandoned' }).in('id', chunk)
+    );
     check(
       'Day 5 missing half: her Life Signal Check really was set aside',
-      setAside.error === null && (setAside.data ?? []).length === attempts.length,
-      setAside.error?.message ?? `${(setAside.data ?? []).length}/${attempts.length}`
+      setAside.error === null && (setAside.rows ?? []).length === attempts.length,
+      setAside.error?.message ?? `${(setAside.rows ?? []).length}/${attempts.length}`
     );
 
     await service.from('member_trial_arc_deliveries').delete().eq('member_id', rig.id).eq('message_key', trialArcPopupMessageKey(5));
@@ -589,7 +608,9 @@ async function stageDay5() {
     assertCopy('Day 5 missing half', nudge, TRIAL_ARC_TOWARD_LSC);
 
     // Put back, row by row, with each attempt's own completion time.
-    await service.from('unified_assessment_sessions').update({ status: 'completed' }).in('id', lscIds);
+    await writeInChunks(lscIds, (chunk) =>
+      service.from('unified_assessment_sessions').update({ status: 'completed' }).in('id', chunk)
+    );
     let restoredAttempts = 0;
     for (const attempt of attempts) {
       const put = await service
@@ -631,12 +652,15 @@ async function lscSessionIds(): Promise<string[]> {
   const { LSC_KEY } = await import('../lib/life-signal-check/constants');
   const definition = await getUnifiedAssessmentDefinitionByKey(service, LSC_KEY);
   if (!definition) return [];
-  const { data } = await service
-    .from('unified_assessment_sessions')
-    .select('id')
-    .eq('member_id', rig.id)
-    .eq('assessment_definition_id', definition.id)
-    .eq('status', 'completed');
+  const { rows: data } = await selectAllRows<{ id: string }>(() =>
+    service
+      .from('unified_assessment_sessions')
+      .select('id')
+      .eq('member_id', rig.id)
+      .eq('assessment_definition_id', definition.id)
+      .eq('status', 'completed')
+      .order('id', { ascending: true })
+  );
   return ((data ?? []) as { id: string }[]).map((r) => r.id);
 }
 
@@ -709,10 +733,13 @@ async function stagePresence() {
   const collision = await visit();
   check('presence: the arc is SILENT on the visit the greeting is delivered', !collision.present, collision.title);
 
-  const { data: greetings } = await service
-    .from('member_return_greetings')
-    .select('gap_start_local_date, shown_at')
-    .eq('member_id', rig.id);
+  const { rows: greetings } = await selectAllRows(() =>
+    service
+      .from('member_return_greetings')
+      .select('gap_start_local_date, shown_at')
+      .eq('member_id', rig.id)
+      .order('gap_start_local_date', { ascending: true })
+  );
   check(
     'presence: and the greeting really was claimed on that visit, by the Morning Brief',
     (greetings ?? []).length === 1,
@@ -751,8 +778,10 @@ async function stagePresence() {
 
 async function stageExclusion() {
   console.log('\n== Structural exclusion: a coaching client on the list is still refused ==');
-  const { data: profiles } = await service.from('profiles').select('id, is_test');
-  const { data: users } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const { rows: profiles } = await selectAllRows<{ id: string; is_test: boolean }>(() =>
+    service.from('profiles').select('id, is_test').order('id', { ascending: true })
+  );
+  const { data: users } = await listAllAuthUsers(service.auth.admin);
   const target = (users?.users ?? []).find((u) => u.email === '8weeks2fab@gmail.com');
   if (!target) {
     check('the excluded fixture account was found', false, '8weeks2fab@gmail.com not present');
@@ -760,10 +789,13 @@ async function stageExclusion() {
   }
   note(`checking ${target.id} (8weeks2fab, a fixture with an active coach assignment)`);
 
-  const { data: assignments } = await service
-    .from('coach_client_assignments')
-    .select('status')
-    .eq('client_id', target.id);
+  const { rows: assignments } = await selectAllRows(() =>
+    service
+      .from('coach_client_assignments')
+      .select('status')
+      .eq('client_id', target.id)
+      .order('id', { ascending: true })
+  );
   check(
     'it genuinely has a coach assignment, which is the thing that must exclude it',
     (assignments ?? []).length > 0,
@@ -811,10 +843,13 @@ async function stageExclusion() {
       note('no pop-up at all for the fixture');
     }
     check('live: no trial arc message reaches the coaching client', !sawArcCopy);
-    const { data: rows } = await service
-      .from('member_trial_arc_deliveries')
-      .select('message_key')
-      .eq('member_id', target.id);
+    const { rows } = await selectAllRows(() =>
+      service
+        .from('member_trial_arc_deliveries')
+        .select('message_key')
+        .eq('member_id', target.id)
+        .order('id', { ascending: true })
+    );
     check('live: and no trial arc receipt was written for it', (rows ?? []).length === 0, `${(rows ?? []).length} row(s)`);
     await context.close();
     await retireSession(minted);
@@ -853,36 +888,48 @@ async function withConversationsSetAside<T>(fn: () => Promise<T>): Promise<T> {
     const unified = await getUnifiedAssessmentDefinitionByKey(service, key);
     const catalogId = findAssessmentRegistryEntry(key as never)?.databaseId ?? '';
     if (unified) {
-      const { data } = await service
-        .from('unified_assessment_sessions')
-        .select('id')
-        .eq('member_id', rig.id)
-        .eq('assessment_definition_id', unified.id)
-        .eq('status', 'completed');
+      const { rows: data } = await selectAllRows<{ id: string }>(() =>
+        service
+          .from('unified_assessment_sessions')
+          .select('id')
+          .eq('member_id', rig.id)
+          .eq('assessment_definition_id', unified.id)
+          .eq('status', 'completed')
+          .order('id', { ascending: true })
+      );
       sessionIds.push(...((data ?? []) as { id: string }[]).map((r) => r.id));
     }
-    const { data: rows } = await service
-      .from('assessment_attempts')
-      .select('id, completed_at')
-      .eq('member_id', rig.id)
-      .eq('assessment_definition_id', catalogId)
-      .eq('status', 'completed');
+    const { rows } = await selectAllRows<{ id: string; completed_at: string }>(() =>
+      service
+        .from('assessment_attempts')
+        .select('id, completed_at')
+        .eq('member_id', rig.id)
+        .eq('assessment_definition_id', catalogId)
+        .eq('status', 'completed')
+        .order('id', { ascending: true })
+    );
     attempts.push(...((rows ?? []) as { id: string; completed_at: string }[]));
   }
 
   if (sessionIds.length > 0) {
-    await service.from('unified_assessment_sessions').update({ status: 'abandoned' }).in('id', sessionIds);
+    await writeInChunks(sessionIds, (chunk) =>
+      service.from('unified_assessment_sessions').update({ status: 'abandoned' }).in('id', chunk)
+    );
   }
   if (attempts.length > 0) {
-    const moved = await service
-      .from('assessment_attempts')
-      .update({ status: 'in_progress', completed_at: null })
-      .in('id', attempts.map((a) => a.id))
-      .select('id');
+    const moved = await writeInChunks(
+      attempts.map((a) => a.id),
+      (chunk) =>
+        service
+          .from('assessment_attempts')
+          .update({ status: 'in_progress', completed_at: null })
+          .in('id', chunk)
+          .select('id')
+    );
     check(
       'her two conversations really were set aside for this stage',
-      moved.error === null && (moved.data ?? []).length === attempts.length,
-      moved.error?.message ?? `${(moved.data ?? []).length}/${attempts.length}`
+      moved.error === null && (moved.rows ?? []).length === attempts.length,
+      moved.error?.message ?? `${(moved.rows ?? []).length}/${attempts.length}`
     );
   }
 
@@ -890,7 +937,9 @@ async function withConversationsSetAside<T>(fn: () => Promise<T>): Promise<T> {
     return await fn();
   } finally {
     if (sessionIds.length > 0) {
-      await service.from('unified_assessment_sessions').update({ status: 'completed' }).in('id', sessionIds);
+      await writeInChunks(sessionIds, (chunk) =>
+        service.from('unified_assessment_sessions').update({ status: 'completed' }).in('id', chunk)
+      );
     }
     let restored = 0;
     for (const attempt of attempts) {
@@ -1029,7 +1078,9 @@ async function stageRestore() {
 
   console.log('\n== Every other production account still answers no ==');
   const { resolveTrialArcDecision } = await import('../lib/trial-arc/engine');
-  const { data: profiles } = await service.from('profiles').select('id');
+  const { rows: profiles } = await selectAllRows<{ id: string }>(() =>
+    service.from('profiles').select('id').order('id', { ascending: true })
+  );
   let spoke = 0;
   const reasons = new Map<string, number>();
   for (const profile of (profiles ?? []) as { id: string }[]) {

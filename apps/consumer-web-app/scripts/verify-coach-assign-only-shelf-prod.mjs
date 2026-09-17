@@ -51,6 +51,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.SHELF_BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const SUPA = process.env.PROD_SUPABASE_URL ?? 'https://piafgqstbibvllsnuike.supabase.co';
@@ -163,12 +164,15 @@ async function settled(page, timeoutMs = 30000) {
 }
 
 async function assignmentsFor(memberId, definitionId) {
-  const { data } = await admin
-    .from('assessment_assignments')
-    .select('id, status, created_at, due_at, assigned_by, updated_at')
-    .eq('member_id', memberId)
-    .eq('assessment_definition_id', definitionId)
-    .order('created_at', { ascending: false });
+  const { rows: data } = await selectAllRows(() =>
+    admin
+      .from('assessment_assignments')
+      .select('id, status, created_at, due_at, assigned_by, updated_at')
+      .eq('member_id', memberId)
+      .eq('assessment_definition_id', definitionId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   return data ?? [];
 }
 
@@ -180,11 +184,14 @@ async function assignmentsFor(memberId, definitionId) {
  */
 async function sittingsFor(memberId, table) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const { data, error } = await admin
-      .from(table)
-      .select('id')
-      .eq('member_id', memberId)
-      .order('created_at', { ascending: false });
+    const { rows: data, error } = await selectAllRows(() =>
+      admin
+        .from(table)
+        .select('id')
+        .eq('member_id', memberId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+    );
     if (!error) return (data ?? []).map((row) => row.id).sort();
     await new Promise((resolve) => setTimeout(resolve, 600));
   }

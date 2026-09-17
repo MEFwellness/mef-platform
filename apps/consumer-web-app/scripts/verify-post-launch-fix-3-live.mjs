@@ -24,6 +24,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionCookies, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.BASE_URL || 'https://app.mefwellness.com';
 const PHONE = { width: 390, height: 844 };
@@ -223,12 +224,15 @@ async function returningTheNextDay(page, memberId) {
   // EVERY completed session, not just the newest one. The take route asks
   // for her latest completion, so ageing one of six leaves the second one
   // standing in as today's.
-  const { data: finished } = await service
-    .from('unified_assessment_sessions')
-    .select('id, completed_at')
-    .eq('member_id', memberId)
-    .eq('assessment_definition_id', def.id)
-    .eq('status', 'completed');
+  const { rows: finished } = await selectAllRows(() =>
+    service
+      .from('unified_assessment_sessions')
+      .select('id, completed_at')
+      .eq('member_id', memberId)
+      .eq('assessment_definition_id', def.id)
+      .eq('status', 'completed')
+      .order('id', { ascending: true })
+  );
   if (!finished || finished.length === 0) {
     check('a finished session to age was found', false);
     return;

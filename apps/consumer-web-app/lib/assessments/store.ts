@@ -28,6 +28,7 @@ import {
   type AssessmentComparison,
 } from './comparison';
 import { upsertRegistryEntriesFromQuestionnaireAttempt } from '../registry/adapters/questionnaireEngine';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 import type {
   AssessmentRecord,
   AssessmentResult,
@@ -84,6 +85,7 @@ async function fetchAnswers(
   supabase: SupabaseClient,
   assessmentId: string
 ): Promise<QuestionnaireAnswers> {
+  // scale-exempt: unique (assessment_id, category_id, question_number), and every questionnaire is a static JSON file of at most 91 questions
   const { data, error } = await supabase
     .from('wellness_assessment_answers')
     .select('category_id, question_number, option_index')
@@ -313,6 +315,7 @@ export async function completeAssessment(
   // from before it. See lib/data/readOnce.ts.
   forgetMemberAssessmentFacts(updated.member_id as string);
 
+  // scale-exempt: one row per category of one static questionnaire (at most 9 categories), and the scores must land all-or-nothing
   const { error: scoresError } = await supabase.from('wellness_assessment_category_scores').upsert(
     result.categoryScores.map((c) => ({
       assessment_id: assessmentId,
@@ -361,6 +364,7 @@ export async function getAssessmentResult(
 
   if (assessmentError || !assessment) return null;
 
+  // scale-exempt: unique (assessment_id, category_id), one row per category of one static questionnaire (at most 9 categories)
   const { data: scores, error: scoresError } = await supabase
     .from('wellness_assessment_category_scores')
     .select('category_id, score, max_score, priority')
@@ -386,15 +390,20 @@ export async function listCompletedAssessments(
   memberId: string,
   questionnaireId: string
 ): Promise<AssessmentSummary[]> {
-  const { data, error } = await supabase
-    .from('wellness_assessments')
-    .select('id, completed_at, total_score, total_max_score, total_priority')
-    .eq('member_id', memberId)
-    .eq('questionnaire_id', questionnaireId)
-    .eq('status', 'completed')
-    .order('completed_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<
+    Pick<AssessmentRow, 'id' | 'completed_at' | 'total_score' | 'total_max_score' | 'total_priority'>
+  >(() =>
+    supabase
+      .from('wellness_assessments')
+      .select('id, completed_at, total_score, total_max_score, total_priority')
+      .eq('member_id', memberId)
+      .eq('questionnaire_id', questionnaireId)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
-  if (error || !data) return [];
+  if (error) return [];
 
   return data
     .filter(
@@ -439,16 +448,23 @@ export async function getCategoryScoreHistory(
   const summaries = await listCompletedAssessments(supabase, memberId, questionnaireId);
   if (summaries.length === 0) return [];
 
-  const { data, error } = await supabase
-    .from('wellness_assessment_category_scores')
-    .select('assessment_id, score, max_score, priority')
-    .eq('category_id', categoryId)
-    .in(
-      'assessment_id',
-      summaries.map((s) => s.id)
-    );
+  const { rows: data, error } = await selectAllRowsInChunks<{
+    assessment_id: string;
+    score: number;
+    max_score: number;
+    priority: string;
+  }>(
+    summaries.map((s) => s.id),
+    (chunk) =>
+      supabase
+        .from('wellness_assessment_category_scores')
+        .select('assessment_id, score, max_score, priority')
+        .eq('category_id', categoryId)
+        .in('assessment_id', chunk)
+        .order('id', { ascending: true })
+  );
 
-  if (error || !data) return [];
+  if (error) return [];
 
   const byAssessmentId = new Map(data.map((row) => [row.assessment_id, row]));
 

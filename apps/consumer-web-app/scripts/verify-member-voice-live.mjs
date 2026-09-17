@@ -37,6 +37,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks, writeInChunks } from '../lib/data/pagedSelect.ts';
 
 process.stdout.on('error', (err) => {
   if (err.code === 'EPIPE') return;
@@ -162,10 +163,9 @@ try {
     `${bodyweight?.equipment}, assignable=${bodyweight?.is_client_assignable}`
   );
 
-  const { data: oldName } = await db
-    .from('exercise_catalog')
-    .select('id')
-    .eq('name', 'Split squat (L)');
+  const { rows: oldName } = await selectAllRows(() =>
+    db.from('exercise_catalog').select('id').eq('name', 'Split squat (L)').order('id', { ascending: true })
+  );
   check('db: the old name is gone from the catalog', (oldName ?? []).length === 0, `${(oldName ?? []).length} rows`);
 
   const { data: dumbbell } = await db
@@ -175,12 +175,12 @@ try {
     .maybeSingle();
   check('db: "Split Squat" is still the dumbbell one', dumbbell?.equipment === 'dumbbell', `${dumbbell?.equipment}`);
 
-  const { data: allSlots } = await db
-    .from('program_blueprint_slots')
-    .select('exercise_name, provider, external_id');
-  const { data: allCatalog } = await db
-    .from('exercise_catalog')
-    .select('provider, external_id, name');
+  const { rows: allSlots } = await selectAllRows(() =>
+    db.from('program_blueprint_slots').select('exercise_name, provider, external_id').order('id', { ascending: true })
+  );
+  const { rows: allCatalog } = await selectAllRows(() =>
+    db.from('exercise_catalog').select('provider, external_id, name').order('id', { ascending: true })
+  );
   const catalogByKey = new Map((allCatalog ?? []).map((c) => [`${c.provider}:${c.external_id}`, c.name]));
   const disagreeing = (allSlots ?? []).filter(
     (s) => s.external_id && s.exercise_name !== catalogByKey.get(`${s.provider}:${s.external_id}`)
@@ -190,30 +190,41 @@ try {
   // -------------------------------------------------------------------
   // 2. Her real program.
   // -------------------------------------------------------------------
-  const { data: assignments } = await db
-    .from('coach_program_assignments')
-    .select('id, program_group_key, status, coach_id')
-    .eq('member_id', MEMBER_ID)
-    .eq('visibility', 'published');
+  const { rows: assignments } = await selectAllRows(() =>
+    db
+      .from('coach_program_assignments')
+      .select('id, program_group_key, status, coach_id')
+      .eq('member_id', MEMBER_ID)
+      .eq('visibility', 'published')
+      .order('id', { ascending: true })
+  );
   check('member: she has published programs to work with', (assignments ?? []).length > 0, `${(assignments ?? []).length}`);
 
   const assignmentIds = (assignments ?? []).map((a) => a.id);
-  const { data: workouts } = await db
-    .from('coach_assigned_workouts')
-    .select('id, assignment_id, scheduled_date, program_week, corrective_tags, equipment, coach_id')
-    .in('assignment_id', assignmentIds)
-    .order('scheduled_date', { ascending: true });
+  const { rows: workouts } = await selectAllRowsInChunks(assignmentIds, (chunk) =>
+    db
+      .from('coach_assigned_workouts')
+      .select('id, assignment_id, scheduled_date, program_week, corrective_tags, equipment, coach_id')
+      .in('assignment_id', chunk)
+      .order('scheduled_date', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   const workoutById = new Map((workouts ?? []).map((w) => [w.id, w]));
-  const { data: exercises } = await db
-    .from('coach_assigned_workout_exercises')
-    .select(
-      'id, assigned_workout_id, section_id, provider, external_id, exercise_name, sequence_index, ' +
-        'sets, reps, rep_range_low, rep_range_high, hold_duration_seconds, time_seconds, rest_seconds, ' +
-        'unilateral, is_locked, movement_pattern, replacement_criteria, status, logged_load'
-    )
-    .eq('member_id', MEMBER_ID)
-    .in('assigned_workout_id', (workouts ?? []).map((w) => w.id));
+  const { rows: exercises } = await selectAllRowsInChunks(
+    (workouts ?? []).map((w) => w.id),
+    (chunk) =>
+      db
+        .from('coach_assigned_workout_exercises')
+        .select(
+          'id, assigned_workout_id, section_id, provider, external_id, exercise_name, sequence_index, ' +
+            'sets, reps, rep_range_low, rep_range_high, hold_duration_seconds, time_seconds, rest_seconds, ' +
+            'unilateral, is_locked, movement_pattern, replacement_criteria, status, logged_load'
+        )
+        .eq('member_id', MEMBER_ID)
+        .in('assigned_workout_id', chunk)
+        .order('id', { ascending: true })
+  );
 
   const withDate = (exercises ?? [])
     .map((e) => ({ ...e, scheduledDate: workoutById.get(e.assigned_workout_id)?.scheduled_date ?? '' }))
@@ -399,21 +410,25 @@ try {
       for (const row of targets) await remember(row.id);
       for (const row of past) await remember(row.id);
 
-      const { data: updated, error: swapError } = await db
-        .from('coach_assigned_workout_exercises')
-        .update({
-          provider: chosen.provider,
-          external_id: chosen.external_id,
-          exercise_name: chosen.name,
-          member_reasoning: 'You chose this one in place of the exercise that was here.',
-          selection_reasoning: null,
-          coaching_cues: null,
-          swapped_from_external_id: swapTarget.external_id,
-          swapped_from_exercise_name: swapTarget.exercise_name,
-          swapped_at: new Date().toISOString(),
-        })
-        .in('id', targets.map((t) => t.id))
-        .select('id, exercise_name, sets, rep_range_low, rest_seconds, unilateral');
+      const { rows: updated, error: swapError } = await writeInChunks(
+        targets.map((t) => t.id),
+        (chunk) =>
+          db
+            .from('coach_assigned_workout_exercises')
+            .update({
+              provider: chosen.provider,
+              external_id: chosen.external_id,
+              exercise_name: chosen.name,
+              member_reasoning: 'You chose this one in place of the exercise that was here.',
+              selection_reasoning: null,
+              coaching_cues: null,
+              swapped_from_external_id: swapTarget.external_id,
+              swapped_from_exercise_name: swapTarget.exercise_name,
+              swapped_at: new Date().toISOString(),
+            })
+            .in('id', chunk)
+            .select('id, exercise_name, sets, rep_range_low, rest_seconds, unilateral')
+      );
       swappedIds = (updated ?? []).map((u) => u.id);
       check('member: she picked one and her remaining occurrences changed', !swapError && swappedIds.length === targets.length, swapError?.message ?? `${swappedIds.length} of ${targets.length} occurrence(s) now read ${chosen.name}`);
 
@@ -426,10 +441,15 @@ try {
       );
 
       if (past.length > 0) {
-        const { data: pastRows } = await db
-          .from('coach_assigned_workout_exercises')
-          .select('id, exercise_name, swapped_at')
-          .in('id', past.map((p) => p.id));
+        const { rows: pastRows } = await selectAllRowsInChunks(
+          past.map((p) => p.id),
+          (chunk) =>
+            db
+              .from('coach_assigned_workout_exercises')
+              .select('id, exercise_name, swapped_at')
+              .in('id', chunk)
+              .order('id', { ascending: true })
+        );
         check('member: an occurrence she already did still says what she did', (pastRows ?? []).every((r) => r.exercise_name === swapTarget.exercise_name && r.swapped_at === null), `${(pastRows ?? []).length} past occurrence(s) untouched`);
       } else {
         note('every occurrence of that exercise was still ahead of her, so there was no past to leave alone.');
@@ -478,18 +498,20 @@ try {
       check('member: what she swapped away from entered her avoidance history', Boolean(avoided), '');
 
       // Swap it back, which is what a member undoing it would do.
-      const { data: reverted } = await db
-        .from('coach_assigned_workout_exercises')
-        .update({
-          provider: swapTarget.provider,
-          external_id: swapTarget.external_id,
-          exercise_name: swapTarget.exercise_name,
-          swapped_from_external_id: chosen.external_id,
-          swapped_from_exercise_name: chosen.name,
-          swapped_at: new Date().toISOString(),
-        })
-        .in('id', swappedIds)
-        .select('id, exercise_name');
+      const { rows: reverted } = await writeInChunks(swappedIds, (chunk) =>
+        db
+          .from('coach_assigned_workout_exercises')
+          .update({
+            provider: swapTarget.provider,
+            external_id: swapTarget.external_id,
+            exercise_name: swapTarget.exercise_name,
+            swapped_from_external_id: chosen.external_id,
+            swapped_from_exercise_name: chosen.name,
+            swapped_at: new Date().toISOString(),
+          })
+          .in('id', chunk)
+          .select('id, exercise_name')
+      );
       check('member: swapping back put the original exercise on every one of them', (reverted ?? []).every((r) => r.exercise_name === swapTarget.exercise_name), `${(reverted ?? []).length} occurrence(s)`);
     }
   } else {
@@ -500,10 +522,13 @@ try {
   // 5. Too difficult on Split Squat offers the bodyweight version.
   // -------------------------------------------------------------------
   if (dumbbell && bodyweight) {
-    const { data: strengthMeta } = await db
-      .from('mef_exercise_metadata')
-      .select('external_id, corrective_roles')
-      .in('external_id', [dumbbell.external_id, bodyweight.external_id]);
+    const { rows: strengthMeta } = await selectAllRows(() =>
+      db
+        .from('mef_exercise_metadata')
+        .select('external_id, corrective_roles')
+        .in('external_id', [dumbbell.external_id, bodyweight.external_id])
+        .order('id', { ascending: true })
+    );
     const roles = new Map((strengthMeta ?? []).map((m) => [m.external_id, m.corrective_roles]));
     note(`Split Squat roles: ${(roles.get(dumbbell.external_id) ?? []).join(', ') || 'none'}`);
     note(`Bodyweight Split Squat roles: ${(roles.get(bodyweight.external_id) ?? []).join(', ') || 'none'}`);
@@ -618,12 +643,15 @@ try {
     check('member: it entered her avoidance history immediately', painAvoid?.source === 'pain', '');
 
     // The needs-attention read the coach dashboard makes.
-    const { data: openReports } = await db
-      .from('member_exercise_feedback')
-      .select('member_id, branch, coach_reviewed_at')
-      .eq('member_id', MEMBER_ID)
-      .is('coach_reviewed_at', null)
-      .in('branch', ['safety', 'progression_note']);
+    const { rows: openReports } = await selectAllRows(() =>
+      db
+        .from('member_exercise_feedback')
+        .select('member_id, branch, coach_reviewed_at')
+        .eq('member_id', MEMBER_ID)
+        .is('coach_reviewed_at', null)
+        .in('branch', ['safety', 'progression_note'])
+        .order('id', { ascending: true })
+    );
     const flagsPain = (openReports ?? []).some((r) => r.branch === 'safety');
     check('coach: the needs-attention read finds "Exercise stopped, member reported pain"', flagsPain, `${(openReports ?? []).length} open report(s)`);
   } else {
@@ -641,10 +669,13 @@ try {
     // Her live programs are corrective, and the corrective engine does not
     // lock. Prove the lock reaches a frozen row through the blueprint path
     // instead, which is where locks come from.
-    const { data: lockedSlots } = await db
-      .from('program_blueprint_slots')
-      .select('exercise_name, is_locked')
-      .eq('is_locked', true);
+    const { rows: lockedSlots } = await selectAllRows(() =>
+      db
+        .from('program_blueprint_slots')
+        .select('exercise_name, is_locked')
+        .eq('is_locked', true)
+        .order('id', { ascending: true })
+    );
     check('blueprint: locked slots exist, and are what a member cannot swap', (lockedSlots ?? []).length > 0, `${(lockedSlots ?? []).length} locked slot(s), e.g. ${lockedSlots?.[0]?.exercise_name}`);
     note('her live programs are corrective, and the corrective engine locks nothing, so no exercise of hers is locked today.');
   }
@@ -729,10 +760,10 @@ try {
     await db.from('coach_assigned_workout_exercises').update(columns).eq('id', id);
   }
   if (restore.feedbackIds.length > 0) {
-    await db.from('member_exercise_feedback').delete().in('id', restore.feedbackIds);
+    await writeInChunks(restore.feedbackIds, (chunk) => db.from('member_exercise_feedback').delete().in('id', chunk));
   }
   if (restore.avoidanceIds.length > 0) {
-    await db.from('member_exercise_avoidance').delete().in('id', restore.avoidanceIds);
+    await writeInChunks(restore.avoidanceIds, (chunk) => db.from('member_exercise_avoidance').delete().in('id', chunk));
   }
   // The events the run produced. Nobody actually logged a weight or
   // reported pain, so none of them should survive it.

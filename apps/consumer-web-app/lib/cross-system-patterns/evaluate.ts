@@ -28,6 +28,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { listSignalsForMember } from '@/lib/cross-system-signals/data';
 import { listRelationships } from '@/lib/cross-system-relationships/data';
 import type { RelationshipSummary } from '@/lib/cross-system-relationships/types';
@@ -136,12 +137,15 @@ export async function evaluateRelationshipChange(input: {
     // Everybody the previous version of this definition already surfaced
     // for. Without this, deactivating a pattern would leave its ledger rows
     // standing for any member whose signals no longer name it.
-    const held = await supabase
-      .from('cross_system_pattern_matches')
-      .select('member_id')
-      .eq('relationship_id', input.relationshipId);
+    const held = await selectAllRows<{ member_id: string }>(() =>
+      supabase
+        .from('cross_system_pattern_matches')
+        .select('member_id')
+        .eq('relationship_id', input.relationshipId)
+        .order('id', { ascending: true })
+    );
     if (held.error) console.error('evaluateRelationshipChange held read failed', held.error);
-    for (const row of (held.data ?? []) as { member_id: string }[]) candidates.add(row.member_id);
+    for (const row of held.error ? [] : held.rows) candidates.add(row.member_id);
 
     let surfaced = 0;
     for (const memberId of candidates) {

@@ -42,6 +42,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const COACH_EMAIL = 'oakomah66@gmail.com';
@@ -84,7 +85,7 @@ function reflectionWeekStartFor(localDate) {
 }
 
 async function truth() {
-  const { data: users, error } = await service.auth.admin.listUsers({ perPage: 200 });
+  const { data: users, error } = await listAllAuthUsers(service.auth.admin);
   if (error) throw new Error(`listUsers failed: ${error.message}`);
   const byEmail = (e) => users.users.find((u) => u.email === e);
   const coach = byEmail(COACH_EMAIL);

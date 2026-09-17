@@ -30,6 +30,7 @@ import { getMemberAssessmentFacts } from '../assessment-registry/facts';
 import { hasEverCompleted } from '../assessment-registry/status';
 import { buildMemberInterpretation } from '../member-interpretation/service';
 import { getMemberRestrictedTopics } from '../feed/data';
+import { selectAllRows } from '../data/pagedSelect';
 import { F } from './catalog';
 import type { VisibilityContext, IntakeAnswerValue } from './rules';
 import { emptyVisibilityContext } from './rules';
@@ -58,15 +59,21 @@ export async function fetchIntakeAnswers(
 
   if (error || !submission) return new Map();
 
-  const [{ data: answerRows }, { data: questions }] = await Promise.all([
-    supabase
-      .from('onboarding_answers')
-      .select('question_id, answer_status, value_numeric, value_enum, value_multi_select, value_boolean, value_free_text')
-      .eq('submission_id', (submission as { id: string }).id),
-    supabase
-      .from('onboarding_questions')
-      .select('id, question_key, answer_type')
-      .eq('assessment_version_id', (submission as { assessment_version_id: string }).assessment_version_id),
+  const [{ rows: answerRows }, { rows: questions }] = await Promise.all([
+    selectAllRows(() =>
+      supabase
+        .from('onboarding_answers')
+        .select('question_id, answer_status, value_numeric, value_enum, value_multi_select, value_boolean, value_free_text')
+        .eq('submission_id', (submission as { id: string }).id)
+        .order('id', { ascending: true })
+    ),
+    selectAllRows(() =>
+      supabase
+        .from('onboarding_questions')
+        .select('id, question_key, answer_type')
+        .eq('assessment_version_id', (submission as { assessment_version_id: string }).assessment_version_id)
+        .order('id', { ascending: true })
+    ),
   ]);
 
   const keyByQuestionId = new Map(

@@ -23,6 +23,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type { ActionResult } from './auth';
 import type {
   CoachAssignedWorkoutExercise,
@@ -130,10 +131,13 @@ async function resolveExerciseContext(exerciseRowId: string): Promise<ExerciseCo
 
   let assignmentIds = [workout.assignment_id as string];
   if (programGroupKey) {
-    const { data: siblings } = await supabase
-      .from('member_program_lifecycle')
-      .select('id')
-      .eq('program_group_key', programGroupKey);
+    const { rows: siblings } = await selectAllRows<{ id: string }>(() =>
+      supabase
+        .from('member_program_lifecycle')
+        .select('id')
+        .eq('program_group_key', programGroupKey)
+        .order('id', { ascending: true })
+    );
     if (siblings && siblings.length > 0) {
       assignmentIds = siblings.map((row) => row.id as string);
     }

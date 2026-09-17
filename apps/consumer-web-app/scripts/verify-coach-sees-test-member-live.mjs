@@ -26,6 +26,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const COACH_EMAIL = 'oakomah66@gmail.com';
@@ -49,24 +50,28 @@ function record(item, pass, detail) {
 
 /** Ids and the pairing, read straight from the database, not assumed. */
 async function truth() {
-  const { data: users, error: uErr } = await service.auth.admin.listUsers({ perPage: 200 });
+  const { data: users, error: uErr } = await listAllAuthUsers(service.auth.admin);
   if (uErr) throw new Error(`listUsers failed: ${uErr.message}`);
   const byEmail = (e) => users.users.find((u) => u.email === e);
   const coach = byEmail(COACH_EMAIL);
   const member = byEmail(MEMBER_EMAIL);
   if (!coach || !member) throw new Error('coach or member account not found on production');
 
+  // scale-exempt: primary-key lookup of a literal list of two ids, at most two rows
   const { data: profiles } = await service
     .from('profiles')
     .select('id, display_name, is_test')
     .in('id', [coach.id, member.id]);
   const memberProfile = profiles.find((p) => p.id === member.id);
 
-  const { data: pairing } = await service
-    .from('coach_client_assignments')
-    .select('status')
-    .eq('coach_id', coach.id)
-    .eq('client_id', member.id);
+  const { rows: pairing } = await selectAllRows(() =>
+    service
+      .from('coach_client_assignments')
+      .select('status')
+      .eq('coach_id', coach.id)
+      .eq('client_id', member.id)
+      .order('id', { ascending: true })
+  );
 
   return {
     coachId: coach.id,
@@ -213,12 +218,12 @@ const run = async () => {
   // -------------------------------------------------------------------
   // 3. Analytics still excludes her, measured against production
   // -------------------------------------------------------------------
-  const { data: without, error: e1 } = await service.rpc('analytics_member_scope', {
-    p_include_test: false,
-  });
-  const { data: withTest, error: e2 } = await service.rpc('analytics_member_scope', {
-    p_include_test: true,
-  });
+  const { rows: without, error: e1 } = await selectAllRows(() =>
+    service.rpc('analytics_member_scope', { p_include_test: false }).order('member_id', { ascending: true })
+  );
+  const { rows: withTest, error: e2 } = await selectAllRows(() =>
+    service.rpc('analytics_member_scope', { p_include_test: true }).order('member_id', { ascending: true })
+  );
   if (e1 || e2) {
     record('analytics scope readable', false, `${e1?.message ?? ''} ${e2?.message ?? ''}`);
   } else {

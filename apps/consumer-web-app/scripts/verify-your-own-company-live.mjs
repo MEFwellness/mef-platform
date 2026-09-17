@@ -44,6 +44,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const STAFF_EMAIL = process.env.STAFF_EMAIL;
@@ -209,11 +210,14 @@ async function shot(page, name) {
 /** Removes only this template's rows. Seven templates share this table. */
 async function clearTemplate(service, memberId) {
   await service.from(TABLE).delete().eq('member_id', memberId).eq('experience_key', YOC.key);
-  const { data: experiments } = await service
-    .from('lifestyle_experiments')
-    .select('id')
-    .eq('member_id', memberId)
-    .eq('source_experience_key', YOC.key);
+  const { rows: experiments } = await selectAllRows(() =>
+    service
+      .from('lifestyle_experiments')
+      .select('id')
+      .eq('member_id', memberId)
+      .eq('source_experience_key', YOC.key)
+      .order('id', { ascending: true })
+  );
   for (const row of experiments ?? []) {
     await service.from('cvs_experiment_daily_logs').delete().eq('experiment_id', row.id);
   }
@@ -222,11 +226,14 @@ async function clearTemplate(service, memberId) {
     .delete()
     .eq('member_id', memberId)
     .eq('source_experience_key', YOC.key);
-  const { data: rows } = await service
-    .from('assessment_assignments')
-    .select('id')
-    .eq('member_id', memberId)
-    .eq('assessment_definition_id', YOC.definitionId);
+  const { rows } = await selectAllRows(() =>
+    service
+      .from('assessment_assignments')
+      .select('id')
+      .eq('member_id', memberId)
+      .eq('assessment_definition_id', YOC.definitionId)
+      .order('id', { ascending: true })
+  );
   for (const row of rows ?? []) {
     await service.from('member_assignment_deliveries').delete().eq('assignment_id', row.id);
   }
@@ -401,10 +408,13 @@ async function main() {
   // The account should be carrying no running experiment at all before this
   // run, because the two active cap would otherwise refuse the one this
   // sitting offers. Asserted rather than assumed.
-  const { data: experimentsBefore } = await service
-    .from('lifestyle_experiments')
-    .select('id, title, source_experience_key, status')
-    .eq('member_id', MEMBER_ID);
+  const { rows: experimentsBefore } = await selectAllRows(() =>
+    service
+      .from('lifestyle_experiments')
+      .select('id, title, source_experience_key, status')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
   check(
     'fixture: the account carries no leftover experiment before the run',
     (experimentsBefore ?? []).length === 0,
@@ -462,12 +472,15 @@ async function main() {
     await panel.getByRole('button', { name: new RegExp(`Assign ${YOC.label}`) }).click();
     await coachPage.waitForTimeout(3500);
 
-    const { data: assignments } = await service
-      .from('assessment_assignments')
-      .select('id, status, due_at')
-      .eq('member_id', MEMBER_ID)
-      .eq('assessment_definition_id', YOC.definitionId)
-      .eq('status', 'pending');
+    const { rows: assignments } = await selectAllRows(() =>
+      service
+        .from('assessment_assignments')
+        .select('id, status, due_at')
+        .eq('member_id', MEMBER_ID)
+        .eq('assessment_definition_id', YOC.definitionId)
+        .eq('status', 'pending')
+        .order('id', { ascending: true })
+    );
     check(
       'ledger: exactly one assignment row was written',
       (assignments ?? []).length === 1,
@@ -714,13 +727,16 @@ async function main() {
     // -----------------------------------------------------------------
     // 6. Save and resume, across a genuinely closed tab.
     // -----------------------------------------------------------------
-    const { data: draftRows } = await service
-      .from(TABLE)
-      .select(
-        'id, answers, instinct_state, completed_at, rewritten_line, experience_key, follow_up_source_experience_key'
-      )
-      .eq('member_id', MEMBER_ID)
-      .eq('experience_key', YOC.key);
+    const { rows: draftRows } = await selectAllRows(() =>
+      service
+        .from(TABLE)
+        .select(
+          'id, answers, instinct_state, completed_at, rewritten_line, experience_key, follow_up_source_experience_key'
+        )
+        .eq('member_id', MEMBER_ID)
+        .eq('experience_key', YOC.key)
+        .order('id', { ascending: true })
+    );
     check(
       'draft: one row exists, unfinished',
       (draftRows ?? []).length === 1 && !draftRows?.[0]?.completed_at
@@ -976,11 +992,14 @@ async function main() {
     check('closing: the URL never moved', page.url().includes(`/${YOC.key}`));
     await shot(page, '17-closing-still-holding');
 
-    const { data: finishedRows } = await service
-      .from(TABLE)
-      .select('id, rewritten_line, instinct_state, answers, completed_at, follow_up_source_experience_key')
-      .eq('member_id', MEMBER_ID)
-      .eq('experience_key', YOC.key);
+    const { rows: finishedRows } = await selectAllRows(() =>
+      service
+        .from(TABLE)
+        .select('id, rewritten_line, instinct_state, answers, completed_at, follow_up_source_experience_key')
+        .eq('member_id', MEMBER_ID)
+        .eq('experience_key', YOC.key)
+        .order('id', { ascending: true })
+    );
     const finished = finishedRows?.[0];
     check('storage: the sitting is completed', Boolean(finished?.completed_at));
     check('storage: exactly one sitting exists, not two', (finishedRows ?? []).length === 1);
@@ -1041,11 +1060,14 @@ async function main() {
     await shot(page, '19-done');
     if (await emDashOn(page)) dashes++;
 
-    const { data: experiments } = await service
-      .from('lifestyle_experiments')
-      .select('id, title, protocol, duration_days, status, start_date')
-      .eq('member_id', MEMBER_ID)
-      .eq('source_experience_key', YOC.key);
+    const { rows: experiments } = await selectAllRows(() =>
+      service
+        .from('lifestyle_experiments')
+        .select('id, title, protocol, duration_days, status, start_date')
+        .eq('member_id', MEMBER_ID)
+        .eq('source_experience_key', YOC.key)
+        .order('id', { ascending: true })
+    );
     check('experiment: exactly one row was written', (experiments ?? []).length === 1);
     check('experiment: it runs seven days', experiments?.[0]?.duration_days === 7);
     check('experiment: it starts on HER calendar day', experiments?.[0]?.start_date === memberToday);
@@ -1305,46 +1327,61 @@ async function main() {
   }
 
   // ---------------- THE ACCOUNT IS LEFT AS IT WAS FOUND ----------------
-  const { data: leftSittings } = await service
-    .from(TABLE)
-    .select('id, experience_key')
-    .eq('member_id', MEMBER_ID)
-    .eq('experience_key', YOC.key);
+  const { rows: leftSittings } = await selectAllRows(() =>
+    service
+      .from(TABLE)
+      .select('id, experience_key')
+      .eq('member_id', MEMBER_ID)
+      .eq('experience_key', YOC.key)
+      .order('id', { ascending: true })
+  );
   check(
     'cleanup: no sitting from this run is left on production',
     (leftSittings ?? []).length === 0,
     JSON.stringify(leftSittings ?? [])
   );
 
-  const { data: leftAssignments } = await service
-    .from('assessment_assignments')
-    .select('id')
-    .eq('member_id', MEMBER_ID)
-    .eq('assessment_definition_id', YOC.definitionId);
+  const { rows: leftAssignments } = await selectAllRows(() =>
+    service
+      .from('assessment_assignments')
+      .select('id')
+      .eq('member_id', MEMBER_ID)
+      .eq('assessment_definition_id', YOC.definitionId)
+      .order('id', { ascending: true })
+  );
   check('cleanup: no assignment from this run is left', (leftAssignments ?? []).length === 0);
 
-  const { data: leftAttempts } = await service
-    .from('assessment_attempts')
-    .select('id')
-    .eq('member_id', MEMBER_ID)
-    .eq('assessment_definition_id', YOC.definitionId);
+  const { rows: leftAttempts } = await selectAllRows(() =>
+    service
+      .from('assessment_attempts')
+      .select('id')
+      .eq('member_id', MEMBER_ID)
+      .eq('assessment_definition_id', YOC.definitionId)
+      .order('id', { ascending: true })
+  );
   check('cleanup: no attempt row from this run is left', (leftAttempts ?? []).length === 0);
 
-  const { data: leftExperiments } = await service
-    .from('lifestyle_experiments')
-    .select('id, source_experience_key')
-    .eq('member_id', MEMBER_ID);
+  const { rows: leftExperiments } = await selectAllRows(() =>
+    service
+      .from('lifestyle_experiments')
+      .select('id, source_experience_key')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
   check(
     'cleanup: the account holds no experiment at all, this run’s or the leftover one',
     (leftExperiments ?? []).length === 0,
     JSON.stringify(leftExperiments ?? [])
   );
 
-  const { data: leftDismissals } = await service
-    .from('member_root_popup_dismissals')
-    .select('message_key')
-    .eq('member_id', MEMBER_ID)
-    .like('message_key', `${YOC.dismissalPrefix}:%`);
+  const { rows: leftDismissals } = await selectAllRows(() =>
+    service
+      .from('member_root_popup_dismissals')
+      .select('message_key')
+      .eq('member_id', MEMBER_ID)
+      .like('message_key', `${YOC.dismissalPrefix}:%`)
+      .order('id', { ascending: true })
+  );
   check('cleanup: no pop-up dismissal row from this run is left', (leftDismissals ?? []).length === 0);
 
   const passed = results.filter((r) => r.passed).length;

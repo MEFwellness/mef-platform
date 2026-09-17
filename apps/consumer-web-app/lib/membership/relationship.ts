@@ -50,6 +50,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isAccessSource, isAccessStatus, isAccessTier } from './types';
 import type { AccessSource, AccessStatus, AccessTier } from './types';
+import { selectAllRows } from '../data/pagedSelect';
 
 export const RELATIONSHIP_TYPES = [
   'ACTIVE_COACHING_CLIENT',
@@ -141,7 +142,13 @@ export async function fetchRelationshipFacts(
   memberId: string
 ): Promise<RelationshipFacts> {
   const [assignments, subscription, profile] = await Promise.all([
-    supabase.from('coach_client_assignments').select('status').eq('client_id', memberId),
+    selectAllRows<{ status: string }>(() =>
+      supabase
+        .from('coach_client_assignments')
+        .select('status')
+        .eq('client_id', memberId)
+        .order('id', { ascending: true })
+    ),
     supabase
       .from('member_subscriptions')
       .select('tier, source, status, full_access, trial_arc_suppressed_at')
@@ -155,7 +162,7 @@ export async function fetchRelationshipFacts(
   if (subscription.error) console.error('fetchRelationshipFacts subscription failed', subscription.error);
   if (profile.error) console.error('fetchRelationshipFacts profile failed', profile.error);
 
-  const rows = (assignments.data ?? []) as { status: string }[];
+  const rows = assignments.rows;
   const statuses = [...new Set(rows.map((row) => row.status))];
   const row = subscription.data as {
     tier: string | null;

@@ -37,6 +37,7 @@ import type {
   MemberExerciseFeedback,
 } from '@mef/shared-types-contracts';
 import { REPEATED_SKIP_THRESHOLD } from './reasons';
+import { selectAllRowsInChunks } from '../../data/pagedSelect';
 
 export interface RecordFeedbackInput {
   memberId: string;
@@ -237,37 +238,47 @@ export async function findSwapTargets(
   const ids = new Set<string>([input.assignedWorkoutExerciseId]);
   if (input.assignmentIds.length === 0) return [...ids];
 
-  const { data: workouts, error: workoutsError } = await supabase
-    .from('coach_assigned_workouts')
-    .select('id')
-    .eq('member_id', input.memberId)
-    .in('assignment_id', input.assignmentIds)
-    .gte('scheduled_date', input.today);
+  const { rows: workouts, error: workoutsError } = await selectAllRowsInChunks<{ id: string }>(
+    input.assignmentIds,
+    (chunk) =>
+      supabase
+        .from('coach_assigned_workouts')
+        .select('id')
+        .eq('member_id', input.memberId)
+        .in('assignment_id', chunk)
+        .gte('scheduled_date', input.today)
+        .order('id', { ascending: true })
+  );
   if (workoutsError) {
     console.error('findSwapTargets (workouts) failed', workoutsError);
     return [...ids];
   }
-  const workoutIds = (workouts ?? []).map((row) => row.id as string);
+  const workoutIds = workouts.map((row) => row.id);
   if (workoutIds.length === 0) return [...ids];
 
-  const { data: exercises, error: exercisesError } = await supabase
-    .from('coach_assigned_workout_exercises')
-    .select('id, status')
-    .eq('member_id', input.memberId)
-    .eq('external_id', input.externalId)
-    .in('assigned_workout_id', workoutIds);
+  const { rows: exercises, error: exercisesError } = await selectAllRowsInChunks<{ id: string; status: string }>(
+    workoutIds,
+    (chunk) =>
+      supabase
+        .from('coach_assigned_workout_exercises')
+        .select('id, status')
+        .eq('member_id', input.memberId)
+        .eq('external_id', input.externalId)
+        .in('assigned_workout_id', chunk)
+        .order('id', { ascending: true })
+  );
   if (exercisesError) {
     console.error('findSwapTargets (exercises) failed', exercisesError);
     return [...ids];
   }
-  for (const row of exercises ?? []) {
+  for (const row of exercises) {
     // Something she already finished, skipped or stopped is a record of
     // what happened. Rewriting it would change history.
-    const status = row.status as string;
+    const status = row.status;
     if (status === 'completed' || status === 'partially_completed' || status === 'skipped' || status === 'stopped') {
       continue;
     }
-    ids.add(row.id as string);
+    ids.add(row.id);
   }
   return [...ids];
 }
@@ -293,6 +304,7 @@ export async function applySwap(
   input: ApplySwapInput
 ): Promise<number> {
   if (input.exerciseRowIds.length === 0) return 0;
+  // scale-exempt: the upcoming occurrences of ONE exercise in one member's program group, and a swap must land whole or not at all
   const { data, error } = await supabase
     .from('coach_assigned_workout_exercises')
     .update({

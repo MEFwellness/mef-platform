@@ -7,6 +7,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 
 export type RootPopupDismissalStatus = 'snoozed' | 'ignored';
 
@@ -340,11 +341,14 @@ export async function listExperimentOfferDismissals(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<{ ok: boolean; sessionIds: Set<string> }> {
-  const { data, error } = await supabase
-    .from('member_root_popup_dismissals')
-    .select('message_key')
-    .eq('member_id', memberId)
-    .or('message_key.like.cvs_offer:%,message_key.like.lsc_offer:%,message_key.like.rpl_offer:%');
+  const { rows: data, error } = await selectAllRows<{ message_key: string }>(() =>
+    supabase
+      .from('member_root_popup_dismissals')
+      .select('message_key')
+      .eq('member_id', memberId)
+      .or('message_key.like.cvs_offer:%,message_key.like.lsc_offer:%,message_key.like.rpl_offer:%')
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listExperimentOfferDismissals failed', error);
@@ -352,7 +356,7 @@ export async function listExperimentOfferDismissals(
   }
 
   const sessionIds = new Set<string>();
-  for (const row of (data ?? []) as Array<{ message_key: string }>) {
+  for (const row of data) {
     const colon = row.message_key.indexOf(':');
     if (colon > 0) sessionIds.add(row.message_key.slice(colon + 1));
   }

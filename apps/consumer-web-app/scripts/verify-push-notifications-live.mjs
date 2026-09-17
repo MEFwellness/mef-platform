@@ -44,6 +44,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { mintSessionCookies, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, writeInChunks } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const MEMBER_EMAIL = process.env.MEMBER_EMAIL ?? '8weeks2fab@gmail.com';
@@ -102,10 +103,13 @@ async function pushColumns(memberId) {
 }
 
 async function liveDevices(memberId) {
-  const { data } = await service
-    .from('member_push_subscriptions')
-    .select('id, endpoint, device_label, revoked_at')
-    .eq('member_id', memberId);
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('member_push_subscriptions')
+      .select('id, endpoint, device_label, revoked_at')
+      .eq('member_id', memberId)
+      .order('id', { ascending: true })
+  );
   return data ?? [];
 }
 
@@ -490,7 +494,7 @@ try {
   const all = await liveDevices(memberId);
   const created = all.filter((d) => !startingDeviceIds.has(d.id)).map((d) => d.id);
   if (created.length > 0) {
-    await service.from('member_push_subscriptions').delete().in('id', created);
+    await writeInChunks(created, (chunk) => service.from('member_push_subscriptions').delete().in('id', chunk));
   }
   console.log(`\nput back: ${created.length} subscription row(s) deleted, push columns restored`);
 

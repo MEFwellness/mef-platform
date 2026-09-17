@@ -22,6 +22,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows, writeInChunks } from '@/lib/data/pagedSelect';
 import type { RootFindingDraft } from './types';
 
 export type FindingTrigger =
@@ -85,12 +86,6 @@ function hashText(text: string): string {
   return `${high}${low}`;
 }
 
-function chunks<T>(rows: readonly T[], size = FINDING_INSERT_CHUNK): T[][] {
-  const out: T[][] = [];
-  for (let index = 0; index < rows.length; index += size) out.push(rows.slice(index, index + size));
-  return out;
-}
-
 /**
  * Replaces every finding for one cause.
  *
@@ -140,12 +135,14 @@ export async function replaceFindings(
     return narrowed as unknown as Q;
   };
 
-  const existing = await scoped(
-    supabase
-      .from('cross_system_root_findings')
-      .select(
-        'id, relationship_id, reviewed_at, reviewed_by, dismissed_at, dismissed_by, evidence_digest, rule_revision'
-      )
+  const existing = await selectAllRows<Record<string, unknown>>(() =>
+    scoped(
+      supabase
+        .from('cross_system_root_findings')
+        .select(
+          'id, relationship_id, reviewed_at, reviewed_by, dismissed_at, dismissed_by, evidence_digest, rule_revision'
+        )
+    ).order('id', { ascending: true })
   );
   if (existing.error) {
     console.error('replaceFindings could not read existing rows', existing.error);
@@ -154,7 +151,7 @@ export async function replaceFindings(
 
   const surfacedNow = input.findings.filter((finding) => finding.surfaced);
   if (cause.kind === 'sitting') {
-    const stored = (existing.data ?? []) as Array<Record<string, unknown>>;
+    const stored = existing.rows;
     const storedDigest = new Map(
       stored.map((row) => [row.relationship_id as string, row.evidence_digest as string | null])
     );
@@ -172,7 +169,7 @@ export async function replaceFindings(
   // reviewed on Monday must not have it come back unread on Tuesday
   // because an unrelated signal landed and the pass ran again.
   const carried = new Map(
-    (existing.data ?? []).map((row: Record<string, unknown>) => [
+    existing.rows.map((row) => [
       row.relationship_id as string,
       {
         reviewed_at: row.reviewed_at as string | null,
@@ -242,17 +239,18 @@ export async function replaceFindings(
     };
   });
 
-  const insertedFindings = await supabase
-    .from('cross_system_root_findings')
-    .insert(findingRows)
-    .select('id, relationship_id');
+  const insertedFindings = await writeInChunks<(typeof findingRows)[number], Record<string, unknown>>(
+    findingRows,
+    (chunk) => supabase.from('cross_system_root_findings').insert(chunk).select('id, relationship_id'),
+    FINDING_INSERT_CHUNK
+  );
   if (insertedFindings.error) {
     console.error('replaceFindings insert failed', insertedFindings.error);
     return { ok: false, written: 0 };
   }
 
   const findingIdByRelationship = new Map(
-    (insertedFindings.data ?? []).map((row: Record<string, unknown>) => [
+    insertedFindings.rows.map((row) => [
       row.relationship_id as string,
       row.id as string,
     ])
@@ -290,28 +288,26 @@ export async function replaceFindings(
         position,
       }))
     );
-    for (const batch of chunks(triggerRows)) {
-      const linked = await supabase.from('cross_system_root_finding_triggers').insert(batch);
-      if (linked.error) {
-        console.error('replaceFindings trigger link failed', linked.error);
-        break;
-      }
-    }
+    const linked = await writeInChunks(
+      triggerRows,
+      (chunk) => supabase.from('cross_system_root_finding_triggers').insert(chunk),
+      FINDING_INSERT_CHUNK
+    );
+    if (linked.error) console.error('replaceFindings trigger link failed', linked.error);
   }
 
   if (areaRows.length > 0) {
-    const insertedAreaRows: Array<Record<string, unknown>> = [];
-    for (const batch of chunks(areaRows)) {
-      const insertedAreas = await supabase
-        .from('cross_system_root_finding_areas')
-        .insert(batch)
-        .select('id, finding_id, position');
-      if (insertedAreas.error) {
-        console.error('replaceFindings area insert failed', insertedAreas.error);
-        return { ok: true, written: findingRows.length };
-      }
-      insertedAreaRows.push(...((insertedAreas.data ?? []) as Array<Record<string, unknown>>));
+    const insertedAreas = await writeInChunks<(typeof areaRows)[number], Record<string, unknown>>(
+      areaRows,
+      (chunk) =>
+        supabase.from('cross_system_root_finding_areas').insert(chunk).select('id, finding_id, position'),
+      FINDING_INSERT_CHUNK
+    );
+    if (insertedAreas.error) {
+      console.error('replaceFindings area insert failed', insertedAreas.error);
+      return { ok: true, written: findingRows.length };
     }
+    const insertedAreaRows = insertedAreas.rows;
 
     const areaIdByKey = new Map(
       insertedAreaRows.map((row) => [
@@ -334,13 +330,12 @@ export async function replaceFindings(
       });
     });
 
-    for (const batch of chunks(signalRows)) {
-      const linked = await supabase.from('cross_system_root_finding_signals').insert(batch);
-      if (linked.error) {
-        console.error('replaceFindings signal link failed', linked.error);
-        break;
-      }
-    }
+    const linked = await writeInChunks(
+      signalRows,
+      (chunk) => supabase.from('cross_system_root_finding_signals').insert(chunk),
+      FINDING_INSERT_CHUNK
+    );
+    if (linked.error) console.error('replaceFindings signal link failed', linked.error);
   }
 
   return { ok: true, written: findingRows.length };

@@ -23,6 +23,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionCookies } from './lib/mint-session.mjs';
+import { listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.BASE_URL ?? 'https://app.mefwellness.com';
 const ADMIN = process.env.ADMIN_EMAIL ?? 'oakomah66@gmail.com';
@@ -48,7 +49,7 @@ async function suppressionOf(memberId) {
 }
 
 async function idOf(email) {
-  const { data } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const { data } = await listAllAuthUsers(service.auth.admin);
   return data.users.find((u) => u.email === email)?.id ?? null;
 }
 

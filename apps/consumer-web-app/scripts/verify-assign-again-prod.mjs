@@ -40,6 +40,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.AA_BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const SUPA = process.env.PROD_SUPABASE_URL ?? 'https://piafgqstbibvllsnuike.supabase.co';
@@ -110,21 +111,27 @@ const EXPECTED_TOTAL = 16;
 // ---------------------------------------------------------------------
 
 async function assignments() {
-  const { data } = await admin
-    .from('assessment_assignments')
-    .select('id, status, created_at, due_at, assigned_by, updated_at')
-    .eq('member_id', MEMBER)
-    .eq('assessment_definition_id', DEFINITION_ID)
-    .order('created_at', { ascending: false });
+  const { rows: data } = await selectAllRows(() =>
+    admin
+      .from('assessment_assignments')
+      .select('id, status, created_at, due_at, assigned_by, updated_at')
+      .eq('member_id', MEMBER)
+      .eq('assessment_definition_id', DEFINITION_ID)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   return data ?? [];
 }
 
 async function sittings() {
-  const { data } = await admin
-    .from('member_breathing_check_in_sessions')
-    .select('id, assignment_id, results, completed_at, created_at')
-    .eq('member_id', MEMBER)
-    .order('created_at', { ascending: false });
+  const { rows: data } = await selectAllRows(() =>
+    admin
+      .from('member_breathing_check_in_sessions')
+      .select('id, assignment_id, results, completed_at, created_at')
+      .eq('member_id', MEMBER)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
   return data ?? [];
 }
 

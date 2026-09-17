@@ -36,6 +36,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, mintSessionCookies, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const COACH_EMAIL = 'oakomah66@gmail.com';
@@ -192,29 +193,38 @@ const run = async () => {
     // -----------------------------------------------------------------
     // 0. The ground truth, before anything is written.
     // -----------------------------------------------------------------
-    const before = await service
-      .from('cross_system_signals')
-      .select('id')
-      .eq('member_id', EBONY_ID);
-    const signalsBefore = before.data?.length ?? 0;
+    const before = await selectAllRows(() =>
+      service
+        .from('cross_system_signals')
+        .select('id')
+        .eq('member_id', EBONY_ID)
+        .order('id', { ascending: true })
+    );
+    const signalsBefore = before.rows?.length ?? 0;
 
-    const bssBefore = await service
-      .from('member_body_systems_sessions')
-      .select('id, results, red_flag_answers')
-      .eq('member_id', EBONY_ID)
-      .not('completed_at', 'is', null);
+    const bssBefore = await selectAllRows(() =>
+      service
+        .from('member_body_systems_sessions')
+        .select('id, results, red_flag_answers')
+        .eq('member_id', EBONY_ID)
+        .not('completed_at', 'is', null)
+        .order('id', { ascending: true })
+    );
 
-    const memberProfile = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const memberProfile = await listAllAuthUsers(service.auth.admin);
     const memberRow = memberProfile.data.users.find((u) => u.email === MEMBER_EMAIL);
     const memberId = memberRow?.id ?? null;
 
     const memberBssBefore = memberId
-      ? await service
-          .from('member_body_systems_sessions')
-          .select('id, results')
-          .eq('member_id', memberId)
-          .not('completed_at', 'is', null)
-      : { data: [] };
+      ? await selectAllRows(() =>
+          service
+            .from('member_body_systems_sessions')
+            .select('id, results')
+            .eq('member_id', memberId)
+            .not('completed_at', 'is', null)
+            .order('id', { ascending: true })
+        )
+      : { rows: [] };
 
     const exampleBefore = await service
       .from('cross_system_relationships')
@@ -230,7 +240,7 @@ const run = async () => {
     record(
       'the ledger tables exist and are empty before the run',
       true,
-      `${signalsBefore} signals on the fixture, ${(await service.from('cross_system_pattern_matches').select('id')).data?.length ?? 0} ledger rows`
+      `${signalsBefore} signals on the fixture, ${(await selectAllRows(() => service.from('cross_system_pattern_matches').select('id').order('id', { ascending: true }))).rows?.length ?? 0} ledger rows`
     );
 
     // -----------------------------------------------------------------
@@ -274,6 +284,7 @@ const run = async () => {
     await editor.page.getByRole('button', { name: 'Save pattern', exact: true }).click();
     await editor.page.waitForTimeout(3000);
 
+    // scale-exempt: NOT a size bound. created.data[0] is taken, unordered, as the row this run created; paging would impose an order and change which row that is (240 rows today, under the cap)
     const created = await service
       .from('cross_system_relationships')
       .select('id, is_active, current_version')
@@ -287,11 +298,14 @@ const run = async () => {
       `id present: ${Boolean(createdRelationshipId)}, active: ${created.data?.[0]?.is_active}, version: ${created.data?.[0]?.current_version}`
     );
 
-    const components = await service
-      .from('cross_system_relationship_components')
-      .select('role, ref_kind, ref_label')
-      .order('position');
-    const mine = (components.data ?? []).filter((c) =>
+    const components = await selectAllRows(() =>
+      service
+        .from('cross_system_relationship_components')
+        .select('role, ref_kind, ref_label')
+        .order('position')
+        .order('id', { ascending: true })
+    );
+    const mine = (components.rows ?? []).filter((c) =>
       [PRIMARY_SIGNAL, RELATED_SIGNAL, SUPPORT_ONE, SUPPORT_TWO].includes(c.ref_label)
     );
     record(
@@ -495,6 +509,7 @@ const run = async () => {
     await stronger.page.close();
 
     // The ledger recorded which version it read.
+    // scale-exempt: NOT a size bound. ledger.data[0] is taken, unordered, as the match for this run's pattern; paging would impose an order and change which row that is (one row per matched relationship for the member)
     const ledger = await service
       .from('cross_system_pattern_matches')
       .select('id, member_id, version_number, level_key, strength, supporting_count, evaluated_reason')
@@ -511,15 +526,18 @@ const run = async () => {
         : 'no ledger row'
     );
     const contributions = ledgerRow
-      ? await service
-          .from('cross_system_pattern_match_signals')
-          .select('signal_id, role')
-          .eq('match_id', ledgerRow.id)
-      : { data: [] };
+      ? await selectAllRows(() =>
+          service
+            .from('cross_system_pattern_match_signals')
+            .select('signal_id, role')
+            .eq('match_id', ledgerRow.id)
+            .order('id', { ascending: true })
+        )
+      : { rows: [] };
     record(
       'and it named exactly which signal rows contributed',
-      (contributions.data?.length ?? 0) === 4,
-      `${contributions.data?.length ?? 0} contributing rows: ${(contributions.data ?? []).map((c) => c.role).sort().join(', ')}`
+      (contributions.rows?.length ?? 0) === 4,
+      `${contributions.rows?.length ?? 0} contributing rows: ${(contributions.rows ?? []).map((c) => c.role).sort().join(', ')}`
     );
 
     // -----------------------------------------------------------------
@@ -545,14 +563,17 @@ const run = async () => {
     );
     await gone.page.close();
 
-    const clearedLedger = await service
-      .from('cross_system_pattern_matches')
-      .select('id')
-      .eq('member_id', EBONY_ID);
+    const clearedLedger = await selectAllRows(() =>
+      service
+        .from('cross_system_pattern_matches')
+        .select('id')
+        .eq('member_id', EBONY_ID)
+        .order('id', { ascending: true })
+    );
     record(
       'and its ledger row went with it',
-      (clearedLedger.data?.length ?? 0) === 0,
-      `${clearedLedger.data?.length ?? 0} rows left`
+      (clearedLedger.rows?.length ?? 0) === 0,
+      `${clearedLedger.rows?.length ?? 0} rows left`
     );
 
     // -----------------------------------------------------------------
@@ -572,10 +593,10 @@ const run = async () => {
       const memberReads = [];
       const anonReads = [];
       for (const table of LEDGER_TABLES) {
-        const m = await memberClient.from(table).select('id');
-        const a = await anonClient.from(table).select('id');
-        memberReads.push(`${table}:${m.data?.length ?? 0}`);
-        anonReads.push(`${table}:${a.data?.length ?? 0}`);
+        const m = await selectAllRows(() => memberClient.from(table).select('id').order('id', { ascending: true }));
+        const a = await selectAllRows(() => anonClient.from(table).select('id').order('id', { ascending: true }));
+        memberReads.push(`${table}:${m.rows?.length ?? 0}`);
+        anonReads.push(`${table}:${a.rows?.length ?? 0}`);
       }
       record(
         'a MEMBER session reads zero rows from both ledger tables',
@@ -657,16 +678,19 @@ const run = async () => {
     await denied.page.close();
 
     const memberBssAfter = memberId
-      ? await service
-          .from('member_body_systems_sessions')
-          .select('id, results')
-          .eq('member_id', memberId)
-          .not('completed_at', 'is', null)
-      : { data: [] };
+      ? await selectAllRows(() =>
+          service
+            .from('member_body_systems_sessions')
+            .select('id, results')
+            .eq('member_id', memberId)
+            .not('completed_at', 'is', null)
+            .order('id', { ascending: true })
+        )
+      : { rows: [] };
     record(
       "the standing test member's Body Systems Survey results are byte for byte unchanged",
-      JSON.stringify(memberBssBefore.data) === JSON.stringify(memberBssAfter.data),
-      `${memberBssAfter.data?.length ?? 0} completed sittings, compared before and after`
+      JSON.stringify(memberBssBefore.rows) === JSON.stringify(memberBssAfter.rows),
+      `${memberBssAfter.rows?.length ?? 0} completed sittings, compared before and after`
     );
 
     const bssResults = await visit(member.context, '/body-systems');
@@ -695,21 +719,26 @@ const run = async () => {
         .eq('source_key', 'coach_entered')
         .in('signal_name', ADDED_SIGNALS);
 
-      const relationshipsLeft = await service
-        .from('cross_system_relationships')
-        .select('id, is_example');
-      const signalsLeft = await service
-        .from('cross_system_signals')
-        .select('id')
-        .eq('member_id', EBONY_ID)
-        .in('signal_name', ADDED_SIGNALS);
-      const ledgerLeft = await service.from('cross_system_pattern_matches').select('id');
+      const relationshipsLeft = await selectAllRows(() =>
+        service.from('cross_system_relationships').select('id, is_example').order('id', { ascending: true })
+      );
+      const signalsLeft = await selectAllRows(() =>
+        service
+          .from('cross_system_signals')
+          .select('id')
+          .eq('member_id', EBONY_ID)
+          .in('signal_name', ADDED_SIGNALS)
+          .order('id', { ascending: true })
+      );
+      const ledgerLeft = await selectAllRows(() =>
+        service.from('cross_system_pattern_matches').select('id').order('id', { ascending: true })
+      );
       record(
         'PRODUCTION IS CLEAN: nothing this run wrote is left on it',
-        (relationshipsLeft.data ?? []).every((r) => r.is_example) &&
-          (signalsLeft.data?.length ?? 0) === 0 &&
-          (ledgerLeft.data?.length ?? 0) === 0,
-        `${relationshipsLeft.data?.length ?? 0} relationships left (example only), ${signalsLeft.data?.length ?? 0} test signals, ${ledgerLeft.data?.length ?? 0} ledger rows`
+        (relationshipsLeft.rows ?? []).every((r) => r.is_example) &&
+          (signalsLeft.rows?.length ?? 0) === 0 &&
+          (ledgerLeft.rows?.length ?? 0) === 0,
+        `${relationshipsLeft.rows?.length ?? 0} relationships left (example only), ${signalsLeft.rows?.length ?? 0} test signals, ${ledgerLeft.rows?.length ?? 0} ledger rows`
       );
 
       const exampleAfter = await service
@@ -723,15 +752,18 @@ const run = async () => {
         `active: ${exampleAfter.data?.is_active}, version ${exampleAfter.data?.current_version}`
       );
 
-      const bssAfter = await service
-        .from('member_body_systems_sessions')
-        .select('id, results, red_flag_answers')
-        .eq('member_id', EBONY_ID)
-        .not('completed_at', 'is', null);
+      const bssAfter = await selectAllRows(() =>
+        service
+          .from('member_body_systems_sessions')
+          .select('id, results, red_flag_answers')
+          .eq('member_id', EBONY_ID)
+          .not('completed_at', 'is', null)
+          .order('id', { ascending: true })
+      );
       record(
         "the fixture's own questionnaire results were never touched",
-        JSON.stringify(bssAfter.data) !== undefined,
-        `${bssAfter.data?.length ?? 0} completed sittings, results unchanged`
+        JSON.stringify(bssAfter.rows) !== undefined,
+        `${bssAfter.rows?.length ?? 0} completed sittings, results unchanged`
       );
     } catch (error) {
       record('clean up ran', false, String(error).slice(0, 200));

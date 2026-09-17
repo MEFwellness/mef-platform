@@ -47,6 +47,7 @@ function fakeClient() {
       'lte',
       'order',
       'limit',
+      'range',
       'not',
     ]) {
       chain[method] = () => chain;

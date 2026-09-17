@@ -13,6 +13,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import type { ActionResult } from './auth';
 import { resolveLocalDate } from './checkin';
 import type {
@@ -327,10 +328,15 @@ export async function listTodayFoodLogAction(): Promise<FoodLogEntryWithProduct[
   ];
   if (productIds.length === 0) return entries.map((e) => ({ ...e, product: null }));
 
-  const { data: products } = await supabase
-    .from('food_products')
-    .select('id, name, brand, image_url, serving_size_text')
-    .in('id', productIds);
+  const { rows: products } = await selectAllRowsInChunks<NonNullable<FoodLogEntryWithProduct['product']>>(
+    productIds,
+    (chunk) =>
+      supabase
+        .from('food_products')
+        .select('id, name, brand, image_url, serving_size_text')
+        .in('id', chunk)
+        .order('id', { ascending: true })
+  );
   const byId = new Map((products ?? []).map((p) => [p.id as string, p]));
 
   return entries.map((e) => ({

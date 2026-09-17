@@ -27,6 +27,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, mintSessionCookies, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks, writeInChunks } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const COACH_EMAIL = 'oakomah66@gmail.com';
@@ -284,27 +285,35 @@ try {
   // -----------------------------------------------------------------
   // 0. The starting state, so every later count is a real comparison.
   // -----------------------------------------------------------------
-  const seeded = await service
-    .from('cross_system_relationships')
-    .select('id, pattern_key, is_active, is_seeded')
-    .eq('is_seeded', true);
+  const seeded = await selectAllRows(() =>
+    service
+      .from('cross_system_relationships')
+      .select('id, pattern_key, is_active, is_seeded')
+      .eq('is_seeded', true)
+      .order('id', { ascending: true })
+  );
   record(
     'The seeded starter map is on production and active',
-    (seeded.data ?? []).length === 18 && (seeded.data ?? []).every((r) => r.is_active),
-    `${(seeded.data ?? []).length} seeded entries, ${(seeded.data ?? []).filter((r) => r.is_active).length} active`
+    (seeded.rows ?? []).length === 18 && (seeded.rows ?? []).every((r) => r.is_active),
+    `${(seeded.rows ?? []).length} seeded entries, ${(seeded.rows ?? []).filter((r) => r.is_active).length} active`
   );
 
-  const sourceTypes = await service
-    .from('cross_system_relationship_versions')
-    .select('source_type_key, surfaces_on_complaint, relationship_id')
-    .in('relationship_id', (seeded.data ?? []).map((r) => r.id));
-  const everyHasType = (sourceTypes.data ?? []).every(
+  const sourceTypes = await selectAllRowsInChunks(
+    (seeded.rows ?? []).map((r) => r.id),
+    (chunk) =>
+      service
+        .from('cross_system_relationship_versions')
+        .select('source_type_key, surfaces_on_complaint, relationship_id')
+        .in('relationship_id', chunk)
+        .order('id', { ascending: true })
+  );
+  const everyHasType = (sourceTypes.rows ?? []).every(
     (v) => typeof v.source_type_key === 'string' && v.source_type_key.length > 0
   );
   record(
     'Every seeded entry carries a source type and is read by the complaint lookup',
-    everyHasType && (sourceTypes.data ?? []).every((v) => v.surfaces_on_complaint === true),
-    `${new Set((sourceTypes.data ?? []).map((v) => v.source_type_key)).size} distinct source types in use`
+    everyHasType && (sourceTypes.rows ?? []).every((v) => v.surfaces_on_complaint === true),
+    `${new Set((sourceTypes.rows ?? []).map((v) => v.source_type_key)).size} distinct source types in use`
   );
 
   const signalsBefore = await service
@@ -326,10 +335,13 @@ try {
   // `results` is the stored scoring: every section's own band and
   // percentage, exactly as the survey wrote them. Comparing it before and
   // after is the real proof that nothing in this build touched her scores.
-  const bodySystemsBefore = await service
-    .from('member_body_systems_sessions')
-    .select('id, completed_at, results, answers')
-    .eq('member_id', EBONY_ID);
+  const bodySystemsBefore = await selectAllRows(() =>
+    service
+      .from('member_body_systems_sessions')
+      .select('id, completed_at, results, answers')
+      .eq('member_id', EBONY_ID)
+      .order('id', { ascending: true })
+  );
 
   browser = await chromium.launch();
 
@@ -411,13 +423,16 @@ try {
   );
 
   const classifications = report
-    ? await service
-        .from('cross_system_complaint_classifications')
-        .select('*')
-        .eq('report_id', report.id)
-        .order('position')
-    : { data: [] };
-  const found = classifications.data ?? [];
+    ? await selectAllRows(() =>
+        service
+          .from('cross_system_complaint_classifications')
+          .select('*')
+          .eq('report_id', report.id)
+          .order('position')
+          .order('id', { ascending: true })
+      )
+    : { rows: [] };
+  const found = classifications.rows ?? [];
   const slugs = found.map((c) => c.signal_slug);
   record(
     'Root classified it into structured signals automatically',
@@ -440,13 +455,16 @@ try {
     found.map((c) => c.context_key ?? 'none').join(', ')
   );
 
-  const newSignals = await service
-    .from('cross_system_signals')
-    .select('*')
-    .eq('member_id', EBONY_ID)
-    .eq('source_key', 'member_reported');
-  createdSignalIds = (newSignals.data ?? []).map((s) => s.id);
-  const names = (newSignals.data ?? []).map((s) => s.signal_name);
+  const newSignals = await selectAllRows(() =>
+    service
+      .from('cross_system_signals')
+      .select('*')
+      .eq('member_id', EBONY_ID)
+      .eq('source_key', 'member_reported')
+      .order('id', { ascending: true })
+  );
+  createdSignalIds = (newSignals.rows ?? []).map((s) => s.id);
+  const names = (newSignals.rows ?? []).map((s) => s.signal_name);
   record(
     'It became ORDINARY signal rows, not a second store',
     EXPECTED_SIGNALS.every((n) => names.includes(n)),
@@ -454,34 +472,42 @@ try {
   );
   record(
     'Each signal row carries her words and the question she was answering',
-    (newSignals.data ?? []).every((s) => s.note && s.source_question_prompt),
-    (newSignals.data ?? []).map((s) => `${s.signal_name}: "${s.note}"`).join('; ')
+    (newSignals.rows ?? []).every((s) => s.note && s.source_question_prompt),
+    (newSignals.rows ?? []).map((s) => `${s.signal_name}: "${s.note}"`).join('; ')
   );
 
   // -----------------------------------------------------------------
   // 3. THE LOOKUP RAN, WITH NO RELATIONSHIP CREATED BY HAND.
   // -----------------------------------------------------------------
   const findings = report
-    ? await service
-        .from('cross_system_root_findings')
-        .select('*, cross_system_root_finding_areas(*)')
-        .eq('report_id', report.id)
-    : { data: [] };
-  const findingRows = findings.data ?? [];
+    ? await selectAllRows(() =>
+        service
+          .from('cross_system_root_findings')
+          .select('*, cross_system_root_finding_areas(*)')
+          .eq('report_id', report.id)
+          .order('id', { ascending: true })
+      )
+    : { rows: [] };
+  const findingRows = findings.rows ?? [];
   record(
     'Root ran the whole-body lookup automatically, with zero manual relationship creation',
     findingRows.length > 0,
     `${findingRows.length} findings from the seeded map`
   );
 
-  const usedSeeded = await service
-    .from('cross_system_relationships')
-    .select('pattern_key, is_seeded')
-    .in('id', findingRows.map((f) => f.relationship_id));
+  const usedSeeded = await selectAllRowsInChunks(
+    findingRows.map((f) => f.relationship_id),
+    (chunk) =>
+      service
+        .from('cross_system_relationships')
+        .select('pattern_key, is_seeded')
+        .in('id', chunk)
+        .order('id', { ascending: true })
+  );
   record(
     'Every finding came from a SEEDED map entry, not one written for this run',
-    (usedSeeded.data ?? []).length > 0 && (usedSeeded.data ?? []).every((r) => r.is_seeded),
-    (usedSeeded.data ?? []).map((r) => r.pattern_key).join(', ')
+    (usedSeeded.rows ?? []).length > 0 && (usedSeeded.rows ?? []).every((r) => r.is_seeded),
+    (usedSeeded.rows ?? []).map((r) => r.pattern_key).join(', ')
   );
 
   const areaRows = findingRows.flatMap((f) => f.cross_system_root_finding_areas ?? []);
@@ -782,18 +808,21 @@ try {
   );
   await coachRoute.page.close();
 
-  const bodySystemsAfter = await service
-    .from('member_body_systems_sessions')
-    .select('id, completed_at, results, answers')
-    .eq('member_id', EBONY_ID);
+  const bodySystemsAfter = await selectAllRows(() =>
+    service
+      .from('member_body_systems_sessions')
+      .select('id, completed_at, results, answers')
+      .eq('member_id', EBONY_ID)
+      .order('id', { ascending: true })
+  );
   record(
     'Her Body Systems answers and stored scoring are byte for byte what they were',
-    (bodySystemsAfter.data ?? []).length > 0 &&
-      JSON.stringify(bodySystemsBefore.data) === JSON.stringify(bodySystemsAfter.data),
-    `${(bodySystemsAfter.data ?? []).length} sitting(s) compared including the whole results object, and she really has one`
+    (bodySystemsAfter.rows ?? []).length > 0 &&
+      JSON.stringify(bodySystemsBefore.rows) === JSON.stringify(bodySystemsAfter.rows),
+    `${(bodySystemsAfter.rows ?? []).length} sitting(s) compared including the whole results object, and she really has one`
   );
 
-  const storedResults = (bodySystemsAfter.data ?? [])[0]?.results ?? null;
+  const storedResults = (bodySystemsAfter.rows ?? [])[0]?.results ?? null;
   const sections = storedResults && Array.isArray(storedResults.sections) ? storedResults.sections : [];
   record(
     'Her Body Systems scoring still stands: every section carries its own stored band',
@@ -837,12 +866,14 @@ try {
       // The findings, their areas and their signal links all cascade from
       // the report, so this one delete takes the whole tree with it.
       await attempt('reports', () =>
-        service.from('cross_system_complaint_reports').delete().in('id', createdReportIds)
+        writeInChunks(createdReportIds, (chunk) =>
+          service.from('cross_system_complaint_reports').delete().in('id', chunk)
+        )
       );
     }
     if (createdSignalIds.length > 0) {
       await attempt('signals', () =>
-        service.from('cross_system_signals').delete().in('id', createdSignalIds)
+        writeInChunks(createdSignalIds, (chunk) => service.from('cross_system_signals').delete().in('id', chunk))
       );
     }
     if (createdCheckinId) {

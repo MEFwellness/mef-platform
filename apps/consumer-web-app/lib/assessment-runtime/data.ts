@@ -10,7 +10,7 @@
  * break a completed assessment the member already has real results for.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { UnifiedAssessmentQuestion, UnifiedAssessmentSection } from '@mef/shared-types-contracts';
 import {
   getUnifiedAssessmentDefinitionByKey,
@@ -22,6 +22,7 @@ import { deriveFindings } from './findings';
 import { buildSession, calculateVisibleQuestions, findFirstUnanswered, flattenVisibleQuestions } from './session';
 import type { AnswerValue, AssessmentSession, RuntimeEvent, SessionAnswers } from './types';
 import { forgetMemberAssessmentFacts } from '../assessment-registry/facts';
+import { selectAllRows } from '../data/pagedSelect';
 
 type SessionRow = {
   id: string;
@@ -51,10 +52,13 @@ async function fetchAnswers(
   sessionId: string,
   questions: UnifiedAssessmentQuestion[]
 ): Promise<SessionAnswers> {
-  const { data, error } = await supabase
-    .from('unified_assessment_answers')
-    .select('question_id, value')
-    .eq('session_id', sessionId);
+  const { rows: data, error } = await selectAllRows<{ question_id: string; value: unknown }, PostgrestError | null>(() =>
+    supabase
+      .from('unified_assessment_answers')
+      .select('question_id, value')
+      .eq('session_id', sessionId)
+      .order('id', { ascending: true })
+  );
 
   if (error) throw new Error(`Failed to load assessment answers: ${error.message}`);
 

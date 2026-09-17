@@ -139,6 +139,7 @@ export async function saveGuestAnswers(
     answered_at: new Date().toISOString(),
   }));
   if (rows.length === 0) return;
+  // scale-exempt: every key is filtered by sanitizeGuestAnswers to the 7 fixed guest wellness check questions, so at most 7 rows
   const { error } = await supabase
     .from('guest_wellness_check_answers')
     .upsert(rows, { onConflict: 'session_id,question_key' });
@@ -149,6 +150,7 @@ export async function loadGuestAnswers(
   supabase: SupabaseClient,
   sessionId: string
 ): Promise<Record<string, string>> {
+  // scale-exempt: unique (session_id, question_key) and only the 7 fixed guest wellness check question keys are ever written
   const { data, error } = await supabase
     .from('guest_wellness_check_answers')
     .select('question_key, answer_value')

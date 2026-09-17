@@ -33,6 +33,7 @@ import { resolveTrialArcConnection } from '../lib/trial-arc/connection';
 import { listTrialArcCheckinDates, listTrialArcExperimentLogDates } from '../lib/trial-arc/data';
 // @ts-expect-error the shared minting helper is plain JavaScript, by design
 import { canMintSessions, mintSessionCookies, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect';
 
 const url = process.env.PROD_SUPABASE_URL;
 const keyFile = process.env.PROD_SERVICE_KEY_FILE;
@@ -57,13 +58,16 @@ console.log('\n== The arc as shipped ==');
 check('TRIAL_ARC_LAUNCH is set', TRIAL_ARC_LAUNCH !== null, JSON.stringify(TRIAL_ARC_LAUNCH));
 check('the launch instant parses', trialArcLaunchInstant() !== null);
 
-const { data: profiles, error } = await service
-  .from('profiles')
-  .select('id, is_test, created_at')
-  .order('created_at');
+const { rows: profiles, error } = await selectAllRows<{ id: string; is_test: boolean | null; created_at: string }>(() =>
+  service
+    .from('profiles')
+    .select('id, is_test, created_at')
+    .order('created_at')
+    .order('id', { ascending: true })
+);
 if (error) throw error;
 
-const { data: authUsers } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+const { data: authUsers } = await listAllAuthUsers(service.auth.admin);
 const emailById = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? '']));
 const name = (id: string, isTest: boolean) =>
   isTest ? `${emailById.get(id) ?? '(no email)'} [test]` : `id ${id}`;
@@ -103,9 +107,18 @@ console.log('      reasons: ' + [...reasons.entries()].map(([r, n]) => `${r}=${n
 // 2. The clock, over every real trial row in production.
 // ---------------------------------------------------------------------
 console.log('\n== The clock, over real trial rows ==');
-const { data: subs } = await service
-  .from('member_subscriptions')
-  .select('member_id, tier, source, trial_started_at, trial_ends_at');
+const { rows: subs } = await selectAllRows<{
+  member_id: string;
+  tier: string;
+  source: string;
+  trial_started_at: string | null;
+  trial_ends_at: string | null;
+}>(() =>
+  service
+    .from('member_subscriptions')
+    .select('member_id, tier, source, trial_started_at, trial_ends_at')
+    .order('member_id', { ascending: true })
+);
 
 let clockChecked = 0;
 let clockOk = 0;

@@ -30,6 +30,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import { getMyQuestionnaireList } from './assessments';
 import { fetchBaselineAssessment } from '@/lib/onboarding/baseline';
 import { getMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
@@ -173,17 +174,24 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
   const unifiedRuntimeEntries = entries.filter((e) => e.storageAdapter === 'unified-assessment-runtime-tables');
   const latestUnifiedSessionIdByDefinitionId = new Map<string, string>();
   if (unifiedRuntimeEntries.length > 0) {
-    const { data: latestCompletedRows } = await supabase
-      .from('assessment_attempts')
-      .select('assessment_definition_id, source_id, completed_at')
-      .eq('member_id', memberId)
-      .eq('source_table', 'unified_assessment_sessions')
-      .eq('status', 'completed')
-      .in(
-        'assessment_definition_id',
-        unifiedRuntimeEntries.map((e) => e.databaseId)
-      )
-      .order('completed_at', { ascending: false });
+    // Each definition id falls in exactly one chunk, so its rows stay latest-first.
+    const { rows: latestCompletedRows } = await selectAllRowsInChunks<{
+      assessment_definition_id: string;
+      source_id: string;
+      completed_at: string;
+    }>(
+      unifiedRuntimeEntries.map((e) => e.databaseId),
+      (chunk) =>
+        supabase
+          .from('assessment_attempts')
+          .select('assessment_definition_id, source_id, completed_at')
+          .eq('member_id', memberId)
+          .eq('source_table', 'unified_assessment_sessions')
+          .eq('status', 'completed')
+          .in('assessment_definition_id', chunk)
+          .order('completed_at', { ascending: false })
+          .order('id', { ascending: true })
+    );
 
     for (const row of latestCompletedRows ?? []) {
       const definitionId = row.assessment_definition_id as string;

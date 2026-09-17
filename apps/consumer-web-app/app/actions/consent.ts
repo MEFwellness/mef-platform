@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { CONSENT_ITEMS, CONSENT_VERSION } from '@/lib/consent/copy';
 import type { ActionResult } from './auth';
 import { getCachedUser } from '@/lib/supabase/currentUser';
@@ -25,6 +26,7 @@ export async function recordAllConsents(): Promise<ActionResult> {
     granted_at: new Date().toISOString(),
   }));
 
+  // scale-exempt: one row per entry of the literal CONSENT_ITEMS constant (four consent types)
   const { error } = await supabase.from('consent_records').insert(rows);
   if (error) return { error: error.message };
   return {};
@@ -33,11 +35,14 @@ export async function recordAllConsents(): Promise<ActionResult> {
 /** Used to gate onboarding — a member must have all four before proceeding. */
 export async function hasCompletedConsent(userId: string): Promise<boolean> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from('consent_records')
-    .select('consent_type')
-    .eq('user_id', userId)
-    .is('revoked_at', null);
+  const { rows: data, error } = await selectAllRows<{ consent_type: string }>(() =>
+    supabase
+      .from('consent_records')
+      .select('consent_type')
+      .eq('user_id', userId)
+      .is('revoked_at', null)
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) return false;
 

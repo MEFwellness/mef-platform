@@ -19,6 +19,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ExerciseCatalogRow } from '@mef/shared-types-contracts';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 
 /** Well under Your Move's 48h URL expiry — just long enough to dedupe a member replaying the same clip a few times in a row. */
 export const VIDEO_URL_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -66,7 +67,9 @@ export async function getExercisesByExternalIds(
   externalIds: string[]
 ): Promise<Map<string, ExerciseCatalogRow>> {
   if (externalIds.length === 0) return new Map();
-  const { data, error } = await supabase.from('exercise_catalog').select('*').in('external_id', externalIds);
+  const { rows: data, error } = await selectAllRowsInChunks<ExerciseCatalogRow>(externalIds, (chunk) =>
+    supabase.from('exercise_catalog').select('*').in('external_id', chunk).order('id', { ascending: true })
+  );
   if (error) {
     console.error('getExercisesByExternalIds failed', error);
     return new Map();
@@ -153,7 +156,9 @@ export async function listDistinctCatalogValues(
   supabase: SupabaseClient,
   column: 'category' | 'primary_muscle' | 'equipment' | 'difficulty'
 ): Promise<string[]> {
-  const { data, error } = await supabase.from('exercise_catalog').select(column).not(column, 'is', null);
+  const { rows: data, error } = await selectAllRows<Record<string, string | null>>(() =>
+    supabase.from('exercise_catalog').select(column).not(column, 'is', null).order('id', { ascending: true })
+  );
   if (error) {
     console.error('listDistinctCatalogValues failed', error);
     return [];

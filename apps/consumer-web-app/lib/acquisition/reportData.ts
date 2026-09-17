@@ -26,6 +26,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import type { AcquisitionGroupBy, AcquisitionSubjectRow, KnownGroup } from './report';
 
 const ROW_COLUMNS = [
@@ -120,12 +121,19 @@ export async function readAcquisitionRows(
 ): Promise<AcquisitionReadResult> {
   const { fromIso, toIso } = windowBounds(options.start, options.end);
 
-  const { data, error } = await supabase
-    .from('acquisition_report_rows')
-    .select(ROW_COLUMNS)
-    .gte('anchor_at', fromIso)
-    .lt('anchor_at', toIso)
-    .order('anchor_at', { ascending: false });
+  // The view has no id: a visit row is unique by session_id and an account
+  // row (null session) by member_id, so the two together are a total order.
+  const { rows: data, error } = await selectAllRows<unknown>(() =>
+    supabase
+      .from('acquisition_report_rows')
+      .select(ROW_COLUMNS)
+      .gte('anchor_at', fromIso)
+      .lt('anchor_at', toIso)
+      .order('anchor_at', { ascending: false })
+      .order('row_kind', { ascending: true })
+      .order('session_id', { ascending: true })
+      .order('member_id', { ascending: true })
+  );
 
   if (error) {
     console.error('readAcquisitionRows failed', error);
@@ -183,25 +191,30 @@ export async function readKnownGroups(
   options: { includeTest: boolean }
 ): Promise<Record<AcquisitionGroupBy, KnownGroup[]>> {
   const [sourcesResult, linksResult] = await Promise.all([
-    supabase
-      .from('public_entry_sources')
-      .select(
-        'code, label, channel, is_test, active, partner_name, location_name, location_city, location_region, location_country'
-      )
-      .order('code'),
-    supabase
-      .from('public_entry_links')
-      .select('source_code, utm_campaign, utm_content, active')
-      .order('utm_campaign'),
+    selectAllRows<SourceRow>(() =>
+      supabase
+        .from('public_entry_sources')
+        .select(
+          'code, label, channel, is_test, active, partner_name, location_name, location_city, location_region, location_country'
+        )
+        .order('code')
+    ),
+    selectAllRows<LinkRow>(() =>
+      supabase
+        .from('public_entry_links')
+        .select('source_code, utm_campaign, utm_content, active')
+        .order('utm_campaign')
+        .order('id', { ascending: true })
+    ),
   ]);
 
   if (sourcesResult.error) console.error('readKnownGroups sources failed', sourcesResult.error);
   if (linksResult.error) console.error('readKnownGroups links failed', linksResult.error);
 
-  const allSources = (sourcesResult.data ?? []) as SourceRow[];
+  const allSources = sourcesResult.error ? [] : sourcesResult.rows;
   const sources = options.includeTest ? allSources : allSources.filter((s) => !s.is_test);
   const testCodes = new Set(allSources.filter((s) => s.is_test).map((s) => s.code));
-  const allLinks = (linksResult.data ?? []) as LinkRow[];
+  const allLinks = linksResult.error ? [] : linksResult.rows;
   const links = options.includeTest
     ? allLinks
     : allLinks.filter((link) => !testCodes.has(link.source_code));

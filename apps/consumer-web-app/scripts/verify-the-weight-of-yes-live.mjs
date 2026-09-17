@@ -45,6 +45,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const STAFF_EMAIL = process.env.STAFF_EMAIL;
@@ -175,11 +176,14 @@ async function clearTemplate(service, template) {
     .delete()
     .eq('member_id', MEMBER_ID)
     .eq('source_experience_key', template.key);
-  const { data: rows } = await service
-    .from('assessment_assignments')
-    .select('id')
-    .eq('member_id', MEMBER_ID)
-    .eq('assessment_definition_id', template.definitionId);
+  const { rows } = await selectAllRows(() =>
+    service
+      .from('assessment_assignments')
+      .select('id')
+      .eq('member_id', MEMBER_ID)
+      .eq('assessment_definition_id', template.definitionId)
+      .order('id', { ascending: true })
+  );
   for (const row of rows ?? []) {
     await service.from('member_assignment_deliveries').delete().eq('assignment_id', row.id);
   }
@@ -237,12 +241,15 @@ async function assignFromCoachScreen(coachPage, service, template) {
   await panel.getByRole('button', { name: new RegExp(`Assign ${template.label}`) }).click();
   await coachPage.waitForTimeout(3500);
 
-  const { data } = await service
-    .from('assessment_assignments')
-    .select('id, status, due_at')
-    .eq('member_id', MEMBER_ID)
-    .eq('assessment_definition_id', template.definitionId)
-    .eq('status', 'pending');
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('assessment_assignments')
+      .select('id, status, due_at')
+      .eq('member_id', MEMBER_ID)
+      .eq('assessment_definition_id', template.definitionId)
+      .eq('status', 'pending')
+      .order('id', { ascending: true })
+  );
   return data ?? [];
 }
 
@@ -287,11 +294,14 @@ async function completeGivingLedger(coachPage, memberPage, service) {
     await memberPage.waitForTimeout(2500);
   }
 
-  const { data: rows } = await service
-    .from(TABLE)
-    .select('id, completed_at, deposit_request')
-    .eq('member_id', MEMBER_ID)
-    .eq('experience_key', TGL.key);
+  const { rows } = await selectAllRows(() =>
+    service
+      .from(TABLE)
+      .select('id, completed_at, deposit_request')
+      .eq('member_id', MEMBER_ID)
+      .eq('experience_key', TGL.key)
+      .order('id', { ascending: true })
+  );
   check(
     'setup: her The Giving Ledger sitting is completed, with the deposit she typed',
     (rows ?? []).length === 1 && Boolean(rows?.[0]?.completed_at) && rows?.[0]?.deposit_request === DEPOSIT,
@@ -485,11 +495,14 @@ async function runOnce({ mode, service, staff, member, browser, errors, memberTo
   );
   await shot(page, `${tag}-07-question-5-before-leaving`);
 
-  const { data: draftRows } = await service
-    .from(TABLE)
-    .select('id, answers, completed_at, kind_no, experience_key, follow_up_source_experience_key')
-    .eq('member_id', MEMBER_ID)
-    .eq('experience_key', TWOY.key);
+  const { rows: draftRows } = await selectAllRows(() =>
+    service
+      .from(TABLE)
+      .select('id, answers, completed_at, kind_no, experience_key, follow_up_source_experience_key')
+      .eq('member_id', MEMBER_ID)
+      .eq('experience_key', TWOY.key)
+      .order('id', { ascending: true })
+  );
   check(p('draft: one row exists, unfinished'), (draftRows ?? []).length === 1 && !draftRows?.[0]?.completed_at);
   check(p('draft: it holds exactly the four answers she wrote'), Object.keys(draftRows?.[0]?.answers ?? {}).length === 4);
   check(p('draft: the kind-no column is still empty'), draftRows?.[0]?.kind_no === null);
@@ -583,11 +596,14 @@ async function runOnce({ mode, service, staff, member, browser, errors, memberTo
   check(p('closing: the URL never moved'), page.url().includes(`/${TWOY.key}`));
   await shot(page, `${tag}-11-closing-still-holding`);
 
-  const { data: finishedRows } = await service
-    .from(TABLE)
-    .select('id, kind_no, answers, completed_at, follow_up_source_experience_key')
-    .eq('member_id', MEMBER_ID)
-    .eq('experience_key', TWOY.key);
+  const { rows: finishedRows } = await selectAllRows(() =>
+    service
+      .from(TABLE)
+      .select('id, kind_no, answers, completed_at, follow_up_source_experience_key')
+      .eq('member_id', MEMBER_ID)
+      .eq('experience_key', TWOY.key)
+      .order('id', { ascending: true })
+  );
   check(p('storage: the sitting is completed'), Boolean(finishedRows?.[0]?.completed_at));
   check(p('storage: question eight is in its own column, verbatim'), finishedRows?.[0]?.kind_no === KIND_NO);
   check(p('storage: all nine answers are stored'), Object.keys(finishedRows?.[0]?.answers ?? {}).length === 9);
@@ -628,11 +644,14 @@ async function runOnce({ mode, service, staff, member, browser, errors, memberTo
     await shot(page, `${tag}-13-done`);
     if (await emDashOn(page)) dashes++;
 
-    const { data: experiments } = await service
-      .from('lifestyle_experiments')
-      .select('id, title, protocol, duration_days, status, start_date')
-      .eq('member_id', MEMBER_ID)
-      .eq('source_experience_key', TWOY.key);
+    const { rows: experiments } = await selectAllRows(() =>
+      service
+        .from('lifestyle_experiments')
+        .select('id, title, protocol, duration_days, status, start_date')
+        .eq('member_id', MEMBER_ID)
+        .eq('source_experience_key', TWOY.key)
+        .order('id', { ascending: true })
+    );
     check(p('experiment: exactly one row was written'), (experiments ?? []).length === 1);
     check(p('experiment: it runs seven days'), experiments?.[0]?.duration_days === 7);
     check(p('experiment: it starts on HER calendar day'), experiments?.[0]?.start_date === memberToday);
@@ -685,11 +704,14 @@ async function runOnce({ mode, service, staff, member, browser, errors, memberTo
     );
     check(p('closing: the piece of reading is offered, summary first'), declined.includes('No Is a Complete Sentence'));
     check(p('closing: her own rewrite is still with her on the last screen'), declined.includes(KIND_NO));
-    const { data: experiments } = await service
-      .from('lifestyle_experiments')
-      .select('id')
-      .eq('member_id', MEMBER_ID)
-      .eq('source_experience_key', TWOY.key);
+    const { rows: experiments } = await selectAllRows(() =>
+      service
+        .from('lifestyle_experiments')
+        .select('id')
+        .eq('member_id', MEMBER_ID)
+        .eq('source_experience_key', TWOY.key)
+        .order('id', { ascending: true })
+    );
     check(p('experiment: declining started nothing'), (experiments ?? []).length === 0);
     await shot(page, `${tag}-13-declined`);
     if (await emDashOn(page)) dashes++;
@@ -853,11 +875,14 @@ async function main() {
 
     // ---------------- RUN A: STANDALONE ----------------
     console.log('\n=== RUN A, standalone: no completed The Giving Ledger on the account ===');
-    const { data: noEarlier } = await service
-      .from(TABLE)
-      .select('id')
-      .eq('member_id', MEMBER_ID)
-      .eq('experience_key', TGL.key);
+    const { rows: noEarlier } = await selectAllRows(() =>
+      service
+        .from(TABLE)
+        .select('id')
+        .eq('member_id', MEMBER_ID)
+        .eq('experience_key', TGL.key)
+        .order('id', { ascending: true })
+    );
     check('run A: the account genuinely holds no The Giving Ledger sitting', (noEarlier ?? []).length === 0);
     await runOnce({ mode: 'standalone', service, staff, member, browser, errors, memberToday, tag: 'A' });
 
@@ -899,44 +924,59 @@ async function main() {
   }
 
   // ---------------- THE ACCOUNT IS LEFT AS IT WAS FOUND ----------------
-  const { data: leftSittings } = await service
-    .from(TABLE)
-    .select('id, experience_key')
-    .eq('member_id', MEMBER_ID)
-    .in('experience_key', [TWOY.key, TGL.key]);
+  const { rows: leftSittings } = await selectAllRows(() =>
+    service
+      .from(TABLE)
+      .select('id, experience_key')
+      .eq('member_id', MEMBER_ID)
+      .in('experience_key', [TWOY.key, TGL.key])
+      .order('id', { ascending: true })
+  );
   check('cleanup: no sitting from either run is left on production', (leftSittings ?? []).length === 0,
     JSON.stringify(leftSittings ?? []));
 
-  const { data: leftAssignments } = await service
-    .from('assessment_assignments')
-    .select('id, assessment_definition_id')
-    .eq('member_id', MEMBER_ID)
-    .in('assessment_definition_id', [TWOY.definitionId, TGL.definitionId]);
+  const { rows: leftAssignments } = await selectAllRows(() =>
+    service
+      .from('assessment_assignments')
+      .select('id, assessment_definition_id')
+      .eq('member_id', MEMBER_ID)
+      .in('assessment_definition_id', [TWOY.definitionId, TGL.definitionId])
+      .order('id', { ascending: true })
+  );
   check('cleanup: no assignment from either run is left', (leftAssignments ?? []).length === 0);
 
-  const { data: leftExperiments } = await service
-    .from('lifestyle_experiments')
-    .select('id, source_experience_key')
-    .eq('member_id', MEMBER_ID)
-    .in('source_experience_key', [TWOY.key, TGL.key]);
+  const { rows: leftExperiments } = await selectAllRows(() =>
+    service
+      .from('lifestyle_experiments')
+      .select('id, source_experience_key')
+      .eq('member_id', MEMBER_ID)
+      .in('source_experience_key', [TWOY.key, TGL.key])
+      .order('id', { ascending: true })
+  );
   check('cleanup: no experiment from either run is left', (leftExperiments ?? []).length === 0);
 
-  const { data: leftActive } = await service
-    .from('lifestyle_experiments')
-    .select('id, title, status')
-    .eq('member_id', MEMBER_ID)
-    .eq('status', 'active');
+  const { rows: leftActive } = await selectAllRows(() =>
+    service
+      .from('lifestyle_experiments')
+      .select('id, title, status')
+      .eq('member_id', MEMBER_ID)
+      .eq('status', 'active')
+      .order('id', { ascending: true })
+  );
   check(
     'cleanup: the account carries no active experiment at all, including the two pre-existing leftovers',
     (leftActive ?? []).length === 0,
     JSON.stringify(leftActive ?? [])
   );
 
-  const { data: leftJoy } = await service
-    .from(TABLE)
-    .select('id')
-    .eq('member_id', MEMBER_ID)
-    .eq('experience_key', 'where-your-joy-lives');
+  const { rows: leftJoy } = await selectAllRows(() =>
+    service
+      .from(TABLE)
+      .select('id')
+      .eq('member_id', MEMBER_ID)
+      .eq('experience_key', 'where-your-joy-lives')
+      .order('id', { ascending: true })
+  );
   check('cleanup: the pre-existing Where Your Joy Lives sitting is gone too', (leftJoy ?? []).length === 0);
 
   const passed = results.filter((r) => r.passed).length;

@@ -13,6 +13,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import { threadCountersAfterResponse } from './adaptation';
 import { sanitizeSignalEvidence } from './evidence';
 import type {
@@ -83,10 +84,13 @@ export async function listCoachingThreads(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<string, CoachingThreadState>> {
-  const { data, error } = await supabase
-    .from('member_coaching_threads')
-    .select(THREAD_COLUMNS)
-    .eq('member_id', memberId);
+  const { rows: data, error } = await selectAllRows<ThreadRow>(() =>
+    supabase
+      .from('member_coaching_threads')
+      .select(THREAD_COLUMNS)
+      .eq('member_id', memberId)
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) {
     if (error) console.error('listCoachingThreads failed', error);
@@ -215,11 +219,14 @@ export async function listEscalatedCoachingThreads(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<CoachingThreadState[]> {
-  const { data, error } = await supabase
-    .from('member_coaching_threads')
-    .select(THREAD_COLUMNS)
-    .eq('member_id', memberId)
-    .not('coach_escalated_at', 'is', null);
+  const { rows: data, error } = await selectAllRows<ThreadRow>(() =>
+    supabase
+      .from('member_coaching_threads')
+      .select(THREAD_COLUMNS)
+      .eq('member_id', memberId)
+      .not('coach_escalated_at', 'is', null)
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) {
     if (error) console.error('listEscalatedCoachingThreads failed', error);
@@ -429,6 +436,7 @@ export async function listUnresolvedDecisions(
   memberId: string,
   beforeLocalDate: string
 ): Promise<CoachingDecisionRecord[]> {
+  // scale-exempt: one row per day (unique member_id+local_date) and the read is a 30-day window (UNRESOLVED_LOOKBACK_DAYS)
   const { data, error } = await supabase
     .from('member_coaching_decisions')
     .select(DECISION_COLUMNS)
@@ -460,13 +468,16 @@ export async function listCoachingDecisionsInRange(
   fromLocalDate: string,
   toLocalDate: string
 ): Promise<CoachingDecisionRecord[]> {
-  const { data, error } = await supabase
-    .from('member_coaching_decisions')
-    .select(DECISION_COLUMNS)
-    .eq('member_id', memberId)
-    .gte('local_date', fromLocalDate)
-    .lte('local_date', toLocalDate)
-    .order('local_date', { ascending: true });
+  // local_date is unique per member (member_id+local_date), so it is already a total order.
+  const { rows: data, error } = await selectAllRows<DecisionRow>(() =>
+    supabase
+      .from('member_coaching_decisions')
+      .select(DECISION_COLUMNS)
+      .eq('member_id', memberId)
+      .gte('local_date', fromLocalDate)
+      .lte('local_date', toLocalDate)
+      .order('local_date', { ascending: true })
+  );
 
   if (error || !data) {
     if (error) console.error('listCoachingDecisionsInRange failed', error);

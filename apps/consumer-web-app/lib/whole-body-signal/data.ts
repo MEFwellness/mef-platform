@@ -18,6 +18,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 import { WBS_DEFINITION_ID } from './constants';
 import type { WbsAnswers, WbsResults } from './types';
 
@@ -351,10 +352,13 @@ export async function listWbsFocus(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<{ ok: boolean; records: WbsFocusRecord[] }> {
-  const { data, error } = await supabase
-    .from('member_whole_body_signal_focus')
-    .select('session_id, section_key, chosen_at')
-    .eq('member_id', memberId);
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('member_whole_body_signal_focus')
+      .select('session_id, section_key, chosen_at')
+      .eq('member_id', memberId)
+      .order('session_id', { ascending: true })
+  );
   if (error) {
     console.error('listWbsFocus failed', error);
     return { ok: false, records: [] };
@@ -415,11 +419,15 @@ export async function listWbsQuestionActions(
   sessionIds: string[]
 ): Promise<{ ok: boolean; records: WbsQuestionAction[] }> {
   if (sessionIds.length === 0) return { ok: true, records: [] };
-  const { data, error } = await supabase
-    .from('member_whole_body_signal_question_actions')
-    .select('session_id, question_key, asked_at, hidden_at, saved_at')
-    .eq('member_id', memberId)
-    .in('session_id', sessionIds);
+  const { rows: data, error } = await selectAllRowsInChunks<Record<string, unknown>>(sessionIds, (chunk) =>
+    supabase
+      .from('member_whole_body_signal_question_actions')
+      .select('session_id, question_key, asked_at, hidden_at, saved_at')
+      .eq('member_id', memberId)
+      .in('session_id', chunk)
+      .order('session_id', { ascending: true })
+      .order('question_key', { ascending: true })
+  );
   if (error) {
     console.error('listWbsQuestionActions failed', error);
     return { ok: false, records: [] };

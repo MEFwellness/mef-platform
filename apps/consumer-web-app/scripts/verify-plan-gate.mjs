@@ -14,6 +14,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const EMAIL = '8weeks2fab@gmail.com';
@@ -36,7 +37,7 @@ function record(item, pass, detail) {
 }
 
 async function memberId() {
-  const { data } = await service.auth.admin.listUsers({ page: 1, perPage: 200 });
+  const { data } = await listAllAuthUsers(service.auth.admin);
   const user = data.users.find((u) => u.email === EMAIL);
   if (!user) throw new Error('test member not found');
   return user.id;

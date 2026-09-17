@@ -30,6 +30,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BlueprintBlock, ProgramDifficulty } from '@mef/shared-types-contracts';
 import type { SwapCandidate } from '../blueprints/swap';
 import { loadBlockCandidates } from '../blueprints/candidates';
+import { selectAllRows, selectAllRowsInChunks } from '../../data/pagedSelect';
 import { qualifiesForBlock } from '../../corrective-engine/blockQualification';
 import { loadCorrectiveExercisePool } from '../../corrective-engine/exercisePool';
 import { CORRECTIVE_BLUEPRINTS } from '../../corrective-engine/blueprints';
@@ -107,22 +108,24 @@ async function loadCatalogGrading(
   externalIds: string[]
 ): Promise<Map<string, { equipment: string | null; difficulty: ProgramDifficulty | null }>> {
   const grading = new Map<string, { equipment: string | null; difficulty: ProgramDifficulty | null }>();
-  const PAGE = 200;
-  for (let offset = 0; offset < externalIds.length; offset += PAGE) {
-    const { data, error } = await supabase
+  const { rows: data, error } = await selectAllRowsInChunks<{
+    external_id: string;
+    equipment: string | null;
+    difficulty: ProgramDifficulty | null;
+  }>(externalIds, (chunk) =>
+    supabase
       .from('exercise_catalog')
       .select('external_id, equipment, difficulty')
-      .in('external_id', externalIds.slice(offset, offset + PAGE));
-    if (error) {
-      console.error('loadCatalogGrading failed', error);
-      return grading;
-    }
-    for (const row of data ?? []) {
-      grading.set(row.external_id as string, {
-        equipment: (row.equipment as string | null) ?? null,
-        difficulty: (row.difficulty as ProgramDifficulty | null) ?? null,
-      });
-    }
+      .in('external_id', chunk)
+      .order('id', { ascending: true })
+  );
+  if (error) console.error('loadCatalogGrading failed', error);
+  // On a failure this keeps what the chunks before it returned, as the loop it replaced did.
+  for (const row of data) {
+    grading.set(row.external_id, {
+      equipment: row.equipment ?? null,
+      difficulty: row.difficulty ?? null,
+    });
   }
   return grading;
 }
@@ -161,11 +164,14 @@ export async function loadAvoidedExternalIds(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('member_exercise_avoidance')
-    .select('external_id')
-    .eq('member_id', memberId)
-    .is('released_at', null);
+  const { rows: data, error } = await selectAllRows<{ external_id: string }>(() =>
+    supabase
+      .from('member_exercise_avoidance')
+      .select('external_id')
+      .eq('member_id', memberId)
+      .is('released_at', null)
+      .order('id', { ascending: true })
+  );
   if (error) {
     // A read that failed must not quietly widen what she is offered. An
     // empty list here would mean "nothing to avoid", which is the opposite
@@ -173,7 +179,7 @@ export async function loadAvoidedExternalIds(
     console.error('loadAvoidedExternalIds failed', error);
     throw new Error('Could not read the avoidance list.');
   }
-  return (data ?? []).map((row) => row.external_id as string);
+  return data.map((row) => row.external_id);
 }
 
 /** What she owns, when her movement profile says. An empty list means "unknown", and unknown excludes nothing. */

@@ -9,6 +9,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import type { Signal } from '../life-signal-check/constants';
 import type { ValueArea } from '../core-values-snapshot/constants';
 import type { ReadinessPattern, Q6Answer } from '../readiness-pulse/constants';
@@ -254,11 +255,14 @@ export async function activateResetPlan(supabase: SupabaseClient, plan: ResetPla
 }
 
 export async function listResetPlanVersions(supabase: SupabaseClient, planId: string): Promise<ResetPlanVersion[]> {
-  const { data, error } = await supabase
-    .from('member_reset_plan_versions')
-    .select('id, plan_id, change_type, before, after, decision_evidence, changed_at')
-    .eq('plan_id', planId)
-    .order('changed_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<Row>(() =>
+    supabase
+      .from('member_reset_plan_versions')
+      .select('id, plan_id, change_type, before, after, decision_evidence, changed_at')
+      .eq('plan_id', planId)
+      .order('changed_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error || !data) return [];
   return data.map((row) => ({
     id: row.id as string,
@@ -298,11 +302,14 @@ function mapDailyLog(row: Row): ResetPlanDailyLog {
 const DAILY_LOG_COLUMNS = 'id, plan_id, plan_version_id, local_date, state, day3_response, logged_at';
 
 export async function listResetPlanDailyLogs(supabase: SupabaseClient, planId: string): Promise<ResetPlanDailyLog[]> {
-  const { data, error } = await supabase
-    .from('member_reset_plan_daily_logs')
-    .select(DAILY_LOG_COLUMNS)
-    .eq('plan_id', planId)
-    .order('local_date', { ascending: true });
+  // unique (plan_id, local_date), so local_date is already a total order here
+  const { rows: data, error } = await selectAllRows<Row>(() =>
+    supabase
+      .from('member_reset_plan_daily_logs')
+      .select(DAILY_LOG_COLUMNS)
+      .eq('plan_id', planId)
+      .order('local_date', { ascending: true })
+  );
   if (error || !data) return [];
   return data.map(mapDailyLog);
 }

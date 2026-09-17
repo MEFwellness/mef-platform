@@ -14,15 +14,19 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { insertNotification } from '@/lib/notifications/data';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { PATTERN_LABELS } from './pattern';
 import type { LeadTopic, LeadTemperature, LeadPatternName } from '@mef/shared-types-contracts';
 
 async function listActiveCoachUserIds(supabase: SupabaseClient): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('user_roles')
-    .select('user_id')
-    .eq('role', 'coach')
-    .is('revoked_at', null);
+  const { rows: data, error } = await selectAllRows<{ user_id: string }>(() =>
+    supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'coach')
+      .is('revoked_at', null)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('lead-capture: listActiveCoachUserIds failed', error);

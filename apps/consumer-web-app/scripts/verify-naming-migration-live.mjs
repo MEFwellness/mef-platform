@@ -27,6 +27,7 @@
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const REF = 'piafgqstbibvllsnuike';
 const BASE = 'https://app.mefwellness.com';
@@ -145,11 +146,14 @@ try {
   // =====================================================================
   // 2. The sixteen section titles
   // =====================================================================
-  const { data: sections } = await service
-    .from('unified_assessment_sections')
-    .select('id, title, display_order')
-    .eq('assessment_definition_id', wbsa?.id ?? '00000000-0000-0000-0000-000000000000')
-    .order('display_order', { ascending: true });
+  const { rows: sections } = await selectAllRows(() =>
+    service
+      .from('unified_assessment_sections')
+      .select('id, title, display_order')
+      .eq('assessment_definition_id', wbsa?.id ?? '00000000-0000-0000-0000-000000000000')
+      .order('display_order', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   const storedTitles = (sections ?? []).map((s) => s.title);
   writeFileSync(`${SHOTS}/wbsa-stored-section-titles.txt`, storedTitles.join('\n'));
@@ -172,6 +176,7 @@ try {
 
   // The questions must still point at their sections. A rename that
   // orphaned a question would be a much worse bug than the wording it fixed.
+  // scale-exempt: a head count over the sections of one assessment definition, which this script asserts is sixteen
   const { count: questionCount } = await service
     .from('unified_assessment_questions')
     .select('id', { count: 'exact', head: true })
@@ -185,10 +190,13 @@ try {
   // =====================================================================
   // 3. The finding rows: superseded, never deleted, never overwritten
   // =====================================================================
-  const { data: allFindings } = await service
-    .from('registry_entries')
-    .select('id, member_id, domain, code, label, status, supersedes_id, superseded_by_id, canonical_source_key, recorded_at')
-    .eq('entry_kind', 'finding');
+  const { rows: allFindings } = await selectAllRows(() =>
+    service
+      .from('registry_entries')
+      .select('id, member_id, domain, code, label, status, supersedes_id, superseded_by_id, canonical_source_key, recorded_at')
+      .eq('entry_kind', 'finding')
+      .order('id', { ascending: true })
+  );
 
   const findings = allFindings ?? [];
   check('finding rows read from production', findings.length > 0, `${findings.length} rows`);
@@ -256,11 +264,14 @@ try {
   const leaking = findings.filter(
     (f) => f.status === 'active' && typeof f.label === 'string' && false
   );
-  const { data: narrativeRows } = await service
-    .from('registry_entries')
-    .select('id, status, narrative')
-    .not('narrative', 'is', null)
-    .like('narrative', "%reported as '%' on the latest onboarding submission.%");
+  const { rows: narrativeRows } = await selectAllRows(() =>
+    service
+      .from('registry_entries')
+      .select('id, status, narrative')
+      .not('narrative', 'is', null)
+      .like('narrative', "%reported as '%' on the latest onboarding submission.%")
+      .order('id', { ascending: true })
+  );
   check(
     'no row still quotes a raw status into its narrative',
     (narrativeRows ?? []).length === 0,

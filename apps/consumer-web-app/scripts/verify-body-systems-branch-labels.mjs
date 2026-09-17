@@ -24,6 +24,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
 import { readFileSync } from 'node:fs';
+import { listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.BODY_SYSTEMS_BASE_URL ?? 'http://127.0.0.1:3000';
 const SUPA = process.env.PROD_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -60,7 +61,7 @@ const check = (name, ok, note = '') => {
   CREATES the account when the address does not exist, so a typo would mint
   a session for a brand new stranger and walk the survey as them.
 */
-const { data: userPage, error: listError } = await admin.auth.admin.listUsers({ perPage: 1000 });
+const { data: userPage, error: listError } = await listAllAuthUsers(admin.auth.admin);
 if (listError) throw new Error(`could not list users: ${listError.message}`);
 const found = userPage.users.find((u) => u.email?.toLowerCase() === MEMBER_EMAIL.toLowerCase());
 if (!found) throw new Error(`REFUSING TO RUN: ${MEMBER_EMAIL} is not an existing account`);
@@ -360,6 +361,7 @@ try {
   );
 
   // And the two copy rows, read straight out of the database.
+  // scale-exempt: copy_key is the unique key and the filter is a literal list of two keys, so at most two rows
   const { data: copyRows } = await fresh
     .from('body_systems_copy')
     .select('copy_key, value')

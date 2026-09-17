@@ -21,6 +21,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const MEMBER_EMAIL = process.env.LIVE_MEMBER_EMAIL;
@@ -68,7 +69,7 @@ const emDashScreens = [];
 function squash(s) { return (s || '').replace(/\s+/g, ' '); }
 
 async function idFor(email) {
-  const { data } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data } = await listAllAuthUsers(service.auth.admin);
   return data?.users?.find((u) => u.email === email)?.id ?? null;
 }
 
@@ -95,9 +96,10 @@ try {
   // 0. WHAT IS ALREADY THERE, RECORDED BEFORE ANYTHING IS TOUCHED
   // ==================================================================
   console.log('\n--- 0. the sitting that already exists ---');
-  const { data: before } = await service.from('member_stress_load_sessions')
+  const { rows: before } = await selectAllRows(() => service.from('member_stress_load_sessions')
     .select('id, completed_at, pattern').eq('member_id', memberId)
-    .order('completed_at', { ascending: false });
+    .order('completed_at', { ascending: false })
+    .order('id', { ascending: true }));
   check('exactly one completed sitting exists going in', (before ?? []).length === 1,
     `rows=${(before ?? []).length}`);
   priorSessionId = before?.[0]?.id ?? null;
@@ -126,8 +128,9 @@ try {
     .select('is_test').eq('id', coachId).maybeSingle();
   coachWasTest = coachProfile?.is_test === true;
 
-  const { data: existingLink } = await service.from('coach_client_assignments')
-    .select('id').eq('coach_id', coachId).eq('client_id', memberId).eq('status', 'active');
+  const { rows: existingLink } = await selectAllRows(() => service.from('coach_client_assignments')
+    .select('id').eq('coach_id', coachId).eq('client_id', memberId).eq('status', 'active')
+    .order('id', { ascending: true }));
   check('the coach already has a standing assignment to this member',
     (existingLink ?? []).length > 0, `rows=${(existingLink ?? []).length}`);
 
@@ -179,9 +182,10 @@ try {
       error?.message ?? JSON.stringify(written));
   }
 
-  const { data: pending } = await service.from('assessment_assignments')
+  const { rows: pending } = await selectAllRows(() => service.from('assessment_assignments')
     .select('id, status').eq('member_id', memberId)
-    .eq('assessment_definition_id', DEFINITION_ID).eq('status', 'pending');
+    .eq('assessment_definition_id', DEFINITION_ID).eq('status', 'pending')
+    .order('id', { ascending: true }));
   check('exactly one pending assignment row exists', (pending ?? []).length === 1,
     JSON.stringify(pending));
 
@@ -262,9 +266,10 @@ try {
     !/Overall score|Total score|Combined score|Combined/i.test(reading));
   await shot(page, '03-reading');
 
-  const { data: after } = await service.from('member_stress_load_sessions')
+  const { rows: after } = await selectAllRows(() => service.from('member_stress_load_sessions')
     .select('id, completed_at, pattern').eq('member_id', memberId)
-    .order('completed_at', { ascending: false });
+    .order('completed_at', { ascending: false })
+    .order('id', { ascending: true }));
   const fresh = (after ?? []).find((s) => s.id !== priorSessionId) ?? null;
   const priorAfter = (after ?? []).find((s) => s.id === priorSessionId) ?? null;
   check('there are now two completed sittings', (after ?? []).length === 2,
@@ -327,10 +332,11 @@ try {
   // 5. THE ROOT MAP: TWO ROWS, WRITTEN SEPARATELY, SUPERSEDING
   // ==================================================================
   console.log('\n--- 5. the Root Map ---');
-  const { data: rows } = await service.from('registry_entries')
+  const { rows } = await selectAllRows(() => service.from('registry_entries')
     .select('id, code, domain, severity, numeric_value, unit, status, source_record_id, recorded_at')
     .eq('member_id', memberId).eq('source_feature', 'stress_load_deep_dive_finding')
-    .order('recorded_at', { ascending: false });
+    .order('recorded_at', { ascending: false })
+    .order('id', { ascending: true }));
   const freshRows = (rows ?? []).filter((r) => r.source_record_id === fresh?.id);
   const priorRows = (rows ?? []).filter((r) => r.source_record_id === priorSessionId);
   const load = freshRows.find((r) => r.code === 'stress_load_burden');

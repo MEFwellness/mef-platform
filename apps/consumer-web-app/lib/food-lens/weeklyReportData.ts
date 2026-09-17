@@ -17,6 +17,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { checkinHydrationTracked } from '../hydration/gate';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 import type { FoodRulesEngineResult } from '@mef/shared-types-contracts';
 import type {
   WeeklyNutritionReport,
@@ -112,12 +113,19 @@ export async function listWeeklyLogEntriesForReport(
   const startIso = localMidnightUtcIso(weekStart, timezone);
   const endIso = localMidnightUtcIso(weekEnd, timezone);
 
-  const { data, error } = await supabase
-    .from('member_food_log')
-    .select('meal_category, consumed_at, scan_id')
-    .eq('member_id', memberId)
-    .gte('consumed_at', startIso)
-    .lt('consumed_at', endIso);
+  const { rows: data, error } = await selectAllRows<{
+    meal_category: string;
+    consumed_at: string;
+    scan_id: string | null;
+  }>(() =>
+    supabase
+      .from('member_food_log')
+      .select('meal_category, consumed_at, scan_id')
+      .eq('member_id', memberId)
+      .gte('consumed_at', startIso)
+      .lt('consumed_at', endIso)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listWeeklyLogEntriesForReport failed', error);
@@ -135,11 +143,17 @@ export async function listWeeklyLogEntriesForReport(
 
   const signalByScanId = new Map<string, WeeklyReportPackagedFoodSignal>();
   if (scanIds.length > 0) {
-    const { data: analyses, error: analysisError } = await supabase
-      .from('food_analysis_results')
-      .select('scan_id, rules_result, created_at')
-      .in('scan_id', scanIds)
-      .order('created_at', { ascending: false });
+    const { rows: analyses, error: analysisError } = await selectAllRowsInChunks<{
+      scan_id: string;
+      rules_result: Partial<FoodRulesEngineResult>;
+    }>(scanIds, (chunk) =>
+      supabase
+        .from('food_analysis_results')
+        .select('scan_id, rules_result, created_at')
+        .in('scan_id', chunk)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+    );
     if (analysisError) {
       console.error(
         'listWeeklyLogEntriesForReport: food_analysis_results lookup failed',
@@ -181,12 +195,18 @@ export async function listWeeklyMealQualityRatingsForReport(
   const startIso = localMidnightUtcIso(weekStart, timezone);
   const endIso = localMidnightUtcIso(weekEnd, timezone);
 
-  const { data: scans, error: scansError } = await supabase
-    .from('food_lens_scans')
-    .select('id, created_at')
-    .eq('member_id', memberId)
-    .gte('created_at', startIso)
-    .lt('created_at', endIso);
+  const { rows: scans, error: scansError } = await selectAllRows<{
+    id: string;
+    created_at: string;
+  }>(() =>
+    supabase
+      .from('food_lens_scans')
+      .select('id, created_at')
+      .eq('member_id', memberId)
+      .gte('created_at', startIso)
+      .lt('created_at', endIso)
+      .order('id', { ascending: true })
+  );
 
   if (scansError) {
     console.error('listWeeklyMealQualityRatingsForReport: scan lookup failed', scansError);
@@ -201,13 +221,17 @@ export async function listWeeklyMealQualityRatingsForReport(
     scanRows.map((s) => [s.id, toLocalDateString(s.created_at, timezone)])
   );
 
-  const { data: ratings, error: ratingsError } = await supabase
-    .from('food_lens_meal_quality_ratings')
-    .select(
-      'scan_id, rating, nutrient_density, added_sugar_level, processing_level, has_meaningful_protein, has_meaningful_fiber, has_healthy_fat, is_beverage, created_at'
-    )
-    .in('scan_id', scanIds)
-    .order('created_at', { ascending: false });
+  // Chunked by scan_id, so every rating of one scan arrives in one chunk, newest first.
+  const { rows: ratings, error: ratingsError } = await selectAllRowsInChunks(scanIds, (chunk) =>
+    supabase
+      .from('food_lens_meal_quality_ratings')
+      .select(
+        'scan_id, rating, nutrient_density, added_sugar_level, processing_level, has_meaningful_protein, has_meaningful_fiber, has_healthy_fat, is_beverage, created_at'
+      )
+      .in('scan_id', chunk)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (ratingsError) {
     console.error('listWeeklyMealQualityRatingsForReport: ratings lookup failed', ratingsError);
@@ -259,12 +283,18 @@ export async function listWeeklyDetectedItemsForReport(
   const startIso = localMidnightUtcIso(weekStart, timezone);
   const endIso = localMidnightUtcIso(weekEnd, timezone);
 
-  const { data: scans, error: scansError } = await supabase
-    .from('food_lens_scans')
-    .select('id, created_at')
-    .eq('member_id', memberId)
-    .gte('created_at', startIso)
-    .lt('created_at', endIso);
+  const { rows: scans, error: scansError } = await selectAllRows<{
+    id: string;
+    created_at: string;
+  }>(() =>
+    supabase
+      .from('food_lens_scans')
+      .select('id, created_at')
+      .eq('member_id', memberId)
+      .gte('created_at', startIso)
+      .lt('created_at', endIso)
+      .order('id', { ascending: true })
+  );
 
   if (scansError) {
     console.error('listWeeklyDetectedItemsForReport: scan lookup failed', scansError);
@@ -279,11 +309,18 @@ export async function listWeeklyDetectedItemsForReport(
     scanRows.map((s) => [s.id, toLocalDateString(s.created_at, timezone)])
   );
 
-  const { data: items, error: itemsError } = await supabase
-    .from('food_lens_detected_items')
-    .select('scan_id, label, category')
-    .in('scan_id', scanIds)
-    .eq('status', 'confirmed');
+  const { rows: items, error: itemsError } = await selectAllRowsInChunks<{
+    scan_id: string;
+    label: string;
+    category: string;
+  }>(scanIds, (chunk) =>
+    supabase
+      .from('food_lens_detected_items')
+      .select('scan_id, label, category')
+      .in('scan_id', chunk)
+      .eq('status', 'confirmed')
+      .order('id', { ascending: true })
+  );
 
   if (itemsError) {
     console.error('listWeeklyDetectedItemsForReport: items lookup failed', itemsError);
@@ -310,13 +347,16 @@ export async function listWeeklyCompletedWorkoutLocalDates(
   weekStart: string,
   weekEnd: string
 ): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('movement_sessions')
-    .select('local_date')
-    .eq('member_id', memberId)
-    .eq('status', 'completed')
-    .gte('local_date', weekStart)
-    .lt('local_date', weekEnd);
+  const { rows: data, error } = await selectAllRows<{ local_date: string }>(() =>
+    supabase
+      .from('movement_sessions')
+      .select('local_date')
+      .eq('member_id', memberId)
+      .eq('status', 'completed')
+      .gte('local_date', weekStart)
+      .lt('local_date', weekEnd)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listWeeklyCompletedWorkoutLocalDates failed', error);
@@ -336,6 +376,7 @@ export async function listWeeklyWaterCupsByLocalDate(
   // daily_checkins_current (the "latest version per user/local_date" view),
   // same convention app/actions/checkin.ts already follows, so a
   // resubmitted check-in doesn't double-count or read a stale water_cups.
+  // scale-exempt: the view is one row per (user_id, local_date) and the read is one 7-day week, so at most 7 rows
   const { data, error } = await supabase
     .from('daily_checkins_current')
     .select('local_date, water_cups, hydration_tracked')

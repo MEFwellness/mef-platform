@@ -21,6 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { daysBetween } from './transitions';
+import { selectAllRowsInChunks } from '../data/pagedSelect';
 
 export const PROGRAM_COMPLETE_REASON = 'Program complete, needs review';
 export const PROGRAM_ENDING_REASON = 'Program ends this week';
@@ -85,11 +86,14 @@ export async function loadProgramAttention(
   const byMember = new Map<string, string[]>();
   if (memberIds.length === 0) return byMember;
 
-  const { data, error } = await supabase
-    .from('coach_program_assignments')
-    .select('member_id, status, end_date, completed_at, replaced_by_assignment_id')
-    .in('member_id', memberIds)
-    .eq('visibility', 'published');
+  const { rows: data, error } = await selectAllRowsInChunks<ProgramAttentionRow>(memberIds, (chunk) =>
+    supabase
+      .from('coach_program_assignments')
+      .select('member_id, status, end_date, completed_at, replaced_by_assignment_id')
+      .in('member_id', chunk)
+      .eq('visibility', 'published')
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('loadProgramAttention failed', error);
     return byMember;

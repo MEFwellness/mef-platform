@@ -21,6 +21,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows, selectAllRowsInChunks } from '../../data/pagedSelect';
 import {
   FPA_CLARITY_ANSWERS,
   FPA_ENERGY_ANSWERS,
@@ -125,12 +126,15 @@ export async function listFpaExperiments(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<FpaExperimentRow[]> {
-  const { data, error } = await supabase
-    .from('fuel_experiments')
-    .select(RUN_COLUMNS)
-    .eq('member_id', memberId)
-    .order('started_on', { ascending: false })
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('fuel_experiments')
+      .select(RUN_COLUMNS)
+      .eq('member_id', memberId)
+      .order('started_on', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listFpaExperiments failed', error);
@@ -144,11 +148,14 @@ export async function listFpaExperimentChecks(
   supabase: SupabaseClient,
   experimentId: string
 ): Promise<FpaExperimentCheck[]> {
-  const { data, error } = await supabase
-    .from('fuel_experiment_checks')
-    .select(CHECK_COLUMNS)
-    .eq('experiment_id', experimentId)
-    .order('created_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('fuel_experiment_checks')
+      .select(CHECK_COLUMNS)
+      .eq('experiment_id', experimentId)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listFpaExperimentChecks failed', error);
@@ -165,11 +172,16 @@ export async function listFpaExperimentChecksForRuns(
   const grouped = new Map<string, FpaExperimentCheck[]>();
   if (experimentIds.length === 0) return grouped;
 
-  const { data, error } = await supabase
-    .from('fuel_experiment_checks')
-    .select(`experiment_id, ${CHECK_COLUMNS}`)
-    .in('experiment_id', [...experimentIds])
-    .order('created_at', { ascending: true });
+  const { rows: data, error } = await selectAllRowsInChunks<Record<string, unknown>>(
+    [...experimentIds],
+    (chunk) =>
+      supabase
+        .from('fuel_experiment_checks')
+        .select(`experiment_id, ${CHECK_COLUMNS}`)
+        .in('experiment_id', chunk)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listFpaExperimentChecksForRuns failed', error);

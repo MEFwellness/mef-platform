@@ -45,6 +45,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+import { selectAllRows, writeInChunks } from '../lib/data/pagedSelect.ts';
 
 export const RIG_EMAIL = 'oakomah66+trialarcrig@gmail.com';
 export const RIG_DISPLAY_NAME = 'Trial Arc Rig (test)';
@@ -163,11 +164,14 @@ export async function setRigDay(memberId, dayNumber) {
 }
 
 export async function listDeliveries(memberId) {
-  const { data, error } = await service
-    .from('member_trial_arc_deliveries')
-    .select('message_key, day_number, pace_state, pointed_step, delivered_local_date, delivered_at, cta_tapped_at')
-    .eq('member_id', memberId)
-    .order('day_number');
+  const { rows: data, error } = await selectAllRows(() =>
+    service
+      .from('member_trial_arc_deliveries')
+      .select('message_key, day_number, pace_state, pointed_step, delivered_local_date, delivered_at, cta_tapped_at')
+      .eq('member_id', memberId)
+      .order('day_number')
+      .order('id', { ascending: true })
+  );
   if (error) throw error;
   return data ?? [];
 }
@@ -302,7 +306,7 @@ export async function seedActiveDays(memberId, days) {
   await clearGreetings(memberId);
   const dates = [];
   for (let back = 0; back < days; back += 1) dates.push(rigLocalDate(back));
-  const { error } = await service.from('daily_checkins').insert(
+  const { error } = await writeInChunks(
     dates.map((local_date) => ({
       user_id: memberId,
       local_date,
@@ -310,7 +314,8 @@ export async function seedActiveDays(memberId, days) {
       energy_level: 3,
       stress_level: 3,
       sleep_quality: 3,
-    }))
+    })),
+    (chunk) => service.from('daily_checkins').insert(chunk)
   );
   if (error) throw new Error(`seeding active days failed: ${error.message}`);
   return dates;
@@ -342,10 +347,13 @@ export async function clearMorningBriefs(memberId) {
  */
 export async function backdateGreeting(memberId, days = 1) {
   await assertRig(memberId);
-  const { data } = await service
-    .from('member_return_greetings')
-    .select('gap_start_local_date, shown_at')
-    .eq('member_id', memberId);
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('member_return_greetings')
+      .select('gap_start_local_date, shown_at')
+      .eq('member_id', memberId)
+      .order('gap_start_local_date', { ascending: true })
+  );
   for (const row of data ?? []) {
     const moved = new Date(new Date(row.shown_at).getTime() - days * 86_400_000).toISOString();
     const { error } = await service
@@ -369,10 +377,12 @@ export async function resetAll(memberId) {
 }
 
 export async function showRig(memberId) {
-  const [{ data: profile }, { data: sub }, { data: assignments }, deliveries] = await Promise.all([
+  const [{ data: profile }, { data: sub }, { rows: assignments }, deliveries] = await Promise.all([
     service.from('profiles').select('is_test, display_name, timezone, created_at').eq('id', memberId).maybeSingle(),
     service.from('member_subscriptions').select('tier, source, status, trial_started_at, trial_arc_suppressed_at').eq('member_id', memberId).maybeSingle(),
-    service.from('coach_client_assignments').select('status').eq('client_id', memberId),
+    selectAllRows(() =>
+      service.from('coach_client_assignments').select('status').eq('client_id', memberId).order('id', { ascending: true })
+    ),
     listDeliveries(memberId),
   ]);
   const recaps = await listRecaps(memberId);

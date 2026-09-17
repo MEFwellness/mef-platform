@@ -17,6 +17,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import type { ActionResult } from './auth';
 import type { FoodLensFoodCategory, FoodProduct, PantryItem } from '@mef/shared-types-contracts';
 import {
@@ -60,10 +61,15 @@ async function attachProducts(
   ];
   if (productIds.length === 0) return items.map((i) => ({ ...i, product: null }));
 
-  const { data: products } = await supabase
-    .from('food_products')
-    .select('id, name, image_url')
-    .in('id', productIds);
+  const { rows: products } = await selectAllRowsInChunks<NonNullable<PantryItemWithProduct['product']>>(
+    productIds,
+    (chunk) =>
+      supabase
+        .from('food_products')
+        .select('id, name, image_url')
+        .in('id', chunk)
+        .order('id', { ascending: true })
+  );
   const byId = new Map((products ?? []).map((p) => [p.id as string, p]));
 
   return items.map((i) => ({

@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type {
   AnnotationShape,
   BodyAssessment,
@@ -311,11 +312,14 @@ export async function listCaptures(
   supabase: SupabaseClient,
   assessmentId: string
 ): Promise<BodyAssessmentCapture[]> {
-  const { data, error } = await supabase
-    .from('body_assessment_captures')
-    .select('*')
-    .eq('assessment_id', assessmentId)
-    .order('sequence_index', { ascending: true });
+  const { rows: data, error } = await selectAllRows<BodyAssessmentCapture>(() =>
+    supabase
+      .from('body_assessment_captures')
+      .select('*')
+      .eq('assessment_id', assessmentId)
+      .order('sequence_index', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listCaptures failed', error);
@@ -408,10 +412,13 @@ export async function listLandmarkSets(
   supabase: SupabaseClient,
   assessmentId: string
 ): Promise<BodyLandmarkSet[]> {
-  const { data, error } = await supabase
-    .from('body_landmark_sets')
-    .select('*')
-    .eq('assessment_id', assessmentId);
+  const { rows: data, error } = await selectAllRows<BodyLandmarkSet>(() =>
+    supabase
+      .from('body_landmark_sets')
+      .select('*')
+      .eq('assessment_id', assessmentId)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listLandmarkSets failed', error);
@@ -502,15 +509,18 @@ export async function listFindings(
   assessmentId: string,
   options: { activeOnly?: boolean } = {}
 ): Promise<BodyAssessmentFinding[]> {
-  let query = supabase
-    .from('body_assessment_findings')
-    .select('*')
-    .eq('assessment_id', assessmentId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<BodyAssessmentFinding>(() => {
+    let query = supabase
+      .from('body_assessment_findings')
+      .select('*')
+      .eq('assessment_id', assessmentId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true });
 
-  if (options.activeOnly) query = query.neq('status', 'superseded');
+    if (options.activeOnly) query = query.neq('status', 'superseded');
 
-  const { data, error } = await query;
+    return query;
+  });
   if (error) {
     console.error('listFindings failed', error);
     return [];
@@ -533,16 +543,19 @@ export async function listFindingsByType(
   findingType: PostureFindingType,
   options: { activeOnly?: boolean } = {}
 ): Promise<BodyAssessmentFinding[]> {
-  let query = supabase
-    .from('body_assessment_findings')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('finding_type', findingType)
-    .order('created_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<BodyAssessmentFinding>(() => {
+    let query = supabase
+      .from('body_assessment_findings')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('finding_type', findingType)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true });
 
-  if (options.activeOnly) query = query.neq('status', 'superseded');
+    if (options.activeOnly) query = query.neq('status', 'superseded');
 
-  const { data, error } = await query;
+    return query;
+  });
   if (error) {
     console.error('listFindingsByType failed', error);
     return [];
@@ -649,11 +662,14 @@ export async function listComparisons(
   assessmentAId: string,
   assessmentBId: string
 ): Promise<BodyAssessmentComparison[]> {
-  const { data, error } = await supabase
-    .from('body_assessment_comparisons')
-    .select('*')
-    .eq('assessment_a_id', assessmentAId)
-    .eq('assessment_b_id', assessmentBId);
+  const { rows: data, error } = await selectAllRows<BodyAssessmentComparison>(() =>
+    supabase
+      .from('body_assessment_comparisons')
+      .select('*')
+      .eq('assessment_a_id', assessmentAId)
+      .eq('assessment_b_id', assessmentBId)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listComparisons failed', error);
@@ -717,11 +733,14 @@ export async function listCoachReviews(
   supabase: SupabaseClient,
   assessmentId: string
 ): Promise<BodyAssessmentCoachReview[]> {
-  const { data, error } = await supabase
-    .from('body_assessment_coach_reviews')
-    .select('*')
-    .eq('assessment_id', assessmentId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<BodyAssessmentCoachReview>(() =>
+    supabase
+      .from('body_assessment_coach_reviews')
+      .select('*')
+      .eq('assessment_id', assessmentId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listCoachReviews failed', error);
@@ -798,10 +817,13 @@ export async function listAnnotationsForAssessment(
   supabase: SupabaseClient,
   assessmentId: string
 ): Promise<BodyAssessmentAnnotationSet[]> {
-  const { data, error } = await supabase
-    .from('body_assessment_annotations')
-    .select('*')
-    .eq('assessment_id', assessmentId);
+  const { rows: data, error } = await selectAllRows<BodyAssessmentAnnotationSet>(() =>
+    supabase
+      .from('body_assessment_annotations')
+      .select('*')
+      .eq('assessment_id', assessmentId)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listAnnotationsForAssessment failed', error);

@@ -28,6 +28,7 @@ import type {
 } from '@mef/shared-types-contracts';
 import { isPublicEntryBindMethod } from '@mef/shared-types-contracts';
 import { PUBLIC_ENTRY_EXPERIENCE_KEY } from './questions';
+import { selectAllRows } from '../data/pagedSelect';
 
 type SessionRow = {
   id: string;
@@ -215,6 +216,7 @@ export async function saveAnswers(
     answered_at: new Date().toISOString(),
   }));
   if (rows.length === 0) return;
+  // scale-exempt: one row per answer key, and every caller passes sanitizeAnswers output, which keeps only keys of the literal ENERGY_QUESTIONS list
   const { error } = await supabase
     .from('public_entry_answers')
     .upsert(rows, { onConflict: 'session_id,question_key' });
@@ -225,10 +227,13 @@ export async function loadAnswers(
   supabase: SupabaseClient,
   sessionId: string
 ): Promise<Record<string, string>> {
-  const { data, error } = await supabase
-    .from('public_entry_answers')
-    .select('question_key, answer_value')
-    .eq('session_id', sessionId);
+  const { rows: data, error } = await selectAllRows<{ question_key: string; answer_value: string }>(() =>
+    supabase
+      .from('public_entry_answers')
+      .select('question_key, answer_value')
+      .eq('session_id', sessionId)
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('loadAnswers failed', error);
     return {};

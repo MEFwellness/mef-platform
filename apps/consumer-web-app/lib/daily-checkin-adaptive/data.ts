@@ -8,6 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Rule } from '../adaptive-assessment-engine/types';
 import type { DisplayStyle, DriverProbeQuestion, ProbeOption, ProbeResponseType, ProbeScreen, ProbeStorage } from './types';
 import { readOnce } from '../data/readOnce';
+import { selectAllRows } from '../data/pagedSelect';
 
 type DriverProbeQuestionRow = {
   question_key: string;
@@ -55,7 +56,14 @@ export async function listActiveDriverProbeQuestions(supabase: SupabaseClient): 
 }
 
 async function readActiveProbeQuestions(supabase: SupabaseClient) {
-  const { data, error } = await supabase.from('driver_probe_questions').select('*').eq('active', true);
+  const { rows: data, error } = await selectAllRows<DriverProbeQuestionRow>(() =>
+    supabase
+      .from('driver_probe_questions')
+      .select('*')
+      .eq('active', true)
+      .order('created_at', { ascending: true })
+      .order('question_key', { ascending: true })
+  );
 
   if (error) {
     console.error('listActiveDriverProbeQuestions failed', error);
@@ -69,11 +77,14 @@ export async function lastAskedDatesForMember(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<string, string>> {
-  const { data, error } = await supabase
-    .from('member_daily_probe_selections')
-    .select('question_key, local_date')
-    .eq('member_id', memberId)
-    .order('local_date', { ascending: false });
+  const { rows: data, error } = await selectAllRows<{ question_key: string; local_date: string }>(() =>
+    supabase
+      .from('member_daily_probe_selections')
+      .select('question_key, local_date')
+      .eq('member_id', memberId)
+      .order('local_date', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('lastAskedDatesForMember failed', error);
@@ -96,11 +107,14 @@ export async function existingPlanSelections(
   memberId: string,
   localDate: string
 ): Promise<{ questionKey: string; kind: SelectionKind }[] | null> {
-  const { data, error } = await supabase
-    .from('member_daily_probe_selections')
-    .select('question_key, kind')
-    .eq('member_id', memberId)
-    .eq('local_date', localDate);
+  const { rows: data, error } = await selectAllRows<{ question_key: string; kind: SelectionKind }>(() =>
+    supabase
+      .from('member_daily_probe_selections')
+      .select('question_key, kind')
+      .eq('member_id', memberId)
+      .eq('local_date', localDate)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('existingPlanSelections failed', error);
@@ -121,6 +135,7 @@ export async function recordPlanSelections(
   selections: { questionKey: string; kind: SelectionKind }[]
 ): Promise<void> {
   if (selections.length === 0) return;
+  // scale-exempt: one day's plan, the 6 FIXED_CORE_QUESTION_KEYS plus at most ROTATING_PROBE_TARGET_COUNT (3) rotating probes
   const { error } = await supabase.from('member_daily_probe_selections').upsert(
     selections.map((s) => ({
       member_id: memberId,
@@ -158,11 +173,14 @@ export async function listProbeAnswersForDate(
   memberId: string,
   localDate: string
 ): Promise<Map<string, unknown>> {
-  const { data, error } = await supabase
-    .from('daily_checkin_probe_answers')
-    .select('question_key, value')
-    .eq('member_id', memberId)
-    .eq('local_date', localDate);
+  const { rows: data, error } = await selectAllRows<{ question_key: string; value: unknown }>(() =>
+    supabase
+      .from('daily_checkin_probe_answers')
+      .select('question_key, value')
+      .eq('member_id', memberId)
+      .eq('local_date', localDate)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listProbeAnswersForDate failed', error);

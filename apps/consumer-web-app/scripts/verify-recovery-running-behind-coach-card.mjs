@@ -23,6 +23,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = 'https://app.mefwellness.com';
 const MEMBER_EMAIL = process.env.LIVE_MEMBER_EMAIL;
@@ -68,16 +69,17 @@ const browser = await chromium.launch();
 let coachId = null, flipped = false, coachMint = null;
 
 try {
-  const { data } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data } = await listAllAuthUsers(service.auth.admin);
   const memberId = data.users.find((u) => u.email === MEMBER_EMAIL)?.id ?? null;
   coachId = data.users.find((u) => u.email === COACH_EMAIL)?.id ?? null;
   check('resolved both accounts', Boolean(memberId && coachId));
   if (!memberId || !coachId) throw new Error('account lookup failed');
 
   // The two sittings this run reads, named before anything is touched.
-  const { data: sittings } = await service.from('member_stress_load_sessions')
+  const { rows: sittings } = await selectAllRows(() => service.from('member_stress_load_sessions')
     .select('id, completed_at, pattern').eq('member_id', memberId)
-    .order('completed_at', { ascending: false });
+    .order('completed_at', { ascending: false })
+    .order('id', { ascending: true }));
   check('two completed sittings are already on this member', (sittings ?? []).length === 2,
     `rows=${(sittings ?? []).length}`);
   check('the newest is the new pattern and the older is not',

@@ -15,6 +15,7 @@ import type { WellnessInsightDraft } from './types';
 import { isHydrationTracked } from '../hydration/data';
 import { HYDRATION_WELLNESS_METRIC_KEY as HYDRATION_WELLNESS_AREA } from '../hydration/constants';
 import { forgetReads, readOnce } from '../data/readOnce';
+import { selectAllRows } from '../data/pagedSelect';
 
 export async function insertWellnessInsight(
   supabase: SupabaseClient,
@@ -199,19 +200,22 @@ async function readInsightsForMember(
   memberId: string,
   options: { statusFilter?: WellnessInsightStatus[] } = {}
 ): Promise<WellnessInsight[]> {
-  let query = supabase
-    .from('wellness_insights')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('is_pinned', { ascending: false })
-    .order('created_at', { ascending: false });
+  const [{ rows: data, error }, hydrationTracked] = await Promise.all([
+    selectAllRows<WellnessInsight>(() => {
+      let query = supabase
+        .from('wellness_insights')
+        .select('*')
+        .eq('member_id', memberId)
+        .order('is_pinned', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true });
 
-  if (options.statusFilter && options.statusFilter.length > 0) {
-    query = query.in('status', options.statusFilter);
-  }
-
-  const [{ data, error }, hydrationTracked] = await Promise.all([
-    query,
+      if (options.statusFilter && options.statusFilter.length > 0) {
+        // scale-exempt: statusFilter is a subset of the closed WellnessInsightStatus union
+        query = query.in('status', options.statusFilter);
+      }
+      return query;
+    }),
     isHydrationTracked(supabase, memberId),
   ]);
   if (error) {

@@ -11,11 +11,13 @@ import type {
   WearableProviderName,
 } from '@mef/shared-types-contracts';
 import type { WearableDailyMetricResult } from './providers/types';
+import { writeInChunks } from '../data/pagedSelect';
 
 export async function listWearableConnections(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<WearableConnection[]> {
+  // scale-exempt: unique (member_id, provider) and provider is check-constrained to 3 values, so at most 3 rows
   const { data, error } = await supabase
     .from('wearable_connections')
     .select('*')
@@ -141,9 +143,12 @@ export async function upsertWearableDailyMetrics(
     raw_payload: metric.rawPayload ?? {},
   }));
 
-  const { error } = await supabase
-    .from('wearable_daily_metrics')
-    .upsert(rows, { onConflict: 'member_id,provider,local_date,metric_code' });
+  // The rows are whatever the provider returned for the sync window, so they go out in chunks.
+  const { error } = await writeInChunks(rows, (chunk) =>
+    supabase
+      .from('wearable_daily_metrics')
+      .upsert(chunk, { onConflict: 'member_id,provider,local_date,metric_code' })
+  );
 
   if (error) console.error('upsertWearableDailyMetrics failed', error);
 }
@@ -176,6 +181,7 @@ export async function listWearableMetricsForDate(
   memberId: string,
   localDate: string
 ): Promise<WearableDailyMetric[]> {
+  // scale-exempt: unique (member_id, provider, local_date, metric_code), with provider check-constrained to 3 values and metric_code to 16, so one date is at most 48 rows
   const { data, error } = await supabase
     .from('wearable_daily_metrics')
     .select('*')

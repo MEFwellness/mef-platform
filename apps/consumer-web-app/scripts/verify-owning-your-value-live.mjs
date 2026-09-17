@@ -40,6 +40,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const STAFF_EMAIL = process.env.STAFF_EMAIL;
@@ -250,11 +251,14 @@ async function main() {
     await panel.getByRole('button', { name: /Assign Owning Your Value/ }).click();
     await coachPage.waitForTimeout(3500);
 
-    const { data: assignments } = await service
-      .from('assessment_assignments')
-      .select('id, status, due_at, created_at, is_required')
-      .eq('member_id', MEMBER_ID)
-      .eq('assessment_definition_id', DEFINITION_ID);
+    const { rows: assignments } = await selectAllRows(() =>
+      service
+        .from('assessment_assignments')
+        .select('id, status, due_at, created_at, is_required')
+        .eq('member_id', MEMBER_ID)
+        .eq('assessment_definition_id', DEFINITION_ID)
+        .order('id', { ascending: true })
+    );
     check('ledger: exactly one assignment row was written', (assignments ?? []).length === 1,
       `${(assignments ?? []).length} rows`);
     assignmentId = assignments?.[0]?.id ?? null;
@@ -378,15 +382,18 @@ async function main() {
     );
     await shot(page, '07-question-5-before-leaving');
 
-    const { data: draftRows } = await service
-      .from(TABLE)
-      .select('id, answers, completed_at, held_sentence, experience_key, follow_up_source_experience_key')
-      // Scoped by experience_key. Three templates share this table
-      // now, so a read by member alone would count another
-      // template's sitting and report two rows for a run that
-      // wrote one.
-      .eq('member_id', MEMBER_ID)
-      .eq('experience_key', EXPERIENCE_KEY);
+    const { rows: draftRows } = await selectAllRows(() =>
+      service
+        .from(TABLE)
+        .select('id, answers, completed_at, held_sentence, experience_key, follow_up_source_experience_key')
+        // Scoped by experience_key. Three templates share this table
+        // now, so a read by member alone would count another
+        // template's sitting and report two rows for a run that
+        // wrote one.
+        .eq('member_id', MEMBER_ID)
+        .eq('experience_key', EXPERIENCE_KEY)
+        .order('id', { ascending: true })
+    );
     check('draft: one row exists, unfinished', (draftRows ?? []).length === 1 && !draftRows?.[0]?.completed_at);
     check('draft: it holds exactly the four answers she wrote', Object.keys(draftRows?.[0]?.answers ?? {}).length === 4);
     check('draft: the held sentence column is still empty', draftRows?.[0]?.held_sentence === null);
@@ -475,15 +482,18 @@ async function main() {
     check('closing: the URL never moved', page.url().includes('/owning-your-value'));
     await shot(page, '11-closing-still-holding');
 
-    const { data: finishedRows } = await service
-      .from(TABLE)
-      .select('id, held_sentence, answers, completed_at')
-      // Scoped by experience_key. Three templates share this table
-      // now, so a read by member alone would count another
-      // template's sitting and report two rows for a run that
-      // wrote one.
-      .eq('member_id', MEMBER_ID)
-      .eq('experience_key', EXPERIENCE_KEY);
+    const { rows: finishedRows } = await selectAllRows(() =>
+      service
+        .from(TABLE)
+        .select('id, held_sentence, answers, completed_at')
+        // Scoped by experience_key. Three templates share this table
+        // now, so a read by member alone would count another
+        // template's sitting and report two rows for a run that
+        // wrote one.
+        .eq('member_id', MEMBER_ID)
+        .eq('experience_key', EXPERIENCE_KEY)
+        .order('id', { ascending: true })
+    );
     check('storage: the sitting is completed', Boolean(finishedRows?.[0]?.completed_at));
     check(
       'storage: the sentence is in its own column, verbatim',
@@ -530,11 +540,14 @@ async function main() {
     await shot(page, '13-done');
     if (await emDashOn(page)) dashes++;
 
-    const { data: experiments } = await service
-      .from('lifestyle_experiments')
-      .select('id, title, protocol, duration_days, status, start_date, source_experience_key')
-      .eq('member_id', MEMBER_ID)
-      .eq('source_experience_key', 'owning-your-value');
+    const { rows: experiments } = await selectAllRows(() =>
+      service
+        .from('lifestyle_experiments')
+        .select('id, title, protocol, duration_days, status, start_date, source_experience_key')
+        .eq('member_id', MEMBER_ID)
+        .eq('source_experience_key', 'owning-your-value')
+        .order('id', { ascending: true })
+    );
     check('experiment: exactly one row was written', (experiments ?? []).length === 1);
     check('experiment: it runs seven days', experiments?.[0]?.duration_days === 7);
     check('experiment: it starts on HER calendar day', experiments?.[0]?.start_date === memberToday);

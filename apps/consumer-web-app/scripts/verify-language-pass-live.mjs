@@ -36,6 +36,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { stringToBase64URL } from '@supabase/ssr/dist/main/utils/base64url.js';
 import { createChunks } from '@supabase/ssr/dist/main/utils/chunker.js';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const REF = 'piafgqstbibvllsnuike';
 const BASE = 'https://app.mefwellness.com';
@@ -248,10 +249,13 @@ try {
   const scoreMatch = memberText.home.match(/(\d{1,3})\s*\/\s*100/);
   check('her Root Score still renders', Boolean(scoreMatch), scoreMatch ? scoreMatch[0] : 'not found');
 
-  const { data: visibilityRows } = await service
-    .from('member_feature_visibility')
-    .select('feature_key, state')
-    .eq('member_id', MEMBER_ID);
+  const { rows: visibilityRows } = await selectAllRows(() =>
+    service
+      .from('member_feature_visibility')
+      .select('feature_key, state')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
   const revealed = (visibilityRows ?? []).filter((r) => r.state === 'revealed').length;
   check(
     'her revealed features are untouched by the renames',

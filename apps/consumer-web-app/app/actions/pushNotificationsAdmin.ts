@@ -36,6 +36,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { countLiveDevicesByMember, listLivePushDevices } from '@/lib/push/data';
@@ -87,16 +88,25 @@ export async function listPushTestableMembersAction(): Promise<PushTestableMembe
   const memberIds = [...counts.keys()];
   if (memberIds.length === 0) return [];
 
-  const [{ data: profiles }, { data: devices }] = await Promise.all([
-    guard.supabase
-      .from('profiles')
-      .select('id, display_name, push_notifications_enabled')
-      .in('id', memberIds),
-    guard.supabase
-      .from('member_push_subscriptions')
-      .select('member_id, device_label')
-      .in('member_id', memberIds)
-      .is('revoked_at', null),
+  const [{ rows: profiles }, { rows: devices }] = await Promise.all([
+    selectAllRowsInChunks<{ id: string; display_name: string | null; push_notifications_enabled: boolean | null }>(
+      memberIds,
+      (chunk) =>
+        guard.supabase
+          .from('profiles')
+          .select('id, display_name, push_notifications_enabled')
+          .in('id', chunk)
+          .order('id', { ascending: true })
+    ),
+    selectAllRowsInChunks<{ member_id: string; device_label: string | null }>(memberIds, (chunk) =>
+      guard.supabase
+        .from('member_push_subscriptions')
+        .select('member_id, device_label')
+        .in('member_id', chunk)
+        .is('revoked_at', null)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+    ),
   ]);
 
   const labels = new Map<string, string[]>();

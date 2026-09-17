@@ -18,6 +18,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { resetPlanPopupMessageKey } from '@/lib/root-popup-messages/data';
@@ -39,10 +40,13 @@ export async function listResetPlanTestableMembersAction(): Promise<ResetPlanTes
   const guard = await requireAdmin();
   if (!guard.ok) return [];
 
-  const { data, error } = await guard.supabase
-    .from('profiles')
-    .select('id, display_name')
-    .order('display_name', { ascending: true, nullsFirst: false });
+  const { rows: data, error } = await selectAllRows<{ id: string; display_name: string | null }>(() =>
+    guard.supabase
+      .from('profiles')
+      .select('id, display_name')
+      .order('display_name', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) return [];
   return data.map((row) => ({
@@ -176,6 +180,7 @@ export async function shiftResetPlanAction(
       .filter((row): row is { plan_id: string; plan_version_id: string; member_id: string; local_date: string; state: string } => row !== null);
 
     if (rows.length > 0) {
+      // scale-exempt: at most 7 rows, built from one of the 7-element literal dailyPattern arrays above
       const { error: logsError } = await supabase.from('member_reset_plan_daily_logs').insert(rows);
       if (logsError) return { ok: false, error: `Shifted the date but could not seed daily logs: ${logsError.message}` };
     }

@@ -32,6 +32,7 @@
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+import { selectAllRows, selectAllRowsInChunks, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 import { execFileSync } from 'node:child_process';
 import { mintSessionCookies, retireSession, canMintSessions } from './lib/mint-session.mjs';
 
@@ -133,10 +134,13 @@ async function cleanup() {
     await service.auth.admin.deleteUser(memberId).catch(() => {});
     memberId = null;
   }
-  const { data: leads } = await service
-    .from('captured_leads')
-    .select('id, conversation_id')
-    .eq('email', LEAD_EMAIL);
+  const { rows: leads } = await selectAllRows(() =>
+    service
+      .from('captured_leads')
+      .select('id, conversation_id')
+      .eq('email', LEAD_EMAIL)
+      .order('id', { ascending: true })
+  );
   for (const lead of leads ?? []) {
     await service.from('captured_lead_acquisition').delete().eq('captured_lead_id', lead.id);
     await service.from('notifications').delete().eq('source_record_id', lead.id);
@@ -190,10 +194,14 @@ try {
   // 2) What production already has
   // -------------------------------------------------------------------
 
-  const { data: realArrivals } = await service
-    .from('public_entry_funnel')
-    .select('session_id, source_code, is_test, first_seen_at, member_id, did_start, did_complete')
-    .order('first_seen_at');
+  // public_entry_funnel is one row per public_entry_sessions row, so session_id is unique.
+  const { rows: realArrivals } = await selectAllRows(() =>
+    service
+      .from('public_entry_funnel')
+      .select('session_id, source_code, is_test, first_seen_at, member_id, did_start, did_complete')
+      .order('first_seen_at')
+      .order('session_id', { ascending: true })
+  );
   const qrArrivals = (realArrivals ?? []).filter((r) => r.source_code === 'qr-card');
   note(`production holds ${(realArrivals ?? []).length} arrivals, ${qrArrivals.length} of them on qr-card`);
   note(
@@ -223,7 +231,9 @@ try {
     qrRowAllToggle !== null && qrRowAllToggle.accounts >= (originCount ?? 0),
     `screen accounts ${qrRowAllToggle?.accounts}, origin rows ${originCount}`);
 
-  const { data: allSources } = await service.from('public_entry_sources').select('code, is_test');
+  const { rows: allSources } = await selectAllRows(() =>
+    service.from('public_entry_sources').select('code, is_test').order('code', { ascending: true })
+  );
   const missing = [];
   const tableText = await adminPage.locator('table').first().innerText();
   for (const source of allSources ?? []) {
@@ -346,7 +356,7 @@ try {
     .filter(Boolean)
     .join(' | ');
 
-  let { data: userList } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  let { data: userList } = await listAllAuthUsers(service.auth.admin);
   let created = (userList?.users ?? []).find((u) => u.email === LEAD_EMAIL);
 
   if (!created) {
@@ -527,10 +537,10 @@ try {
   await cleanup();
 
   if (CLEANUP) {
-    const { data: leftBehind } = await service
-      .from('public_entry_sessions')
-      .select('id')
-      .in('visitor_token', mintedTokens.length > 0 ? mintedTokens : ['none']);
+    const { rows: leftBehind } = await selectAllRowsInChunks(
+      mintedTokens.length > 0 ? mintedTokens : ['none'],
+      (chunk) => service.from('public_entry_sessions').select('id').in('visitor_token', chunk).order('id', { ascending: true })
+    );
     check('33. every row this run created was removed', (leftBehind ?? []).length === 0,
       `${(leftBehind ?? []).length} arrivals left behind`);
 
@@ -542,9 +552,15 @@ try {
 
     await adminPage.goto(REPORT_ALL, { waitUntil: 'networkidle' });
     const finalTotals = await totalsOnScreen(adminPage);
-    const { data: finalRows } = await service
-      .from('acquisition_report_rows')
-      .select('row_kind, started_at, completed_at, lead_captured_at, member_id, paid_at, anchor_at');
+    // A visit row is unique by session_id, an account row (null session_id) by member_id.
+    const { rows: finalRows } = await selectAllRows(() =>
+      service
+        .from('acquisition_report_rows')
+        .select('row_kind, started_at, completed_at, lead_captured_at, member_id, paid_at, anchor_at')
+        .order('row_kind', { ascending: true })
+        .order('session_id', { ascending: true })
+        .order('member_id', { ascending: true })
+    );
     const ninetyDaysAgo = new Date(Date.now() - 89 * 86400000).toISOString().slice(0, 10);
     const inWindow = (finalRows ?? []).filter((r) => r.anchor_at >= `${ninetyDaysAgo}T00:00:00`);
     const expected = {

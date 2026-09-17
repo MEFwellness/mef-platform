@@ -28,6 +28,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ProgramTemplateStatus } from '@mef/shared-types-contracts';
+import { writeInChunks } from '../data/pagedSelect';
 import {
   createTemplate,
   replaceTemplateContent,
@@ -65,11 +66,9 @@ async function cleanupPartialSave(
   templateIds: string[]
 ): Promise<void> {
   if (templateIds.length === 0) return;
-  await supabase
-    .from('coach_program_templates')
-    .delete()
-    .eq('coach_id', coachId)
-    .in('id', templateIds);
+  await writeInChunks(templateIds, (chunk) =>
+    supabase.from('coach_program_templates').delete().eq('coach_id', coachId).in('id', chunk)
+  );
 }
 
 export async function materializeProgram(

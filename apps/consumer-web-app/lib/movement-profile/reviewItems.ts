@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { selectAllRows } from '../data/pagedSelect';
 import type {
   HealthTimelineEvidenceRef,
   MovementProfileReviewItem,
@@ -88,11 +89,14 @@ export async function listMovementProfileReviewItemsForClient(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<MovementProfileReviewItem[]> {
-  const { data, error } = await supabase
-    .from('movement_profile_review_items')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<MovementProfileReviewItem>(() =>
+    supabase
+      .from('movement_profile_review_items')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listMovementProfileReviewItemsForClient failed', error);

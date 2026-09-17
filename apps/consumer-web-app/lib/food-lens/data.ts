@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { selectAllRows } from '../data/pagedSelect';
 import type {
   FoodLensCapture,
   FoodLensCaptureType,
@@ -178,11 +179,14 @@ export async function listFoodLensCaptures(
   supabase: SupabaseClient,
   scanId: string
 ): Promise<FoodLensCapture[]> {
-  const { data, error } = await supabase
-    .from('food_lens_captures')
-    .select('*')
-    .eq('scan_id', scanId)
-    .order('created_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<FoodLensCapture>(() =>
+    supabase
+      .from('food_lens_captures')
+      .select('*')
+      .eq('scan_id', scanId)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listFoodLensCaptures failed', error);
     return [];
@@ -297,12 +301,15 @@ export async function listCurrentFoodLensDetectedItems(
   supabase: SupabaseClient,
   scanId: string
 ): Promise<FoodLensDetectedItem[]> {
-  const { data, error } = await supabase
-    .from('food_lens_detected_items')
-    .select('*')
-    .eq('scan_id', scanId)
-    .neq('status', 'superseded')
-    .order('created_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<FoodLensDetectedItem>(() =>
+    supabase
+      .from('food_lens_detected_items')
+      .select('*')
+      .eq('scan_id', scanId)
+      .neq('status', 'superseded')
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listCurrentFoodLensDetectedItems failed', error);
     return [];
@@ -484,11 +491,14 @@ export async function getLatestItemMacroEstimatesByItemId(
   supabase: SupabaseClient,
   scanId: string
 ): Promise<Map<string, FoodLensItemMacroEstimate>> {
-  const { data, error } = await supabase
-    .from('food_lens_item_macro_estimates')
-    .select('*')
-    .eq('scan_id', scanId)
-    .order('created_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<FoodLensItemMacroEstimate>(() =>
+    supabase
+      .from('food_lens_item_macro_estimates')
+      .select('*')
+      .eq('scan_id', scanId)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('getLatestItemMacroEstimatesByItemId failed', error);
     return new Map();

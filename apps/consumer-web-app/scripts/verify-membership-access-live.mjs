@@ -24,6 +24,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { selectAllRows, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const SHOTS = process.env.MEMBER_ACCESS_SHOTS_DIR ?? './live-shots';
 mkdirSync(SHOTS, { recursive: true });
@@ -166,7 +167,7 @@ try {
   const { data: memberProfile } = await service
     .from('profiles')
     .select('id')
-    .eq('id', (await service.auth.admin.listUsers({ page: 1, perPage: 1000 })).data.users.find(
+    .eq('id', (await listAllAuthUsers(service.auth.admin)).data.users.find(
       (u) => u.email === MEMBER.email
     ).id)
     .maybeSingle();
@@ -317,22 +318,28 @@ try {
   // The event.
   await probePage.goto(`${BASE}/trial-ended`, { waitUntil: 'domcontentloaded' });
   await probePage.waitForTimeout(3000);
-  const { data: paywallEvents } = await service
-    .from('member_wellness_events')
-    .select('event_type, payload')
-    .eq('member_id', probeId)
-    .eq('event_type', 'paywall_viewed');
+  const { rows: paywallEvents } = await selectAllRows(() =>
+    service
+      .from('member_wellness_events')
+      .select('event_type, payload')
+      .eq('member_id', probeId)
+      .eq('event_type', 'paywall_viewed')
+      .order('id', { ascending: true })
+  );
   check(
     'a paywall_viewed event with lockReason trial_expired was written',
     (paywallEvents ?? []).some((e) => e.payload?.lockReason === 'trial_expired'),
     JSON.stringify(paywallEvents ?? [])
   );
 
-  const { data: tierEvents } = await service
-    .from('member_wellness_events')
-    .select('event_type, payload')
-    .eq('member_id', probeId)
-    .eq('event_type', 'membership_tier_changed');
+  const { rows: tierEvents } = await selectAllRows(() =>
+    service
+      .from('member_wellness_events')
+      .select('event_type, payload')
+      .eq('member_id', probeId)
+      .eq('event_type', 'membership_tier_changed')
+      .order('id', { ascending: true })
+  );
   check(
     'a membership_tier_changed event was written for the manual assignment',
     (tierEvents ?? []).length >= 1,

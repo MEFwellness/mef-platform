@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { trackProductEvent, resolveMemberTimezone } from '../analytics/track';
+import { selectAllRows } from '../data/pagedSelect';
 import type {
   AllergenMatch,
   BarcodeLookupStatus,
@@ -65,12 +66,18 @@ export async function getFoodProductWithDetails(
     { data: product, error: productError },
     { data: nutrients },
     { data: ingredients },
-    { data: allergens },
+    { rows: allergens },
   ] = await Promise.all([
     supabase.from('food_products').select('*').eq('id', productId).maybeSingle(),
     supabase.from('product_nutrients').select('*').eq('product_id', productId).maybeSingle(),
     supabase.from('product_ingredients').select('*').eq('product_id', productId).maybeSingle(),
-    supabase.from('product_allergens').select('*').eq('product_id', productId),
+    selectAllRows<ProductAllergen>(() =>
+      supabase
+        .from('product_allergens')
+        .select('*')
+        .eq('product_id', productId)
+        .order('id', { ascending: true })
+    ),
   ]);
   if (productError || !product) {
     if (productError) console.error('getFoodProductWithDetails failed', productError);
@@ -167,6 +174,7 @@ export async function upsertFoodProductFromProvider(
 
   if (normalized.allergens.length > 0) {
     await supabase.from('product_allergens').delete().eq('product_id', productId);
+    // scale-exempt: the allergen and trace tags of one provider product, replaced whole right after the delete above so the set stays all-or-nothing
     const { error } = await supabase.from('product_allergens').insert(
       normalized.allergens.map((a) => ({
         product_id: productId,
@@ -303,6 +311,7 @@ export async function insertVerifiedFoodProductFromLabelScan(
       .map((s) => s.trim())
       .filter(Boolean);
     if (allergenNames.length > 0) {
+      // scale-exempt: the comma-separated "Contains" line of one confirmed product label, written whole with the product it belongs to
       const { error: allergensError } = await supabase.from('product_allergens').insert(
         allergenNames.map((allergen) => ({
           product_id: productId,
@@ -608,13 +617,16 @@ export async function listFoodLogForDateRange(
   startIso: string,
   endIso: string
 ): Promise<MemberFoodLogEntry[]> {
-  const { data, error } = await supabase
-    .from('member_food_log')
-    .select('*')
-    .eq('member_id', memberId)
-    .gte('consumed_at', startIso)
-    .lt('consumed_at', endIso)
-    .order('consumed_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<MemberFoodLogEntry>(() =>
+    supabase
+      .from('member_food_log')
+      .select('*')
+      .eq('member_id', memberId)
+      .gte('consumed_at', startIso)
+      .lt('consumed_at', endIso)
+      .order('consumed_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listFoodLogForDateRange failed', error);
     return [];

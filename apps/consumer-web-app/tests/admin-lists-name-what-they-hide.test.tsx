@@ -69,6 +69,10 @@ function builder(table: string) {
       rows = rows.filter((row) => row[column] === value);
       return api;
     },
+    range(from: number, to: number) {
+      rows = rows.slice(from, to + 1);
+      return api;
+    },
     then(resolve: (r: { data: unknown; error: unknown }) => unknown) {
       const failure = table === 'profiles' ? errors.profiles : errors.assignments;
       if (failure) return resolve({ data: null, error: { message: failure } });

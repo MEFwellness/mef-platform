@@ -17,6 +17,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import { DEFAULT_COACH_ASSIGN_COPY } from './copy';
 
 /**
@@ -53,7 +54,16 @@ export async function loadAssignerNames(
   const ids = [...new Set(assignerIds)].filter((id) => typeof id === 'string' && id.length > 0);
   if (ids.length === 0) return {};
 
-  const { data, error } = await supabase.from('profiles').select('id, display_name').in('id', ids);
+  const { rows: data, error } = await selectAllRowsInChunks<{
+    id: string;
+    display_name: string | null;
+  }>(ids, (chunk) =>
+    supabase
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', chunk)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('loadAssignerNames failed', error);

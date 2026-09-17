@@ -8,6 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LifestyleExperiment, LifestyleExperimentOutcome } from './types';
 import { deriveEffectiveStatus, isExperimentOverdue, MAX_ACTIVE_EXPERIMENTS } from './lifecycle';
 import { resolveSubjectKey } from './subject';
+import { selectAllRows, writeInChunks } from '../data/pagedSelect';
 
 type Row = {
   id: string;
@@ -132,11 +133,14 @@ export async function findActiveExperimentBySubject(
   memberId: string,
   subjectKey: string
 ): Promise<LifestyleExperiment | null> {
-  const { data, error } = await supabase
-    .from('lifestyle_experiments')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('status', 'active');
+  const { rows: data, error } = await selectAllRows<Row>(() =>
+    supabase
+      .from('lifestyle_experiments')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('findActiveExperimentBySubject failed', error);
@@ -210,11 +214,14 @@ export async function markDay7Acknowledged(
  * with no cron required.
  */
 export async function expireOverdueExperiments(supabase: SupabaseClient, memberId: string): Promise<void> {
-  const { data, error } = await supabase
-    .from('lifestyle_experiments')
-    .select('id, start_date, duration_days')
-    .eq('member_id', memberId)
-    .eq('status', 'active');
+  const { rows: data, error } = await selectAllRows<{ id: string; start_date: string; duration_days: number }>(() =>
+    supabase
+      .from('lifestyle_experiments')
+      .select('id, start_date, duration_days')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .order('id', { ascending: true })
+  );
 
   if (error || !data || data.length === 0) return;
 
@@ -225,10 +232,13 @@ export async function expireOverdueExperiments(supabase: SupabaseClient, memberI
 
   if (overdueIds.length === 0) return;
 
-  const { error: updateError } = await supabase
-    .from('lifestyle_experiments')
-    .update({ status: 'expired_no_reflection', updated_at: new Date().toISOString() })
-    .in('id', overdueIds);
+  const updatedAt = new Date().toISOString();
+  const { error: updateError } = await writeInChunks(overdueIds, (chunk) =>
+    supabase
+      .from('lifestyle_experiments')
+      .update({ status: 'expired_no_reflection', updated_at: updatedAt })
+      .in('id', chunk)
+  );
 
   if (updateError) console.error('expireOverdueExperiments failed', updateError);
 }
@@ -240,11 +250,14 @@ export async function countActiveExperiments(
 ): Promise<number> {
   await expireOverdueExperiments(supabase, memberId);
 
-  const { data, error } = await supabase
-    .from('lifestyle_experiments')
-    .select('status, start_date, duration_days')
-    .eq('member_id', memberId)
-    .eq('status', 'active');
+  const { rows: data, error } = await selectAllRows<{ status: string; start_date: string; duration_days: number }>(() =>
+    supabase
+      .from('lifestyle_experiments')
+      .select('status, start_date, duration_days')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('countActiveExperiments failed', error);
@@ -267,11 +280,14 @@ export async function listMyLifestyleExperiments(
 ): Promise<LifestyleExperiment[]> {
   await expireOverdueExperiments(supabase, memberId);
 
-  const { data, error } = await supabase
-    .from('lifestyle_experiments')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<Row>(() =>
+    supabase
+      .from('lifestyle_experiments')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listMyLifestyleExperiments failed', error);

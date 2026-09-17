@@ -46,6 +46,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, writeInChunks, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.QP_BASE_URL ?? 'https://app.mefwellness.com';
 const SUPA = process.env.PROD_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -77,7 +78,7 @@ const check = (name, ok, note = '') => {
  * silently walk a survey as a brand new stranger.
  */
 async function resolveExistingUser(email) {
-  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const { data, error } = await listAllAuthUsers(admin.auth.admin);
   if (error) throw new Error(`could not list users: ${error.message}`);
   const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
   if (!found) throw new Error(`REFUSING TO RUN: ${email} is not an existing account`);
@@ -101,21 +102,34 @@ console.log(`target is the test account "${targetProfile.display_name}"`);
 /** Everything this run must be able to prove it did not change. */
 async function snapshot() {
   const [sessions, assignments, entries, dismissals, profile] = await Promise.all([
-    admin.from('member_body_systems_sessions').select('id').eq('member_id', MEMBER),
-    admin.from('assessment_assignments').select('id').eq('member_id', MEMBER),
-    admin
-      .from('registry_entries')
-      .select('id')
-      .eq('member_id', MEMBER)
-      .eq('source_feature', 'body_systems_survey_finding'),
-    admin.from('member_root_popup_dismissals').select('message_key').eq('member_id', MEMBER),
+    selectAllRows(() =>
+      admin.from('member_body_systems_sessions').select('id').eq('member_id', MEMBER).order('id', { ascending: true })
+    ),
+    selectAllRows(() =>
+      admin.from('assessment_assignments').select('id').eq('member_id', MEMBER).order('id', { ascending: true })
+    ),
+    selectAllRows(() =>
+      admin
+        .from('registry_entries')
+        .select('id')
+        .eq('member_id', MEMBER)
+        .eq('source_feature', 'body_systems_survey_finding')
+        .order('id', { ascending: true })
+    ),
+    selectAllRows(() =>
+      admin
+        .from('member_root_popup_dismissals')
+        .select('message_key')
+        .eq('member_id', MEMBER)
+        .order('id', { ascending: true })
+    ),
     admin.from('profiles').select('body_systems_branch').eq('id', MEMBER).maybeSingle(),
   ]);
   return {
-    sessions: new Set((sessions.data ?? []).map((r) => r.id)),
-    assignments: new Set((assignments.data ?? []).map((r) => r.id)),
-    entries: new Set((entries.data ?? []).map((r) => r.id)),
-    dismissals: new Set((dismissals.data ?? []).map((r) => r.message_key)),
+    sessions: new Set((sessions.rows ?? []).map((r) => r.id)),
+    assignments: new Set((assignments.rows ?? []).map((r) => r.id)),
+    entries: new Set((entries.rows ?? []).map((r) => r.id)),
+    dismissals: new Set((dismissals.rows ?? []).map((r) => r.message_key)),
     branch: profile.data?.body_systems_branch ?? null,
   };
 }
@@ -134,11 +148,16 @@ async function teardown() {
   const newEntries = [...now.entries].filter((id) => !BEFORE.entries.has(id));
   const newDismissals = [...now.dismissals].filter((k) => !BEFORE.dismissals.has(k));
   if (newSessions.length)
-    await admin.from('member_body_systems_sessions').delete().in('id', newSessions);
-  if (newEntries.length) await admin.from('registry_entries').delete().in('id', newEntries);
+    await writeInChunks(newSessions, (chunk) =>
+      admin.from('member_body_systems_sessions').delete().in('id', chunk)
+    );
+  if (newEntries.length)
+    await writeInChunks(newEntries, (chunk) => admin.from('registry_entries').delete().in('id', chunk));
   if (newAssignments.length) {
-    await admin.from('assessment_attempts').delete().in('assignment_id', newAssignments);
-    await admin.from('assessment_assignments').delete().in('id', newAssignments);
+    await writeInChunks(newAssignments, (chunk) =>
+      admin.from('assessment_attempts').delete().in('assignment_id', chunk)
+    );
+    await writeInChunks(newAssignments, (chunk) => admin.from('assessment_assignments').delete().in('id', chunk));
   }
   for (const key of newDismissals) {
     await admin

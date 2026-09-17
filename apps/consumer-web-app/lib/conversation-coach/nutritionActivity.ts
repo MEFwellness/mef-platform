@@ -34,6 +34,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { addDaysToLocalDate } from '../feed/dateMath';
+import { selectAllRows } from '../data/pagedSelect';
 
 /**
  * Three counts. No names, no verdicts, no strings at all.
@@ -86,11 +87,14 @@ export async function fetchNutritionActivity(
 ): Promise<NutritionActivity> {
   const since = addDaysToLocalDate(localDate, -(WINDOW_DAYS - 1));
 
-  const { data, error } = await supabase
-    .from('member_food_log')
-    .select('consumed_at')
-    .eq('member_id', memberId)
-    .gte('consumed_at', `${since}T00:00:00.000Z`);
+  const { rows: data, error } = await selectAllRows<{ consumed_at: string }>(() =>
+    supabase
+      .from('member_food_log')
+      .select('consumed_at')
+      .eq('member_id', memberId)
+      .gte('consumed_at', `${since}T00:00:00.000Z`)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('fetchNutritionActivity failed', error);

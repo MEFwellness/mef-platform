@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import { getAssessmentRegistryEntry, listAssessmentRegistryEntries } from '../assessment-registry/registry';
 import type { AssessmentKey } from '../assessment-registry/types';
 import type {
@@ -21,11 +22,14 @@ export async function listPendingReassessmentAssessmentKeys(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Set<AssessmentKey>> {
-  const { data, error } = await supabase
-    .from('reassessment_schedules')
-    .select('assessment_definition_id')
-    .eq('member_id', memberId)
-    .eq('status', 'pending');
+  const { rows: data, error } = await selectAllRows<{ assessment_definition_id: string }>(() =>
+    supabase
+      .from('reassessment_schedules')
+      .select('assessment_definition_id')
+      .eq('member_id', memberId)
+      .eq('status', 'pending')
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listPendingReassessmentAssessmentKeys failed', error);
@@ -65,12 +69,20 @@ export async function listPendingReassessments(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<PendingReassessmentRow[]> {
-  const { data, error } = await supabase
-    .from('reassessment_schedules')
-    .select('assessment_definition_id, stage, trigger_source, due_at')
-    .eq('member_id', memberId)
-    .eq('status', 'pending')
-    .order('due_at', { ascending: true });
+  const { rows: data, error } = await selectAllRows<{
+    assessment_definition_id: string;
+    stage: string;
+    trigger_source: string;
+    due_at: string;
+  }>(() =>
+    supabase
+      .from('reassessment_schedules')
+      .select('assessment_definition_id, stage, trigger_source, due_at')
+      .eq('member_id', memberId)
+      .eq('status', 'pending')
+      .order('due_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listPendingReassessments failed', error);
@@ -207,10 +219,17 @@ export async function listLastCompletedAtByAssessmentKey(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<AssessmentKey, string>> {
-  const { data, error } = await supabase
-    .from('assessment_status_by_member')
-    .select('assessment_definition_id, latest_completed_at')
-    .eq('member_id', memberId);
+  // The view is one row per (member, assessment definition), so assessment_definition_id is a total order here.
+  const { rows: data, error } = await selectAllRows<{
+    assessment_definition_id: string;
+    latest_completed_at: string | null;
+  }>(() =>
+    supabase
+      .from('assessment_status_by_member')
+      .select('assessment_definition_id, latest_completed_at')
+      .eq('member_id', memberId)
+      .order('assessment_definition_id', { ascending: true })
+  );
 
   if (error) {
     console.error('listLastCompletedAtByAssessmentKey failed', error);

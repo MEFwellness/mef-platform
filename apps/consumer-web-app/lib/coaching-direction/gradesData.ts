@@ -25,6 +25,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../data/pagedSelect';
 import { isCoachingActionType } from './types';
 import type { CoachingActionType, MemberResponse } from './types';
 import {
@@ -84,13 +85,16 @@ export async function listLedgerRowsForGrading(
   fromLocalDate: string,
   toLocalDate: string
 ): Promise<{ ok: boolean; rows: LedgerRowForGrading[] }> {
-  const { data, error } = await supabase
-    .from('member_coaching_decisions')
-    .select(GRADEABLE_COLUMNS)
-    .eq('member_id', memberId)
-    .gte('local_date', fromLocalDate)
-    .lte('local_date', toLocalDate)
-    .order('local_date', { ascending: true });
+  // local_date is unique per member (member_id+local_date), so it is already a total order.
+  const { rows: data, error } = await selectAllRows<GradeableRow>(() =>
+    supabase
+      .from('member_coaching_decisions')
+      .select(GRADEABLE_COLUMNS)
+      .eq('member_id', memberId)
+      .gte('local_date', fromLocalDate)
+      .lte('local_date', toLocalDate)
+      .order('local_date', { ascending: true })
+  );
 
   if (error) {
     console.error('listLedgerRowsForGrading failed', error);
@@ -220,10 +224,13 @@ export async function listCoachingGrades(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<CoachingGrade[]> {
-  const { data, error } = await supabase
-    .from('member_coaching_grades')
-    .select(GRADE_COLUMNS)
-    .eq('member_id', memberId);
+  const { rows: data, error } = await selectAllRows<GradeRow>(() =>
+    supabase
+      .from('member_coaching_grades')
+      .select(GRADE_COLUMNS)
+      .eq('member_id', memberId)
+      .order('id', { ascending: true })
+  );
 
   if (error || !data) {
     if (error) console.error('listCoachingGrades failed', error);
@@ -270,6 +277,7 @@ export async function upsertCoachingGrades(
   if (grades.length === 0) return true;
 
   const now = new Date().toISOString();
+  // scale-exempt: one grading pass is at most 5 action-type grades plus one per thread in the 90-day ledger window (one decision per day), so at most 95 rows, and the pass is all-or-nothing
   const { error } = await supabase.from('member_coaching_grades').upsert(
     grades.map((grade) => ({
       member_id: memberId,

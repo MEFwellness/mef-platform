@@ -13,6 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DailyCheckin, Habit, MorningBrief } from '@mef/shared-types-contracts';
 import type { ComposedMorningBrief } from './types';
+import { selectAllRows } from '../data/pagedSelect';
 
 export async function getMorningBrief(
   supabase: SupabaseClient,
@@ -103,17 +104,21 @@ export async function listActiveHabitsForMember(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Habit[]> {
-  const { data, error } = await supabase
-    .from('habits')
-    .select('*')
-    .eq('user_id', memberId)
-    .eq('active', true);
+  const { rows: data, error } = await selectAllRows<Habit>(() =>
+    supabase
+      .from('habits')
+      .select('*')
+      .eq('user_id', memberId)
+      .eq('active', true)
+      .order('assigned_at', { ascending: true })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listActiveHabitsForMember failed', error);
     return [];
   }
-  return data as Habit[];
+  return data;
 }
 
 /** Mirrors app/actions/checkin.ts's getHabitLogsForDate, but for an explicit memberId. */
@@ -122,17 +127,18 @@ export async function getHabitLogsForDateForMember(
   memberId: string,
   localDate: string
 ): Promise<Record<string, boolean>> {
-  const { data, error } = await supabase
-    .from('habit_logs')
-    .select('habit_id, completed')
-    .eq('user_id', memberId)
-    .eq('local_date', localDate);
+  const { rows: data, error } = await selectAllRows<{ habit_id: string; completed: boolean }>(() =>
+    supabase
+      .from('habit_logs')
+      .select('habit_id, completed')
+      .eq('user_id', memberId)
+      .eq('local_date', localDate)
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('getHabitLogsForDateForMember failed', error);
     return {};
   }
-  return Object.fromEntries(
-    (data as { habit_id: string; completed: boolean }[]).map((log) => [log.habit_id, log.completed])
-  );
+  return Object.fromEntries(data.map((log) => [log.habit_id, log.completed]));
 }

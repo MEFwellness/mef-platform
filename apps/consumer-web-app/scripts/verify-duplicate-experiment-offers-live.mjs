@@ -35,6 +35,7 @@
 import { readFileSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
+import { selectAllRows, writeInChunks } from '../lib/data/pagedSelect.ts';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
@@ -97,10 +98,14 @@ async function main() {
 
   try {
     // --- Baseline: the account really is in the state that produced the bug.
-    const { data: before } = await service
-      .from('lifestyle_experiments')
-      .select('id, title, status, source_experience_key, subject_key')
-      .eq('member_id', MEMBER_ID);
+    // A failed read stays null, so the column check below still fails on it.
+    const before = await selectAllRows(() =>
+      service
+        .from('lifestyle_experiments')
+        .select('id, title, status, source_experience_key, subject_key')
+        .eq('member_id', MEMBER_ID)
+        .order('id', { ascending: true })
+    ).then((read) => (read.ok ? read.rows : null));
     const runningBefore = (before ?? []).filter((r) => r.status === 'active');
     console.log(`\nBaseline: ${before?.length ?? 0} experiment rows, ${runningBefore.length} stored active.`);
 
@@ -178,11 +183,14 @@ async function main() {
         afterBody.slice(0, 200)
       );
 
-      const { data: rows } = await service
-        .from('lifestyle_experiments')
-        .select('id, title, status, source_experience_key, subject_key, created_at')
-        .eq('member_id', MEMBER_ID)
-        .eq('status', 'active');
+      const { rows } = await selectAllRows(() =>
+        service
+          .from('lifestyle_experiments')
+          .select('id, title, status, source_experience_key, subject_key, created_at')
+          .eq('member_id', MEMBER_ID)
+          .eq('status', 'active')
+          .order('id', { ascending: true })
+      );
       const fresh = (rows ?? []).filter((r) => !runningBefore.some((b) => b.id === r.id));
       fresh.forEach((r) => createdExperimentIds.push(r.id));
 
@@ -240,11 +248,14 @@ async function main() {
 
     // ---------------------------------------------------------------- 5
     console.log('\n5. Nothing was done to anybody else');
-    const { data: untouched } = await service
-      .from('lifestyle_experiments')
-      .select('id, title, status, subject_key')
-      .eq('member_id', UNTOUCHED_MEMBER_ID)
-      .eq('status', 'active');
+    const { rows: untouched } = await selectAllRows(() =>
+      service
+        .from('lifestyle_experiments')
+        .select('id, title, status, subject_key')
+        .eq('member_id', UNTOUCHED_MEMBER_ID)
+        .eq('status', 'active')
+        .order('id', { ascending: true })
+    );
     check(
       "the real member's two running Tension experiments are still running and still un-backfilled",
       (untouched ?? []).length === 2 && (untouched ?? []).every((r) => r.subject_key === null),
@@ -258,7 +269,9 @@ async function main() {
     // Undo every write, pass or fail.
     if (createdExperimentIds.length > 0) {
       const service2 = serviceClient();
-      await service2.from('lifestyle_experiments').delete().in('id', createdExperimentIds);
+      await writeInChunks(createdExperimentIds, (chunk) =>
+        service2.from('lifestyle_experiments').delete().in('id', chunk)
+      );
       console.log(`\nCleaned up ${createdExperimentIds.length} experiment row(s) this run created.`);
     }
     if (minted) await retireSession(minted).catch(() => {});

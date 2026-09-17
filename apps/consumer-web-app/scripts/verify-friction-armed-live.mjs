@@ -23,6 +23,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const REF = 'piafgqstbibvllsnuike';
 const MEMBER_EMAIL = process.env.MEMBER_EMAIL ?? '8weeks2fab@gmail.com';
@@ -42,29 +43,38 @@ function check(name, passed, detail = '') {
   console.log(`${passed ? 'PASS' : 'FAIL'}  ${name}${detail ? ` :: ${detail}` : ''}`);
 }
 
-const { data: users } = await service.auth.admin.listUsers();
-const member = users.users.find((u) => u.email === MEMBER_EMAIL);
+let member;
+for (let page = 1; !member; page += 1) {
+  const { data: users } = await service.auth.admin.listUsers({ page, perPage: 1000 });
+  member = users.users.find((u) => u.email === MEMBER_EMAIL);
+  if (users.users.length < 1000) break;
+}
 if (!member) throw new Error(`no such member: ${MEMBER_EMAIL}`);
 
 // ---------------------------------------------------------------------
 // Migration 165 — the canonical finding registry
 // ---------------------------------------------------------------------
-const findings = await service
-  .from('registry_entries')
-  // member_id is in this list because the duplicate check below keys on it.
-  // Leaving it out made every member's rows collide with every other
-  // member's and reported 42 duplicates that do not exist.
-  .select('id, member_id, domain, code, status, canonical_source_key, evidence_tier, coach_verified_at, created_at')
-  .eq('entry_kind', 'finding');
+const findings = await selectAllRows(() =>
+  service
+    .from('registry_entries')
+    // member_id is in this list because the duplicate check below keys on it.
+    // Leaving it out made every member's rows collide with every other
+    // member's and reported 42 duplicates that do not exist.
+    .select('id, member_id, domain, code, status, canonical_source_key, evidence_tier, coach_verified_at, created_at')
+    .eq('entry_kind', 'finding')
+    .order('id', { ascending: true })
+);
 
 check('migration 165 columns exist on registry_entries', !findings.error, findings.error?.message);
 
 // Which accounts are test accounts, so a gap on one can be named as such
 // rather than counted against the product.
-const { data: testProfiles } = await service.from('profiles').select('id, is_test');
+const { rows: testProfiles } = await selectAllRows(() =>
+  service.from('profiles').select('id, is_test').order('id', { ascending: true })
+);
 
 if (!findings.error) {
-  const rows = findings.data;
+  const rows = findings.rows;
 
   /**
    * WHAT MIGRATION 165 ACTUALLY PROMISED, and what it did not.
@@ -183,12 +193,15 @@ check('minted the member session the app itself runs under', !verified.error, ve
 
 // The EXACT select lib/coaching-direction/frictionData.ts issues. If this
 // succeeds, `available` is true and the engine is willing to ask.
-const asHer = await anon
-  .from('member_coaching_decisions')
-  .select('thread_key, local_date, friction_asked_at, friction_reason, friction_answered_at')
-  .eq('member_id', member.id)
-  .not('friction_asked_at', 'is', null)
-  .order('friction_asked_at', { ascending: true });
+const asHer = await selectAllRows(() =>
+  anon
+    .from('member_coaching_decisions')
+    .select('thread_key, local_date, friction_asked_at, friction_reason, friction_answered_at')
+    .eq('member_id', member.id)
+    .not('friction_asked_at', 'is', null)
+    .order('friction_asked_at', { ascending: true })
+    .order('local_date', { ascending: true })
+);
 
 check(
   'THE FRICTION QUESTION IS ARMED: her own session can read the friction columns',
@@ -199,13 +212,15 @@ check(
 // ---------------------------------------------------------------------
 // The constraints, proven by writes the database must refuse
 // ---------------------------------------------------------------------
-const decisions = await service
-  .from('member_coaching_decisions')
-  .select('id, local_date, friction_reason, friction_note, friction_asked_at, friction_answered_at')
-  .eq('member_id', member.id)
-  .order('local_date', { ascending: false });
+const decisions = await selectAllRows(() =>
+  service
+    .from('member_coaching_decisions')
+    .select('id, local_date, friction_reason, friction_note, friction_asked_at, friction_answered_at')
+    .eq('member_id', member.id)
+    .order('local_date', { ascending: false })
+);
 
-const target = decisions.data?.[0];
+const target = decisions.rows?.[0];
 if (target) {
   const before = JSON.stringify(target);
 
@@ -255,10 +270,13 @@ check(
 // ---------------------------------------------------------------------
 // Where she actually stands, so the report can say what to watch for
 // ---------------------------------------------------------------------
-const { data: threads } = await service
-  .from('member_coaching_threads')
-  .select('thread_key, approach, approach_changes, consecutive_ignored, coach_escalated_at')
-  .eq('member_id', member.id);
+const { rows: threads } = await selectAllRows(() =>
+  service
+    .from('member_coaching_threads')
+    .select('thread_key, approach, approach_changes, consecutive_ignored, coach_escalated_at')
+    .eq('member_id', member.id)
+    .order('thread_key', { ascending: true })
+);
 
 console.log('\nHER CURRENT STATE, which is what decides whether the question fires:');
 for (const t of threads ?? []) {
@@ -267,15 +285,17 @@ for (const t of threads ?? []) {
   );
 }
 console.log('\n   Her last six recorded days, and what she did each day:');
-for (const d of decisions.data ?? []) {
+for (const d of decisions.rows ?? []) {
   console.log(`   ${d.local_date} | friction asked: ${d.friction_asked_at ? 'yes' : 'no'}`);
 }
 
-const { data: responses } = await service
-  .from('member_coaching_decisions')
-  .select('local_date, member_response')
-  .eq('member_id', member.id)
-  .order('local_date', { ascending: false });
+const { rows: responses } = await selectAllRows(() =>
+  service
+    .from('member_coaching_decisions')
+    .select('local_date, member_response')
+    .eq('member_id', member.id)
+    .order('local_date', { ascending: false })
+);
 console.log('   ' + (responses ?? []).map((r) => `${r.local_date}=${r.member_response ?? 'pending'}`).join('  '));
 
 await anon.auth.signOut();

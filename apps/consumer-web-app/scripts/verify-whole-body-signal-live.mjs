@@ -53,6 +53,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, writeInChunks, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.WBS_BASE_URL ?? 'http://127.0.0.1:3000';
 const SUPA = process.env.PROD_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -77,14 +78,19 @@ const admin = createClient(SUPA, readFileSync(process.env.PROD_SERVICE_KEY_FILE,
 
 /** Everything this run creates, removed. Run before the walk and again after it. */
 async function clean() {
-  const { data: sittings } = await admin
-    .from('member_whole_body_signal_sessions')
-    .select('id')
-    .eq('member_id', MEMBER);
+  const { rows: sittings } = await selectAllRows(() =>
+    admin
+      .from('member_whole_body_signal_sessions')
+      .select('id')
+      .eq('member_id', MEMBER)
+      .order('id', { ascending: true })
+  );
   const ids = (sittings ?? []).map((row) => row.id);
   if (ids.length > 0) {
-    await admin.from('member_whole_body_signal_question_actions').delete().in('session_id', ids);
-    await admin.from('member_whole_body_signal_focus').delete().in('session_id', ids);
+    await writeInChunks(ids, (chunk) =>
+      admin.from('member_whole_body_signal_question_actions').delete().in('session_id', chunk)
+    );
+    await writeInChunks(ids, (chunk) => admin.from('member_whole_body_signal_focus').delete().in('session_id', chunk));
   }
   await admin.from('member_whole_body_signal_sessions').delete().eq('member_id', MEMBER);
   await admin
@@ -113,7 +119,7 @@ async function clean() {
   them.
 */
 async function assertExistingUser(email, expectedId) {
-  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const { data, error } = await listAllAuthUsers(admin.auth.admin);
   if (error) throw new Error(`could not list users: ${error.message}`);
   const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
   if (!found) throw new Error(`REFUSING TO RUN: ${email} is not an existing account`);
@@ -144,10 +150,16 @@ await clean();
   The blind half of this run checks that none of them reaches a member
   screen, so a Zone renamed tomorrow is covered the day it is renamed.
 */
-const [{ data: zoneRows }, { data: sectionRows }, { data: copyRows }] = await Promise.all([
+const [{ data: zoneRows }, { data: sectionRows }, { rows: copyRows }] = await Promise.all([
   admin.from('whole_body_signal_zones').select('display_name, chakra_lens, organ_gland_list, spinal_segments'),
   admin.from('whole_body_signal_sections').select('section_key, position, display_name, member_transition_line'),
-  admin.from('whole_body_signal_copy').select('copy_key, value').eq('audience', 'member'),
+  selectAllRows(() =>
+    admin
+      .from('whole_body_signal_copy')
+      .select('copy_key, value')
+      .eq('audience', 'member')
+      .order('copy_key', { ascending: true })
+  ),
 ]);
 if (!zoneRows?.length || !sectionRows?.length || !copyRows?.length) {
   throw new Error('could not read the seeded content');
@@ -162,12 +174,15 @@ const MEMBER_COPY = Object.fromEntries(copyRows.map((row) => [row.copy_key, row.
   covered by this run the day he does it, and a coach who moves one back is
   too.
 */
-const [{ data: scaleOptionRows }, { data: questionRows }] = await Promise.all([
+const [{ data: scaleOptionRows }, { rows: questionRows }] = await Promise.all([
   admin.from('whole_body_signal_scale_options').select('scale_key, value_key, position, label').eq('is_active', true),
-  admin
-    .from('whole_body_signal_questions')
-    .select('question_ref, section_key, prompt, scale_key, allows_pnta, is_universal, branch_group')
-    .eq('is_active', true),
+  selectAllRows(() =>
+    admin
+      .from('whole_body_signal_questions')
+      .select('question_ref, section_key, prompt, scale_key, allows_pnta, is_universal, branch_group')
+      .eq('is_active', true)
+      .order('question_ref', { ascending: true })
+  ),
 ]);
 if (!scaleOptionRows?.length || !questionRows?.length) {
   throw new Error('could not read the questions and their answer scales');
@@ -430,10 +445,13 @@ try {
     EVERY DISMISSAL THIS RUN WRITES IS REMOVED AT THE END, and only the
     ones this run wrote: the keys already on her row are read first.
   */
-  const { data: dismissalsBefore } = await admin
-    .from('member_root_popup_dismissals')
-    .select('message_key')
-    .eq('member_id', MEMBER);
+  const { rows: dismissalsBefore } = await selectAllRows(() =>
+    admin
+      .from('member_root_popup_dismissals')
+      .select('message_key')
+      .eq('member_id', MEMBER)
+      .order('id', { ascending: true })
+  );
   knownDismissals = new Set((dismissalsBefore ?? []).map((row) => row.message_key));
 
   const knocks = [];
@@ -887,10 +905,13 @@ try {
   );
 
   // THE BRANCH. Only T1, T2, B1 and the universal four may have appeared.
-  const { data: branchRows } = await admin
-    .from('whole_body_signal_questions')
-    .select('question_ref, prompt, branch_group, is_universal')
-    .eq('section_key', 'hormone_pelvic_rhythm');
+  const { rows: branchRows } = await selectAllRows(() =>
+    admin
+      .from('whole_body_signal_questions')
+      .select('question_ref, prompt, branch_group, is_universal')
+      .eq('section_key', 'hormone_pelvic_rhythm')
+      .order('question_ref', { ascending: true })
+  );
   const expectedBranch = branchRows
     .filter((row) => row.is_universal || ['T', 'B'].includes(row.branch_group))
     .map((row) => row.prompt);
@@ -1079,10 +1100,13 @@ try {
     await panel.getByRole('button', { name: /mark as asked/i }).first().click();
     let asked = null;
     for (let attempt = 0; attempt < 40 && !asked; attempt += 1) {
-      const { data } = await admin
-        .from('member_whole_body_signal_question_actions')
-        .select('question_key, asked_at, saved_at, hidden_at')
-        .eq('session_id', stored.id);
+      const { rows: data } = await selectAllRows(() =>
+        admin
+          .from('member_whole_body_signal_question_actions')
+          .select('question_key, asked_at, saved_at, hidden_at')
+          .eq('session_id', stored.id)
+          .order('question_key', { ascending: true })
+      );
       asked = data && data.length && data[0].asked_at ? data : null;
       if (!asked) await new Promise((resolve) => setTimeout(resolve, 400));
     }
@@ -1093,21 +1117,27 @@ try {
       await saveButton.click();
       let saved = null;
       for (let attempt = 0; attempt < 40 && !saved; attempt += 1) {
-        const { data } = await admin
-          .from('member_whole_body_signal_question_actions')
-          .select('question_key, asked_at, saved_at')
-          .eq('session_id', stored.id)
-          .not('saved_at', 'is', null);
+        const { rows: data } = await selectAllRows(() =>
+          admin
+            .from('member_whole_body_signal_question_actions')
+            .select('question_key, asked_at, saved_at')
+            .eq('session_id', stored.id)
+            .not('saved_at', 'is', null)
+            .order('question_key', { ascending: true })
+        );
         saved = data && data.length ? data : null;
         if (!saved) await new Promise((resolve) => setTimeout(resolve, 400));
       }
       check('saving one to session prep is stored', Boolean(saved));
       // A BLANK IS NOT AN ERASURE: the asked mark survived the save.
-      const { data: both } = await admin
-        .from('member_whole_body_signal_question_actions')
-        .select('asked_at, saved_at')
-        .eq('session_id', stored.id)
-        .not('asked_at', 'is', null);
+      const { rows: both } = await selectAllRows(() =>
+        admin
+          .from('member_whole_body_signal_question_actions')
+          .select('asked_at, saved_at')
+          .eq('session_id', stored.id)
+          .not('asked_at', 'is', null)
+          .order('question_key', { ascending: true })
+      );
       check('and marking one does not clear the other mark on it', (both?.length ?? 0) >= 1);
     }
 
@@ -1116,11 +1146,14 @@ try {
       await hideButton.click();
       let hidden = null;
       for (let attempt = 0; attempt < 40 && !hidden; attempt += 1) {
-        const { data } = await admin
-          .from('member_whole_body_signal_question_actions')
-          .select('hidden_at')
-          .eq('session_id', stored.id)
-          .not('hidden_at', 'is', null);
+        const { rows: data } = await selectAllRows(() =>
+          admin
+            .from('member_whole_body_signal_question_actions')
+            .select('hidden_at')
+            .eq('session_id', stored.id)
+            .not('hidden_at', 'is', null)
+            .order('question_key', { ascending: true })
+        );
         hidden = data && data.length ? data : null;
         if (!hidden) await new Promise((resolve) => setTimeout(resolve, 400));
       }
@@ -1308,19 +1341,24 @@ try {
   // Only the dismissals THIS RUN wrote, and only if it got far enough to
   // read what was there before it started.
   if (knownDismissals) {
-    const { data: after } = await admin
-      .from('member_root_popup_dismissals')
-      .select('message_key')
-      .eq('member_id', MEMBER);
+    const { rows: after } = await selectAllRows(() =>
+      admin
+        .from('member_root_popup_dismissals')
+        .select('message_key')
+        .eq('member_id', MEMBER)
+        .order('id', { ascending: true })
+    );
     const added = (after ?? [])
       .map((row) => row.message_key)
       .filter((key) => !knownDismissals.has(key));
     if (added.length > 0) {
-      await admin
-        .from('member_root_popup_dismissals')
-        .delete()
-        .eq('member_id', MEMBER)
-        .in('message_key', added);
+      await writeInChunks(added, (chunk) =>
+        admin
+          .from('member_root_popup_dismissals')
+          .delete()
+          .eq('member_id', MEMBER)
+          .in('message_key', chunk)
+      );
       console.log(`removed ${added.length} dismissal row(s) this run created`);
     }
   }
@@ -1332,19 +1370,31 @@ try {
   // STATE LEFT BEHIND: NONE. Removed, then confirmed absent by an
   // independent read rather than by trusting the delete.
   await clean();
-  const [{ data: leftSittings }, { data: leftAssignments }, { data: leftAttempts }] =
+  const [{ rows: leftSittings }, { rows: leftAssignments }, { rows: leftAttempts }] =
     await Promise.all([
-      admin.from('member_whole_body_signal_sessions').select('id').eq('member_id', MEMBER),
-      admin
-        .from('assessment_assignments')
-        .select('id')
-        .eq('member_id', MEMBER)
-        .eq('assessment_definition_id', DEFINITION),
-      admin
-        .from('assessment_attempts')
-        .select('id')
-        .eq('member_id', MEMBER)
-        .eq('assessment_definition_id', DEFINITION),
+      selectAllRows(() =>
+        admin
+          .from('member_whole_body_signal_sessions')
+          .select('id')
+          .eq('member_id', MEMBER)
+          .order('id', { ascending: true })
+      ),
+      selectAllRows(() =>
+        admin
+          .from('assessment_assignments')
+          .select('id')
+          .eq('member_id', MEMBER)
+          .eq('assessment_definition_id', DEFINITION)
+          .order('id', { ascending: true })
+      ),
+      selectAllRows(() =>
+        admin
+          .from('assessment_attempts')
+          .select('id')
+          .eq('member_id', MEMBER)
+          .eq('assessment_definition_id', DEFINITION)
+          .order('id', { ascending: true })
+      ),
     ]);
   const leftovers =
     (leftSittings?.length ?? 0) + (leftAssignments?.length ?? 0) + (leftAttempts?.length ?? 0);

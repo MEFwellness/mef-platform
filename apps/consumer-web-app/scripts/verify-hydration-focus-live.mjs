@@ -28,6 +28,7 @@
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync } from 'node:fs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const SHOTS = process.env.HYDRATION_SHOTS_DIR ?? './live-shots';
 mkdirSync(SHOTS, { recursive: true });
@@ -196,10 +197,13 @@ async function reachHydrationPopup(page, id) {
     if (!(await anyPopup(page).first().isVisible().catch(() => false))) return false;
 
     const title = (await anyPopup(page).first().innerText().catch(() => '')).split('\n')[1] ?? '?';
-    const before = await service
-      .from('member_root_popup_dismissals')
-      .select('message_key')
-      .eq('member_id', id);
+    const before = await selectAllRows(() =>
+      service
+        .from('member_root_popup_dismissals')
+        .select('message_key')
+        .eq('member_id', id)
+        .order('id', { ascending: true })
+    );
 
     const later = anyPopup(page).first().getByRole('button', { name: 'Maybe later' });
     if (!(await later.isVisible().catch(() => false))) return false;
@@ -207,12 +211,15 @@ async function reachHydrationPopup(page, id) {
     await later.click();
     await page.waitForTimeout(2500);
 
-    const after = await service
-      .from('member_root_popup_dismissals')
-      .select('message_key')
-      .eq('member_id', id);
-    const seen = new Set((before.data ?? []).map((r) => r.message_key));
-    for (const row of after.data ?? []) {
+    const after = await selectAllRows(() =>
+      service
+        .from('member_root_popup_dismissals')
+        .select('message_key')
+        .eq('member_id', id)
+        .order('id', { ascending: true })
+    );
+    const seen = new Set((before.rows ?? []).map((r) => r.message_key));
+    for (const row of after.rows ?? []) {
       if (!seen.has(row.message_key)) deferredKeys.push(row.message_key);
     }
 
@@ -287,11 +294,14 @@ async function freshPlanProbeKeys(page, id, localDate) {
   await page.waitForTimeout(3000);
   await page.goto(`${BASE}/checkin/evening`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3000);
-  const { data } = await service
-    .from('member_daily_probe_selections')
-    .select('question_key, kind')
-    .eq('member_id', id)
-    .eq('local_date', localDate);
+  const { rows: data } = await selectAllRows(() =>
+    service
+      .from('member_daily_probe_selections')
+      .select('question_key, kind')
+      .eq('member_id', id)
+      .eq('local_date', localDate)
+      .order('id', { ascending: true })
+  );
   const rows = data ?? [];
   if (rows.length === 0) throw new Error(`no plan was written for ${localDate} — wrong date?`);
   return rows.filter((r) => r.kind === 'rotating_probe').map((r) => r.question_key);

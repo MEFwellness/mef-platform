@@ -10,6 +10,7 @@ import type { LongitudinalSignal, LongitudinalSignalRow } from './types';
 import { isHydrationTracked } from '../hydration/data';
 import { HYDRATION_DRIVER_ID, HYDRATION_WELLNESS_METRIC_KEY } from '../hydration/constants';
 import { forgetReads, readOnce } from '../data/readOnce';
+import { selectAllRows } from '../data/pagedSelect';
 
 type PatternStateRow = {
   id: string;
@@ -97,8 +98,14 @@ async function readMemberPatternStates(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<string, LongitudinalSignalRow>> {
-  const [{ data, error }, hydrationTracked] = await Promise.all([
-    supabase.from('member_pattern_states').select('*').eq('member_id', memberId),
+  const [{ rows: data, error }, hydrationTracked] = await Promise.all([
+    selectAllRows<PatternStateRow>(() =>
+      supabase
+        .from('member_pattern_states')
+        .select('*')
+        .eq('member_id', memberId)
+        .order('id', { ascending: true })
+    ),
     isHydrationTracked(supabase, memberId),
   ]);
 
@@ -107,7 +114,7 @@ async function readMemberPatternStates(
     return new Map();
   }
 
-  const rows = (data as PatternStateRow[]).map(fromRow);
+  const rows = data.map(fromRow);
   const visible = hydrationTracked ? rows : rows.filter((row) => !isHydrationSignal(row));
   return new Map(visible.map((row) => [row.signalKey, row]));
 }
@@ -186,27 +193,28 @@ export async function listRecommendationEventsForMember(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<RecommendationEvent[]> {
-  const { data, error } = await supabase
-    .from('member_recommendation_events')
-    .select('id, member_id, recommendation_id, event_type, note, recorded_at')
-    .eq('member_id', memberId)
-    .order('recorded_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<{
+    id: string;
+    member_id: string;
+    recommendation_id: string;
+    event_type: string;
+    note: string | null;
+    recorded_at: string;
+  }>(() =>
+    supabase
+      .from('member_recommendation_events')
+      .select('id, member_id, recommendation_id, event_type, note, recorded_at')
+      .eq('member_id', memberId)
+      .order('recorded_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('listRecommendationEventsForMember failed', error);
     return [];
   }
 
-  return (
-    data as {
-      id: string;
-      member_id: string;
-      recommendation_id: string;
-      event_type: string;
-      note: string | null;
-      recorded_at: string;
-    }[]
-  ).map((row) => ({
+  return data.map((row) => ({
     id: row.id,
     memberId: row.member_id,
     recommendationId: row.recommendation_id,

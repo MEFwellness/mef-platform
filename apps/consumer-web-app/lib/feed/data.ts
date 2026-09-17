@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { forgetReads, readOnce } from '../data/readOnce';
+import { selectAllRows, selectAllRowsInChunks } from '../data/pagedSelect';
 import type {
   MefContentItem,
   DailyFeedItem,
@@ -23,10 +24,16 @@ export async function listPublishedContent(supabase: SupabaseClient): Promise<Me
   const now = Date.now();
   if (contentCache && contentCache.expiresAt > now) return contentCache.items;
 
-  const { data, error } = await supabase
-    .from('mef_content_items')
-    .select('*')
-    .eq('status', 'published');
+  // Library order is authoring order, with content_key (unique) to make it total for paging.
+  // selector.ts takes the first eligible match in this order, so it is part of which item she sees.
+  const { rows: data, error } = await selectAllRows<MefContentItem>(() =>
+    supabase
+      .from('mef_content_items')
+      .select('*')
+      .eq('status', 'published')
+      .order('created_at', { ascending: true })
+      .order('content_key', { ascending: true })
+  );
   if (error) {
     console.error('listPublishedContent failed', error);
     return [];
@@ -77,7 +84,9 @@ export async function getContentItemsByIds(
   const uniqueIds = [...new Set(contentItemIds)];
   if (uniqueIds.length === 0) return new Map();
 
-  const { data, error } = await supabase.from('mef_content_items').select('*').in('id', uniqueIds);
+  const { rows: data, error } = await selectAllRowsInChunks<MefContentItem>(uniqueIds, (chunk) =>
+    supabase.from('mef_content_items').select('*').in('id', chunk).order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('getContentItemsByIds failed', error);

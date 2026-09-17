@@ -10,6 +10,7 @@ import { completionTrackingForCategory } from './classifier';
 import { isDailyCoachingFocus } from './lifecycle';
 import type { MemberRecommendation, MemberRecommendationRow } from './types';
 import { isHydrationTracked } from '../hydration/data';
+import { selectAllRows, writeInChunks } from '../data/pagedSelect';
 
 /** RecommendationDomain for water (lib/intelligence-engine/recommendations.ts's AREA_DOMAINS). */
 const HYDRATION_RECOMMENDATION_DOMAIN = 'hydration';
@@ -219,14 +220,16 @@ export async function retireSupersededCoachingFocus(
   const toRetire = shown.filter((row) => row.id !== keeper.id);
   if (toRetire.length === 0) return [];
 
-  const { error } = await supabase
-    .from('member_recommendations')
-    .update({ status: 'superseded', updated_at: new Date().toISOString() })
-    .eq('member_id', memberId)
-    .in(
-      'id',
-      toRetire.map((row) => row.id)
-    );
+  const updatedAt = new Date().toISOString();
+  const { error } = await writeInChunks(
+    toRetire.map((row) => row.id),
+    (chunk) =>
+      supabase
+        .from('member_recommendations')
+        .update({ status: 'superseded', updated_at: updatedAt })
+        .eq('member_id', memberId)
+        .in('id', chunk)
+  );
 
   if (error) {
     console.error('retireSupersededCoachingFocus failed', error);
@@ -240,18 +243,21 @@ export async function listMemberRecommendations(
   memberId: string,
   options: { statusFilter?: MemberRecommendationRow['status'][] } = {}
 ): Promise<MemberRecommendationRow[]> {
-  let query = supabase
-    .from('member_recommendations')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const [{ rows: data, error }, hydrationTracked] = await Promise.all([
+    selectAllRows<Row>(() => {
+      let query = supabase
+        .from('member_recommendations')
+        .select('*')
+        .eq('member_id', memberId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true });
 
-  if (options.statusFilter && options.statusFilter.length > 0) {
-    query = query.in('status', options.statusFilter);
-  }
-
-  const [{ data, error }, hydrationTracked] = await Promise.all([
-    query,
+      if (options.statusFilter && options.statusFilter.length > 0) {
+        // scale-exempt: statusFilter is a subset of the closed recommendation status union
+        query = query.in('status', options.statusFilter);
+      }
+      return query;
+    }),
     isHydrationTracked(supabase, memberId),
   ]);
   if (error) {

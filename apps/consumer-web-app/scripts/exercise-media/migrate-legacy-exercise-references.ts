@@ -35,6 +35,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { selectAllRows } from '../../lib/data/pagedSelect';
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -105,7 +106,9 @@ export async function migrateMefExerciseMetadata(
   matchMap: Map<string, ConfidentMatch>
 ): Promise<Counts> {
   const counts = emptyCounts();
-  const { data, error } = await supabase.from('mef_exercise_metadata').select('*').eq('provider', LEGACY_PROVIDER);
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase.from('mef_exercise_metadata').select('*').eq('provider', LEGACY_PROVIDER).order('id', { ascending: true })
+  );
   if (error) throw new Error(`mef_exercise_metadata read failed: ${error.message}`);
   const rows = (data as Record<string, unknown>[]) ?? [];
 
@@ -180,7 +183,9 @@ export async function migrateFavorites(
   nameMap: Map<string, string>
 ): Promise<Counts> {
   const counts = emptyCounts();
-  const { data, error } = await supabase.from('member_exercise_favorites').select('*').eq('provider', LEGACY_PROVIDER);
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase.from('member_exercise_favorites').select('*').eq('provider', LEGACY_PROVIDER).order('id', { ascending: true })
+  );
   if (error) throw new Error(`member_exercise_favorites read failed: ${error.message}`);
   const rows = (data as Record<string, unknown>[]) ?? [];
 
@@ -235,7 +240,9 @@ export async function migrateSimpleReferenceTable(
   matchMap: Map<string, ConfidentMatch>
 ): Promise<Counts> {
   const counts = emptyCounts();
-  const { data, error } = await supabase.from(table).select('id, external_id').eq('provider', LEGACY_PROVIDER);
+  const { rows: data, error } = await selectAllRows<{ id: string; external_id: string }>(() =>
+    supabase.from(table).select('id, external_id').eq('provider', LEGACY_PROVIDER).order('id', { ascending: true })
+  );
   if (error) throw new Error(`${table} read failed: ${error.message}`);
   const rows = (data as { id: string; external_id: string }[]) ?? [];
 
@@ -265,10 +272,13 @@ export async function migrateSimpleReferenceTable(
 
 export async function migrateRecentViews(supabase: SupabaseClient, matchMap: Map<string, ConfidentMatch>): Promise<Counts> {
   const counts = emptyCounts();
-  const { data, error } = await supabase
-    .from('member_exercise_recent_views')
-    .select('*')
-    .eq('provider', LEGACY_PROVIDER);
+  const { rows: data, error } = await selectAllRows<Record<string, unknown>>(() =>
+    supabase
+      .from('member_exercise_recent_views')
+      .select('*')
+      .eq('provider', LEGACY_PROVIDER)
+      .order('id', { ascending: true })
+  );
   if (error) throw new Error(`member_exercise_recent_views read failed: ${error.message}`);
   const rows = (data as Record<string, unknown>[]) ?? [];
 

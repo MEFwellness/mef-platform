@@ -13,6 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { isHydrationTracked } from '../hydration/data';
+import { selectAllRows } from '../data/pagedSelect';
 
 /** wellness_profile_dimensions.dimension for water (lib/intelligence-core/dimensions.ts). */
 const HYDRATION_PROFILE_DIMENSION = 'hydration_consistency';
@@ -167,17 +168,21 @@ export async function listIdentityObservationsForMember(
   memberId: string,
   options: { statusFilter?: WellnessIdentityStatus[] } = {}
 ): Promise<WellnessIdentityObservation[]> {
-  let query = supabase
-    .from('wellness_identity_observations')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('confidence', { ascending: false });
+  const { rows: data, error } = await selectAllRows<WellnessIdentityObservation>(() => {
+    let query = supabase
+      .from('wellness_identity_observations')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('confidence', { ascending: false })
+      .order('id', { ascending: true });
 
-  if (options.statusFilter && options.statusFilter.length > 0) {
-    query = query.in('status', options.statusFilter);
-  }
+    if (options.statusFilter && options.statusFilter.length > 0) {
+      // scale-exempt: statusFilter is a subset of WellnessIdentityStatus, a fixed set of three statuses
+      query = query.in('status', options.statusFilter);
+    }
 
-  const { data, error } = await query;
+    return query;
+  });
   if (error) {
     console.error('listIdentityObservationsForMember failed', error);
     return [];
@@ -229,8 +234,14 @@ export async function listProfileDimensionsForMember(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<WellnessProfileDimension[]> {
-  const [{ data, error }, hydrationTracked] = await Promise.all([
-    supabase.from('wellness_profile_dimensions').select('*').eq('member_id', memberId),
+  const [{ rows: data, error }, hydrationTracked] = await Promise.all([
+    selectAllRows<WellnessProfileDimension>(() =>
+      supabase
+        .from('wellness_profile_dimensions')
+        .select('*')
+        .eq('member_id', memberId)
+        .order('id', { ascending: true })
+    ),
     isHydrationTracked(supabase, memberId),
   ]);
   if (error) {
@@ -318,9 +329,13 @@ export async function listRecommendationFeedback(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<RecommendationFeedbackState[]> {
-  const { data, error } = await supabase.rpc('list_own_wellness_recommendation_feedback', {
-    p_member: memberId,
-  });
+  const { rows: data, error } = await selectAllRows<WellnessRecommendationFeedback>(() =>
+    supabase
+      .rpc('list_own_wellness_recommendation_feedback', {
+        p_member: memberId,
+      })
+      .order('id', { ascending: true })
+  );
   if (error) {
     console.error('listRecommendationFeedback failed', error);
     return [];

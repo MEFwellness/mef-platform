@@ -40,6 +40,7 @@
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
+import { ID_CHUNK_SIZE, selectAllRows, selectAllRowsInChunks, writeInChunks } from '../lib/data/pagedSelect.ts';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
 
 process.stdout.on('error', (err) => {
@@ -164,10 +165,13 @@ try {
       .is('program_week', null);
     check('db: every occurrence knows which week it is in', (count ?? 0) === 0, `${count ?? 0} still null`);
 
-    const { data: weeks } = await db
-      .from('coach_assigned_workouts')
-      .select('program_week')
-      .order('program_week', { ascending: true });
+    const { rows: weeks } = await selectAllRows(() =>
+      db
+        .from('coach_assigned_workouts')
+        .select('program_week')
+        .order('program_week', { ascending: true })
+        .order('id', { ascending: true })
+    );
     const distinct = [...new Set((weeks ?? []).map((w) => w.program_week))];
     check(
       'db: the backfilled weeks are sensible, not all 1',
@@ -179,6 +183,7 @@ try {
   // -------------------------------------------------------------------
   // 1. Her real program, and a short seeded history.
   // -------------------------------------------------------------------
+  // scale-exempt: not paged on purpose, the .find below takes the first program group in this unordered read and a paging order would change which group is reviewed (one member's published assignments)
   const { data: assignments } = await db
     .from('coach_program_assignments')
     .select('id, program_group_key, status, coach_id, template_name_snapshot, start_date, end_date')
@@ -192,20 +197,25 @@ try {
   note(`group: ${groupKey}`);
 
   const assignmentIds = groupAssignments.map((a) => a.id);
-  const { data: workouts } = await db
-    .from('coach_assigned_workouts')
-    .select('id, scheduled_date, program_week, status')
-    .in('assignment_id', assignmentIds)
-    .order('scheduled_date', { ascending: true });
+  const { rows: workouts } = await selectAllRowsInChunks(assignmentIds, (chunk) =>
+    db
+      .from('coach_assigned_workouts')
+      .select('id, scheduled_date, program_week, status')
+      .in('assignment_id', chunk)
+      .order('scheduled_date', { ascending: true })
+      .order('id', { ascending: true })
+  );
   note(`${(workouts ?? []).length} occurrences in this program`);
 
-  const { data: allExercises } = await db
-    .from('coach_assigned_workout_exercises')
-    .select('id, assigned_workout_id, external_id, exercise_name, section_id, status, reps, rep_range_low, hold_duration_seconds')
-    .in(
-      'assigned_workout_id',
-      (workouts ?? []).map((w) => w.id)
-    );
+  const { rows: allExercises } = await selectAllRowsInChunks(
+    (workouts ?? []).map((w) => w.id),
+    (chunk) =>
+      db
+        .from('coach_assigned_workout_exercises')
+        .select('id, assigned_workout_id, external_id, exercise_name, section_id, status, reps, rep_range_low, hold_duration_seconds')
+        .in('assigned_workout_id', chunk)
+        .order('id', { ascending: true })
+  );
 
   // A strength-shaped exercise she could log a weight against: one that
   // states reps rather than a hold. Same rule weightLogging.ts applies.
@@ -529,10 +539,13 @@ try {
   check('db: the review recorded the recommendation it made', review?.recommended_outcome === 'rotate_exercises', review?.recommended_outcome ?? 'none');
   check('db: it recorded a draft', (review?.draft_assignment_ids ?? []).length > 0, `${(review?.draft_assignment_ids ?? []).length} assignments`);
 
-  const { data: draftRows } = await db
-    .from('coach_program_assignments')
-    .select('id, visibility, published_at, status')
-    .in('id', review?.draft_assignment_ids ?? ['00000000-0000-0000-0000-000000000000']);
+  const { rows: draftRows } = await selectAllRowsInChunks(review?.draft_assignment_ids ?? ['00000000-0000-0000-0000-000000000000'], (chunk) =>
+    db
+      .from('coach_program_assignments')
+      .select('id, visibility, published_at, status')
+      .in('id', chunk)
+      .order('id', { ascending: true })
+  );
   check(
     'db: EVERY drafted assignment is unpublished',
     (draftRows ?? []).length > 0 && (draftRows ?? []).every((r) => r.visibility === 'draft' && r.published_at === null),
@@ -583,10 +596,13 @@ try {
   await page.locator('[data-discard-draft="true"]').click();
   await page.waitForURL(/\/programs$/, { timeout: 60000 }).catch(() => {});
   await page.waitForTimeout(2000);
-  const { data: afterDiscard } = await db
-    .from('coach_program_assignments')
-    .select('id')
-    .in('id', review?.draft_assignment_ids ?? ['00000000-0000-0000-0000-000000000000']);
+  const { rows: afterDiscard } = await selectAllRowsInChunks(review?.draft_assignment_ids ?? ['00000000-0000-0000-0000-000000000000'], (chunk) =>
+    db
+      .from('coach_program_assignments')
+      .select('id')
+      .in('id', chunk)
+      .order('id', { ascending: true })
+  );
   check('coach: discarding removed the drafted assignments', (afterDiscard ?? []).length === 0, `${(afterDiscard ?? []).length} left`);
   const { data: discarded } = await db
     .from('program_phase_reviews')
@@ -628,18 +644,23 @@ try {
     JSON.stringify(approvedLoads)
   );
 
-  const { data: draftWorkouts } = await db
-    .from('coach_assigned_workouts')
-    .select('id')
-    .in('assignment_id', progressReview?.draft_assignment_ids ?? ['00000000-0000-0000-0000-000000000000']);
-  const { data: draftExercises } = await db
-    .from('coach_assigned_workout_exercises')
-    .select('external_id, load, load_unit')
-    .in(
-      'assigned_workout_id',
-      (draftWorkouts ?? []).map((w) => w.id).concat('00000000-0000-0000-0000-000000000000')
-    )
-    .eq('external_id', loggedExternalId);
+  const { rows: draftWorkouts } = await selectAllRowsInChunks(progressReview?.draft_assignment_ids ?? ['00000000-0000-0000-0000-000000000000'], (chunk) =>
+    db
+      .from('coach_assigned_workouts')
+      .select('id')
+      .in('assignment_id', chunk)
+      .order('id', { ascending: true })
+  );
+  const { rows: draftExercises } = await selectAllRowsInChunks(
+    (draftWorkouts ?? []).map((w) => w.id).concat('00000000-0000-0000-0000-000000000000'),
+    (chunk) =>
+      db
+        .from('coach_assigned_workout_exercises')
+        .select('external_id, load, load_unit')
+        .in('assigned_workout_id', chunk)
+        .eq('external_id', loggedExternalId)
+        .order('id', { ascending: true })
+  );
   check(
     'db: the edited number is on the drafted exercise rows',
     (draftExercises ?? []).length > 0 && (draftExercises ?? []).every((r) => r.load === '30'),
@@ -648,11 +669,14 @@ try {
   check(
     'db: every progress draft assignment is still unpublished',
     (
-      await db
-        .from('coach_program_assignments')
-        .select('visibility, published_at')
-        .in('id', progressReview?.draft_assignment_ids ?? ['x'])
-    ).data?.every((r) => r.visibility === 'draft' && r.published_at === null) === true,
+      await selectAllRowsInChunks(progressReview?.draft_assignment_ids ?? ['x'], (chunk) =>
+        db
+          .from('coach_program_assignments')
+          .select('visibility, published_at')
+          .in('id', chunk)
+          .order('id', { ascending: true })
+      ).then((read) => (read.ok ? read.rows : null))
+    )?.every((r) => r.visibility === 'draft' && r.published_at === null) === true,
     ''
   );
 
@@ -663,11 +687,10 @@ try {
   check(
     'coach: the progress draft was discarded too',
     (
-      await db
-        .from('coach_program_assignments')
-        .select('id')
-        .in('id', progressReview?.draft_assignment_ids ?? ['x'])
-    ).data?.length === 0,
+      await selectAllRowsInChunks(progressReview?.draft_assignment_ids ?? ['x'], (chunk) =>
+        db.from('coach_program_assignments').select('id').in('id', chunk).order('id', { ascending: true })
+      ).then((read) => (read.ok ? read.rows : null))
+    )?.length === 0,
     ''
   );
 
@@ -677,15 +700,18 @@ try {
   await page.goto(`${BASE}/coach/clients/${MEMBER_ID}/programs`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
 
-  const beforeRelease = await db
-    .from('member_exercise_avoidance')
-    .select('external_id')
-    .eq('member_id', MEMBER_ID)
-    .is('released_at', null);
+  const beforeRelease = await selectAllRows(() =>
+    db
+      .from('member_exercise_avoidance')
+      .select('external_id')
+      .eq('member_id', MEMBER_ID)
+      .is('released_at', null)
+      .order('id', { ascending: true })
+  );
   check(
     'db: the exercise is on her live avoidance list before the release',
-    (beforeRelease.data ?? []).some((r) => r.external_id === painExternalId),
-    (beforeRelease.data ?? []).map((r) => r.external_id).join(', ')
+    (beforeRelease.rows ?? []).some((r) => r.external_id === painExternalId),
+    (beforeRelease.rows ?? []).map((r) => r.external_id).join(', ')
   );
 
   const releaseButtons = await page.locator(`[data-release-avoidance="${avoidance.id}"]`).count();
@@ -706,27 +732,33 @@ try {
   check('db: it records who released it', Boolean(released?.released_by), released?.released_by ?? 'null');
   check('db: the record itself is intact', released?.exercise_name === painName, released?.exercise_name ?? '');
 
-  const afterRelease = await db
-    .from('member_exercise_avoidance')
-    .select('external_id')
-    .eq('member_id', MEMBER_ID)
-    .is('released_at', null);
+  const afterRelease = await selectAllRows(() =>
+    db
+      .from('member_exercise_avoidance')
+      .select('external_id')
+      .eq('member_id', MEMBER_ID)
+      .is('released_at', null)
+      .order('id', { ascending: true })
+  );
   check(
     'db: the exercise is offerable again, which is what the swap engine reads',
-    !(afterRelease.data ?? []).some((r) => r.external_id === painExternalId),
-    `${(afterRelease.data ?? []).length} still avoided`
+    !(afterRelease.rows ?? []).some((r) => r.external_id === painExternalId),
+    `${(afterRelease.rows ?? []).length} still avoided`
   );
 
   // -------------------------------------------------------------------
   // 5. Resolving the pain report.
   // -------------------------------------------------------------------
-  const openBefore = await db
-    .from('member_exercise_feedback')
-    .select('id')
-    .eq('member_id', MEMBER_ID)
-    .eq('branch', 'safety')
-    .is('coach_reviewed_at', null);
-  check('db: the pain report is open before the resolve', (openBefore.data ?? []).length > 0, `${(openBefore.data ?? []).length} open`);
+  const openBefore = await selectAllRows(() =>
+    db
+      .from('member_exercise_feedback')
+      .select('id')
+      .eq('member_id', MEMBER_ID)
+      .eq('branch', 'safety')
+      .is('coach_reviewed_at', null)
+      .order('id', { ascending: true })
+  );
+  check('db: the pain report is open before the resolve', (openBefore.rows ?? []).length > 0, `${(openBefore.rows ?? []).length} open`);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
@@ -848,19 +880,22 @@ try {
   console.log(`restored ${restore.exerciseRows.size} exercise rows`);
 
   if (restore.draftAssignmentIds.length > 0) {
-    await db.from('coach_program_assignments').delete().in('id', restore.draftAssignmentIds);
+    await writeInChunks(restore.draftAssignmentIds, (chunk) => db.from('coach_program_assignments').delete().in('id', chunk));
   }
   if (restore.draftTemplateIds.length > 0) {
-    await db.from('coach_program_templates').delete().in('id', restore.draftTemplateIds);
+    await writeInChunks(restore.draftTemplateIds, (chunk) => db.from('coach_program_templates').delete().in('id', chunk));
   }
   if (restore.reviewIds.length > 0) {
+    // scale-exempt: at most 2 ids, pushed once for the repeat review and once for the progress review this run made
     await db.from('program_phase_reviews').delete().in('id', restore.reviewIds);
   }
   await db.from('program_phase_reviews').delete().eq('member_id', MEMBER_ID);
   if (restore.avoidanceIds.length > 0) {
+    // scale-exempt: at most 1 id, the one avoidance entry this run's pain report created
     await db.from('member_exercise_avoidance').delete().in('id', restore.avoidanceIds);
   }
   if (restore.feedbackIds.length > 0) {
+    // scale-exempt: at most 2 ids, the too-easy and pain feedback rows this run wrote
     await db.from('member_exercise_feedback').delete().in('id', restore.feedbackIds);
   }
   await db
@@ -926,10 +961,15 @@ console.log(`\n${passed} of ${results.length} checks passed against ${BASE}`);
 process.exit(passed === results.length ? 0 : 1);
 
 async function countPublished(ids) {
-  const { count } = await db
-    .from('coach_program_assignments')
-    .select('id', { count: 'exact', head: true })
-    .in('id', ids)
-    .eq('visibility', 'published');
-  return count ?? 0;
+  let total = 0;
+  for (let index = 0; index < ids.length; index += ID_CHUNK_SIZE) {
+    const chunk = ids.slice(index, index + ID_CHUNK_SIZE);
+    const { count } = await db
+      .from('coach_program_assignments')
+      .select('id', { count: 'exact', head: true })
+      .in('id', chunk)
+      .eq('visibility', 'published');
+    total += count ?? 0;
+  }
+  return total;
 }

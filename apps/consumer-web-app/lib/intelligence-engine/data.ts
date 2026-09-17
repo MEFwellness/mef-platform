@@ -16,6 +16,7 @@ import type {
   IntelligenceProfileSnapshot,
 } from '@mef/shared-types-contracts';
 import type { CoachAlertDraft, MemberIntelligenceReport } from './types';
+import { selectAllRows, writeInChunks } from '../data/pagedSelect';
 
 export async function insertProfileSnapshot(
   supabase: SupabaseClient,
@@ -222,12 +223,15 @@ export async function reconcileCoachAlerts(
   memberId: string,
   liveAlertKeys: readonly string[]
 ): Promise<void> {
-  const { data, error: readError } = await supabase
-    .from('intelligence_coach_alerts')
-    .select('id, alert_key')
-    .eq('member_id', memberId)
-    .eq('produced_by', 'intelligence_engine')
-    .in('status', REOPENABLE_STATUSES);
+  const { rows: data, error: readError } = await selectAllRows<{ id: string; alert_key: string }>(() =>
+    supabase
+      .from('intelligence_coach_alerts')
+      .select('id, alert_key')
+      .eq('member_id', memberId)
+      .eq('produced_by', 'intelligence_engine')
+      .in('status', REOPENABLE_STATUSES)
+      .order('id', { ascending: true })
+  );
 
   if (readError) {
     console.error('reconcileCoachAlerts read failed', readError);
@@ -244,15 +248,17 @@ export async function reconcileCoachAlerts(
     .map((row) => row.id as string);
   if (staleIds.length === 0) return;
 
-  const { error } = await supabase
-    .from('intelligence_coach_alerts')
-    .update({
-      status: 'resolved',
-      resolved_at: new Date().toISOString(),
-      resolution_note: 'Closed automatically: what raised this is no longer true.',
-      updated_at: new Date().toISOString(),
-    })
-    .in('id', staleIds);
+  const { error } = await writeInChunks(staleIds, (chunk) =>
+    supabase
+      .from('intelligence_coach_alerts')
+      .update({
+        status: 'resolved',
+        resolved_at: new Date().toISOString(),
+        resolution_note: 'Closed automatically: what raised this is no longer true.',
+        updated_at: new Date().toISOString(),
+      })
+      .in('id', chunk)
+  );
 
   if (error) console.error('reconcileCoachAlerts failed', error);
 }
@@ -262,22 +268,26 @@ export async function listCoachAlertsForMember(
   memberId: string,
   options: { statusFilter?: IntelligenceAlertStatus[] } = {}
 ): Promise<IntelligenceCoachAlert[]> {
-  let query = supabase
-    .from('intelligence_coach_alerts')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<IntelligenceCoachAlert>(() => {
+    let query = supabase
+      .from('intelligence_coach_alerts')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true });
 
-  if (options.statusFilter && options.statusFilter.length > 0) {
-    query = query.in('status', options.statusFilter);
-  }
+    if (options.statusFilter && options.statusFilter.length > 0) {
+      // scale-exempt: statusFilter is a subset of the closed IntelligenceAlertStatus union
+      query = query.in('status', options.statusFilter);
+    }
 
-  const { data, error } = await query;
+    return query;
+  });
   if (error) {
     console.error('listCoachAlertsForMember failed', error);
     return [];
   }
-  return data as IntelligenceCoachAlert[];
+  return data;
 }
 
 async function setAlertStatus(

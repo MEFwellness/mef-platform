@@ -37,6 +37,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, writeInChunks } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const STAFF_EMAIL = process.env.STAFF_EMAIL;
@@ -159,10 +160,9 @@ async function main() {
 
   // Every assignment row that exists BEFORE this run, so the cleanup can
   // remove only what this run created and nothing else.
-  const { data: before } = await service
-    .from('assessment_assignments')
-    .select('id')
-    .eq('member_id', MEMBER_ID);
+  const { rows: before } = await selectAllRows(() =>
+    service.from('assessment_assignments').select('id').eq('member_id', MEMBER_ID).order('id', { ascending: true })
+  );
   const preexisting = new Set((before ?? []).map((r) => r.id));
   note(`${preexisting.size} assignment rows already on this client`);
 
@@ -345,11 +345,14 @@ async function main() {
     await card.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
 
-    const { data: created } = await service
-      .from('assessment_assignments')
-      .select('id, assessment_definition_id, status, created_at')
-      .eq('member_id', MEMBER_ID)
-      .eq('status', 'pending');
+    const { rows: created } = await selectAllRows(() =>
+      service
+        .from('assessment_assignments')
+        .select('id, assessment_definition_id, status, created_at')
+        .eq('member_id', MEMBER_ID)
+        .eq('status', 'pending')
+        .order('id', { ascending: true })
+    );
     const newRow = (created ?? []).find((r) => !preexisting.has(r.id));
     check('7. assigning from a filtered result created the pending row', Boolean(newRow), newRow?.id);
 
@@ -404,14 +407,15 @@ async function main() {
   } finally {
     // Every row this run created, removed. Rows that were already there are
     // never touched: the ids were recorded before anything was pressed.
-    const { data: now } = await service
-      .from('assessment_assignments')
-      .select('id')
-      .eq('member_id', MEMBER_ID);
+    const { rows: now } = await selectAllRows(() =>
+      service.from('assessment_assignments').select('id').eq('member_id', MEMBER_ID).order('id', { ascending: true })
+    );
     const mine = (now ?? []).map((r) => r.id).filter((id) => !preexisting.has(id));
     if (mine.length) {
-      await service.from('member_assignment_deliveries').delete().in('assignment_id', mine);
-      await service.from('assessment_assignments').delete().in('id', mine);
+      await writeInChunks(mine, (chunk) =>
+        service.from('member_assignment_deliveries').delete().in('assignment_id', chunk)
+      );
+      await writeInChunks(mine, (chunk) => service.from('assessment_assignments').delete().in('id', chunk));
       note(`cleaned up ${mine.length} row(s) this run created`);
     } else {
       note('nothing to clean up');

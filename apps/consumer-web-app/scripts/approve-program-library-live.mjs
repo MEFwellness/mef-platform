@@ -35,6 +35,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
@@ -82,17 +83,20 @@ const db = createClient(
 
 /** The draft version 1 of each library program, straight from the database. */
 async function draftVersions() {
+  // scale-exempt: key is unique on movement_programs and the list is the constant LIBRARY_KEYS (16 keys)
   const { data: programs } = await db
     .from('movement_programs')
     .select('id, key, display_name')
     .in('key', LIBRARY_KEYS);
   const rows = [];
   for (const program of programs ?? []) {
-    const { data: versions } = await db
-      .from('movement_program_versions')
-      .select('id, version_number, status, approved_at, approved_by')
-      .eq('program_id', program.id)
-      .order('version_number', { ascending: false });
+    const { rows: versions } = await selectAllRows(() =>
+      db
+        .from('movement_program_versions')
+        .select('id, version_number, status, approved_at, approved_by')
+        .eq('program_id', program.id)
+        .order('version_number', { ascending: false })
+    );
     rows.push({ program, version: (versions ?? [])[0] });
   }
   return rows.sort((a, b) => LIBRARY_KEYS.indexOf(a.program.key) - LIBRARY_KEYS.indexOf(b.program.key));
@@ -115,11 +119,14 @@ try {
   // The account this run is about to act as really is an administrator,
   // asserted before anything is pressed rather than inferred from a
   // button not erroring.
-  const { data: roles } = await db
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', minted.session.user.id)
-    .is('revoked_at', null);
+  const { rows: roles } = await selectAllRows(() =>
+    db
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', minted.session.user.id)
+      .is('revoked_at', null)
+      .order('id', { ascending: true })
+  );
   const isAdmin = (roles ?? []).some((r) => r.role === 'platform_administrator');
   check(`${ADMIN_EMAIL} holds platform_administrator`, isAdmin);
   if (!isAdmin) process.exit(1);

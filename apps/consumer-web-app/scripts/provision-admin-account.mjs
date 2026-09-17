@@ -57,6 +57,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -239,12 +240,15 @@ async function convergeRoles(userId) {
     if ((data ?? []).length > 0) console.log(`revoked ${data.length} active ${role} grant(s)`);
   }
 
-  const { data: activeAdmin, error: readError } = await admin
-    .from('user_roles')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('role', ADMIN_ROLE)
-    .is('revoked_at', null);
+  const { rows: activeAdmin, error: readError } = await selectAllRows(() =>
+    admin
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('role', ADMIN_ROLE)
+      .is('revoked_at', null)
+      .order('id', { ascending: true })
+  );
   if (readError) throw new Error(`reading admin grant failed: ${readError.message}`);
 
   if ((activeAdmin ?? []).length === 0) {
@@ -280,7 +284,9 @@ async function verify(userId) {
 
   // Invisible to analytics: not in scope with the test toggle off OR on.
   for (const includeTest of [false, true]) {
-    const { data, error } = await admin.rpc('analytics_member_scope', { p_include_test: includeTest });
+    const { rows: data, error } = await selectAllRows(() =>
+      admin.rpc('analytics_member_scope', { p_include_test: includeTest }).order('member_id', { ascending: true })
+    );
     if (error) throw new Error(`analytics_member_scope(${includeTest}) failed: ${error.message}`);
     if ((data ?? []).some((row) => row.member_id === userId)) {
       problems.push(`appears in analytics_member_scope(include_test=${includeTest})`);
@@ -288,10 +294,9 @@ async function verify(userId) {
   }
 
   // In no coach's caseload.
-  const { data: assignments, error: assignmentError } = await admin
-    .from('coach_client_assignments')
-    .select('id')
-    .eq('client_id', userId);
+  const { rows: assignments, error: assignmentError } = await selectAllRows(() =>
+    admin.from('coach_client_assignments').select('id').eq('client_id', userId).order('id', { ascending: true })
+  );
   if (assignmentError) throw new Error(`reading assignments failed: ${assignmentError.message}`);
   if ((assignments ?? []).length > 0) problems.push('is assigned to a coach');
 

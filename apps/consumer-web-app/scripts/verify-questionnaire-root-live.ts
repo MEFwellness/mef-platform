@@ -33,6 +33,7 @@ import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
 import { loadMemberContent } from '../lib/body-systems/contentData';
 import { buildResults } from '../lib/body-systems/scoring';
+import { selectAllRows } from '../lib/data/pagedSelect';
 
 const BASE = 'https://app.mefwellness.com';
 const MEMBER_EMAIL = '8weeks2fab@gmail.com';
@@ -408,11 +409,14 @@ async function existingPhase(): Promise<void> {
   try {
     const sitting = await latestSitting();
     record('Her newest stored sitting predates this build', Boolean(sitting) && sitting!.completed_at < '2026-09-17T07:00:00Z', `${sitting?.id} completed ${sitting?.completed_at}`);
-    const { data: findings } = await service
-      .from('cross_system_root_findings')
-      .select('id, triggered_by, source_key, rule_revision')
-      .eq('member_id', MEMBER_ID)
-      .eq('source_session_id', sitting!.id);
+    const { rows: findings } = await selectAllRows<{ id: string; triggered_by: string; source_key: string; rule_revision: string }>(() =>
+      service
+        .from('cross_system_root_findings')
+        .select('id, triggered_by, source_key, rule_revision')
+        .eq('member_id', MEMBER_ID)
+        .eq('source_session_id', sitting!.id)
+        .order('id', { ascending: true })
+    );
     record(
       'The backfill stored Root findings under that sitting',
       (findings ?? []).length > 0 && (findings ?? []).every((row) => row.triggered_by === 'backfill' && row.source_key === 'body_systems_survey'),
@@ -523,7 +527,7 @@ async function flowPhase(): Promise<void> {
     const k2 = traceText(read.noticed, questionPrompt('K2'));
     record('4. The unsupported Sometimes did NOT become active', !supports.includes('Frequent urination') && k2.includes('Not active: answered Sometimes, with nothing supporting it.'), k2.slice(0, 260).replace(/\n/g, ' | '));
     record('4. The Rarely answers did not become active either', traceText(read.noticed, questionPrompt('N1')).includes('Not active: answered Rarely or Never.'));
-    const { data: headacheRows } = await service.from('cross_system_signals').select('id').eq('member_id', MEMBER_ID).eq('source_session_id', sitting!.id).eq('signal_slug', 'headaches');
+    const { rows: headacheRows } = await selectAllRows<{ id: string }>(() => service.from('cross_system_signals').select('id').eq('member_id', MEMBER_ID).eq('source_session_id', sitting!.id).eq('signal_slug', 'headaches').order('id', { ascending: true }));
     record('4. No duplicate signals: one headache row for the sitting, one Headaches row on the list', (headacheRows ?? []).length === 1 && signalRowText(read.signals, 'Headaches').length === 1, `${(headacheRows ?? []).length} stored, ${signalRowText(read.signals, 'Headaches').length} listed`);
     record('4. No percent sign on any Root card', noPercentOnRootCards(read));
 
@@ -563,7 +567,7 @@ async function flowPhase(): Promise<void> {
     const headacheAfter = signalRowText(afterRetake.signals, 'Headaches')[0] ?? '';
     record('6. The questionnaire headache is no longer presented as current', !retakeSupports.includes('Headaches') && headacheAfter.includes('Reported before, not current'), `${retakeSupports} || ${headacheAfter.slice(0, 200)}`);
     record('6. The trace says why', traceText(afterRetake.noticed, questionPrompt('N4')).includes('Not active: answered Rarely or Never.'));
-    const { data: allHeadache } = await service.from('cross_system_signals').select('value_label, source_key').eq('member_id', MEMBER_ID).eq('signal_slug', 'headaches').in('source_session_id', [sitting!.id, retakeSitting!.id]);
+    const { rows: allHeadache } = await selectAllRows<{ value_label: string; source_key: string }>(() => service.from('cross_system_signals').select('value_label, source_key').eq('member_id', MEMBER_ID).eq('signal_slug', 'headaches').in('source_session_id', [sitting!.id, retakeSitting!.id]).order('id', { ascending: true }));
     const { count: oldFindings } = await service.from('cross_system_root_findings').select('id', { count: 'exact', head: true }).eq('member_id', MEMBER_ID).eq('source_session_id', sitting!.id);
     record('6. History is preserved: the Often and the Never are both stored, and the first sitting\'s findings remain', (allHeadache ?? []).map((row) => row.value_label).sort().join(',') === 'Never,Often' && (oldFindings ?? 0) > 0, `${(allHeadache ?? []).map((row) => row.value_label).join(',')}; ${oldFindings} findings still on the first sitting`);
     record('6. Bloating and sleep are still current after the retake', ['Bloating after eating', 'Lighter or broken sleep'].every((name) => retakeSupports.includes(name)));

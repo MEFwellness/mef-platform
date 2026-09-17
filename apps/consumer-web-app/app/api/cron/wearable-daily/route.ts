@@ -17,6 +17,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { syncWearableConnection } from '@/lib/wearables/sync';
 import { getSupabaseEnv } from '@/lib/supabase/env';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type { WearableConnection } from '@mef/shared-types-contracts';
 
 export const dynamic = 'force-dynamic';
@@ -50,10 +51,13 @@ export async function GET(request: Request) {
     );
   }
 
-  const { data, error } = await supabase
-    .from('wearable_connections')
-    .select('*')
-    .eq('status', 'connected');
+  const { rows: data, error } = await selectAllRows<WearableConnection>(() =>
+    supabase
+      .from('wearable_connections')
+      .select('*')
+      .eq('status', 'connected')
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('wearable-daily cron: failed to list connections', error);

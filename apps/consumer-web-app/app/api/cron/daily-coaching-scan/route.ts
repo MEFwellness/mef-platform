@@ -23,6 +23,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseEnv } from '@/lib/supabase/env';
+import { selectAllRows, selectAllRowsInChunks } from '@/lib/data/pagedSelect';
 import { emitAndDispatch } from '@/lib/ai/events';
 import { buildRuleFacts } from '@/lib/ai/rules/facts';
 import { recalculateWellnessIntelligence } from '@/lib/intelligence/service';
@@ -91,11 +92,14 @@ type MemberRow = { id: string; display_name: string | null };
 async function listActiveMembers(
   supabase: ReturnType<typeof serviceRoleClient>
 ): Promise<MemberRow[]> {
-  const { data: roleRows, error: roleError } = await supabase
-    .from('user_roles')
-    .select('user_id')
-    .eq('role', 'member')
-    .is('revoked_at', null);
+  const { rows: roleRows, error: roleError } = await selectAllRows<{ user_id: string }>(() =>
+    supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'member')
+      .is('revoked_at', null)
+      .order('id', { ascending: true })
+  );
 
   if (roleError) {
     console.error('daily-coaching-scan: failed to list active members', roleError);
@@ -105,10 +109,11 @@ async function listActiveMembers(
   const memberIds = Array.from(new Set((roleRows ?? []).map((row) => row.user_id as string)));
   if (memberIds.length === 0) return [];
 
-  const { data: profiles, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, display_name')
-    .in('id', memberIds);
+  const { rows: profiles, error: profileError } = await selectAllRowsInChunks<MemberRow>(
+    memberIds,
+    (chunk) =>
+      supabase.from('profiles').select('id, display_name').in('id', chunk).order('id', { ascending: true })
+  );
 
   if (profileError) {
     console.error('daily-coaching-scan: failed to load profiles', profileError);

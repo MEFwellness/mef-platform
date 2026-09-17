@@ -32,6 +32,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.BS_BASE_URL ?? 'http://127.0.0.1:3000';
 const SUPA = process.env.PROD_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -67,10 +68,13 @@ console.log(`target is the test account "${targetProfile.display_name}"`);
 
 /** Only the unfinished draft this walk could have written. Never an assignment. */
 async function clean() {
-  const { data: sessions } = await admin
-    .from('member_body_systems_sessions')
-    .select('id, completed_at')
-    .eq('member_id', MEMBER);
+  const { rows: sessions } = await selectAllRows(() =>
+    admin
+      .from('member_body_systems_sessions')
+      .select('id, completed_at')
+      .eq('member_id', MEMBER)
+      .order('id', { ascending: true })
+  );
   for (const session of sessions ?? []) {
     if (session.completed_at) continue;
     await admin.from('member_body_systems_sessions').delete().eq('id', session.id);
@@ -153,10 +157,13 @@ async function tapRow(row) {
 
 /** How many of her answers the draft in the database actually holds. */
 async function storedAnswerCount() {
-  const { data } = await admin
-    .from('member_body_systems_sessions')
-    .select('answers, completed_at')
-    .eq('member_id', MEMBER);
+  const { rows: data } = await selectAllRows(() =>
+    admin
+      .from('member_body_systems_sessions')
+      .select('answers, completed_at')
+      .eq('member_id', MEMBER)
+      .order('id', { ascending: true })
+  );
   const draft = (data ?? []).find((row) => !row.completed_at);
   return Object.keys(draft?.answers ?? {}).length;
 }
@@ -449,14 +456,19 @@ try {
   await browser.close();
 
   await clean();
-  const [{ data: leftSessions }, { data: stillPending }] = await Promise.all([
-    admin.from('member_body_systems_sessions').select('id, completed_at').eq('member_id', MEMBER),
-    admin
-      .from('assessment_assignments')
-      .select('id')
-      .eq('member_id', MEMBER)
-      .eq('assessment_definition_id', DEFINITION)
-      .eq('status', 'pending'),
+  const [{ rows: leftSessions }, { rows: stillPending }] = await Promise.all([
+    selectAllRows(() =>
+      admin.from('member_body_systems_sessions').select('id, completed_at').eq('member_id', MEMBER).order('id', { ascending: true })
+    ),
+    selectAllRows(() =>
+      admin
+        .from('assessment_assignments')
+        .select('id')
+        .eq('member_id', MEMBER)
+        .eq('assessment_definition_id', DEFINITION)
+        .eq('status', 'pending')
+        .order('id', { ascending: true })
+    ),
   ]);
   const drafts = (leftSessions ?? []).filter((row) => !row.completed_at);
   console.log(drafts.length ? `cleanup: ${drafts.length} draft(s) STILL PRESENT` : 'cleanup: nothing left behind');

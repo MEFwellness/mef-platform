@@ -33,6 +33,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, selectAllRowsInChunks, writeInChunks } from '../lib/data/pagedSelect.ts';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const MEMBER_ID = process.env.MEMBER_ID;
@@ -114,13 +115,16 @@ try {
   let subject = null; // { ids, groupKey, before: [rows] }
 
   if (db) {
-    const { data: rows } = await db
-      .from('coach_program_assignments')
-      .select(
-        'id, template_name_snapshot, program_group_key, status, start_date, end_date, duration_weeks, current_week, paused_days, started_at, completed_at, paused_at, resumed_at, replaced_at, replaced_by_assignment_id, visibility'
-      )
-      .eq('member_id', MEMBER_ID)
-      .order('start_date', { ascending: false });
+    const { rows } = await selectAllRows(() =>
+      db
+        .from('coach_program_assignments')
+        .select(
+          'id, template_name_snapshot, program_group_key, status, start_date, end_date, duration_weeks, current_week, paused_days, started_at, completed_at, paused_at, resumed_at, replaced_at, replaced_by_assignment_id, visibility'
+        )
+        .eq('member_id', MEMBER_ID)
+        .order('start_date', { ascending: false })
+        .order('id', { ascending: true })
+    );
 
     check('db: the member has assignments carrying lifecycle columns', (rows ?? []).length > 0, `${(rows ?? []).length} rows`);
     for (const row of rows ?? []) {
@@ -158,19 +162,21 @@ try {
       // the member and the coach both read "Week 2 of 4".
       const today = new Date().toISOString().slice(0, 10);
       const start = addDays(today, -8);
-      await db
-        .from('coach_program_assignments')
-        .update({
-          status: 'active',
-          start_date: start,
-          end_date: addDays(start, subject.before[0].duration_weeks * 7 - 1),
-          current_week: 2,
-          paused_days: 0,
-          paused_at: null,
-          completed_at: null,
-          started_at: `${start}T09:00:00Z`,
-        })
-        .in('id', subject.ids);
+      await writeInChunks(subject.ids, (chunk) =>
+        db
+          .from('coach_program_assignments')
+          .update({
+            status: 'active',
+            start_date: start,
+            end_date: addDays(start, subject.before[0].duration_weeks * 7 - 1),
+            current_week: 2,
+            paused_days: 0,
+            paused_at: null,
+            completed_at: null,
+            started_at: `${start}T09:00:00Z`,
+          })
+          .in('id', chunk)
+      );
       check('db: the subject program is now active in week 2 of 4', true, `${start} onwards`);
     }
   } else {
@@ -237,10 +243,9 @@ try {
       check('coach: the program reads paused after pausing', /paused/i.test(afterPause), '');
 
       if (db && subject) {
-        const { data } = await db
-          .from('coach_program_assignments')
-          .select('status, paused_at')
-          .in('id', subject.ids);
+        const { rows: data } = await selectAllRowsInChunks(subject.ids, (chunk) =>
+          db.from('coach_program_assignments').select('status, paused_at').in('id', chunk).order('id', { ascending: true })
+        );
         const paused = (data ?? []).filter((r) => r.status === 'paused');
         check('db: the pause reached the database', paused.length > 0, `${paused.length} of ${subject.ids.length} paused`);
       }
@@ -290,42 +295,49 @@ try {
       // flag deliberately stays quiet while the member still has something
       // running, so proving the flag appears means proving nothing is.
       // All of them are restored at the end.
-      const { data: allLive } = await db
-        .from('coach_program_assignments')
-        .select('id')
-        .eq('member_id', MEMBER_ID)
-        .in('status', ['upcoming', 'active', 'paused']);
+      const { rows: allLive } = await selectAllRows(() =>
+        db
+          .from('coach_program_assignments')
+          .select('id')
+          .eq('member_id', MEMBER_ID)
+          .in('status', ['upcoming', 'active', 'paused'])
+          .order('id', { ascending: true })
+      );
       const liveIds = (allLive ?? []).map((r) => r.id);
       const completingIds = [...new Set([...subject.ids, ...liveIds])];
 
-      await db
-        .from('coach_program_assignments')
-        .update({
-          status: 'active',
-          start_date: pastStart,
-          end_date: addDays(today, -1),
-          current_week: 4,
-          paused_days: 0,
-          paused_at: null,
-          completed_at: null,
-        })
-        .in('id', completingIds);
+      await writeInChunks(completingIds, (chunk) =>
+        db
+          .from('coach_program_assignments')
+          .update({
+            status: 'active',
+            start_date: pastStart,
+            end_date: addDays(today, -1),
+            current_week: 4,
+            paused_days: 0,
+            paused_at: null,
+            completed_at: null,
+          })
+          .in('id', chunk)
+      );
 
       // The real transition, applied exactly as the daily job applies it.
-      const { data: live } = await db
-        .from('coach_program_assignments')
-        .select('id, status, end_date')
-        .in('id', completingIds);
+      const { rows: live } = await selectAllRowsInChunks(completingIds, (chunk) =>
+        db.from('coach_program_assignments').select('id, status, end_date').in('id', chunk).order('id', { ascending: true })
+      );
       const due = (live ?? []).filter((r) => r.end_date < today);
-      await db
-        .from('coach_program_assignments')
-        .update({ status: 'completed', current_week: 4, completed_at: new Date().toISOString() })
-        .in('id', due.map((r) => r.id));
+      await writeInChunks(
+        due.map((r) => r.id),
+        (chunk) =>
+          db
+            .from('coach_program_assignments')
+            .update({ status: 'completed', current_week: 4, completed_at: new Date().toISOString() })
+            .in('id', chunk)
+      );
 
-      const { data: after } = await db
-        .from('coach_program_assignments')
-        .select('status, completed_at')
-        .in('id', subject.ids);
+      const { rows: after } = await selectAllRowsInChunks(subject.ids, (chunk) =>
+        db.from('coach_program_assignments').select('status, completed_at').in('id', chunk).order('id', { ascending: true })
+      );
       check(
         'db: the program transitioned to completed',
         (after ?? []).every((r) => r.status === 'completed' && r.completed_at),
@@ -440,10 +452,15 @@ try {
         })
         .eq('id', row.id);
     }
-    const { data: restored } = await db
-      .from('coach_program_assignments')
-      .select('template_name_snapshot, status, start_date, end_date, current_week, duration_weeks')
-      .in('id', allBefore.map((r) => r.id));
+    const { rows: restored } = await selectAllRowsInChunks(
+      allBefore.map((r) => r.id),
+      (chunk) =>
+        db
+          .from('coach_program_assignments')
+          .select('template_name_snapshot, status, start_date, end_date, current_week, duration_weeks')
+          .in('id', chunk)
+          .order('id', { ascending: true })
+    );
     restoreLog = (restored ?? [])
       .map(
         (r) =>

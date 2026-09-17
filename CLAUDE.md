@@ -87,6 +87,48 @@ before you finish, and do not reintroduce one.
 - **Screenshots and member data stay under gitignored paths** and are never
   committed. This repository is public.
 
+## Standing rules from the 2026-09-17 data scale sweep
+
+The database hands back at most 1,000 rows per request (`db-max-rows`) and
+reports success, so a read that wants more quietly gets less and every
+screen built on it shows a number lower than the truth. That shipped three
+times before these rules: the Association Map lost most of its components,
+the lexicon lost 700 phrases, and the member analytics timeline asked for
+2,001 rows, was given 1,000, and silently dropped every older day.
+`docs/DATA_SCALE_AUDIT.md` is the full inventory and method.
+
+- **A read that wants every row asks for every row, in pages.** Wrap it in
+  `selectAllRows` from `lib/data/pagedSelect.ts`, and end its order on a
+  unique column (`.order('id')` after the real order) so pages cannot
+  overlap or skip. One helper for the whole codebase, scripts included
+  (a `.mjs` script imports `../lib/data/pagedSelect.ts` directly).
+- **`.limit(n)` is only a bound when n is at most 1,000.** Above that it is
+  capped exactly like no limit. A read that wants up to N rows where N can
+  exceed the cap uses `selectAllRows(build, { limit: N })`.
+- **A list that can grow never travels in one request.** An `.in()` list is
+  in the URL: read through `selectAllRowsInChunks`, write through
+  `writeInChunks`. A bulk insert or upsert whose rows grow with members,
+  time or user input goes through `writeInChunks` too. The callback's
+  parameter is `chunk`. Chunked writes are not atomic across chunks, so a
+  structurally small write (the sections of one template) stays whole.
+- **A set-returning database function is capped like a table read**, and
+  `auth.admin.listUsers()` (50 per page) and `storage.list()` (100) have
+  their own silent defaults. Page all three.
+- **An exemption says what bounds it, where the next reader will see it.**
+  A site that genuinely cannot exceed the cap carries
+  `// scale-exempt: <what bounds it>` directly above the statement: a
+  unique key plus a short window, a fixed constant set, the children of one
+  entity capped by the product. "Small today" is not a reason: the lexicon
+  was small until one build.
+- **`tests/data-scale-guard.test.ts` enforces all of this** over every
+  request in `app/`, `lib/`, `components/`, `hooks/`, `middleware.ts` and
+  `scripts/`, read from the syntax tree. A new rpc, unique key or fixed enum
+  table is a deliberate addition to `tests/support/dataScaleRegistry.ts`.
+- **A count on a screen is checked against the table.** When a screen
+  shows a total or a list of something that can grow, a live check
+  compares the number on screen with `count(*)` in the database, because
+  every test that drives a fake client has no cap and cannot see this.
+
 **Re-run the whole sweep before launch, and after any large multi-screen
 build.** Both halves: the pattern hunt through the codebase for the classes
 above, and a real signed-in walk of every member, coach and admin screen

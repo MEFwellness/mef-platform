@@ -48,6 +48,7 @@ import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows, writeInChunks, listAllAuthUsers } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.HLI_BASE_URL ?? 'http://127.0.0.1:3000';
 const SUPA = process.env.PROD_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -110,17 +111,20 @@ async function clean() {
     .eq('member_id', MEMBER)
     .like('message_key', 'health_intake:%');
   // The safety rows this run's own answers open.
-  const { data: cases } = await admin
-    .from('safety_classifications')
-    .select('id')
-    .eq('member_id', MEMBER)
-    .eq('source_record_type', 'health_intake_answer');
+  const { rows: cases } = await selectAllRows(() =>
+    admin
+      .from('safety_classifications')
+      .select('id')
+      .eq('member_id', MEMBER)
+      .eq('source_record_type', 'health_intake_answer')
+      .order('id', { ascending: true })
+  );
   const ids = (cases ?? []).map((row) => row.id);
   if (ids.length > 0) {
-    await admin.from('safety_audit_log').delete().in('classification_id', ids);
-    await admin.from('safety_review_queue').delete().in('classification_id', ids);
-    await admin.from('safety_acknowledgments').delete().in('classification_id', ids);
-    await admin.from('safety_classifications').delete().in('id', ids);
+    await writeInChunks(ids, (chunk) => admin.from('safety_audit_log').delete().in('classification_id', chunk));
+    await writeInChunks(ids, (chunk) => admin.from('safety_review_queue').delete().in('classification_id', chunk));
+    await writeInChunks(ids, (chunk) => admin.from('safety_acknowledgments').delete().in('classification_id', chunk));
+    await writeInChunks(ids, (chunk) => admin.from('safety_classifications').delete().in('id', chunk));
   }
 }
 
@@ -130,7 +134,7 @@ async function clean() {
   would mint a session for a brand new stranger and walk the intake as them.
 */
 async function assertExistingUser(email, expectedId) {
-  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const { data, error } = await listAllAuthUsers(admin.auth.admin);
   if (error) throw new Error(`could not list users: ${error.message}`);
   const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
   if (!found) throw new Error(`REFUSING TO RUN: ${email} is not an existing account`);
@@ -925,10 +929,9 @@ try {
   if (memberSession) await retireSession(memberSession).catch(() => {});
   if (coachSession) await retireSession(coachSession).catch(() => {});
   await clean();
-  const { data: leftover } = await admin
-    .from('member_health_intake_sessions')
-    .select('id')
-    .eq('member_id', MEMBER);
+  const { rows: leftover } = await selectAllRows(() =>
+    admin.from('member_health_intake_sessions').select('id').eq('member_id', MEMBER).order('id', { ascending: true })
+  );
   console.log(`cleanup confirmed by an independent read: ${(leftover ?? []).length} sitting(s) left`);
 
   const failed = results.filter((row) => !row.ok);

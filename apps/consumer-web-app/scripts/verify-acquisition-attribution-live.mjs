@@ -32,6 +32,7 @@
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+import { selectAllRows, selectAllRowsInChunks } from '../lib/data/pagedSelect.ts';
 import { mintSessionCookies, retireSession, canMintSessions } from './lib/mint-session.mjs';
 
 const BASE = process.env.BASE_URL || 'https://app.mefwellness.com';
@@ -192,10 +193,13 @@ try {
   await adminPage.fill('#creative', 'Card A');
   await adminPage.getByRole('button', { name: 'Create this link' }).click();
   await adminPage.waitForTimeout(3000);
-  const { data: allLinks } = await service
-    .from('public_entry_links')
-    .select('id')
-    .eq('source_code', SOURCE_CODE);
+  const { rows: allLinks } = await selectAllRows(() =>
+    service
+      .from('public_entry_links')
+      .select('id')
+      .eq('source_code', SOURCE_CODE)
+      .order('id', { ascending: true })
+  );
   check('8. one partner cannot become two rows, however differently it is typed',
     (allLinks ?? []).length === 1, `${(allLinks ?? []).length} link rows`);
 
@@ -352,10 +356,13 @@ try {
   check('22. going back produced no console or page errors',
     backErrors.length === 0, backErrors.slice(0, 2).join(' | '));
 
-  const { data: touches } = await service
-    .from('public_entry_attribution')
-    .select('touch')
-    .eq('session_id', backSession.id);
+  const { rows: touches } = await selectAllRows(() =>
+    service
+      .from('public_entry_attribution')
+      .select('touch')
+      .eq('session_id', backSession.id)
+      .order('id', { ascending: true })
+  );
   check('23. one arrival on one link is one attribution row, not a row per refresh',
     (touches ?? []).length === 1, (touches ?? []).map((t) => t.touch).join(','));
 
@@ -568,11 +575,16 @@ try {
     stillThere?.source_code === SOURCE_CODE && stillThere?.utm_campaign === CAMPAIGN,
     `${stillThere?.source_code} / ${stillThere?.utm_campaign}`);
 
-  const { data: checkins } = await service.from('daily_checkins').select('id').eq('user_id', memberId);
-  const { data: submissions } = await service
-    .from('onboarding_submissions')
-    .select('id')
-    .eq('user_id', memberId);
+  const { rows: checkins } = await selectAllRows(() =>
+    service.from('daily_checkins').select('id').eq('user_id', memberId).order('id', { ascending: true })
+  );
+  const { rows: submissions } = await selectAllRows(() =>
+    service
+      .from('onboarding_submissions')
+      .select('id')
+      .eq('user_id', memberId)
+      .order('id', { ascending: true })
+  );
   check('44. no public answer became a check-in', (checkins ?? []).length === 0);
   check('45. no public answer became an onboarding submission', (submissions ?? []).length === 0);
   check('46. the signed-in pages produced no console or page errors',
@@ -625,7 +637,9 @@ try {
       await service.from('member_wellness_events').delete().eq('member_id', memberId);
       await service.auth.admin.deleteUser(memberId).catch(() => {});
     }
-    const { data: leads } = await service.from('captured_leads').select('id, conversation_id').eq('email', LEAD_EMAIL);
+    const { rows: leads } = await selectAllRows(() =>
+      service.from('captured_leads').select('id, conversation_id').eq('email', LEAD_EMAIL).order('id', { ascending: true })
+    );
     for (const lead of leads ?? []) {
       await service.from('captured_lead_acquisition').delete().eq('captured_lead_id', lead.id);
       await service.from('notifications').delete().eq('source_record_id', lead.id);
@@ -637,10 +651,13 @@ try {
     // By source code AND by every token this run minted. The second half is
     // what removes our own untracked arrivals, which carry no source code
     // and would otherwise read as real direct traffic.
-    const { data: codedSessions } = await service
-      .from('public_entry_sessions')
-      .select('id')
-      .eq('source_code', SOURCE_CODE);
+    const { rows: codedSessions } = await selectAllRows(() =>
+      service
+        .from('public_entry_sessions')
+        .select('id')
+        .eq('source_code', SOURCE_CODE)
+        .order('id', { ascending: true })
+    );
     for (const row of codedSessions ?? []) {
       await service.from('public_entry_sessions').delete().eq('id', row.id);
     }
@@ -649,10 +666,10 @@ try {
     }
     await service.from('public_entry_sources').delete().eq('code', SOURCE_CODE);
 
-    const { data: leftBehind } = await service
-      .from('public_entry_sessions')
-      .select('id')
-      .in('visitor_token', mintedTokens.length > 0 ? mintedTokens : ['none']);
+    const { rows: leftBehind } = await selectAllRowsInChunks(
+      mintedTokens.length > 0 ? mintedTokens : ['none'],
+      (chunk) => service.from('public_entry_sessions').select('id').in('visitor_token', chunk).order('id', { ascending: true })
+    );
     console.log(
       `\ncleanup: verification rows removed, ${(leftBehind ?? []).length} of this run's arrivals left behind`
     );

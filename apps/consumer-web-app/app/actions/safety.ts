@@ -1,7 +1,9 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { selectAllRows } from '@/lib/data/pagedSelect';
 import type {
+  SafetyAcknowledgment,
   SafetyReviewQueueEntry,
   SafetyReviewStatus,
   SafetyAuditLogEntry,
@@ -126,12 +128,15 @@ export async function getMyPendingAcknowledgments() {
   const user = await getCachedUser();
   if (!user) return [];
 
-  const { data, error } = await supabase
-    .from('safety_acknowledgments')
-    .select('*')
-    .eq('member_id', user.id)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false });
+  const { rows: data, error } = await selectAllRows<SafetyAcknowledgment>(() =>
+    supabase
+      .from('safety_acknowledgments')
+      .select('*')
+      .eq('member_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+  );
 
   if (error) {
     console.error('getMyPendingAcknowledgments failed', error);

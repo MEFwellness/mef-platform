@@ -20,6 +20,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
+import { selectAllRows } from '../lib/data/pagedSelect.ts';
 
 const BASE = process.env.BASE_URL ?? 'https://app.mefwellness.com';
 const EMAIL = process.env.MEMBER_EMAIL ?? '8weeks2fab@gmail.com';
@@ -42,10 +43,13 @@ const admin = createClient(
 );
 
 async function dismissalKeys() {
-  const { data } = await admin
-    .from('member_root_popup_dismissals')
-    .select('message_key, status')
-    .eq('member_id', MEMBER_ID);
+  const { rows: data } = await selectAllRows(() =>
+    admin
+      .from('member_root_popup_dismissals')
+      .select('message_key, status')
+      .eq('member_id', MEMBER_ID)
+      .order('id', { ascending: true })
+  );
   return (data ?? []).map((d) => `${d.message_key}(${d.status})`).sort();
 }
 async function countEvents(eventType, localDate) {
