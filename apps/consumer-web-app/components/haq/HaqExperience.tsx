@@ -159,7 +159,7 @@ function HaqCompletion() {
   );
 }
 
-async function postJson(url: string, body: unknown): Promise<{ ok: boolean; [key: string]: unknown }> {
+async function postOnce(url: string, body: unknown): Promise<{ ok: boolean; [key: string]: unknown }> {
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -168,6 +168,32 @@ async function postJson(url: string, body: unknown): Promise<{ ok: boolean; [key
   });
   if (!response.ok) return { ok: false };
   return (await response.json()) as { ok: boolean };
+}
+
+/**
+ * ONE WRITE, AND A SECOND TRY BEFORE SHE IS TOLD IT FAILED.
+ *
+ * A refused or dropped request is retried once, the same discipline the
+ * Turnstile submissions use, because the first request to a route can be the
+ * one that pays for a cold start and a member who taps an answer or an area
+ * and is handed an error would have to notice the small line and tap again.
+ * Found on production, 2026-09-17: the first body map mark of a sitting was
+ * not stored and the screen said so quietly. A second failure is still hers
+ * to see: this retries, it never pretends.
+ *
+ * It is not a queue. Each tap still fires immediately and they still overlap,
+ * because a queue makes the round trips additive and costs a member who
+ * closes the tab her last answers (see AssessmentTaker's own note).
+ */
+async function postJson(url: string, body: unknown): Promise<{ ok: boolean; [key: string]: unknown }> {
+  try {
+    const first = await postOnce(url, body);
+    if (first.ok) return first;
+  } catch {
+    /* a network failure is a reason to try again, not a reason to stop */
+  }
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  return postOnce(url, body);
 }
 
 function HaqWalk({
@@ -376,7 +402,7 @@ function HaqWalk({
           />
         </div>
         <Card key="haq-body-map" className="mef-screen-enter mt-6">
-          <HaqBodyMap marks={marks} busy={markBusy} error={markError} onAdd={addMark} onRemove={removeMark} />
+          <HaqBodyMap marks={marks} error={markError} onAdd={addMark} onRemove={removeMark} />
         </Card>
         {finishError && (
           <p className="mt-3 text-sm text-[#8A4B2A]" role="alert">

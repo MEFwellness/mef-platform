@@ -10,6 +10,12 @@
  *                            and records where each lands and what heading
  *                            it shows, to HAQ_BASELINE_FILE (outside the
  *                            repository).
+ *   HAQ_LIVE_MODE=finish     Picks up an instance whose 260 answers already
+ *                            landed and runs from the body map onwards. For a
+ *                            run whose answering half succeeded and whose
+ *                            body map half did not: a real member's account
+ *                            is not a place to sit a second instance to
+ *                            re-test the last screen.
  *   HAQ_LIVE_MODE=journey    AFTER the deploy and migration 263. The whole
  *                            journey, in the order a member and her coach meet
  *                            it:
@@ -58,7 +64,12 @@ const COACH_EMAIL = process.env.HAQ_COACH_EMAIL;
 if (process.env.HAQ_LIVE_MODE !== 'baseline' && !COACH_EMAIL) {
   throw new Error('HAQ_COACH_EMAIL is required: the coach whose caseload the test member is on');
 }
-const MODE = process.env.HAQ_LIVE_MODE === 'baseline' ? 'baseline' : 'journey';
+const MODE =
+  process.env.HAQ_LIVE_MODE === 'baseline'
+    ? 'baseline'
+    : process.env.HAQ_LIVE_MODE === 'finish'
+      ? 'finish'
+      : 'journey';
 const BASELINE_FILE = process.env.HAQ_BASELINE_FILE;
 if (!BASELINE_FILE) throw new Error('HAQ_BASELINE_FILE is required');
 if (BASELINE_FILE.startsWith(process.cwd())) throw new Error('HAQ_BASELINE_FILE must be outside the repository');
@@ -253,6 +264,257 @@ async function runBaseline(browser: Browser) {
     record(`baseline: ${routes.length} questionnaire routes recorded`, routes.length > 10);
   } finally {
     await retireSession(minted);
+  }
+}
+
+/**
+ * The body map, the completion, the database, the payloads and the existing
+ * routes. Its own function because it is also the whole of `finish` mode: a
+ * run whose answering half already landed picks up here rather than sitting
+ * a second instance on a real member's account.
+ */
+async function bodyMapOnwards(
+  page: Page,
+  context: {
+    MEMBER: string;
+    definitionId: string;
+    sessionId: string;
+    baseline: { routes: RouteReading[] };
+    memberBodies: Array<{ url: string; body: string }>;
+    consoleErrors: string[];
+    /** Answering, and everything it sends, only happened in a full journey. */
+    walkedTheQuestions: boolean;
+  }
+) {
+  const { MEMBER, definitionId, sessionId, baseline, memberBodies, consoleErrors, walkedTheQuestions } = context;
+    // Body map.
+    await page.waitForSelector('[data-testid="haq-body-map"]', { timeout: 30_000 });
+    const mapText = await screenText(page);
+    record('3: the body map shows the approved instruction', mapText.includes(BODY_MAP_INSTRUCTION));
+
+  const taps: string[] = [];
+    const markArea = async (location: string, category: string) => {
+      const region = page.locator(`[data-location="${location}"]`).first();
+      const categorySheet = page.locator('[data-testid="haq-body-category-sheet"]');
+      // A tap, and if the sheet is not up a moment later, one more. Which one
+      // it took is recorded rather than smoothed over, so a first tap that
+      // does not open the sheet is reported instead of hidden by the retry.
+      let opened = false;
+      for (let attempt = 1; attempt <= 3 && !opened; attempt += 1) {
+        await region.scrollIntoViewIfNeeded().catch(() => {});
+        await region.click({ timeout: 15_000 });
+        opened = await categorySheet
+          .waitFor({ state: 'visible', timeout: 5_000 })
+          .then(() => true)
+          .catch(() => false);
+        if (opened) taps.push(`${location}: tap ${attempt}`);
+      }
+      if (!opened) throw new Error(`the category sheet never opened for ${location}`);
+      await categorySheet.getByRole('button', { name: category, exact: true }).click();
+      await categorySheet.waitFor({ state: 'detached', timeout: 15_000 });
+      await page.waitForFunction(
+        () => !Array.from(document.querySelectorAll('[data-testid="haq-body-map"] button')).some((b) => (b as HTMLButtonElement).disabled),
+        undefined,
+        { timeout: 20_000 }
+      );
+    };
+    await markArea('left_knee', 'Swelling');
+    await markArea('abdomen', 'Discomfort');
+    await page.getByRole('group', { name: 'Body view' }).getByRole('button', { name: 'Back', exact: true }).click();
+    await markArea('lower_back', 'Pain');
+    await markArea('right_shoulder_back', 'Skin change');
+    record('3: each area opened its category sheet on the first tap', taps.every((t) => t.endsWith('tap 1')), taps.join(' | '));
+
+    // scale-exempt: one instance's marks, capped at HAQ_BODY_MAP_MARK_LIMIT (80) by the add route
+    const marksBefore = await service.from('haq_body_map_entries').select('id').eq('session_id', sessionId);
+    record('3: four marks were stored, on the front and the back', (marksBefore.data ?? []).length === 4);
+
+    const lowerBack = page.locator('[data-testid="haq-body-marks"] li').filter({ hasText: 'Lower back (back)' }).first();
+    await lowerBack.getByRole('button', { name: 'Remove' }).click();
+    await page.locator('[data-testid="haq-body-marks"] li').filter({ hasText: 'Lower back (back)' }).waitFor({ state: 'detached', timeout: 20_000 });
+    const marksAfter = await until(
+      // scale-exempt: one instance's marks, capped at HAQ_BODY_MAP_MARK_LIMIT (80) by the add route
+      async () => (await service.from('haq_body_map_entries').select('id').eq('session_id', sessionId)).data ?? [],
+      (rows) => rows.length === 3
+    );
+    record('3: removing a mark removed it', marksAfter.length === 3);
+
+    await page.getByRole('button', { name: 'Complete', exact: true }).click();
+    await page.waitForSelector('[data-testid="haq-completion"]', { timeout: 60_000 });
+    const done = await screenText(page);
+    record('3: the completion screen shows the approved statement', done.includes(COMPLETION));
+    record('3: and that her coach can now see her responses', done.includes('Your coach can now see your responses.'));
+    const completionCard = ((await page.locator('[data-testid="haq-completion"]').innerText()) ?? '').replace(/\s+/g, ' ');
+    record('3: with no result, colour or number on it', !/\d|Doing Well|Needs Attention|High Attention/.test(completionCard), completionCard);
+
+    // -----------------------------------------------------------------
+    // 4. The database.
+    // -----------------------------------------------------------------
+    // scale-exempt: one test member's HAQ instances; the run refuses to start unless there are none and opens one
+    const { data: instances } = await service
+      .from('unified_assessment_sessions')
+      .select('id, status')
+      .eq('member_id', MEMBER)
+      .eq('assessment_definition_id', definitionId);
+    record('4: exactly one instance, and it is completed', instances?.length === 1 && instances[0]!.status === 'completed', JSON.stringify(instances));
+
+    // scale-exempt: one instance's responses, at most 260, one per question
+    const { data: responses } = await service
+      .from('haq_question_responses')
+      .select('question_key, section_id, selected_response, hidden_value')
+      .eq('session_id', sessionId)
+      .order('question_key');
+    record('4: 260 responses', responses?.length === 260, `${responses?.length}`);
+    const mismatched = (responses ?? []).filter((r) => PLAN.get(r.question_key as string) !== r.selected_response);
+    record('4: every stored response is the answer that was tapped', mismatched.length === 0, mismatched.slice(0, 3).map((m) => m.question_key).join(', '));
+
+    const [{ data: sectionResults }, { data: cutoffs }] = await Promise.all([
+      // scale-exempt: one instance's section results, exactly 21, one per section
+      service.from('haq_section_results').select('section_id, raw_total, result_color, member_result_label').eq('session_id', sessionId),
+      // scale-exempt: 21 rows, one per section, fixed by migration 262
+      service.from('haq_section_cutoffs').select('section_id, green_max, yellow_max'),
+    ]);
+    record('4: 21 section results', sectionResults?.length === 21, `${sectionResults?.length}`);
+    const colourProblems: string[] = [];
+    const colours: Record<string, number> = {};
+    for (const result of sectionResults ?? []) {
+      const total = (responses ?? [])
+        .filter((r) => r.section_id === result.section_id)
+        .reduce((sum, r) => sum + (r.hidden_value as number), 0);
+      const cutoff = (cutoffs ?? []).find((c) => c.section_id === result.section_id)!;
+      const expected = total <= cutoff.green_max ? 'green' : total <= cutoff.yellow_max ? 'yellow' : 'red';
+      colours[result.result_color as string] = (colours[result.result_color as string] ?? 0) + 1;
+      if (result.raw_total !== total || result.result_color !== expected) {
+        colourProblems.push(`${result.section_id}: stored ${result.raw_total}/${result.result_color}, expected ${total}/${expected}`);
+      }
+    }
+    record('4: every section colour matches the seeded cutoffs for its own total', colourProblems.length === 0, colourProblems.join(' | ') || JSON.stringify(colours));
+
+    // scale-exempt: one instance's marks, capped at HAQ_BODY_MAP_MARK_LIMIT (80) by the add route
+    const { data: marks } = await service
+      .from('haq_body_map_entries')
+      .select('body_location, body_side, issue_type')
+      .eq('session_id', sessionId)
+      .order('body_location');
+    const expectedMarks = [
+      { body_location: 'abdomen', body_side: 'front', issue_type: 'discomfort' },
+      { body_location: 'left_knee', body_side: 'front', issue_type: 'swelling' },
+      { body_location: 'right_shoulder_back', body_side: 'back', issue_type: 'skin_change' },
+    ];
+    record('4: body map rows match the marks left in place', JSON.stringify(marks) === JSON.stringify(expectedMarks), JSON.stringify(marks));
+
+    // scale-exempt: one test member's HAQ assignments; the run refuses to start unless there are none and writes exactly one
+    const { data: closed } = await service
+      .from('assessment_assignments')
+      .select('status')
+      .eq('member_id', MEMBER)
+      .eq('assessment_definition_id', HAQ_DEFINITION_ID);
+    record('4: the assignment closed on completion', closed?.length === 1 && closed[0]!.status === 'completed');
+
+    // -----------------------------------------------------------------
+    // 5. No member facing payload carried a hidden value.
+    // -----------------------------------------------------------------
+    const haqBodies = memberBodies.filter((b) => /\/health-appraisal|\/api\/haq\/|\/questionnaires/.test(b.url));
+    const leaks = haqBodies.filter((b) =>
+      /hidden_value|hiddenValue|raw_total|green_max|yellow_max|result_color|member_result_label|Doing Well|Needs Attention|High Attention|Moderate Priority/.test(b.body)
+    );
+    record(`5: none of the ${haqBodies.length} member facing responses carried a value, total, cutoff or result`, haqBodies.length >= (walkedTheQuestions ? 100 : 5) && leaks.length === 0, leaks.slice(0, 2).map((l) => l.url).join(' '));
+    const apiBodies = memberBodies.filter((b) => b.url.includes('/api/haq/'));
+    const numericApi = apiBodies.filter((b) => /:\s*-?\d/.test(b.body));
+    record(`5: none of the ${apiBodies.length} answer and body map responses carried any number`, apiBodies.length >= (walkedTheQuestions ? 260 : 4) && numericApi.length === 0, numericApi.slice(0, 2).map((n) => n.body).join(' '));
+
+    // -----------------------------------------------------------------
+    // 6. Every existing questionnaire route opens as before.
+    // -----------------------------------------------------------------
+    const after = await readRoutes(page);
+    const changedRoutes = baseline.routes.filter((before) => {
+      const now = after.find((r) => r.route === before.route);
+      if (!now || now.finalPath !== before.finalPath) return true;
+      // Home's heading is a greeting that changes with the time of day, so a
+      // route that sends her Home is compared by where it sent her.
+      return before.finalPath !== '/dashboard' && now.heading !== before.heading;
+    });
+    record(`6: all ${baseline.routes.length} existing questionnaire routes open exactly as before`, changedRoutes.length === 0 && after.length === baseline.routes.length, changedRoutes.map((r) => r.route).join(', '));
+  record('no console or page errors', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '));
+}
+
+/**
+ * Picks up where a full journey stopped: her open instance, all 260 answered,
+ * standing at the body map.
+ */
+async function runFinish(browser: Browser) {
+  if (!existsSync(BASELINE_FILE!)) throw new Error('The baseline file is required to compare the existing routes');
+  const baseline = JSON.parse(readFileSync(BASELINE_FILE!, 'utf8')) as { routes: RouteReading[] };
+
+  const member = await mintSessionContext(browser, MEMBER_EMAIL, {
+    baseUrl: BASE,
+    viewport: PHONE,
+    contextOptions: { reducedMotion: 'no-preference' },
+  });
+  if (!member) throw new Error('Could not mint the member session');
+  const MEMBER = member.session.user.id as string;
+
+  try {
+    const { data: profile } = await service.from('profiles').select('is_test').eq('id', MEMBER).maybeSingle();
+    if (profile?.is_test !== true) throw new Error('REFUSING TO RUN: the member is not a test account');
+
+    const { data: runtimeDefinition } = await service
+      .from('unified_assessment_definitions')
+      .select('id, catalog_definition_id')
+      .eq('key', 'haq')
+      .single();
+    const definitionId = runtimeDefinition!.id as string;
+
+    // scale-exempt: one test member's open HAQ instance, at most one by migration 99's partial unique index
+    const { data: open } = await service
+      .from('unified_assessment_sessions')
+      .select('id')
+      .eq('member_id', MEMBER)
+      .eq('assessment_definition_id', definitionId)
+      .eq('status', 'in_progress')
+      .maybeSingle();
+    if (!open) throw new Error('REFUSING TO RUN: she has no open HAQ instance to finish');
+    const sessionId = open.id as string;
+
+    const { count: answered } = await service
+      .from('haq_question_responses')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', sessionId);
+    record('finish: the open instance already holds all 260 answers', answered === 260, `${answered}`);
+
+    const memberBodies: Array<{ url: string; body: string }> = [];
+    const consoleErrors: string[] = [];
+    const page = await member.context.newPage();
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(`member ${page.url()}: ${message.text().slice(0, 200)}`);
+    });
+    page.on('pageerror', (error) => consoleErrors.push(`member ${page.url()}: ${String(error).slice(0, 200)}`));
+    page.on('response', async (response: Response) => {
+      try {
+        const url = response.url();
+        if (!url.startsWith(BASE)) return;
+        const type = response.headers()['content-type'] ?? '';
+        if (!/text|json|x-component/.test(type)) return;
+        memberBodies.push({ url, body: await response.text() });
+      } catch {
+        /* a body that could not be read carried nothing */
+      }
+    });
+
+    await go(page, '/health-appraisal');
+    record('finish: resuming an instance with every question answered lands on the body map', (await page.locator('[data-testid="haq-body-map"]').count()) > 0);
+
+    await bodyMapOnwards(page, {
+      MEMBER,
+      definitionId,
+      sessionId,
+      baseline,
+      memberBodies,
+      consoleErrors,
+      walkedTheQuestions: false,
+    });
+  } finally {
+    await retireSession(member);
   }
 }
 
@@ -527,141 +789,15 @@ async function runJourney(browser: Browser) {
     const changed = await until(() => storedResponse(sessionId, changedKey), (v) => v === PLAN.get(changedKey));
     record('3: changing an answer replaced the stored response', changed === PLAN.get(changedKey), `${changedKey} = ${changed}`);
 
-    // Body map.
-    await page.waitForSelector('[data-testid="haq-body-map"]', { timeout: 30_000 });
-    const mapText = await screenText(page);
-    record('3: the body map shows the approved instruction', mapText.includes(BODY_MAP_INSTRUCTION));
-
-    const markArea = async (location: string, category: string) => {
-      await page.locator(`[data-location="${location}"]`).first().click({ timeout: 15_000 });
-      const categorySheet = page.locator('[data-testid="haq-body-category-sheet"]');
-      await categorySheet.waitFor({ state: 'visible', timeout: 15_000 });
-      await categorySheet.getByRole('button', { name: category, exact: true }).click();
-      await categorySheet.waitFor({ state: 'detached', timeout: 15_000 });
-      await page.waitForFunction(
-        () => !Array.from(document.querySelectorAll('[data-testid="haq-body-map"] button')).some((b) => (b as HTMLButtonElement).disabled),
-        undefined,
-        { timeout: 20_000 }
-      );
-    };
-    await markArea('left_knee', 'Swelling');
-    await markArea('abdomen', 'Discomfort');
-    await page.getByRole('group', { name: 'Body view' }).getByRole('button', { name: 'Back', exact: true }).click();
-    await markArea('lower_back', 'Pain');
-    await markArea('right_shoulder_back', 'Skin change');
-
-    // scale-exempt: one instance's marks, capped at HAQ_BODY_MAP_MARK_LIMIT (80) by the add route
-    const marksBefore = await service.from('haq_body_map_entries').select('id').eq('session_id', sessionId);
-    record('3: four marks were stored, on the front and the back', (marksBefore.data ?? []).length === 4);
-
-    const lowerBack = page.locator('[data-testid="haq-body-marks"] li').filter({ hasText: 'Lower back (back)' }).first();
-    await lowerBack.getByRole('button', { name: 'Remove' }).click();
-    await page.locator('[data-testid="haq-body-marks"] li').filter({ hasText: 'Lower back (back)' }).waitFor({ state: 'detached', timeout: 20_000 });
-    const marksAfter = await until(
-      // scale-exempt: one instance's marks, capped at HAQ_BODY_MAP_MARK_LIMIT (80) by the add route
-      async () => (await service.from('haq_body_map_entries').select('id').eq('session_id', sessionId)).data ?? [],
-      (rows) => rows.length === 3
-    );
-    record('3: removing a mark removed it', marksAfter.length === 3);
-
-    await page.getByRole('button', { name: 'Complete', exact: true }).click();
-    await page.waitForSelector('[data-testid="haq-completion"]', { timeout: 60_000 });
-    const done = await screenText(page);
-    record('3: the completion screen shows the approved statement', done.includes(COMPLETION));
-    record('3: and that her coach can now see her responses', done.includes('Your coach can now see your responses.'));
-    const completionCard = ((await page.locator('[data-testid="haq-completion"]').innerText()) ?? '').replace(/\s+/g, ' ');
-    record('3: with no result, colour or number on it', !/\d|Doing Well|Needs Attention|High Attention/.test(completionCard), completionCard);
-
-    // -----------------------------------------------------------------
-    // 4. The database.
-    // -----------------------------------------------------------------
-    // scale-exempt: one test member's HAQ instances; the run refuses to start unless there are none and opens one
-    const { data: instances } = await service
-      .from('unified_assessment_sessions')
-      .select('id, status')
-      .eq('member_id', MEMBER)
-      .eq('assessment_definition_id', definitionId);
-    record('4: exactly one instance, and it is completed', instances?.length === 1 && instances[0]!.status === 'completed', JSON.stringify(instances));
-
-    // scale-exempt: one instance's responses, at most 260, one per question
-    const { data: responses } = await service
-      .from('haq_question_responses')
-      .select('question_key, section_id, selected_response, hidden_value')
-      .eq('session_id', sessionId)
-      .order('question_key');
-    record('4: 260 responses', responses?.length === 260, `${responses?.length}`);
-    const mismatched = (responses ?? []).filter((r) => PLAN.get(r.question_key as string) !== r.selected_response);
-    record('4: every stored response is the answer that was tapped', mismatched.length === 0, mismatched.slice(0, 3).map((m) => m.question_key).join(', '));
-
-    const [{ data: sectionResults }, { data: cutoffs }] = await Promise.all([
-      // scale-exempt: one instance's section results, exactly 21, one per section
-      service.from('haq_section_results').select('section_id, raw_total, result_color, member_result_label').eq('session_id', sessionId),
-      // scale-exempt: 21 rows, one per section, fixed by migration 262
-      service.from('haq_section_cutoffs').select('section_id, green_max, yellow_max'),
-    ]);
-    record('4: 21 section results', sectionResults?.length === 21, `${sectionResults?.length}`);
-    const colourProblems: string[] = [];
-    const colours: Record<string, number> = {};
-    for (const result of sectionResults ?? []) {
-      const total = (responses ?? [])
-        .filter((r) => r.section_id === result.section_id)
-        .reduce((sum, r) => sum + (r.hidden_value as number), 0);
-      const cutoff = (cutoffs ?? []).find((c) => c.section_id === result.section_id)!;
-      const expected = total <= cutoff.green_max ? 'green' : total <= cutoff.yellow_max ? 'yellow' : 'red';
-      colours[result.result_color as string] = (colours[result.result_color as string] ?? 0) + 1;
-      if (result.raw_total !== total || result.result_color !== expected) {
-        colourProblems.push(`${result.section_id}: stored ${result.raw_total}/${result.result_color}, expected ${total}/${expected}`);
-      }
-    }
-    record('4: every section colour matches the seeded cutoffs for its own total', colourProblems.length === 0, colourProblems.join(' | ') || JSON.stringify(colours));
-
-    // scale-exempt: one instance's marks, capped at HAQ_BODY_MAP_MARK_LIMIT (80) by the add route
-    const { data: marks } = await service
-      .from('haq_body_map_entries')
-      .select('body_location, body_side, issue_type')
-      .eq('session_id', sessionId)
-      .order('body_location');
-    const expectedMarks = [
-      { body_location: 'abdomen', body_side: 'front', issue_type: 'discomfort' },
-      { body_location: 'left_knee', body_side: 'front', issue_type: 'swelling' },
-      { body_location: 'right_shoulder_back', body_side: 'back', issue_type: 'skin_change' },
-    ];
-    record('4: body map rows match the marks left in place', JSON.stringify(marks) === JSON.stringify(expectedMarks), JSON.stringify(marks));
-
-    // scale-exempt: one test member's HAQ assignments; the run refuses to start unless there are none and writes exactly one
-    const { data: closed } = await service
-      .from('assessment_assignments')
-      .select('status')
-      .eq('member_id', MEMBER)
-      .eq('assessment_definition_id', HAQ_DEFINITION_ID);
-    record('4: the assignment closed on completion', closed?.length === 1 && closed[0]!.status === 'completed');
-
-    // -----------------------------------------------------------------
-    // 5. No member facing payload carried a hidden value.
-    // -----------------------------------------------------------------
-    const haqBodies = memberBodies.filter((b) => /\/health-appraisal|\/api\/haq\/|\/questionnaires/.test(b.url));
-    const leaks = haqBodies.filter((b) =>
-      /hidden_value|hiddenValue|raw_total|green_max|yellow_max|result_color|member_result_label|Doing Well|Needs Attention|High Attention|Moderate Priority/.test(b.body)
-    );
-    record(`5: none of the ${haqBodies.length} member facing responses carried a value, total, cutoff or result`, haqBodies.length > 100 && leaks.length === 0, leaks.slice(0, 2).map((l) => l.url).join(' '));
-    const apiBodies = memberBodies.filter((b) => b.url.includes('/api/haq/'));
-    const numericApi = apiBodies.filter((b) => /:\s*-?\d/.test(b.body));
-    record(`5: none of the ${apiBodies.length} answer and body map responses carried any number`, apiBodies.length >= 260 && numericApi.length === 0, numericApi.slice(0, 2).map((n) => n.body).join(' '));
-
-    // -----------------------------------------------------------------
-    // 6. Every existing questionnaire route opens as before.
-    // -----------------------------------------------------------------
-    const after = await readRoutes(page);
-    const changedRoutes = baseline.routes.filter((before) => {
-      const now = after.find((r) => r.route === before.route);
-      if (!now || now.finalPath !== before.finalPath) return true;
-      // Home's heading is a greeting that changes with the time of day, so a
-      // route that sends her Home is compared by where it sent her.
-      return before.finalPath !== '/dashboard' && now.heading !== before.heading;
+    await bodyMapOnwards(page, {
+      MEMBER,
+      definitionId,
+      sessionId,
+      baseline,
+      memberBodies,
+      consoleErrors,
+      walkedTheQuestions: true,
     });
-    record(`6: all ${baseline.routes.length} existing questionnaire routes open exactly as before`, changedRoutes.length === 0 && after.length === baseline.routes.length, changedRoutes.map((r) => r.route).join(', '));
-
-    record('no console or page errors', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '));
   } finally {
     await retireSession(member);
     if (coach) await retireSession(coach);
@@ -672,6 +808,7 @@ async function main() {
   const browser = await chromium.launch();
   try {
     if (MODE === 'baseline') await runBaseline(browser);
+    else if (MODE === 'finish') await runFinish(browser);
     else await runJourney(browser);
   } catch (error) {
     record('the run completed without throwing', false, String(error).slice(0, 400));

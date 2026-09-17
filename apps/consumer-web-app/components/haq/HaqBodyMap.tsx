@@ -74,13 +74,11 @@ function Shape({ shape, className }: { shape: HaqBodyShape; className: string })
 
 export function HaqBodyMap({
   marks,
-  busy,
   error,
   onAdd,
   onRemove,
 }: {
   marks: HaqBodyMark[];
-  busy: boolean;
   error: string | null;
   onAdd: (mark: { location: string; side: HaqBodySide; issueType: HaqBodyIssueType }) => void;
   onRemove: (markId: string) => void;
@@ -92,8 +90,14 @@ export function HaqBodyMap({
   const regions = haqBodyRegions(view);
   const markedHere = (location: string) => marks.filter((m) => m.side === view && m.location === location);
 
+  /**
+   * A TAP ALWAYS OPENS THE SHEET. It used to be ignored while another mark
+   * was still being written, which on a real phone is a tap that did nothing
+   * and said nothing. Marks are independent of each other, so a second one
+   * can be chosen while the first is still on its way.
+   */
   function openRegion(region: HaqBodyRegion) {
-    if (!busy) setChosen(region);
+    setChosen(region);
   }
 
   function onRegionKey(event: KeyboardEvent<SVGGElement>, region: HaqBodyRegion) {
@@ -213,8 +217,7 @@ export function HaqBodyMap({
                 <button
                   type="button"
                   onClick={() => onRemove(mark.id)}
-                  disabled={busy}
-                  className="mef-press mef-focus-ring min-h-[44px] shrink-0 rounded-xl px-3 text-sm font-medium text-[#1B3A2D] underline decoration-[#1B3A2D]/30 underline-offset-4 disabled:opacity-50"
+                  className="mef-press mef-focus-ring min-h-[44px] shrink-0 rounded-xl px-3 text-sm font-medium text-[#1B3A2D] underline decoration-[#1B3A2D]/30 underline-offset-4"
                 >
                   {HAQ_BODY_MAP_REMOVE_LABEL}
                 </button>
@@ -234,7 +237,6 @@ export function HaqBodyMap({
           region={chosen}
           view={view}
           marked={markedHere(chosen.location)}
-          busy={busy}
           onChoose={(issueType) => {
             const existing = markedHere(chosen.location).find((m) => m.issueType === issueType);
             if (existing) onRemove(existing.id);
@@ -252,14 +254,12 @@ function HaqBodyCategorySheet({
   region,
   view,
   marked,
-  busy,
   onChoose,
   onClose,
 }: {
   region: HaqBodyRegion;
   view: HaqBodySide;
   marked: HaqBodyMark[];
-  busy: boolean;
   onChoose: (issueType: HaqBodyIssueType) => void;
   onClose: () => void;
 }) {
@@ -298,10 +298,9 @@ function HaqBodyCategorySheet({
                 <button
                   type="button"
                   aria-pressed={on}
-                  disabled={busy}
                   data-issue-type={issue.value}
                   onClick={() => onChoose(issue.value)}
-                  className={`mef-press mef-focus-ring flex min-h-[52px] w-full items-center justify-between gap-3 rounded-2xl border px-5 text-left text-[15px] transition disabled:opacity-60 ${
+                  className={`mef-press mef-focus-ring flex min-h-[52px] w-full items-center justify-between gap-3 rounded-2xl border px-5 text-left text-[15px] transition ${
                     on
                       ? 'border-[#B08F3E] bg-[#C4A050] font-semibold text-[#173025]'
                       : 'border-[#1B3A2D]/12 bg-[#F1F6F2] text-[#1B3A2D] hover:border-[#C4A050]/45'

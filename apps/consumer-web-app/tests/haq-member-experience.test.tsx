@@ -565,6 +565,117 @@ describe('the body map', () => {
   });
 });
 
+/**
+ * FOUND ON PRODUCTION, 2026-09-17. The first body map mark of a real sitting
+ * was not stored: one POST came back refused and the screen said so in a
+ * small line, which on a phone is a mark she believes she made. A second tap
+ * on another area was ignored outright while that write was still in flight.
+ */
+describe('a write that is refused once is tried again before she is told it failed', () => {
+  const bodyMapIndex = haqBodyMapIndex(screens);
+
+  function installFlakyFetch(failFirst: (url: string, body: Record<string, unknown>) => boolean) {
+    sent.length = 0;
+    const seen = new Set<string>();
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      configurable: true,
+      value: async (url: string, init: { body: string }) => {
+        const body = JSON.parse(init.body) as Record<string, unknown>;
+        sent.push({ url, body });
+        const key = `${url}:${init.body}`;
+        if (failFirst(url, body) && !seen.has(key)) {
+          seen.add(key);
+          // What a cold start or a dropped request looks like to the client.
+          return { ok: false, json: async () => ({ ok: false }) };
+        }
+        if (url === '/api/haq/body-map' && body.action === 'add') {
+          nextMarkId += 1;
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              mark: { id: `mark-${nextMarkId}`, location: body.location, side: body.side, issueType: body.issueType },
+            }),
+          };
+        }
+        return { ok: true, json: async () => ({ ok: true }) };
+      },
+    });
+  }
+
+  async function settleRetry() {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+  }
+
+  it('a refused mark is retried once and really lands', async () => {
+    vi.useFakeTimers();
+    installFlakyFetch((url) => url === '/api/haq/body-map');
+    mount({ status: 'in_progress', answers: answersThrough(screens.length), screenIndex: bodyMapIndex });
+
+    await click(container.querySelector('[data-location="left_knee"]')!);
+    const sheet = document.querySelector('[data-testid="haq-body-category-sheet"]')!;
+    await click(buttonByText('Swelling', sheet));
+    await settleRetry();
+
+    expect(sent.filter((s) => s.url === '/api/haq/body-map')).toHaveLength(2);
+    expect(Array.from(container.querySelectorAll('[data-testid="haq-body-marks"] li')).map((li) => li.textContent)).toEqual([
+      'Left knee (front)SwellingRemove',
+    ]);
+    expect(text()).not.toContain("That mark didn't save");
+  });
+
+  it('a refused answer is retried once, and the second refusal is still hers to see', async () => {
+    vi.useFakeTimers();
+    // Every attempt fails: the retry is not a way of hiding a real failure.
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      configurable: true,
+      value: async (url: string, init: { body: string }) => {
+        sent.push({ url, body: JSON.parse(init.body) as Record<string, unknown> });
+        return { ok: false, json: async () => ({ ok: false }) };
+      },
+    });
+    sent.length = 0;
+    mount({ status: 'in_progress', screenIndex: 0 });
+    await click(questionBlocks()[0]!.querySelectorAll('button[role="radio"]')[1]!);
+    await settleRetry();
+
+    expect(sent).toHaveLength(2);
+    expect(text()).toContain("That answer didn't save");
+  });
+
+  it('tapping another area while a mark is still being written still opens its sheet', async () => {
+    vi.useFakeTimers();
+    const gate: { release?: () => void } = {};
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      configurable: true,
+      value: async (url: string, init: { body: string }) => {
+        sent.push({ url, body: JSON.parse(init.body) as Record<string, unknown> });
+        await new Promise<void>((resolve) => {
+          gate.release = resolve;
+        });
+        return { ok: true, json: async () => ({ ok: true, mark: { id: 'mark-x', location: 'left_knee', side: 'front', issueType: 'pain' } }) };
+      },
+    });
+    sent.length = 0;
+    mount({ status: 'in_progress', answers: answersThrough(screens.length), screenIndex: bodyMapIndex });
+
+    await click(container.querySelector('[data-location="left_knee"]')!);
+    await click(buttonByText('Pain', document.querySelector('[data-testid="haq-body-category-sheet"]')!));
+
+    // The first write is still in flight. The next area must still answer a tap.
+    await click(container.querySelector('[data-location="abdomen"]')!);
+    const second = document.querySelector('[data-testid="haq-body-category-sheet"]');
+    expect(second).not.toBeNull();
+    expect(second!.textContent).toContain('Abdomen');
+    gate.release?.();
+  });
+});
+
 describe('completion', () => {
   it('a finished instance shows the calm confirmation, and no result, colour or number', () => {
     mount({ status: 'completed' });
