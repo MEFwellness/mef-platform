@@ -16,6 +16,11 @@
  *                            body map half did not: a real member's account
  *                            is not a place to sit a second instance to
  *                            re-test the last screen.
+ *   HAQ_LIVE_MODE=review     Read only, after everything. Her finished sitting
+ *                            as it stands: the shelf card, the completion
+ *                            screen, the stored instance, and every existing
+ *                            questionnaire route against the baseline. Writes
+ *                            nothing, so it can be re-run before Prompt 3.
  *   HAQ_LIVE_MODE=journey    AFTER the deploy and migration 263. The whole
  *                            journey, in the order a member and her coach meet
  *                            it:
@@ -69,7 +74,9 @@ const MODE =
     ? 'baseline'
     : process.env.HAQ_LIVE_MODE === 'finish'
       ? 'finish'
-      : 'journey';
+      : process.env.HAQ_LIVE_MODE === 'review'
+        ? 'review'
+        : 'journey';
 const BASELINE_FILE = process.env.HAQ_BASELINE_FILE;
 if (!BASELINE_FILE) throw new Error('HAQ_BASELINE_FILE is required');
 if (BASELINE_FILE.startsWith(process.cwd())) throw new Error('HAQ_BASELINE_FILE must be outside the repository');
@@ -436,6 +443,81 @@ async function bodyMapOnwards(
     });
     record(`6: all ${baseline.routes.length} existing questionnaire routes open exactly as before`, changedRoutes.length === 0 && after.length === baseline.routes.length, changedRoutes.map((r) => r.route).join(', '));
   record('no console or page errors', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '));
+}
+
+/**
+ * Her finished sitting, read and not touched.
+ */
+async function runReview(browser: Browser) {
+  if (!existsSync(BASELINE_FILE!)) throw new Error('The baseline file is required to compare the existing routes');
+  const baseline = JSON.parse(readFileSync(BASELINE_FILE!, 'utf8')) as { routes: RouteReading[] };
+
+  const member = await mintSessionContext(browser, MEMBER_EMAIL, { baseUrl: BASE, viewport: PHONE });
+  if (!member) throw new Error('Could not mint the member session');
+  const MEMBER = member.session.user.id as string;
+
+  try {
+    const consoleErrors: string[] = [];
+    const page = await member.context.newPage();
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(`${page.url()}: ${message.text().slice(0, 200)}`);
+    });
+    page.on('pageerror', (error) => consoleErrors.push(`${page.url()}: ${String(error).slice(0, 200)}`));
+
+    const { data: runtimeDefinition } = await service
+      .from('unified_assessment_definitions')
+      .select('id')
+      .eq('key', 'haq')
+      .single();
+    const definitionId = runtimeDefinition!.id as string;
+
+    // scale-exempt: one test member's HAQ instances, one per completed sitting
+    const { data: instances } = await service
+      .from('unified_assessment_sessions')
+      .select('id, status, completed_at')
+      .eq('member_id', MEMBER)
+      .eq('assessment_definition_id', definitionId);
+    record('review: exactly one instance, completed', instances?.length === 1 && instances[0]!.status === 'completed', JSON.stringify(instances));
+    const sessionId = instances![0]!.id as string;
+
+    const { count: responses } = await service
+      .from('haq_question_responses')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', sessionId);
+    const { count: sectionResults } = await service
+      .from('haq_section_results')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', sessionId);
+    record('review: 260 responses and 21 section results are still stored', responses === 260 && sectionResults === 21, `${responses} / ${sectionResults}`);
+
+    // scale-exempt: one instance's marks, capped at HAQ_BODY_MAP_MARK_LIMIT (80) by the add route
+    const { data: marks } = await service
+      .from('haq_body_map_entries')
+      .select('body_location, body_side, issue_type')
+      .eq('session_id', sessionId)
+      .order('body_location');
+    record('review: her body map marks are still there, front and back', (marks ?? []).length > 0, JSON.stringify(marks));
+
+    await go(page, '/questionnaires');
+    await page.waitForSelector('h3', { timeout: 30_000 });
+    const card = await haqCard(page);
+    record('review: the card stands on the shelf, unlocked, under Completed', card.found && !card.locked && /completed/i.test(card.sectionLabel), card.found ? card.sectionLabel : '');
+
+    await go(page, '/health-appraisal');
+    const completion = await screenText(page);
+    record('review: her route shows the completion, and no result, colour or number', completion.includes(COMPLETION) && !/Doing Well|Needs Attention|High Attention/.test(completion));
+
+    const after = await readRoutes(page);
+    const changedRoutes = baseline.routes.filter((before) => {
+      const now = after.find((r) => r.route === before.route);
+      if (!now || now.finalPath !== before.finalPath) return true;
+      return before.finalPath !== '/dashboard' && now.heading !== before.heading;
+    });
+    record(`review: all ${baseline.routes.length} existing questionnaire routes open exactly as before`, changedRoutes.length === 0, changedRoutes.map((r) => r.route).join(', '));
+    record('review: no console or page errors', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '));
+  } finally {
+    await retireSession(member);
+  }
 }
 
 /**
@@ -809,6 +891,7 @@ async function main() {
   try {
     if (MODE === 'baseline') await runBaseline(browser);
     else if (MODE === 'finish') await runFinish(browser);
+    else if (MODE === 'review') await runReview(browser);
     else await runJourney(browser);
   } catch (error) {
     record('the run completed without throwing', false, String(error).slice(0, 400));

@@ -104,7 +104,8 @@ export function HaqExperience({
   initialScreenIndex: number;
 }) {
   if (status === 'pending') return <HaqIntro />;
-  if (status === 'completed') return <HaqCompletion />;
+  // A revisit, not the moment she finished: no celebration haptic. See HaqCompletion.
+  if (status === 'completed') return <HaqCompletion celebrate={false} />;
   return (
     <HaqWalk initialAnswers={initialAnswers} initialMarks={initialMarks} initialScreenIndex={initialScreenIndex} />
   );
@@ -138,13 +139,20 @@ function HaqIntro() {
   );
 }
 
-function HaqCompletion() {
+/**
+ * THE BUZZ BELONGS TO THE MOMENT SHE FINISHED, and to nothing else. Arriving
+ * here by tapping Complete is that moment. Opening a finished sitting again
+ * later is not, and a browser blocks a vibration on a page nobody has tapped
+ * yet and logs an error for it, which is a real console error on a screen
+ * that did nothing wrong.
+ */
+function HaqCompletion({ celebrate = true }: { celebrate?: boolean }) {
   useScreenTop('haq-complete');
   return (
     <CenterStage>
       <Card className="mef-animate-in text-center" data-testid="haq-completion">
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F5F0E4]">
-          <SuccessCheck size={56} color="#B89340" />
+          <SuccessCheck size={56} color="#B89340" haptic={celebrate} />
         </span>
         <p className={`${CVS_DISPLAY_FONT} mt-5 text-[28px] leading-snug text-[#1B3A2D]`}>{HAQ_COMPLETION_STATEMENT}</p>
         <p className="mt-3 text-[15px] leading-relaxed text-[#4F645A]">{HAQ_COMPLETION_COACH_LINE}</p>
