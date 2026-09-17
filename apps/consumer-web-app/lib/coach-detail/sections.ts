@@ -36,6 +36,7 @@ import { textMatchesSearch } from '../assignments/assignableCatalog';
 import { BODY_SYSTEMS_LABEL } from '../body-systems/constants';
 import { WBS_LABEL } from '../whole-body-signal/constants';
 import { BPC_LABEL } from '../breathing-check-in/constants';
+import { HAQ_LABEL } from '../haq/constants';
 import { HLI_LABEL } from '../health-intake/constants';
 import { FPA_LABEL } from '../fuel-pattern/constants';
 import {
@@ -131,6 +132,7 @@ export const DETAIL_SECTIONS: DetailSectionEntry[] = [
       { id: 'detail-card-readiness-pulse', title: 'Readiness Pulse' },
       { id: 'detail-card-fuel-pattern', title: FPA_LABEL },
       { id: 'findings-deep-dive-results', title: 'Deep-Dive Results' },
+      { id: 'detail-card-health-appraisal', title: HAQ_LABEL },
       { id: 'detail-card-stress-load', title: 'Stress and Load Deep-Dive' },
       { id: 'detail-card-body-systems', title: BODY_SYSTEMS_LABEL },
       { id: 'detail-card-whole-body-signal', title: WBS_LABEL },

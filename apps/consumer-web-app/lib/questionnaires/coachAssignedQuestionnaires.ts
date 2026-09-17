@@ -43,7 +43,7 @@ import {
 import { WBS_AREA, WBS_KEY, WBS_LABEL, WBS_ROUTE } from '@/lib/whole-body-signal/constants';
 import { HLI_AREA, HLI_KEY, HLI_LABEL, HLI_ROUTE } from '@/lib/health-intake/constants';
 import { BPC_AREA, BPC_KEY, BPC_LABEL, BPC_ROUTE } from '@/lib/breathing-check-in/constants';
-import { HAQ_AREA, HAQ_ESTIMATED_MINUTES, HAQ_KEY, HAQ_LABEL, HAQ_ROUTE } from '@/lib/haq/constants';
+import { HAQ_AREA, HAQ_ESTIMATED_MINUTES, HAQ_KEY, HAQ_LABEL, HAQ_RESULTS_ROUTE, HAQ_ROUTE } from '@/lib/haq/constants';
 
 /**
  * The coach assign only questionnaires, addressed by their own feature keys.
@@ -72,6 +72,15 @@ export type CoachAssignedQuestionnaire = {
   category: string;
   /** The one route. It opens the taker when a sitting is open and her results when one is finished, which is why there is no separate resume or results address. */
   route: string;
+  /**
+   * WHERE A FINISHED CARD GOES, when that is not the take route.
+   *
+   * Four of the five show the finished sitting at their own one address, so
+   * they leave this out. The Health Appraisal's reading is its own page, and
+   * a completed card opens it directly: there is no reason to land her on a
+   * completion screen she has already read and make her tap again.
+   */
+  completedRoute?: string;
   /**
    * WHETHER THE LIBRARY CARD CARRIES THE ASSIGNMENT ID. See
    * buildCoachAssignedCatalogCard: the original four each have their own Home
@@ -138,6 +147,7 @@ export const COACH_ASSIGNED_QUESTIONNAIRES: readonly CoachAssignedQuestionnaire[
     estimatedMinutes: HAQ_ESTIMATED_MINUTES,
     category: HAQ_AREA,
     route: HAQ_ROUTE,
+    completedRoute: HAQ_RESULTS_ROUTE,
     surfacesAssignment: true,
   },
 ];
@@ -255,17 +265,19 @@ export function buildCoachAssignedCatalogCard(
   }
 
   if (state.status === 'completed') {
+    // Four of the five show the finished sitting at their own one address,
+    // which is why View Results and Start are the same here. The Health
+    // Appraisal names its own results page, and a finished card opens that.
+    const finished = questionnaire.completedRoute ?? questionnaire.route;
     return {
       ...shared,
       assignmentId: null,
       section: 'completed',
       flags: openFlags(false),
       latestCompletedAt: state.session?.completedAt ?? null,
-      primaryHref: questionnaire.route,
+      primaryHref: finished,
       resumeHref: null,
-      // The one route shows her finished sitting once there is one, which
-      // is why View Results and Start are the same address here.
-      resultHref: questionnaire.route,
+      resultHref: finished,
       coachAssignmentReason: null,
     };
   }

@@ -1,8 +1,14 @@
 'use server';
 
 /**
- * The Health Appraisal's COACH side: the Assign action, and nothing else
- * yet. The coach's reading of a finished instance arrives with Prompt 3.
+ * The Health Appraisal's COACH side, ASSIGN ONLY.
+ *
+ * THE READING LIVES IN app/actions/haqCoachReading.ts, and the split is not
+ * tidiness. The coach's Assessment Status block is a client component and it
+ * imports the shared row-assign action, which imports this module: with the
+ * reading in here, the totals and the hidden values would be on a client
+ * component's import graph, which is exactly what
+ * tests/haq-member-safety.test.ts exists to refuse. It caught it.
  *
  * A SEPARATE FILE FROM app/actions/haq.ts on purpose, the reason
  * app/actions/breathingCheckInCoach.ts gives: the member's screen imports

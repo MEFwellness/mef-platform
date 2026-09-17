@@ -15,7 +15,7 @@
  * fails if this file ever reaches that one.
  */
 
-import type { HaqQuestion, HaqResponseOption, HaqResponseType, HaqSection } from './types';
+import type { HaqPart, HaqQuestion, HaqResponseOption, HaqResponseType, HaqSection } from './types';
 
 // The identity lives in ./constants.ts, which carries no question text, so
 // the coach's list and the member's shelf can name the HAQ without shipping
@@ -42,6 +42,43 @@ export const HAQ_RESPONSE_OPTIONS: Record<HaqResponseType, readonly HaqResponseO
     { value: 'yes', label: 'Yes' },
   ],
 };
+
+/**
+ * THE TEN PARTS, AND WHAT EACH ONE IS ABOUT.
+ *
+ * A Part had only a numeral until now, so a member read "Part III" over
+ * "Thyroid" and was never told what Part III was. These names say it, and
+ * they are the ones she reads: on every question screen, and at a Part
+ * boundary ("Gastrointestinal complete", "Next: Liver / Gallbladder").
+ *
+ * THE NUMERAL IS NOT A NAME. "Part III" stays only inside `label`, which no
+ * member screen prints any more. The only numbering she sees is "Part X of
+ * 10" over the thin line.
+ *
+ * Migration 264 seeds haq_parts from this list (lib/haq/sql.ts), the same
+ * one-authored-source rule the sections and questions already follow, and
+ * tests/haq-content.test.ts asserts the shipped migration still matches it
+ * character for character.
+ */
+export const HAQ_PARTS: readonly HaqPart[] = [
+  { id: 'haq_p1', label: 'Part I', name: 'Gastrointestinal', order: 1 },
+  { id: 'haq_p2', label: 'Part II', name: 'Liver / Gallbladder', order: 2 },
+  { id: 'haq_p3', label: 'Part III', name: 'Endocrine', order: 3 },
+  { id: 'haq_p4', label: 'Part IV', name: 'Glucose Regulation', order: 4 },
+  { id: 'haq_p5', label: 'Part V', name: 'Cardiovascular', order: 5 },
+  { id: 'haq_p6', label: 'Part VI', name: 'Mood', order: 6 },
+  { id: 'haq_p7', label: 'Part VII', name: 'Eyes, Ears, Nose, Throat & Lungs', order: 7 },
+  { id: 'haq_p8', label: 'Part VIII', name: 'Kidney & Bladder', order: 8 },
+  { id: 'haq_p9', label: 'Part IX', name: 'Musculoskeletal', order: 9 },
+  { id: 'haq_p10', label: 'Part X', name: 'CNS & Brain', order: 10 },
+];
+
+/** The Part a section belongs to. Throws for a section id the bank does not carry. */
+export function haqPartOf(partId: string): HaqPart {
+  const part = HAQ_PARTS.find((candidate) => candidate.id === partId);
+  if (!part) throw new Error(`Unknown HAQ part: ${partId}`);
+  return part;
+}
 
 export const HAQ_SECTIONS: readonly HaqSection[] = [
   { id: 'haq_p1_a', partId: 'haq_p1', partLabel: 'Part I', sectionLetter: 'A', title: 'Gastric Function', intro: null, order: 1 },

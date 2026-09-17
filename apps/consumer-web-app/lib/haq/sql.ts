@@ -3,7 +3,7 @@
  *
  * ONE AUTHORED SOURCE, TWO READERS. questionBank.ts holds the words and
  * scoringRules.ts holds the numbers. This module turns both into exactly
- * the VALUES blocks migration 262 ships,
+ * the VALUES blocks migrations 262 and 264 ship,
  * `scripts/print-haq-sql.mjs` prints them, and tests/haq-content.test.ts
  * regenerates them and asserts the shipped migration still contains each
  * one character for character.
@@ -11,7 +11,7 @@
  * Build time only. Nothing a member loads imports this file.
  */
 
-import { HAQ_QUESTIONS, HAQ_RESPONSE_OPTIONS, HAQ_SECTIONS } from './questionBank';
+import { HAQ_PARTS, HAQ_QUESTIONS, HAQ_RESPONSE_OPTIONS, HAQ_SECTIONS } from './questionBank';
 import { HAQ_HIDDEN_VALUES, HAQ_SECTION_CUTOFFS } from './scoringRules';
 import type { HaqResponseType } from './types';
 
@@ -26,6 +26,18 @@ function nullable(value: string | null): string {
 /** The option list a question row carries: values and labels, never a number. */
 export function buildHaqAnswerOptionsJson(responseType: HaqResponseType): string {
   return JSON.stringify(HAQ_RESPONSE_OPTIONS[responseType].map((option) => ({ value: option.value, label: option.label })));
+}
+
+/**
+ * (part_id, part_label, part_name, display_order), for migration 264.
+ *
+ * The Part names are the ones the member reads on a question screen and at a
+ * Part boundary. The numeral stays in part_label, where nothing prints it.
+ */
+export function buildHaqPartRowsSql(): string {
+  return HAQ_PARTS.map(
+    (p) => `    (${quote(p.id)}, ${quote(p.label)}, ${quote(p.name)}, ${p.order})`
+  ).join(',\n');
 }
 
 /** (section_id, part_id, part_label, section_letter, title, intro, display_order) */

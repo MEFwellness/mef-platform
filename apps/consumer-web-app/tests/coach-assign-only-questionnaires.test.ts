@@ -152,11 +152,26 @@ describe('the gating exception: no plan reaches these four, and assignment is th
       const card = buildCoachAssignedCatalogCard(q, FINISHED);
       expect(card.section).toBe('completed');
       expect(card.flags.locked).toBe(false);
-      expect(card.resultHref).toBe(q.route);
+      /*
+        FOUR OF THE FIVE SHOW THE FINISHED SITTING AT THEIR OWN ONE ADDRESS,
+        which is why Start and View Results are the same there. The Health
+        Appraisal's reading is its own page (Prompt 3), so its finished card
+        opens that instead of landing her on a completion screen she has
+        already read and making her tap again. Tapping the card and tapping
+        View Results still go to the same one place, whichever it is.
+      */
+      const finished = q.completedRoute ?? q.route;
+      expect(card.resultHref, q.key).toBe(finished);
+      expect(card.primaryHref, q.key).toBe(finished);
       expect(card.latestCompletedAt).toBe('2026-09-10T14:00:00.000Z');
       // A second sitting is the coach's call. The card never offers one.
       expect(card.flags.retakeAvailable).toBe(false);
     }
+
+    // And only the Health Appraisal names a separate finished address.
+    expect(
+      COACH_ASSIGNED_QUESTIONNAIRES.filter((q) => q.completedRoute !== undefined).map((q) => q.key)
+    ).toEqual(['haq']);
   });
 
   /**

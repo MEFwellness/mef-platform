@@ -36,7 +36,32 @@ const MEMBER_SAFE_MODULES = [
   'lib/haq/service.ts',
   'lib/haq/view.ts',
   'lib/haq/walk.ts',
+  // Prompt 3: her results page. Colours and labels, and no number at all.
+  'lib/haq/results.ts',
 ];
+
+/**
+ * PROMPT 3'S COACH SIDE. These carry the raw totals and the hidden values,
+ * so they are held to exactly the rule the numbers modules are: no member
+ * file may reach them, and no client component may either.
+ */
+const COACH_MODULES = ['lib/haq/coachData.ts', 'lib/haq/coachView.ts'];
+
+/**
+ * THE ONLY FILES OUTSIDE app/coach AND app/admin THAT MAY REACH THEM, named
+ * one at a time rather than matched by a pattern, so adding a third is a
+ * decision somebody made on purpose.
+ *
+ * app/actions/haqCoach.ts is NOT on this list, and that is the point: the
+ * coach's Assessment Status block is a client component and imports the
+ * shared row-assign action, which imports it. When the reading lived there
+ * too, the hidden values were on a client component's import graph. This
+ * guard is what found it, and app/actions/haqCoachReading.ts is the fix.
+ */
+const COACH_ACTION_FILES = ['app/actions/haqCoachReading.ts'];
+
+const isCoachSurface = (file: string): boolean =>
+  file.startsWith('app/coach/') || file.startsWith('app/admin/') || COACH_ACTION_FILES.includes(file);
 
 /** Every import and re-export specifier in a file, matched per statement. */
 function importedPaths(file: string): string[] {
@@ -106,7 +131,7 @@ function isClientComponent(file: string): boolean {
 
 describe('the HAQ numbers modules are unreachable from anything a member loads (permanent)', () => {
   it('the numbers modules exist, so this guard is not vacuous', () => {
-    for (const file of [...NUMBERS_MODULES, ...MEMBER_SAFE_MODULES]) {
+    for (const file of [...NUMBERS_MODULES, ...MEMBER_SAFE_MODULES, ...COACH_MODULES]) {
       expect(fs.existsSync(path.join(ROOT, file)), file).toBe(true);
     }
     expect(APP_FILES.filter(isClientComponent).length).toBeGreaterThan(50);
@@ -140,6 +165,43 @@ describe('the HAQ numbers modules are unreachable from anything a member loads (
     expect(reachableFrom('lib/haq/scoring.ts').has('lib/haq/scoringRules.ts')).toBe(true);
   });
 
+  it('no client component reaches a coach module, so no total or hidden value is ever shipped to a browser', () => {
+    const leaks = APP_FILES.filter(isClientComponent).filter((file) => {
+      const reachable = reachableFrom(file);
+      return COACH_MODULES.some((m) => reachable.has(m));
+    });
+    expect(leaks).toEqual([]);
+  });
+
+  it('no file outside the named coach surfaces reaches a coach module', () => {
+    const leaks = APP_FILES.filter((file) => file.startsWith('app/') && !isCoachSurface(file)).filter((file) => {
+      const reachable = reachableFrom(file);
+      return COACH_MODULES.some((m) => reachable.has(m));
+    });
+    expect(leaks).toEqual([]);
+  });
+
+  it("the Assign action cannot reach a coach module, because a coach's client component imports it", () => {
+    const reachable = reachableFrom('app/actions/haqCoach.ts');
+    expect(COACH_MODULES.filter((m) => reachable.has(m))).toEqual([]);
+    // And the path that made this necessary really does exist.
+    expect(reachableFrom('app/coach/clients/[id]/detail/AssessmentStatusBlock.tsx')).toContain(
+      'app/actions/haqCoach.ts'
+    );
+  });
+
+  it('the coach modules really are reached from the coach surfaces, so the guards above are not vacuous', () => {
+    const reached = new Set<string>();
+    for (const entry of [
+      'app/actions/haqCoachReading.ts',
+      'app/coach/clients/[id]/health-appraisal/[sessionId]/page.tsx',
+      'app/coach/clients/[id]/detail/page.tsx',
+    ]) {
+      for (const file of reachableFrom(entry)) reached.add(file);
+    }
+    expect(COACH_MODULES.filter((m) => !reached.has(m))).toEqual([]);
+  });
+
   it('the member-safe modules hold no hidden value or cutoff', () => {
     for (const file of MEMBER_SAFE_MODULES) {
       const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -164,10 +226,15 @@ describe('Prompt 2: the member experience reaches the HAQ, and only through memb
     }
   });
 
+  it('her results page reaches lib/haq, so the member-safe guards above cover it', () => {
+    expect(fs.existsSync(path.join(ROOT, 'app/health-appraisal/results/page.tsx'))).toBe(true);
+    const reachable = [...reachableFrom('app/health-appraisal/results/page.tsx')];
+    expect(reachable).toContain('lib/haq/results.ts');
+    expect(reachable.filter((file) => NUMBERS_MODULES.includes(file) || COACH_MODULES.includes(file))).toEqual([]);
+  });
+
   it('every lib/haq module a member file reaches is one of the member-safe modules', () => {
-    const memberFiles = APP_FILES.filter(
-      (file) => !file.startsWith('app/coach/') && !file.startsWith('app/admin/') && !file.endsWith('haqCoach.ts')
-    );
+    const memberFiles = APP_FILES.filter((file) => !isCoachSurface(file) && !file.endsWith('haqCoach.ts'));
     const reached = new Set<string>();
     for (const file of memberFiles) {
       for (const reachedFile of reachableFrom(file)) if (reachedFile.startsWith('lib/haq/')) reached.add(reachedFile);

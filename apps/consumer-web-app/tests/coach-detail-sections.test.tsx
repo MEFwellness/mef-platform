@@ -134,6 +134,7 @@ describe('nothing fell out, and everything landed inside a section', () => {
     'ReadinessPulsePanel',
     'PersonalResetPlanPanel',
     'WeeklyReflectionPanel',
+    'HaqPanel',
     'StressLoadPanel',
     'OwningYourValuePanel',
     'WhereYourJoyLivesPanel',

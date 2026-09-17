@@ -1,3 +1,152 @@
+## Rooted Reset Health Appraisal Questionnaire, Prompt 3 of 3: her results, the coach's reading, retakes and history (2026-09-17)
+
+The HAQ is finished. She can now read what her sitting showed, her coach can
+read why it showed it, and a retake adds a sitting without touching the one
+before it. **No question wording, id, response value, cutoff or scoring rule
+from Prompts 1 and 2 changed.** The correlation engine, every signals and AI
+system and every other questionnaire are untouched.
+
+Files: `lib/haq/` gained `results.ts` (member safe), `coachData.ts` and
+`coachView.ts` (coach only); `app/health-appraisal/results/`,
+`app/actions/haqCoachReading.ts`,
+`app/coach/clients/[id]/HaqPanel.tsx`,
+`app/coach/clients/[id]/health-appraisal/[sessionId]/`,
+`components/haq/HaqResults.tsx`, `components/haq/HaqBodyFigure.tsx`;
+`supabase/migrations/00000000000264_rooted_reset_haq_part_names.sql`;
+tests `haq-member-results`, `haq-coach-view`, `haq-coach-integration`.
+
+### THE PARTS HAVE NAMES NOW, AND THE NUMERAL HAS LEFT THE HEADER
+
+Migration 264 adds `haq_parts`: the ten Parts, each with its printed numeral
+(`part_label`, "Part III") and what it is actually about (`part_name`,
+"Endocrine"). Readable by any signed in user, like `haq_sections` and
+`haq_questions`, because a Part name is content and not a score. Generated
+from one authored source (`lib/haq/questionBank.ts` through `lib/haq/sql.ts`)
+and asserted character for character by `haq-content.test.ts`, the same rule
+the sections and questions already followed. `haq_sections.part_id` is a real
+foreign key from here on, and the migration refuses to finish if any section
+has no Part or any Part has no section.
+
+A question screen now reads **"Endocrine" over "Thyroid"**. The roman numeral
+is gone from the header entirely: **"Part X of 10" over the gold line is the
+whole of the numbering**. Parts II, VII and VIII hold a single section, so
+they are named **once**, with no line above the title, rather than printing
+the same subject twice.
+
+The beat between screens names the Part at a Part boundary and the sections
+inside one: "Gastrointestinal complete" then "Next: Liver / Gallbladder"
+leaving Part I, and "Gastric Function complete" then "Next: GI Inflammation"
+inside it. All of it from stored data.
+
+### WHAT SHE READS
+
+`/health-appraisal/results`, opened by a new "See your results" button on the
+completion screen and by her finished card on the shelf from then on.
+
+- **HEALTH APPRAISAL RESULTS**, the approved intro line, then High Attention,
+  Needs Attention and Doing Well with how many areas stand in each. The three
+  always sum to 21.
+- **One premium card per section, Red first, then Yellow, then Green**, each
+  with the section's own stored name, its colour, its member label and the
+  approved explanation for that colour, quoted exactly.
+- **No raw score, no number, no percentage, no overall grade and no combined
+  result.** There is no such thing in this instrument and no column that could
+  hold one.
+- **Symptoms, never conditions.** Every sentence says what an AREA is showing
+  from what she reported.
+
+**THE COUNTS ARE COUNTED ON THE WAY TO THE SCREEN, AND THAT IS THE POINT.**
+"13 areas" is a number she must be able to read, so the surest proof that no
+HIDDEN number travels beside it is for the page's props to carry no number at
+all. The view is cards; `haqResultCounts` counts them. The test asserts the
+payload is empty of numbers outright, and it was proved to fail when a raw
+total was planted in it.
+
+One deliberate departure from the brief's literal wording, flagged rather
+than worked around: the summary writes **"1 area"**, not "1 areas", when a
+state holds one. The three approved explanations, the title and the intro are
+quoted word for word and are covered by a second copy in the test.
+
+### TREND, AND ONLY WHEN THERE IS SOMETHING TO COMPARE WITH
+
+A second sitting gives every card a chip, Quieter, Unchanged or Louder,
+comparing this sitting's colour with the same section's colour last time, and
+one line at the top: "Compared with your previous Health Appraisal, based on
+what you reported." A first sitting has neither. Quieter is not "better" and
+Louder is not "worse": the test refuses the words improve, worsen, decline,
+recover and relapse anywhere on the page.
+
+### WHAT THE COACH READS
+
+On the client Detail page, inside Assessments and Findings under Deep-Dive
+Results: **every finished sitting by its completion date, newest first, none
+ever overwritten or hidden**, with how its 21 areas read. It carries **no
+Assign of its own**, because the Health Appraisal already has a row in the
+Assessment Status block at the top of the same section: a second button would
+be a second offer for one thing.
+
+Opening a sitting (`/coach/clients/[id]/health-appraisal/[sessionId]`) shows
+all 21 sections **Red, then Yellow, then Green**, each with its section name,
+its Part name, its raw total, its colour, the member label and the
+instrument's own priority (Low, Moderate, High). Each expands to **every
+question, the response she chose and its hidden value, highest value first**,
+so the answers that made a section Red are the first thing he reads. **He
+never calculates anything**: the integration test asserts each section's
+answers sum to the total the database stored. The body map renders front and
+back with her marks and their categories, in its own block, said to be not
+scored, because no mark ever reaches a total. Completion date and `haq_v1`
+are on the sitting.
+
+With an earlier sitting, every section shows its previous colour and raw
+total beside the current ones with the same three trend words.
+
+### THE GUARD FOUND A REAL LEAK, AND IT IS WHY THERE ARE THREE ACTION FILES
+
+The coach's reading went into `app/actions/haqCoach.ts` first.
+`tests/haq-member-safety.test.ts` failed: the coach's Assessment Status block
+is a **client component** and imports the shared row-assign action, which
+imports that module, so the raw totals and every hidden value were on a client
+component's import graph. `app/actions/haqCoachReading.ts` is the fix, and the
+guard now names the only files outside `app/coach` and `app/admin` that may
+reach a coach module, one at a time, so a third is a decision somebody made.
+The production build's browser chunks contain no total, hidden value or
+cutoff.
+
+### TESTS
+
+`haq-member-results` 15 (ordering, counts summing to 21, the approved title,
+intro and all three explanations as a second copy, no number in the payload,
+no diagnosis language, all three trend states, no chip and no comparison line
+on a first sitting, no em dash). `haq-coach-view` 13 (section and answer
+ordering, the priority mapping, the comparison, the body map never reaching a
+total, the history list). `haq-coach-integration` 14, against the real
+database through the real actions under real RLS: **every raw total, colour,
+label, priority and hidden value equal to the stored row**, answers summing to
+their own section's total, drivers first, the body map, an unassigned coach
+reading nothing, **a member session reading zero rows from every table holding
+a number** including her own finished sitting named directly, her results page
+built from the real database, and **a full retake with the first sitting byte
+for byte identical afterwards** (session row, 260 responses, 21 results, both
+marks and every runtime answer), proved non-vacuous by asserting the same
+fingerprint tells the two sittings apart.
+
+Two ordering guards were proved to fail without their fix by breaking the
+sort and by planting a raw total in the member payload, then restored.
+
+**657 files, 13,354 tests, all passing.** Typecheck clean, lint 0 errors,
+production build clean. Migration 264 applied to production with
+`supabase db push`; a dry run afterwards reported the remote database up to
+date.
+
+Three existing suites were updated rather than worked around, each because the
+product changed under them: the member experience header and beat assertions,
+the coach detail section index (`HaqPanel` and `detail-card-health-appraisal`),
+and the shelf card test, which now says that four of the five coach assigned
+questionnaires show a finished sitting at their own one address and only the
+Health Appraisal names a separate results page.
+
+---
+
 ## Rooted Reset Health Appraisal Questionnaire, Prompt 2 of 3: the member experience, the body map, and who it opens for (2026-09-17)
 
 Prompt 1's backend is now something a member walks. The HAQ is registered,

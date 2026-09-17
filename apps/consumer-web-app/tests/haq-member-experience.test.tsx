@@ -49,10 +49,11 @@ const {
   buildHaqScreens,
   haqBodyMapIndex,
   haqProgressPercent,
+  haqScreenHeading,
   resumeHaqScreenIndex,
   sanitizeHaqAnswers,
 } = await import('../lib/haq/walk');
-const { HAQ_QUESTIONS, HAQ_SECTIONS, HAQ_RESPONSE_OPTIONS } = await import('../lib/haq/questionBank');
+const { HAQ_PARTS, HAQ_QUESTIONS, HAQ_SECTIONS, HAQ_RESPONSE_OPTIONS } = await import('../lib/haq/questionBank');
 const copy = await import('../lib/haq/copy');
 const { haqBodyRegions, findHaqBodyRegion, HAQ_BODY_ISSUE_TYPES } = await import('../lib/haq/bodyMap');
 const { SECTION_TRANSITION_MS } = await import('../components/questionnaire/SectionTransition');
@@ -312,12 +313,25 @@ describe('the Part and Section header and "Part X of 10" on sampled screens acro
       const screen = screens[screenIndex]!;
       mount({ status: 'in_progress', answers: answersThrough(screenIndex), screenIndex });
 
-      const partHeading = container.querySelector('[data-testid="haq-part-heading"]')!.textContent;
-      const expectedPart = `Part ${ROMAN[partNumber - 1]}`;
-      expect(partHeading).toBe(
-        screen.section.sectionLetter ? `${expectedPart}, Section ${screen.section.sectionLetter}` : expectedPart
-      );
-      expect(container.querySelector('[data-testid="haq-section-title"]')!.textContent).toBe(sectionTitle);
+      const eyebrow = container.querySelector('[data-testid="haq-part-heading"]');
+      const title = container.querySelector('[data-testid="haq-section-title"]')!.textContent;
+      const partName = HAQ_PARTS[partNumber - 1]!.name;
+
+      if (screen.section.sectionLetter) {
+        // A Part with more than one section: the Part by name, then the Section.
+        expect(eyebrow?.textContent).toBe(partName);
+        expect(title).toBe(sectionTitle);
+      } else {
+        // Parts II, VII and VIII hold one section, so the Part is named once.
+        expect(eyebrow).toBeNull();
+        expect(title).toBe(partName);
+      }
+
+      // THE ROMAN NUMERAL HAS LEFT THE HEADER. "Part X of 10" over the thin
+      // line is the whole of the numbering now.
+      const header = container.querySelector('[data-testid="haq-screen-header"]')!.textContent ?? '';
+      expect(header).not.toMatch(/\bPart\s+(I|II|III|IV|V|VI|VII|VIII|IX|X)\b/);
+      expect(header).not.toMatch(/Section [A-D]/);
       expect(text()).toContain(`Part ${partNumber} of 10`);
 
       // Never a question count, never a remaining count.
@@ -462,15 +476,18 @@ describe('the section beat names the real sections', () => {
     const lastColon = screens.filter((s) => s.section.id === 'haq_p1_d').pop()!;
     mount({ status: 'in_progress', answers: answersThrough(lastColon.index + 1), screenIndex: lastColon.index });
     await click(buttonByText('Continue'));
-    expect(container.textContent).toContain('Colon complete');
-    expect(container.textContent).toContain('Next: Liver / Gallbladder (Hepatobiliary Function)');
+    // A PART BOUNDARY IS NAMED BY ITS PART, not by its last section: what she
+    // just finished is the whole of Gastrointestinal, and Colon was part of it.
+    expect(container.textContent).toContain('Gastrointestinal complete');
+    expect(container.textContent).toContain('Next: Liver / Gallbladder');
+    expect(container.textContent).not.toContain('Colon complete');
 
     act(() => root.unmount());
     root = createRoot(container);
     const last = screens[screens.length - 1]!;
     mount({ status: 'in_progress', answers: answersThrough(screens.length), screenIndex: last.index });
     await click(buttonByText('Continue'));
-    expect(container.textContent).toContain('Cognition complete');
+    expect(container.textContent).toContain('CNS & Brain complete');
     expect(container.textContent).toContain('Next: Body map');
   });
 
@@ -696,6 +713,7 @@ describe('no em dash in anything the member reads', () => {
       ...(Object.values(copy) as unknown[]).filter((value): value is string => typeof value === 'string'),
       ...copy.HAQ_ANSWER_DEFINITIONS.flatMap((d) => [d.term, d.meaning]),
       ...HAQ_SECTIONS.flatMap((s) => [s.title, s.intro ?? '', s.partLabel]),
+      ...HAQ_PARTS.flatMap((p) => [p.name, p.label]),
       ...HAQ_QUESTIONS.map((q) => q.prompt),
       ...Object.values(HAQ_RESPONSE_OPTIONS).flatMap((options) => options.map((o) => o.label)),
       ...(['front', 'back'] as const).flatMap((view) => haqBodyRegions(view).map((r) => r.label)),

@@ -19,13 +19,15 @@
 
 import { chunkIntoGroups } from '@/lib/questionnaire/groups';
 import { HAQ_PART_COUNT } from './constants';
-import { HAQ_QUESTIONS, HAQ_RESPONSE_OPTIONS, HAQ_SECTIONS } from './questionBank';
-import type { HaqQuestion, HaqResponse, HaqSection } from './types';
+import { HAQ_QUESTIONS, HAQ_RESPONSE_OPTIONS, HAQ_SECTIONS, haqPartOf } from './questionBank';
+import type { HaqPart, HaqQuestion, HaqResponse, HaqSection } from './types';
 
 export type HaqScreen = {
   /** Position in the walk, from zero. The body map is the index after the last screen. */
   index: number;
   section: HaqSection;
+  /** The Part this screen's section sits in, by name as well as by numeral. */
+  part: HaqPart;
   /** 1 to 10, read from the part id, which is what "Part X of 10" prints. */
   partNumber: number;
   questions: HaqQuestion[];
@@ -44,10 +46,12 @@ export function buildHaqScreens(): HaqScreen[] {
   const screens: HaqScreen[] = [];
   for (const section of HAQ_SECTIONS) {
     const questions = HAQ_QUESTIONS.filter((question) => question.sectionId === section.id);
+    const part = haqPartOf(section.partId);
     for (const group of chunkIntoGroups(questions)) {
       screens.push({
         index: screens.length,
         section,
+        part,
         partNumber: haqPartNumber(section.partId),
         questions: group,
       });
@@ -115,9 +119,23 @@ export function haqProgressLabel(partNumber: number): string {
   return `Part ${partNumber} of ${HAQ_PART_COUNT}`;
 }
 
-/** The small line above the section name: the printed Part, and the Section letter where the Part has more than one. */
-export function haqPartHeading(section: HaqSection): string {
-  return section.sectionLetter ? `${section.partLabel}, Section ${section.sectionLetter}` : section.partLabel;
+/**
+ * WHAT THE TOP OF A QUESTION SCREEN SAYS: the Part by name, and the Section
+ * by name.
+ *
+ * NO ROMAN NUMERAL. "Part III, Section A" told her a coordinate and not a
+ * subject. She now reads "Endocrine" over "Thyroid". The only numbering left
+ * on the screen is "Part X of 10" over the thin line.
+ *
+ * A PART THAT IS ONE SECTION IS NAMED ONCE. Parts II, VII and VIII hold a
+ * single section, so printing the Part above the Section would print the
+ * same subject twice: they carry the Part name alone, with no line above it.
+ */
+export type HaqScreenHeading = { eyebrow: string | null; title: string };
+
+export function haqScreenHeading(screen: HaqScreen): HaqScreenHeading {
+  if (!screen.section.sectionLetter) return { eyebrow: null, title: screen.part.name };
+  return { eyebrow: screen.part.name, title: screen.section.title };
 }
 
 /** True when moving from one screen to the next crosses into a different section. */
@@ -126,4 +144,32 @@ export function crossesHaqSection(screens: readonly HaqScreen[], from: number, t
   if (!current) return false;
   const next = screens[to];
   return !next || next.section.id !== current.section.id;
+}
+
+/**
+ * The two names the beat between two screens uses, or null when the move
+ * stays inside one section and there is no beat.
+ *
+ * A PART BOUNDARY IS NAMED BY ITS PART. Leaving Part I says
+ * "Gastrointestinal complete" and "Next: Liver / Gallbladder", because what
+ * she just finished is the Part, not only its last section. A move inside a
+ * Part is named by its sections: "Gastric Function complete", "Next: GI
+ * Inflammation".
+ *
+ * `next` is null when nothing follows, which is the body map. The caller
+ * names it, because this module holds no copy.
+ */
+export type HaqBeatNames = { completed: string; next: string | null };
+
+export function haqBeatNames(screens: readonly HaqScreen[], from: number, to: number): HaqBeatNames | null {
+  const current = screens[from];
+  if (!current) return null;
+  const next = screens[to];
+  if (next && next.section.id === current.section.id) return null;
+
+  const leavingPart = !next || next.part.id !== current.part.id;
+  return {
+    completed: leavingPart ? current.part.name : current.section.title,
+    next: next ? (leavingPart ? next.part.name : next.section.title) : null,
+  };
 }

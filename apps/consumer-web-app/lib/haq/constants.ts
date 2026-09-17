@@ -34,6 +34,17 @@ export const HAQ_SHORT_LABEL = 'Health Appraisal';
 /** The one route. Intro, questions, body map and completion all live here, as they do for the other coach assigned questionnaires. */
 export const HAQ_ROUTE = '/health-appraisal';
 
+/**
+ * Where she reads what her answers showed, once she has finished a sitting.
+ *
+ * A CHILD OF THE TAKE ROUTE, NOT A SECOND ADDRESS FOR IT. The take route
+ * still shows the completion when a sitting is finished; this is the page
+ * the completion's own button opens, and the page her finished card on the
+ * shelf opens from then on. Colours and labels only: the numbers behind
+ * them have no member policy at all (migration 262).
+ */
+export const HAQ_RESULTS_ROUTE = '/health-appraisal/results';
+
 /** The area a coach can type to find it in the assignable list. */
 export const HAQ_AREA = 'Whole body';
 

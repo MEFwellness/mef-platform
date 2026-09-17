@@ -14,16 +14,19 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   HAQ_KEY,
+  HAQ_PARTS,
   HAQ_QUESTION_COUNT,
   HAQ_QUESTIONS,
   HAQ_RESPONSE_OPTIONS,
   HAQ_SECTION_COUNT,
   HAQ_SECTIONS,
   HAQ_VERSION,
+  haqPartOf,
 } from '../lib/haq/questionBank';
 import {
   buildHaqAnswerOptionsJson,
   buildHaqCutoffRowsSql,
+  buildHaqPartRowsSql,
   buildHaqQuestionRowsSql,
   buildHaqResponseScaleRowsSql,
   buildHaqSectionRowsSql,
@@ -35,6 +38,31 @@ const MIGRATION = path.resolve(
   '../../../supabase/migrations/00000000000262_rooted_reset_haq_foundation.sql'
 );
 const migrationSql = fs.readFileSync(MIGRATION, 'utf8');
+
+const PARTS_MIGRATION = path.resolve(
+  __dirname,
+  '../../../supabase/migrations/00000000000264_rooted_reset_haq_part_names.sql'
+);
+const partsMigrationSql = fs.readFileSync(PARTS_MIGRATION, 'utf8');
+
+/**
+ * A SECOND, INDEPENDENT COPY OF THE TEN PART NAMES, taken from the build
+ * prompt rather than from the bank, so a name typed wrongly in the bank (and
+ * therefore in the generated migration too) fails here instead of agreeing
+ * with itself.
+ */
+const SPEC_PART_NAMES: ReadonlyArray<readonly [string, string, string]> = [
+  ['haq_p1', 'Part I', 'Gastrointestinal'],
+  ['haq_p2', 'Part II', 'Liver / Gallbladder'],
+  ['haq_p3', 'Part III', 'Endocrine'],
+  ['haq_p4', 'Part IV', 'Glucose Regulation'],
+  ['haq_p5', 'Part V', 'Cardiovascular'],
+  ['haq_p6', 'Part VI', 'Mood'],
+  ['haq_p7', 'Part VII', 'Eyes, Ears, Nose, Throat & Lungs'],
+  ['haq_p8', 'Part VIII', 'Kidney & Bladder'],
+  ['haq_p9', 'Part IX', 'Musculoskeletal'],
+  ['haq_p10', 'Part X', 'CNS & Brain'],
+];
 
 describe('HAQ seed integrity', () => {
   it('is exactly 260 questions in exactly 21 sections', () => {
@@ -107,6 +135,28 @@ describe('HAQ seed integrity', () => {
     expect(migrationSql).not.toMatch(dashes);
   });
 
+  it('names the ten Parts exactly as the prompt does, in order, and gives every section one of them', () => {
+    expect(HAQ_PARTS.map((part) => [part.id, part.label, part.name])).toEqual(
+      SPEC_PART_NAMES.map((row) => [...row])
+    );
+    expect(HAQ_PARTS.map((part) => part.order)).toEqual(Array.from({ length: 10 }, (_, i) => i + 1));
+    for (const section of HAQ_SECTIONS) {
+      const part = haqPartOf(section.partId);
+      // The section's own printed heading and its Part's are one thing, not two.
+      expect(part.label, section.id).toBe(section.partLabel);
+    }
+    // Parts II, VII and VIII are the single-section Parts, which is what the
+    // question screen names once rather than twice.
+    const single = HAQ_SECTIONS.filter((section) => section.sectionLetter === null).map((s) => s.partId);
+    expect(single).toEqual(['haq_p2', 'haq_p7', 'haq_p8']);
+  });
+
+  it('has no em dash or en dash in a Part name, nor in migration 264', () => {
+    const dashes = /[\u2013\u2014]/;
+    for (const part of HAQ_PARTS) expect(part.name, part.id).not.toMatch(dashes);
+    expect(partsMigrationSql).not.toMatch(dashes);
+  });
+
   it('names the version haq_v1 under the key haq', () => {
     expect(HAQ_KEY).toBe('haq');
     expect(HAQ_VERSION).toBe('haq_v1');
@@ -133,6 +183,24 @@ describe('the HAQ content and migration 262 agree', () => {
   it('ships exactly the answer options the bank offers', () => {
     expect(migrationSql).toContain(`'${buildHaqAnswerOptionsJson('frequency')}'::jsonb`);
     expect(migrationSql).toContain(`'${buildHaqAnswerOptionsJson('yes_no')}'::jsonb`);
+  });
+
+  it('migration 264 ships exactly the Part rows the authored bank produces, and touches no scored content', () => {
+    expect(partsMigrationSql).toContain(buildHaqPartRowsSql());
+    const statements = partsMigrationSql.replace(/--.*$/gm, '');
+    // Nothing of the instrument moves: no question, no cutoff, no value, no result.
+    for (const table of [
+      'unified_assessment_questions',
+      'haq_questions',
+      'haq_section_cutoffs',
+      'haq_response_scale',
+      'haq_question_responses',
+      'haq_section_results',
+    ]) {
+      expect(statements, table).not.toMatch(new RegExp(`(insert into|update|delete from)\\s+${table}`, 'i'));
+    }
+    // haq_sections gains a foreign key and nothing else.
+    expect(statements).not.toMatch(/update\s+haq_sections/i);
   });
 
   it('does not touch the Health Check-In or the Body Systems Survey, and adds no catalog row', () => {

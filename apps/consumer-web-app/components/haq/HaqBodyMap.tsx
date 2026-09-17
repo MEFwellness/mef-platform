@@ -36,7 +36,6 @@ import {
   type HaqBodyIssueType,
   type HaqBodyMark,
   type HaqBodyRegion,
-  type HaqBodyShape,
   type HaqBodySide,
 } from '@/lib/haq/bodyMap';
 import {
@@ -54,23 +53,9 @@ import {
   HAQ_BODY_MAP_SIDES_HINT,
   HAQ_BODY_MAP_TITLE,
 } from '@/lib/haq/copy';
-
-function Shape({ shape, className }: { shape: HaqBodyShape; className: string }) {
-  if (shape.kind === 'ellipse') {
-    return <ellipse cx={shape.cx} cy={shape.cy} rx={shape.rx} ry={shape.ry} className={className} />;
-  }
-  return (
-    <rect
-      x={shape.x}
-      y={shape.y}
-      width={shape.width}
-      height={shape.height}
-      rx={shape.radius}
-      ry={shape.radius}
-      className={className}
-    />
-  );
-}
+// ONE FIGURE FOR BOTH READERS: her map and her coach's reading of it draw the
+// same shapes, so a mark is in the same place on both screens.
+import { HaqBodyShapeMark } from './HaqBodyFigure';
 
 export function HaqBodyMap({
   marks,
@@ -171,7 +156,7 @@ export function HaqBodyMap({
                   onKeyDown={(event) => onRegionKey(event, region)}
                   className="mef-focus-ring cursor-pointer outline-none"
                 >
-                  <Shape
+                  <HaqBodyShapeMark
                     shape={region.shape}
                     className={
                       marked

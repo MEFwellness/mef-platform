@@ -58,7 +58,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
 import { listMemberFacingAssessments } from '../lib/assessment-registry/registry';
-import { buildHaqScreens, haqPartHeading, type HaqScreen } from '../lib/haq/walk';
+import { buildHaqScreens, haqScreenHeading, type HaqScreen } from '../lib/haq/walk';
 import { HAQ_DEFINITION_ID, HAQ_LABEL } from '../lib/haq/constants';
 import { HAQ_RESPONSE_OPTIONS } from '../lib/haq/questionBank';
 import type { HaqQuestion, HaqResponse } from '../lib/haq/types';
@@ -219,7 +219,9 @@ function labelFor(question: HaqQuestion, value: HaqResponse): string {
 
 async function header(page: Page) {
   return page.evaluate(() => ({
-    part: document.querySelector('[data-testid="haq-part-heading"]')?.textContent?.trim() ?? '',
+    // Null when the screen carries no line above the title, which is what a
+    // Part holding one section looks like: it is named once, never twice.
+    part: document.querySelector('[data-testid="haq-part-heading"]')?.textContent?.trim() ?? null,
     section: document.querySelector('[data-testid="haq-section-title"]')?.textContent?.trim() ?? '',
     progress: document.querySelector('[role="progressbar"]')?.parentElement?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
     prompts: Array.from(document.querySelectorAll('ol > li h2')).map((h) => h.textContent?.trim() ?? ''),
@@ -783,10 +785,13 @@ async function runJourney(browser: Browser) {
       const screen = screens[index]!;
       await waitForScreen(page, screen);
       const seen = await header(page);
-      const expectedPart = haqPartHeading(screen.section);
+      const expected = haqScreenHeading(screen);
       if (
-        seen.part !== expectedPart ||
-        seen.section !== screen.section.title ||
+        seen.part !== expected.eyebrow ||
+        seen.section !== expected.title ||
+        // The Part name is a name, never a numeral: "Part X of 10" over the
+        // thin line is the whole of the numbering.
+        /\bPart\s+(I|II|III|IV|V|VI|VII|VIII|IX|X)\b/.test(`${seen.part ?? ''} ${seen.section}`) ||
         !seen.progress.includes(`Part ${screen.partNumber} of 10`) ||
         /Question|of 260|remaining/.test(seen.progress) ||
         JSON.stringify(seen.prompts) !== JSON.stringify(screen.questions.map((q) => q.prompt)) ||
@@ -817,9 +822,9 @@ async function runJourney(browser: Browser) {
           await waitForScreen(page, screen);
           const back = await header(page);
           record(
-            '3: resume lands on the exact screen: Part III, the same Section, the same questions',
-            back.part === expectedPart &&
-              back.section === screen.section.title &&
+            '3: resume lands on the exact screen: the same Part name, the same Section, the same questions',
+            back.part === expected.eyebrow &&
+              back.section === expected.title &&
               back.progress.includes('Part 3 of 10') &&
               JSON.stringify(back.prompts) === JSON.stringify(screen.questions.map((q) => q.prompt)),
             JSON.stringify(back).slice(0, 200)

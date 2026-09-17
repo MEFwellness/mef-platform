@@ -171,9 +171,11 @@ import { getClientStressLoadPanelAction } from '@/app/actions/stressLoad';
 import { BodySystemsPanel } from '../BodySystemsPanel';
 import { WholeBodySignalPanel } from '../WholeBodySignalPanel';
 import { BreathingCheckInPanel } from '../BreathingCheckInPanel';
+import { HaqPanel } from '../HaqPanel';
 import { getClientBodySystemsPanelAction } from '@/app/actions/bodySystems';
 import { getClientWholeBodySignalPanelAction } from '@/app/actions/wholeBodySignal';
 import { getClientBreathingCheckInPanelAction } from '@/app/actions/breathingCheckInCoach';
+import { getClientHaqPanelAction } from '@/app/actions/haqCoachReading';
 import { getClientHealthIntakePanelAction } from '@/app/actions/healthIntake';
 import { getClientSignalsPanelAction } from '@/app/actions/crossSystemSignals';
 import { CrossSystemSignalsPanel } from '../CrossSystemSignalsPanel';
@@ -321,6 +323,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     bodySystemsPanel,
     wholeBodySignalPanel,
     breathingCheckInPanel,
+    haqPanel,
     healthIntakePanel,
     crossSystemSignalsPanel,
     wholeBodyPatternsPanel,
@@ -378,6 +381,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientBodySystemsPanelAction(profile.id),
     getClientWholeBodySignalPanelAction(profile.id),
     getClientBreathingCheckInPanelAction(profile.id),
+    getClientHaqPanelAction(profile.id),
     getClientHealthIntakePanelAction(profile.id),
     getClientSignalsPanelAction(profile.id),
     getClientWholeBodyPatternsAction(profile.id),
@@ -533,6 +537,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     the same predicate (lib/coach-detail/deepDiveResults.ts).
   */
   const deepDivePanelStates = [
+    haqPanel,
     stressLoadPanel,
     bodySystemsPanel,
     wholeBodySignalPanel,
@@ -927,6 +932,17 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             */}
             {hasAnyDeepDiveResults && (
               <FindingsGroup id="findings-deep-dive-results" title="Deep-Dive Results">
+                {/*
+                  The Rooted Reset Health Appraisal: the sittings themselves,
+                  newest first, each one opening a full reading of its 21
+                  sections, every answer and the body map. The card carries
+                  no Assign of its own, because the Health Appraisal already
+                  has its row in the Assessment Status block above.
+                */}
+                <div id="detail-card-health-appraisal" className="scroll-mt-24">
+                  <HaqPanel clientId={profile.id} state={haqPanel} />
+                </div>
+
                 <div id="detail-card-stress-load" className="scroll-mt-24">
                   <StressLoadPanel clientId={profile.id} state={stressLoadPanel} />
                 </div>

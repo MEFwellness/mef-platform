@@ -12,9 +12,10 @@
  * a total or a colour. Every answer is a response name ("often"), saved the
  * moment she taps it; the database turns it into whatever it is worth.
  *
- * WHAT SHE ALWAYS KNOWS. The Part and Section she is in, at the top of every
- * question screen, and "Part X of 10" over a thin line. Never how many
- * questions are left.
+ * WHAT SHE ALWAYS KNOWS. The Part and the Section she is in, BY NAME, at the
+ * top of every question screen ("Endocrine" over "Thyroid"), and "Part X of
+ * 10" over a thin line. A Part that is one section is named once. No roman
+ * numeral, and never how many questions are left.
  *
  * CONTINUE IS THE ONLY THING THAT MOVES HER. No auto advance. Back moves one
  * screen, across a section boundary too, and every earlier answer can be
@@ -48,7 +49,7 @@ import { SuccessCheck } from '@/components/motion/SuccessCheck';
 import { CVS_DISPLAY_FONT } from '@/components/core-values-snapshot/theme';
 import { prefersReducedMotionNow } from '@/lib/motion/useReducedMotion';
 import { useScreenTop } from '@/lib/questionnaire/useScreenTop';
-import { HAQ_ESTIMATED_MINUTES, HAQ_LABEL } from '@/lib/haq/constants';
+import { HAQ_ESTIMATED_MINUTES, HAQ_LABEL, HAQ_RESULTS_ROUTE } from '@/lib/haq/constants';
 import { HAQ_RESPONSE_OPTIONS } from '@/lib/haq/questionBank';
 import {
   HAQ_BACK_LABEL,
@@ -69,16 +70,17 @@ import {
   HAQ_INTRO_REASSURANCE,
   HAQ_INTRO_SAVE_LINE,
   HAQ_SAVE_FAILED,
+  HAQ_SEE_RESULTS_LABEL,
   haqNextLine,
   haqSectionCompleteHeading,
 } from '@/lib/haq/copy';
 import {
   buildHaqScreens,
-  crossesHaqSection,
+  haqBeatNames,
   haqBodyMapIndex,
-  haqPartHeading,
   haqProgressLabel,
   haqProgressPercent,
+  haqScreenHeading,
   isHaqScreenAnswered,
   type HaqAnswers,
 } from '@/lib/haq/walk';
@@ -156,9 +158,21 @@ function HaqCompletion({ celebrate = true }: { celebrate?: boolean }) {
         </span>
         <p className={`${CVS_DISPLAY_FONT} mt-5 text-[28px] leading-snug text-[#1B3A2D]`}>{HAQ_COMPLETION_STATEMENT}</p>
         <p className="mt-3 text-[15px] leading-relaxed text-[#4F645A]">{HAQ_COMPLETION_COACH_LINE}</p>
+        {/*
+          THE COMPLETION STILL CARRIES NO RESULT. It offers the way to one,
+          which is a link and not a reading: no colour, no label and no
+          number appears until she chooses to open it.
+        */}
+        <Link
+          href={HAQ_RESULTS_ROUTE as Route}
+          data-testid="haq-see-results"
+          className="mef-press mef-focus-ring mt-7 block w-full rounded-2xl bg-[#C4A050] px-6 py-4 text-center text-sm font-semibold text-[#173025] shadow-[0_10px_24px_-14px_rgba(176,143,62,0.9)]"
+        >
+          {HAQ_SEE_RESULTS_LABEL}
+        </Link>
         <Link
           href={'/dashboard' as Route}
-          className="mef-press mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white"
+          className="mef-press mef-focus-ring mt-3 block w-full rounded-2xl border border-[#1B3A2D]/12 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D]"
         >
           {HAQ_COMPLETION_HOME_LABEL}
         </Link>
@@ -273,14 +287,17 @@ function HaqWalk({
   function goNext() {
     if (!screen || beat || !isHaqScreenAnswered(screen, answers)) return;
     const to = index + 1;
-    if (!crossesHaqSection(screens, index, to) || prefersReducedMotionNow()) {
+    // The names come from the walk, which knows whether this move leaves the
+    // Part: a Part boundary is named by its Part, a move inside one by its
+    // sections. Null is a move that stays in the section, and has no beat.
+    const names = haqBeatNames(screens, index, to);
+    if (!names || prefersReducedMotionNow()) {
       setIndex(to);
       return;
     }
-    const next = screens[to];
     setBeat({
-      heading: haqSectionCompleteHeading(screen.section.title),
-      nextLine: haqNextLine(next ? next.section.title : HAQ_BODY_MAP_TITLE),
+      heading: haqSectionCompleteHeading(names.completed),
+      nextLine: haqNextLine(names.next ?? HAQ_BODY_MAP_TITLE),
       to,
     });
     beatTimer.current = setTimeout(() => {
@@ -430,6 +447,7 @@ function HaqWalk({
   }
 
   const answered = isHaqScreenAnswered(screen, answers);
+  const heading = haqScreenHeading(screen);
 
   return (
     <div>
@@ -446,11 +464,16 @@ function HaqWalk({
 
       <Card key={`haq-screen-${index}`} className="mef-screen-enter mt-6">
         <header data-testid="haq-screen-header">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-[#B89340]" data-testid="haq-part-heading">
-            {haqPartHeading(screen.section)}
-          </p>
-          <h1 className={`${CVS_DISPLAY_FONT} mt-1.5 text-[28px] leading-tight text-[#1B3A2D]`} data-testid="haq-section-title">
-            {screen.section.title}
+          {heading.eyebrow && (
+            <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-[#B89340]" data-testid="haq-part-heading">
+              {heading.eyebrow}
+            </p>
+          )}
+          <h1
+            className={`${CVS_DISPLAY_FONT} ${heading.eyebrow ? 'mt-1.5' : ''} text-[28px] leading-tight text-[#1B3A2D]`}
+            data-testid="haq-section-title"
+          >
+            {heading.title}
           </h1>
           {screen.section.intro && (
             <p className="mt-3 rounded-2xl bg-[#F5F0E4] px-4 py-3 text-[15px] leading-relaxed text-[#1B3A2D]" data-testid="haq-section-intro">
