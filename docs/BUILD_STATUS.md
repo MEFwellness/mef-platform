@@ -1,3 +1,211 @@
+## Root reads the Body Systems Survey (2026-09-17)
+
+Scored Body Systems Survey answers now feed Signals and Root Noticed through
+the systems that already existed: the same Signal Library rows, the same
+Whole-Body Association Map lookup, the same findings store and the same red
+flag override. No second Signals system, no second lookup, no new signal
+name.
+
+Migrations 258 (this build) and 259 (a production defect found on the way),
+`lib/cross-system-signals/questionnaireRules.ts`, `questionnaireState.ts`,
+`questionnaireFacts.ts`, `lib/cross-system-root/questionnaireEngine.ts`,
+`questionnaireBackfill.ts`, `noticedView.ts`, `noticedRead.ts`,
+`lib/body-systems/triggerEvaluation.ts`, `/coach/signal-mappings`.
+
+### WHAT ALREADY EXISTED, AND WHAT WAS MISSING
+
+The survey was already filed into the Signal Library at the question level:
+migration 241's dictionary maps all 111 questions to canonical signals, and
+the adapter wrote Often and Almost always answers as rows. What was missing
+was everything after that. Root Noticed could only be reached by a sentence
+(a finding had to name a complaint report), a Sometimes or Rarely answer
+about a known signal read as present, and an Often from an old sitting stayed
+"current" until something newer happened to overwrite it.
+
+### THE RULE, IN ONE FILE
+
+| answer | points | active? |
+| --- | --- | --- |
+| Almost always, Often | 8, 6 | always |
+| Sometimes | 3 | only with a support condition, below |
+| Rarely, Never | 1, 0 | never |
+
+A Sometimes is active when, checked in this order:
+
+1. its own survey section scored **50 or more** on that sitting;
+2. a coach approved Body Systems association **fired on that sitting and
+   names the question** in one of its held conditions (those conditions only
+   count Often and Almost always answers);
+3. **another source** (a sentence, a coach entry, another assessment) has the
+   same canonical signal **within 30 days** of the sitting, either side, and
+   that source's own latest word inside the window says present.
+
+**Only the newest completed sitting is current.** An answer from a replaced
+sitting is history, including a question the new sitting did not ask.
+
+**Why 50 and not the survey's own loudest band (35).** A section answered
+Sometimes throughout scores 38, so the band would have made every Sometimes
+of a member who answers Sometimes to everything active. A test drives that
+exact sheet and proves zero active signals.
+
+**Judged when read, not stored.** The adapter uses the rule to decide which
+answers to file; every read (Root's lookup, Root Noticed, Signals, the trace)
+runs the same function over the stored rows, including rows filed before the
+rule existed. Nothing stored is rewritten. `isPresent` reads the verdict; a
+new `wasPresentWhenCaptured` keeps "reported before, not current" working for
+a retake.
+
+### ROOT NOTICED
+
+A survey sitting can now cause a finding. Migration 258: `report_id` is
+nullable, `source_key` and `source_session_id` added, a check constraint
+allows exactly one cause, a unique index per sitting and map entry, a new
+`cross_system_root_finding_triggers` table naming the exact answer rows, an
+`evidence_digest` so a re-run over unchanged data writes nothing, and the
+rule revision on every survey finding.
+
+The coach sees a survey block: "Rooted Reset Body Systems Survey currently
+supports: Headaches, ...", the cards (folded after five), one safety prompt
+in place of every card when the sitting fired a red flag, and **How Root read
+each answer**: every question, her word, the signal, active or not and why,
+its state today, and the map entries it led to. No percentage anywhere.
+
+**One map entry is never told twice.** When a sentence and the survey reach
+the same entry, the complaint card says "Also currently supported by" the
+survey and the survey block draws no second card. Convergence still counts
+separate reports only, because one sitting reaching many entries is not
+several reports leading to the same place.
+
+### SIGNALS
+
+Each row now carries its state today ("Current", "Reported before, not
+current"), "Currently supported by: ..." naming every source whose own latest
+word is present, recent and not closed by a later answer, and on a survey
+answer the rule's reason ("Not active: answered Sometimes, with nothing
+supporting it.", "Not current: a newer Body Systems Survey has replaced this
+answer.").
+
+### THE MAPPING IS EDITABLE AND VERSIONED
+
+`/coach/signal-mappings`, linked from the coach dashboard: all 111 questions
+folded by section, each with its signal, area, version and history. An edit
+appends a revision signed by the coach and then moves the head
+(`cross_system_signal_source_map_revisions`, append only in the database, 111
+revision 1 rows seeded). It can only point at an existing canonical signal,
+and it changes what future sittings file, never a stored row.
+
+### BACKFILL
+
+`scripts/backfill-questionnaire-root.ts` walks every completed sitting
+(paged across the membership), files them oldest first through the existing
+ingestion, and runs the survey lookup on each member's newest sitting. Real
+members only unless `--include-test` or a member id is named. Keys by file
+path.
+
+### THREE DEFECTS FOUND AND FIXED ON THE WAY
+
+**1. THE CHECK-IN VIEW HAD LOST ITS HYDRATION FLAG, ON PRODUCTION.** Migration
+257 recreated `daily_checkins_current` from the plain `select *` form and
+dropped the `hydration_tracked` column migration 163 had added. Reads naming
+the column (the weekly food report's water line, the coaching insights
+check-in source) failed with 42703, and every other read treated water as
+tracked for members who had turned it off. Migration 259 restores 163's
+definition with `create or replace`. It was invisible to the suite because
+the real-database tests only mean something against a migrated local
+database, and the local one sat at 238; bringing it to 259 turned
+`hydration-focus.test.ts` red. A static guard now reads the last migration
+that defines the view.
+
+**2. THE ASSOCIATION MAP READ SENT 240 IDS IN ONE URL.** About nine thousand
+characters. The local gateway refused it ("URI too long"), so Root read no
+map at all there; production accepted it, but has a ceiling too and the map
+grows. `selectAllRowsInChunks` sends id lists 100 at a time, each still
+paged. Found by running the engine against real local Postgres rather than
+the test stand-in.
+
+**3. TWO QUESTIONS, ONE SIGNAL, ONE INSTANT.** T2 and H9 both file "Cold hands
+or feet" at the same capture instant, and the latest row of that tie was
+whatever order the database returned. A Never on one could read as the
+latest word on an Often on the other. The tie now breaks the same way
+everywhere: the loudest present row is latest.
+
+Also paged: `knownSignalSlugs` and every full read of a member's own signals
+(`listAllSignalsForMember`) and sittings.
+
+### Checks
+
+**12,818 tests passing across 642 files**, 118 more than before, 90 of them in five new
+files: `questionnaire-root-flow.test.ts` (22, scenarios A to G,
+I, J and red flags, driven through the real adapter, lookup, store and coach
+reads with the shipped map), `questionnaire-backfill.test.ts` (9, H plus
+byte-for-byte idempotency and paging past the cap),
+`questionnaire-signal-rules.test.ts` (26), `questionnaire-signal-mapping.test.ts`
+(30), `daily-checkins-view-hydration-guard.test.ts` (3). Existing guards
+extended rather than bypassed: the member import fence now covers the survey
+screens, the paged-read guard names five more tables and the chunked id
+lists, the stored-copy language check reads migration 258, the Root copy
+check reads every new coach file, and the batching guard now says what is
+true (fixed-size batches, never per finding).
+
+Typecheck clean. Lint 0 errors. Production build clean,
+`/coach/signal-mappings` 4.08 kB, `/coach/clients/[id]/detail` 72.9 kB.
+Migrations 258 and 259 applied to production. **The ledger is unbroken: 259
+locally and 259 remotely, 0 pending.**
+
+### Live verification, production, 2026-09-17
+
+Repo `MEFwellness/mef-platform`, branch `main`, commits `fc04bdb` and
+`a8ec5c2`. **The Vercel CLI on this machine has no stored login**, so the
+project and alias could not be read from it; instead `app.mefwellness.com`
+was confirmed to resolve to Vercel and to serve `/coach/signal-mappings`, a
+page that exists only in this commit's build, to a signed-in coach.
+
+`apps/consumer-web-app/scripts/verify-questionnaire-root-live.ts`, sessions
+minted and retired.
+
+**EXISTING CLIENT, 7 of 7.** Production holds 2 completed sittings, both the
+test member's, so **no real member had anything to backfill**; the real
+member backfill ran twice and walked none. Backfilled explicitly on her: 13
+signals, 17 findings, 8 active answers on her newest sitting; a second run
+wrote nothing, identical down to row ids and digests; her sittings
+byte-identical. The coach saw the survey block, the supports line naming the
+survey, survey cards, the survey on 79 Signals rows, no percent sign.
+
+**NEW SURVEY FLOW, 30 of 30.** Assigned through Assessment Status; she
+answered headaches Often, bloating Almost always, sleep Often, frequent
+urination Sometimes, two Rarely, the rest Never. Her stored results equal the
+survey's own scoring, her results screen named all eleven systems in loudness
+words with no percentage and no Root language. The coach saw Headaches,
+Bloating after eating and Lighter or broken sleep Current with the survey as
+source, 9 findings, the supports line, and the trace saying "Not active:
+answered Sometimes, with nothing supporting it." for frequent urination; one
+headache row. After her Daily Reset note: one Headaches row, "Currently
+supported by: Rooted Reset Body Systems Survey, Reported by the member.", one
+complaint card saying the survey also supports it, no survey card beside it.
+After the retake answered Never: headaches "Reported before, not current",
+gone from the supports line, the trace saying why, the Often and the Never
+both stored and the first sitting's findings still there. 302 member response
+bodies scanned for the thirteen coach-only phrases: zero hits, zero console
+errors; her own session read 0 rows from every table this build touches.
+
+**State left on production: her starting state.** A baseline of every
+member-scoped table (88) was recorded before anything ran; the restore
+removed every row created for her since, and an independent recount matched
+all 88 tables and the id fingerprints of her sittings, signals, assignments,
+check-ins and dismissals. 0 Root findings exist on production.
+
+### INSTRUMENT BUGS, the app needed no change for any of them
+
+- `innerText` reports CSS-uppercased headings ("1 OF 6"), again.
+- `jsonb` reorders keys, so stored results compared as strings never match;
+  compared deeply they match on every sitting.
+- A Daily Reset Continue saves before it moves; re-answering the still-visible
+  screen fires overlapping saves that cancel each other. Clicking every
+  option also re-opens multi-select and conditional groups. The run answers
+  one unanswered question group at a time and waits for the screen to change.
+- A trace line and a finding card both print the same prompts and the same
+  map entry name, so text searches have to be scoped to the element.
+
 ## Root hears nine surfaces, and the map it reads grows to 239 entries (2026-09-16)
 
 The extension to the corrected build. Root now listens on every member
