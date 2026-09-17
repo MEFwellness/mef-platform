@@ -56,6 +56,7 @@ import { evidenceStateOf, groupHistories } from './evidence';
 import { complaintDrivenEntries, convergentAreas, lookupForComplaint } from './lookup';
 import type { StoredFinding } from './data';
 import type { RootFindingDraft } from './types';
+import type { RootBriefingView } from './briefing';
 import {
   buildConvergenceLines,
   buildFindingView,
@@ -115,6 +116,12 @@ export type QuestionnaireNoticedView = {
 export type FullRootNoticedView = RootNoticedView & {
   /** Absent or null when she has no completed Body Systems Survey. */
   questionnaire?: QuestionnaireNoticedView | null;
+  /**
+   * The coach briefing drawn above the evidence (./briefing.ts). Absent
+   * when the section was built without one, in which case the evidence
+   * is the whole section, exactly as before.
+   */
+  briefing?: RootBriefingView | null;
 };
 
 export type RootNoticedInputs = {

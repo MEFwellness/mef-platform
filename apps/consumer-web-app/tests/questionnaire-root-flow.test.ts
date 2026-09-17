@@ -538,8 +538,18 @@ describe('I. member privacy', () => {
     await complete('sitting-i', answers({ N4: 'often', D1: 'almost_always', A1: 'often', D2: 'often' }), '2026-09-17T14:00:00.000Z');
     const { noticed } = await coachOpens('2026-09-17');
     expect(noticed.questionnaire!.findings.length).toBeGreaterThan(0);
-    const html = renderToStaticMarkup(
+    // The briefing sits on top and the survey cards are behind "All
+    // evidence Root checked", so both renders are held to the same rule:
+    // the one a coach sees first, and the evidence itself.
+    const briefingHtml = renderToStaticMarkup(
       createElement(RootNoticedPanel, { state: { allowed: true, view: noticed } })
+    );
+    expect(noticed.briefing!.cards.length).toBeGreaterThan(0);
+    expect(briefingHtml).not.toContain('%');
+    expect(briefingHtml).not.toMatch(/\d+\s*percent/i);
+    expect(briefingHtml).not.toContain('—');
+    const html = renderToStaticMarkup(
+      createElement(RootNoticedPanel, { state: { allowed: true, view: { ...noticed, briefing: null } } })
     );
     expect(html).toContain('currently supports: ');
     expect(html).not.toContain('%');

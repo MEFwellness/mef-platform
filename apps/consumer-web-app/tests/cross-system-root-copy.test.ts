@@ -61,6 +61,13 @@ const FEATURE_FILES = [
   'app/actions/crossSystemSignalMappings.ts',
   'app/coach/signal-mappings/page.tsx',
   'components/coach-signal-mappings/SurveySignalMappingPanel.tsx',
+  // The coach briefing: its rules, its builder, its store, and the two
+  // components that draw it and the evidence behind it.
+  'lib/cross-system-root/briefing.ts',
+  'lib/cross-system-root/briefingRules.ts',
+  'lib/cross-system-root/briefingData.ts',
+  'app/coach/clients/[id]/RootBriefing.tsx',
+  'app/coach/clients/[id]/RootNoticedEvidence.tsx',
 ];
 
 /**

@@ -32,6 +32,7 @@ import { trackPriorityShownAction } from '@/app/actions/priority';
 import { trackWeeklyReflectionDeliveredAction } from '@/app/actions/weeklyReflection';
 import { trackAssignmentDeliveredAction } from '@/app/actions/assessmentAssignments';
 import { markProgramOpenedAction } from '@/app/actions/coach-programs';
+import { markRootBriefingSeenAction } from '@/app/actions/crossSystemRootFindings';
 import { trackWeeklyReviewViewedAction } from '@/app/actions/weeklyReview';
 import { acknowledgeRevealsAction } from '@/app/actions/visibility';
 import { trackMovementSessionViewedAction } from '@/app/actions/movement-sessions';
@@ -137,6 +138,13 @@ export async function POST(request: Request): Promise<Response> {
     // from her own session and refuses an assignment that is not among her
     // own lifecycles, so a hand built request can only ever stamp a program
     // this member was already entitled to open.
+    // A coach opened a client's Root Noticed briefing. The action decides
+    // the coach from her own session, refuses anybody who is not staff and
+    // any client she may not see, so a hand built request can only stamp a
+    // briefing this coach was already entitled to open.
+    case 'root_briefing_seen':
+      await markRootBriefingSeenAction(str('clientId'));
+      break;
     case 'program_opened':
       await markProgramOpenedAction(str('assignmentId'));
       break;

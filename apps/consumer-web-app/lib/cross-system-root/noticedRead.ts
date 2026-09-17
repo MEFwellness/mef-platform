@@ -26,6 +26,8 @@ import { todaysLocalDate } from '@/lib/time/localDate';
 import { listFindingsForMember } from './data';
 import { complaintDrivenEntries } from './lookup';
 import { buildRootNoticedView, type FullRootNoticedView } from './noticedView';
+import { buildRootBriefing } from './briefing';
+import { listBriefingReviews, readBriefingVisit } from './briefingData';
 
 /** How many of her most recent complaints the section reads back. */
 export const COMPLAINT_WINDOW = 20;
@@ -39,14 +41,22 @@ export const EMPTY_ROOT_NOTICED_VIEW: FullRootNoticedView = {
   unclassifiedCount: 0,
   mapEntryCount: 0,
   questionnaire: null,
+  briefing: null,
 };
 
 export async function readRootNoticed(
   supabase: SupabaseClient,
   clientId: string,
-  options: { today?: string } = {}
+  options: {
+    today?: string;
+    /**
+     * The coach reading, whose review actions and last visit shape the
+     * briefing. Without one the briefing is built with no review state.
+     */
+    viewerId?: string;
+  } = {}
 ): Promise<FullRootNoticedView> {
-  const [signalRead, relationshipRead, questionnaire, coachContent, library, complaints, stored, timezone] =
+  const [signalRead, relationshipRead, questionnaire, coachContent, library, complaints, stored, timezone, reviewRead, lastVisitedAt] =
     await Promise.all([
       listAllSignalsForMember(supabase, clientId),
       listRelationships(supabase),
@@ -56,6 +66,10 @@ export async function readRootNoticed(
       loadRecentComplaints(supabase, clientId, COMPLAINT_WINDOW),
       listFindingsForMember(supabase, clientId),
       memberTimezone(supabase, clientId),
+      options.viewerId
+        ? listBriefingReviews(supabase, options.viewerId, clientId)
+        : Promise.resolve({ ok: true, reviews: [] }),
+      options.viewerId ? readBriefingVisit(supabase, options.viewerId, clientId) : Promise.resolve(null),
     ]);
   // HER today, from her own zone, as data. Handed in by a test so a run can
   // be pinned to a known day.
@@ -92,7 +106,7 @@ export async function readRootNoticed(
   );
   const flaggedSignals = redFlaggedSignalIds(records, flaggedSittings);
 
-  return buildRootNoticedView({
+  const view = buildRootNoticedView({
     records,
     summaries: relationshipRead.summaries,
     library,
@@ -113,4 +127,36 @@ export async function readRootNoticed(
         }
       : null,
   });
+
+  // THE BRIEFING, built from the same rows, the same map and the same
+  // safety decision as everything above, so the two can never disagree
+  // about what she reported.
+  const briefing = buildRootBriefing({
+    records,
+    summaries: relationshipRead.summaries,
+    library,
+    complaints,
+    classifications,
+    flaggedSignals,
+    questionnaire: latestSitting?.completedAt
+      ? { facts: questionnaire.facts, sittings: questionnaire.sittings, content: questionnaire.content }
+      : null,
+    today,
+    timezone,
+    lastEvaluatedAt: latestEvaluation(
+      stored.findings.map((finding) => finding.noticedAt),
+      latestSitting?.completedAt ?? null
+    ),
+    reviews: reviewRead.reviews,
+    lastVisitedAt,
+  });
+
+  return { ...view, briefing };
+}
+
+/** The latest instant Root evaluated anything for her: a stored finding, or her newest sitting. */
+function latestEvaluation(noticedAts: readonly string[], sittingCompletedAt: string | null): string | null {
+  let latest: string | null = sittingCompletedAt;
+  for (const at of noticedAts) if (!latest || at > latest) latest = at;
+  return latest;
 }

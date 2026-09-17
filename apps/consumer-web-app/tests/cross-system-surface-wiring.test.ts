@@ -331,6 +331,6 @@ describe('every resulting signal records which surface it came from', () => {
 
   it('a finding prints the surface its complaint arrived on', () => {
     expect(read('lib/cross-system-root/view.ts')).toContain('complaintSurface: report.surfaceLabel');
-    expect(read('app/coach/clients/[id]/RootNoticedPanel.tsx')).toContain('complaintSurface');
+    expect(read('app/coach/clients/[id]/RootNoticedEvidence.tsx')).toContain('complaintSurface');
   });
 });

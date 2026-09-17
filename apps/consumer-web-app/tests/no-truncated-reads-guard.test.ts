@@ -50,6 +50,9 @@ const UNBOUNDED_TABLES: Array<[string, number]> = [
   ['member_body_systems_sessions', 2],
   ['profiles', 0],
   ['cross_system_signals', 125],
+  // The coach briefing's review actions: one coach acting on one client's
+  // cards, append only, with no bound the product sets.
+  ['cross_system_root_briefing_reviews', 0],
 ];
 
 /** The files allowed to read one of those tables at all. */
@@ -61,6 +64,7 @@ const READERS = [
   'lib/cross-system-signals/data.ts',
   'lib/cross-system-root/questionnaireBackfill.ts',
   'lib/body-systems/data.ts',
+  'lib/cross-system-root/briefingData.ts',
 ];
 
 function read(relative: string): string {

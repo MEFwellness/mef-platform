@@ -1,3 +1,133 @@
+## Root Noticed: the coach briefing (2026-09-17)
+
+The top of Root Noticed on the coach's Client Detail page is now a short
+briefing: what deserves attention before a session, what supports it and
+what to explore next. Everything the section showed before is still there,
+one tap below it ("All evidence Root checked") and inside every card's
+"View evidence". A presentation and review layer only: the matching engine,
+the Association Map, the survey rule and scoring, the mapping page, the
+Signal Library ingestion, the recency logic, the red flag system and the
+member experience are unchanged.
+
+Migration 260, `lib/cross-system-root/briefing.ts` (the pure builder),
+`briefingRules.ts` (every ranking and change rule, pinned),
+`briefingData.ts` (the review store), `app/coach/clients/[id]/RootBriefing.tsx`,
+`RootNoticedEvidence.tsx` (the finding card, moved out of the panel so both
+layers draw the same thing).
+
+### A CARD
+
+One card per reported complaint: an active answer on her newest survey, or
+a classified signal from a sentence she wrote, whose timeline is live today.
+Five parts:
+
+1. **Headline**, anchored on what she reported, then a direction:
+   "Headaches: explore meal timing and digestion." With nothing supported,
+   "Under-eye puffiness in the morning: related areas to explore."
+2. **Reported**: the answer, its word on the scale, the instrument and
+   "Reported Sep 16 (covers past 3 months)". The window is the one migration
+   221 tells the member ("Answer for the last 3 months"); recency tiers
+   still key off the submission day.
+3. **Related findings**, at most three: question level answers or classified
+   signals (never a section rollup), live today, reached through a map entry
+   that fired for THIS symptom. Otherwise one sentence: "No related findings
+   are currently supported by her answers."
+4. **Why review together**, one cautious sentence in its own tinted block.
+5. **Explore next**, one or two questions joining two pieces of her own
+   evidence (an answer that moved between two dates, or two of her signals).
+   Generic coaching considerations stay in View evidence.
+
+**Related findings come from the entry keyed on the symptom itself.** The
+first probe over the shipped map listed the same three or four signals on
+every card, because the map's broad "reverse" entries ("Mood findings, body
+areas worth reviewing in return", keyed on a whole category) fire for every
+symptom in that category. A related finding now comes from the fired
+entries whose primary names the card's own reported signal, and only a card
+that reached no such entry falls back to every entry it fired. Every fired
+entry is still in View evidence.
+
+**Grouping.** Reported signals with the same body area and symptom type in
+the Signal Library are one card ("Headaches" and "Headaches when not eaten"
+are both head, pain; the two puffiness signals are different areas and stay
+apart). Each answer stays listed on its own.
+
+### RANKING, pinned in `briefingRules.ts`
+
+Safety is never ranked: a flagged row or a withheld entry moves the card
+into the safety block, drawn above the briefing with the existing wording.
+Then: (1) meaningful change first, meaning up the scale or newly active
+against a comparable earlier answer; (2) the loudest frequency; (3) distinct
+canonical signals behind the card; (4) source count, as a tie breaker only.
+**On a first survey nothing is comparable,** every card reads "First
+recorded", and the order falls through to (2) and (3). A coach's "Discuss
+next session" pin draws first. "Why this ranked here" in View evidence says
+which rules placed it, in words, with no score.
+
+**Comparable history is read from her sittings,** not only from filed rows,
+because a quiet answer files no row: a Never in June and an Often in
+September read "Changed since last time: Often (Sep 16) from Never (Jun 12)".
+A sitting that did not ask the question (another branch, "does not apply",
+unanswered) is skipped, never read as a Never.
+
+### FOUR KINDS OF ABSENCE, in View evidence
+
+"Not reported on the latest assessment", "Not assessed" (a branched out or
+"does not apply" question, never rendered as Never), "Previously reported,
+now below the active threshold" (needs an earlier active answer, so a Never
+alone is never an improvement), and "Historical evidence with no recent
+update".
+
+### REVIEW ACTIONS
+
+"Discuss next session", "Reviewed" and "Not relevant" on every card, per
+coach. Migration 260: `cross_system_root_briefing_reviews` (append only:
+coach, client, card, action, time, and the evidence state and fingerprint it
+was taken at) and `cross_system_root_briefing_visits`. Both coach only: no
+member policy, a coach reads and appends her own rows. Nothing in Root, the
+map or the ranking reads either table.
+
+Reviewed and Not relevant fold a card away **at its current evidence
+state**. A material change (a frequency shift either way, a new supporting
+signal, a signal crossing the active threshold either way) returns it marked
+"Changed since your last review". A retake with the same answers does not.
+The server rebuilds the card before recording an action, so a stale page
+cannot record a state the coach never saw. The visit is stamped through the
+beacon from a mounted effect, never from a render and never as a server
+action that would re-render the whole client page; a card whose evidence
+moved after that visit carries "New since you last reviewed".
+
+### ONCE, NOT PER CARD
+
+The disclaimer is said once for the briefing and once under the evidence.
+Inside a finding, "Why Root checked this area" is one line per map entry,
+and an area with nothing under it is a one line row.
+
+### Checks
+
+**12,875 tests across 644 files**, 56 of them new, in two new files:
+`root-briefing.test.ts` (48: ranking and the first survey
+fallthrough, worsening and the comparable history it needs, First recorded
+and Changed since last time, canonical dedup across two questions and
+across a survey and a sentence, the related findings bar, grouping, the four
+absences with a branched out question, the timeframe wording read against
+migration 221, the three card limit without padding, every review action's
+dismissal and its return, per coach review, the visit marker, safety never
+ranked, and the language check over every headline for every shipped
+canonical signal) and `root-briefing-schema.test.ts` (8). Existing guards
+extended rather than bypassed: the Root copy check reads the five new files,
+the paged read guard names the review table and its reader, and the surface
+wiring check follows the finding card to its new file. One flow assertion
+moved: the survey cards are now behind "All evidence Root checked", so it
+renders both layers and holds both to the no percentage rule.
+
+Full runs pass except for one to four tests per run in files that drive the
+local database (`change-password`, `intelligence-core-integration`,
+`coach-reassignment-integration`, `admin-analytics-member-access`), a
+different set each run, none of them touching Root. Each passes on its own.
+
+Typecheck clean. Lint 0 errors. Production build clean,
+`/coach/clients/[id]/detail` 75.2 kB.
+
 ## Root reads the Body Systems Survey (2026-09-17)
 
 Scored Body Systems Survey answers now feed Signals and Root Noticed through

@@ -255,3 +255,295 @@ export function currentlySupportedByLine(labels: readonly string[]): string {
   return `Currently supported by: ${labels.join(', ')}.`;
 }
 
+
+// ---------------------------------------------------------------------
+// The coach briefing (./briefing.ts), which sits above the evidence.
+//
+// EVERY SENTENCE LEADS WITH WHAT SHE REPORTED. A headline names her own
+// reported symptom first and an exploration direction second, never an
+// area of the map she did not report. Every generated line is also run
+// through the Relationship Library's banned list when it is built, and a
+// line that fails is replaced by a fixed one (see `cautious` in
+// ./briefing.ts), because a signal name is stored content this file cannot
+// see.
+//
+// NO SCORE, NO PERCENTAGE AND NO CAUSAL WORD. The only numbers are counts
+// of her own signals and the dates she answered on.
+// ---------------------------------------------------------------------
+
+export const BRIEFING_HEADING = 'Coach briefing';
+
+export const BRIEFING_LEAD =
+  'What her current answers bring forward, what supports each one, and what to explore next.';
+
+/** When the briefing was last evaluated. */
+export function briefingUpdatedLine(display: string): string {
+  return `Last updated ${display}.`;
+}
+
+/** Said once per briefing, never per card. */
+export const BRIEFING_DISCLAIMER =
+  'For your review only. Each card is an association worth exploring together with her, and none of it names a reason for anything she reported.';
+
+export const BRIEFING_EMPTY =
+  'No reported finding is active right now. Everything Root checked is still in the full evidence below.';
+
+/** The five parts of a card, in the order they are drawn. */
+export const BRIEFING_PARTS = {
+  reported: 'Reported',
+  related: 'Related findings',
+  why: 'Why review together',
+  explore: 'Explore next',
+  evidence: 'View evidence',
+} as const;
+
+/**
+ * The exploration direction a related signal suggests, by its category.
+ * A direction is a topic to explore, never a system being named as the
+ * reason. Null means the category offers no useful direction.
+ */
+export const DIRECTION_BY_CATEGORY: Readonly<Record<string, string | null>> = {
+  joint_movement: 'movement',
+  musculoskeletal: 'movement load',
+  posture_alignment: 'posture',
+  pain_discomfort: 'pain patterns',
+  skin_immune: 'skin signals',
+  immune: 'immune signals',
+  kidney_bladder: 'fluid balance',
+  digestion: 'digestion',
+  nutrition: 'meals and fuel',
+  clearance_detox: 'clearance signals',
+  metabolic: 'meal timing',
+  stress: 'stress',
+  sleep: 'sleep',
+  hormonal: 'hormonal rhythms',
+  circulation: 'circulation',
+  respiratory: 'breathing',
+  neurological: 'nervous system signals',
+  energy: 'energy',
+  mood: 'mood',
+  other: null,
+};
+
+/** Where one signal says more than its category does. */
+export const DIRECTION_BY_SIGNAL: Readonly<Record<string, string>> = {
+  'headaches-when-not-eaten': 'meal timing',
+  'shaky-when-meals-delayed': 'meal timing',
+  'energy-rises-and-crashes': 'meal timing',
+  'feeling-anxious-or-on-edge': 'stress',
+  'small-stresses-feel-harder': 'stress',
+  'heart-racing-under-stress': 'stress',
+  'racing-mind-at-bedtime': 'sleep',
+  'waking-between-1-and-3-am': 'sleep',
+  'lighter-or-broken-sleep': 'sleep',
+};
+
+/**
+ * The headline. Her reported symptom, then a cautious direction.
+ *
+ * "Headaches: explore meal timing and stress." With no supported direction
+ * it says there are related areas to explore when the map lists some, and
+ * only that it is worth reviewing when the map lists none.
+ */
+export function briefingHeadline(
+  anchorName: string,
+  directions: readonly string[],
+  mapListsAreas: boolean
+): string {
+  if (directions.length >= 2) return `${anchorName}: explore ${directions[0]} and ${directions[1]}.`;
+  if (directions.length === 1) return `${anchorName}: explore ${directions[0]}.`;
+  if (mapListsAreas) return `${anchorName}: related areas to explore.`;
+  return `${anchorName}: worth reviewing.`;
+}
+
+/** A headline that failed the language check is replaced by this one, which names no stored words. */
+export const BRIEFING_HEADLINE_FALLBACK = 'A reported finding worth reviewing.';
+
+/**
+ * When she reported it, and the window the instrument asked about.
+ *
+ * NEVER "in the last 30 days". A survey asking about the past three months
+ * submitted Sep 16 reads "Reported Sep 16 (covers past 3 months)".
+ */
+export function reportedOnLine(dayDisplay: string, window: string | null): string {
+  return window ? `Reported ${dayDisplay} (covers ${window})` : `Reported ${dayDisplay}`;
+}
+
+export const NO_RELATED_FINDINGS = 'No related findings are currently supported by her answers.';
+
+/** The one sentence under "Why review together". */
+export function whyReviewTogetherLine(input: {
+  anchorName: string;
+  relatedNames: readonly string[];
+  groupedNames: readonly string[];
+  mapListsAreas: boolean;
+}): string {
+  const others = [...input.groupedNames, ...input.relatedNames];
+  if (input.relatedNames.length > 0) {
+    const listed = others.length === 1 ? others[0] : `${others.length} of her current signals`;
+    return `Your Association Map links ${input.anchorName} with ${listed}, and her current answers include ${others.length === 1 ? 'both' : 'all of them'}.`;
+  }
+  if (input.groupedNames.length > 0) {
+    return `Her answers describe ${input.anchorName} in more than one way, so they are reviewed as one.`;
+  }
+  if (input.mapListsAreas) {
+    return 'Your Association Map lists areas to check beside it, and her current answers support none of them yet.';
+  }
+  return 'No Association Map entry lists this signal yet, so it is shown on its own.';
+}
+
+export const WHY_REVIEW_FALLBACK = 'Shown so you can review it together with her.';
+
+/** The change marker on a card or a reported line. */
+export const FIRST_RECORDED = 'First recorded';
+export const CHANGED_SINCE_LAST_TIME = 'Changed since last time';
+
+/** "Changed since last time: Often (Sep 16) from Rarely (Jun 12)." */
+export function changedSinceLine(to: string, toOn: string, from: string, fromOn: string): string {
+  return `${CHANGED_SINCE_LAST_TIME}: ${to} (${toOn}) from ${from} (${fromOn})`;
+}
+
+/** Comparable history exists and nothing moved. */
+export function unchangedSinceLine(label: string, fromOn: string, toOn: string): string {
+  return `Same as last time: ${label} (${fromOn} and ${toOn})`;
+}
+
+/** What "First recorded" means, so it is never read as "just began". */
+export const FIRST_RECORDED_NOTE = 'No earlier answer to compare with. This does not mean it just began.';
+
+/** A question connecting two of her answers, where one moved between two dates. */
+export function exploreChangeQuestion(name: string, from: string, fromOn: string, to: string, toOn: string): string {
+  return `${name} went from ${from} (${fromOn}) to ${to} (${toOn}). What changed for you in between?`;
+}
+
+/** A question connecting two of her own reported signals. */
+export function explorePairQuestion(first: string, second: string): string {
+  return `Do ${first} and ${second} tend to show up on the same days?`;
+}
+
+/**
+ * Pairs where a plainer question exists. Keyed by the two slugs, sorted
+ * and joined with a plus sign.
+ */
+export const PAIR_QUESTIONS: Readonly<Record<string, string>> = {
+  'headaches+headaches-when-not-eaten': 'Do your headaches follow delayed or skipped meals?',
+  'headaches+shaky-when-meals-delayed': 'Do your headaches show up on the days a meal is delayed?',
+  'bloating-after-eating+fullness-long-after-meals': 'Do the bloating and the long fullness follow the same meals?',
+  'feeling-anxious-or-on-edge+headaches': 'Do your headaches tend to come on the days you feel more on edge?',
+  'lighter-or-broken-sleep+racing-mind-at-bedtime': 'On the nights sleep is broken, was your mind racing at bedtime?',
+};
+
+export const EXPLORE_NOTHING_CONNECTS =
+  'Nothing yet connects two of her answers. The coaching considerations for this signal are in View evidence.';
+
+/** Why a card sits where it does, in plain words. No score. */
+export function rankReasonLine(parts: {
+  pinned: boolean;
+  change: 'changed' | 'first_recorded' | 'unchanged';
+  worsening: boolean;
+  frequencyLabel: string | null;
+  supportingSignalCount: number;
+  sourceCount: number;
+}): string {
+  const out: string[] = [];
+  if (parts.pinned) out.push('Pinned for next session');
+  if (parts.change === 'changed') {
+    out.push(parts.worsening ? 'Changed since last time (more often than before)' : 'Changed since last time');
+  } else if (parts.change === 'first_recorded') {
+    out.push('First recorded');
+  } else {
+    out.push('No change since last time');
+  }
+  out.push(parts.frequencyLabel ? `reported ${parts.frequencyLabel}` : 'reported in her own words');
+  out.push(
+    parts.supportingSignalCount === 0
+      ? 'no supporting signals'
+      : parts.supportingSignalCount === 1
+        ? '1 supporting signal'
+        : `${parts.supportingSignalCount} supporting signals`
+  );
+  if (parts.sourceCount > 1) out.push(`from ${parts.sourceCount} sources`);
+  const line = out.join(', ');
+  return `${line.charAt(0).toUpperCase()}${line.slice(1)}.`;
+}
+
+export const RANK_REASON_HEADING = 'Why this ranked here';
+
+/** The four kinds of absence, kept apart in words. */
+export const ABSENCE_LABELS = {
+  not_reported_latest: 'Not reported on the latest assessment',
+  not_assessed: 'Not assessed',
+  previously_reported_now_below: 'Previously reported, now below the active threshold',
+  historical_no_update: 'Historical evidence with no recent update',
+} as const;
+
+export type AbsenceKind = keyof typeof ABSENCE_LABELS;
+
+/** One absence, with what it rests on. */
+export function absenceLine(kind: AbsenceKind, detail: string | null): string {
+  return detail ? `${ABSENCE_LABELS[kind]} (${detail})` : ABSENCE_LABELS[kind];
+}
+
+/** The reasons a question counts as not assessed. A branched out question is never "Never". */
+export const NOT_ASSESSED_REASONS = {
+  notOnBranch: 'the question was not asked on her survey path',
+  doesNotApply: 'marked as not applying to her',
+  unanswered: 'left unanswered',
+  noQuestion: 'no question or report on record covers it',
+} as const;
+
+/** The review actions, by key. */
+export const REVIEW_ACTION_LABELS = {
+  discuss_next_session: 'Discuss next session',
+  reviewed: 'Reviewed',
+  not_relevant: 'Not relevant',
+} as const;
+
+export const BRIEFING_MARKERS = {
+  newSinceReview: 'New since you last reviewed',
+  changedSinceReview: 'Changed since your last review',
+  pinned: 'Discuss next session',
+} as const;
+
+export function viewAllFindingsLabel(hidden: number): string {
+  return hidden === 1 ? 'View all findings (1 more)' : `View all findings (${hidden} more)`;
+}
+
+export function dismissedFoldLabel(count: number): string {
+  return count === 1 ? 'Reviewed or not relevant (1)' : `Reviewed or not relevant (${count})`;
+}
+
+/** What a dismissed card says about itself in the fold. */
+export function dismissedLine(actionLabel: string, onDisplay: string): string {
+  return `${actionLabel} on ${onDisplay}. It returns here if her evidence changes.`;
+}
+
+export const EVIDENCE_HEADINGS = {
+  answers: 'Every answer behind this card',
+  timelines: 'Signal timelines',
+  absences: 'Related questions with nothing current',
+  associations: 'Association details',
+  fullEvidence: 'All evidence Root checked',
+} as const;
+
+/** Said once for a whole map entry, instead of once per area. */
+export function whyCheckedEntryLine(patternName: string): string {
+  return `Your Whole-Body Association Map lists every area below under "${patternName}" as an area that may be worth reviewing.`;
+}
+
+export function notObservedFoldLabel(count: number): string {
+  return count === 1 ? '1 area not currently observed' : `${count} areas not currently observed`;
+}
+
+/** A review action the server refused or could not save. */
+export const REVIEW_SAVE_FAILED = 'That did not save. Try again.';
+
+/** A card dismissed on this screen, before the next visit reads it back. */
+export function dismissedJustNowLine(actionLabel: string): string {
+  return `${actionLabel} just now. It returns here if her evidence changes.`;
+}
+
+export const HIDE_EVIDENCE = 'Hide evidence';
+export const CONNECTED_THROUGH = 'Connected through';
+export const NO_TIMELINE_ENTRIES = 'Nothing on record.';
+export const HER_WORDS = 'Her words';

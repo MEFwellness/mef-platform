@@ -94,6 +94,17 @@ export type BeaconEvent =
    */
   | { event: 'program_opened'; assignmentId: string }
   /**
+   * A COACH opened a client's Root Noticed briefing. Not an analytics row:
+   * it stamps when this coach last saw the briefing
+   * (cross_system_root_briefing_visits, migration 260), which the next
+   * visit's "new since you last reviewed" markers are measured from. Fired
+   * from a mounted effect on the panel, and it travels here so the stamp
+   * never costs the coach a second render of the whole client page. The
+   * action re-resolves the coach from her own session and refuses a client
+   * she may not see.
+   */
+  | { event: 'root_briefing_seen'; clientId: string }
+  /**
    * Three more facts a screen records about itself, moved here for exactly
    * the reason the ones above are here: each was fired from a mounted
    * effect, each was a Server Action, and a Server Action re-renders the
