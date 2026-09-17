@@ -1,3 +1,159 @@
+## Root Noticed coach briefing: compact cards and Restore (2026-09-17)
+
+A display refinement of the coach briefing (migration 260), in place. The
+matching engine, the Association Map, scoring, ranking, the material change
+rule, the safety override, recency, red flags and the member experience are
+unchanged. The one backend addition is Restore (migration 261). No AI calls.
+
+Files: `lib/cross-system-root/copy.ts`, `briefing.ts`, `briefingRules.ts`,
+`briefingData.ts`, `app/coach/clients/[id]/RootBriefing.tsx`,
+`RootNoticedPanel.tsx` (phone padding), `app/actions/crossSystemRootFindings.ts`
+(`restoreRootBriefingCardAction`), `lib/coach-detail/digests.ts`,
+`supabase/migrations/00000000000261_cross_system_root_briefing_restore.sql`,
+`apps/consumer-web-app/scripts/verify-root-briefing-compact-live.ts`.
+
+### THE CARD
+
+Five parts, one line each, no box inside a card and, on a phone, no box
+around it either (a divider separates cards, so the text keeps its width).
+Text sizes are the app's existing 15, 13 and 12 px.
+
+1. **Headline**: her symptom in plain words, plus a direction only when a
+   signal DRAWN ON THE CARD supports one, read from `DIRECTION_BY_SIGNAL`
+   alone. `DIRECTION_BY_CATEGORY` is gone: category filing lent "fluid
+   balance" (puffiness is filed under Kidney/Bladder) and "nervous system
+   signals" to headlines. No category or map entry name, no "signals". With
+   nothing supported, the symptom alone ("Under-eye puffiness in the
+   morning"). The direction words are "meal timing", "stressful days" and
+   "night waking", none of them a category name.
+2. **Shared source, once per card**: "Rooted Reset Body Systems Survey,
+   Sep 16 (covers past 3 months)", taken from the card's loudest reported
+   answer. A reported answer or related finding from another source or day
+   carries a short inline label, "Feeling tense, Often (Breathing Check-In,
+   Sep 12)" (`SHORT_SOURCE_LABELS`). Full source lines stay in View evidence.
+3. **Reported**, one line: "Headaches, Often; Headaches when not eaten,
+   Often. Answer changed: Often (Sep 16) from Sometimes (Sep 11)." When the
+   answers on one card moved differently, the change names its symptom.
+4. **Related findings**, up to three, one line each with frequency.
+5. **Why review together**: no map wording. With related findings, the
+   pinned neutral fallback "These findings are reported together. Explore
+   whether their timing overlaps." A card that only groups her own answers
+   says so. A card holding one finding draws no sentence (nothing to review
+   together). The map's association text is written about a whole entry,
+   often eleven areas, not about what one card shows, so it is never lifted
+   onto a card. Map entry names stay in View evidence ("Connected through").
+6. **Explore next**: one question by default. A second only when it is a
+   pinned pair question (`PAIR_QUESTIONS`) after a change question.
+
+### CHANGE WORDING
+
+Two sittings both ask about the three months before them, so a different
+answer is a change in her answer, not proof her symptom changed in five
+days. Display only; ranking and material change are untouched.
+
+- Badge "Answer changed" (was "Changed since last time"); "Same answer"
+  (was "Same as last time"); rank note "Answer changed (a higher frequency
+  selected)".
+- Question: "You selected Often this time and Sometimes previously. Does
+  that reflect a change in your symptoms or in how you understood the
+  question?" (was "What changed for you in between?").
+- Return marker "Answers changed since your review" (was "Changed since
+  your review").
+
+### COUNTS
+
+- Section header: "Root checked 17 connections" (was "17 connections to
+  review", which a dismissed card contradicts). Same number as before.
+- Briefing: "3 priority findings", "View all findings (4 more)", and after
+  opening it "4 more findings" above the rest. Pinned: "Discuss next session
+  (1)". Dismissed: "Reviewed or not relevant (2)", counted apart.
+- Signals header: "12 distinct signals, 30 dated entries" (same numbers).
+- Not changed: the Whole-Body Patterns header still reads "N patterns to
+  review"; it is a separate section with no dismiss action.
+
+### RESTORE
+
+Every card under "Reviewed or not relevant" has Restore. It appends its own
+row (coach, client, card, action `restored`, time, evidence state); no row is
+updated or deleted. The server rebuilds her briefing and only accepts a card
+that is dismissed now (`findDismissedBriefingCard`). A restored card is open,
+not marked changed, and ranks where the rules place it (the dismissed view
+now carries the whole card and every card carries its `rank`, so the screen
+draws a restored card in place without a reload). View evidence shows "Your
+review history", oldest first. Pins, the return on material change and the
+no-feedback rule are unchanged. Migration 261 replaces the action check
+(dropped by its definition, since 260 declared it inline) to allow
+`restored`; no policy changes.
+
+### Checks
+
+**12,933 tests across 646 files, all passing.** `root-briefing.test.ts` now
+76 (21 new or rewritten: shared source once per card with the window said
+once in the rendered card, a cross-source inline label and a second-source
+reported answer, headlines free of category and map entry names over every
+shipped signal with every direction and the fallback path, directions only
+from displayed signals, the neutral Why fallback pinned and no map wording,
+"Answer changed" with movement and dates and the named variant, one Explore
+question by default, the return marker wording, the digest labels, priority
+plus remainder plus dismissed reconciling on the rendered page, Restore
+returning a card in rank order with an appended row and full history,
+Restore refused for an open or pinned card, review again and material
+change return after a restore). `root-briefing-schema.test.ts` 12 (migration
+261). Typecheck clean. Lint 0 errors. Build clean, `/coach/clients/[id]/detail`
+74.3 kB (was 75.7 kB). Migration 261 applied to production: 261 locally and
+remotely.
+
+### Live verification, production, 2026-09-17
+
+Repo `MEFwellness/mef-platform`, branch `main`, commit `7556fa3` (11:22:54
+EDT). Vercel project `mef-platform`, team `mef-wellness`: deployment
+`mef-platform-dl60eappj` created 11:23:00 EDT, target production, Ready, and
+aliased to `https://app.mefwellness.com` (read with `vercel inspect`; the CLI
+has a login again).
+
+`scripts/verify-root-briefing-compact-live.ts`, coach oakomah66@gmail.com at
+a 390 x 844 phone viewport, sessions minted and retired: **36 of 36 passed.**
+
+- Three priority cards with every View evidence closed: **1,355 px** (435 +
+  466 + 430) at an 844 px viewport, **1.61 screens**. No sideways scroll. A
+  local render before deploying measured 1,391 px; the old layout was about
+  four screens.
+- Each card draws its shared source once. The Headaches card labels exactly
+  its two Breathing Check-In findings ("Feeling tense, Often (Breathing
+  Check-In, Sep 12)", "Bloated stomach, Sometimes (Breathing Check-In,
+  Sep 12)"); the other two have none.
+- Headlines: "Food triggered congestion, itching or swelling", "Headaches:
+  explore meal timing", "Under-eye puffiness in the morning: explore meal
+  timing" (the last from its related "Headaches when not eaten"). No
+  category or map entry name on any card; map names found inside View
+  evidence.
+- "Answer changed: Often (Sep 16) from Never (Sep 11)" and two "from
+  Sometimes (Sep 11)", each with the answer versus symptom question; no old
+  change wording anywhere in the briefing.
+- "Root checked 17 connections" equals the 17 connections the view holds;
+  3 priority + 4 more + 0 dismissed = 7 cards; nothing says "to review".
+- **No leftover test taps existed**: production held 0 briefing review rows
+  for any coach (the previous run's restore removed its own). So the run
+  made its own: Discuss next session on the top card (pinned section above
+  "3 priority findings", 3 priority + 3 more), then Reviewed (unpinned,
+  folded, "Reviewed or not relevant (1)", 3 + 3 + 1 = 7), then Restore (back
+  at once; after a reload first again, in the same order, fold gone). History
+  read "Discuss next session, Sep 17, 2026 | Reviewed, Sep 17, 2026 | Restored
+  to the briefing, Sep 17, 2026"; three appended rows; the card's View
+  evidence (8,267 characters) and the full evidence (6,244) identical before
+  and after. No console errors on the coach page.
+- Safety: none for her (no red flag Yes), none drawn inside the section.
+  Member side: 144 response bodies across six member routes with zero
+  coach-only phrases (list extended with this build's words), zero console
+  errors, and her session reads 0 rows from both briefing tables and the
+  Root tables.
+- **State left on production: as found.** The run's three review rows were
+  deleted and recounted (0 before, 0 after). The coach's visit stamp was put
+  back to 14:18:22.512Z; a first harness attempt (which read the page before
+  the pin had saved, a harness timing defect since fixed) and one debugging
+  load had moved it, and it was reset to the original value and read back.
+- Screenshots (gitignored): `apps/consumer-web-app/scripts/.verify/root-briefing-compact/`.
+
 ## Data scale sweep: no read comes back short, no request carries a list that can outgrow it (2026-09-17)
 
 A correctness sweep, not a feature. No screen, copy, score or behaviour
