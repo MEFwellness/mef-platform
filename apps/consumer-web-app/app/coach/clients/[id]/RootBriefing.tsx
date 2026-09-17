@@ -27,6 +27,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { ChevronDown, Pin } from 'lucide-react';
 import {
+  ASSESSMENT_CONTEXT_NOTE,
   BRIEFING_EMPTY,
   BRIEFING_HEADING,
   BRIEFING_LEAD,
@@ -37,6 +38,9 @@ import {
   HER_WORDS,
   HIDE_EVIDENCE,
   NO_TIMELINE_ENTRIES,
+  PINNED_SECTION_HEADING,
+  PINNED_SECTION_LEAD,
+  PRIORITY_SECTION_HEADING,
   RANK_REASON_HEADING,
   REVIEW_ACTION_LABELS,
   REVIEW_SAVE_FAILED,
@@ -48,6 +52,7 @@ import {
 import type {
   BriefingCardView,
   BriefingDismissedView,
+  BriefingSafetyView,
   RootBriefingView,
 } from '@/lib/cross-system-root/briefing';
 import type { BriefingReviewAction } from '@/lib/cross-system-root/briefingRules';
@@ -62,11 +67,10 @@ const CHIP = 'rounded-full px-2 py-0.5 text-[11px] font-semibold';
 function Markers({ card, pinned }: { card: BriefingCardView; pinned: boolean }) {
   const chips: Array<{ text: string; tone: string }> = [];
   if (pinned) chips.push({ text: BRIEFING_MARKERS.pinned, tone: 'bg-[#854D0E]/10 text-[#854D0E]' });
-  if (card.newSinceReview) {
-    chips.push({
-      text: card.changedSinceReview ? BRIEFING_MARKERS.changedSinceReview : BRIEFING_MARKERS.newSinceReview,
-      tone: 'bg-[#1B3A2D] text-white',
-    });
+  // Two different facts, two different chips: a visit is not a review.
+  if (card.newSinceVisit) chips.push({ text: BRIEFING_MARKERS.newSinceVisit, tone: 'bg-[#1B3A2D] text-white' });
+  if (card.changedSinceReview) {
+    chips.push({ text: BRIEFING_MARKERS.changedSinceReview, tone: 'bg-[#1B3A2D] text-white' });
   }
   if (card.changeMarker) chips.push({ text: card.changeMarker, tone: 'bg-[#1B3A2D]/6 text-[#1B3A2D]/75' });
   if (chips.length === 0) return null;
@@ -141,6 +145,20 @@ function CardEvidence({ card, view }: { card: BriefingCardView; view: FullRootNo
           ))}
         </ul>
       </div>
+
+      {card.evidence.assessmentContext.length > 0 ? (
+        <div data-briefing-assessment-context>
+          <p className={BLOCK_TITLE}>{EVIDENCE_HEADINGS.assessmentContext}</p>
+          <ul className="mt-1">
+            {card.evidence.assessmentContext.map((entry) => (
+              <li key={`${entry.sectionName}:${entry.onDisplay}`} className="text-[12px] text-[#1B3A2D]/75">
+                {entry.sectionName}: {entry.bandLabel} ({entry.sourceLabel}, {entry.onDisplay})
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-[11px] text-[#1B3A2D]/50">{ASSESSMENT_CONTEXT_NOTE}</p>
+        </div>
+      ) : null}
 
       {card.evidence.timelines.length > 0 ? (
         <div>
@@ -360,11 +378,27 @@ function DismissedFold({ entries }: { entries: BriefingDismissedView[] }) {
   );
 }
 
+/**
+ * THE SAFETY BLOCK, on its own, so the client detail page can draw it
+ * OUTSIDE the collapsible Root Noticed section: a coach with the section
+ * folded still sees it, and no review action anywhere can dismiss it.
+ */
+export function RootNoticedSafety({ safety }: { safety: BriefingSafetyView | null | undefined }) {
+  if (!safety) return null;
+  return (
+    <div className="mb-3" data-root-noticed-safety>
+      <SafetyPrompt heading={safety.heading} body={safety.body} signalNames={safety.signalNames} />
+    </div>
+  );
+}
+
 export function RootBriefing(props: {
   briefing: RootBriefingView;
   view: FullRootNoticedView;
   /** Absent in a render with no client to act on, which draws no action buttons. */
   clientId?: string | undefined;
+  /** True when the page already draws the safety block above the section. */
+  safetyShownAbove?: boolean | undefined;
 }) {
   const { briefing, view, clientId } = props;
   const [showAll, setShowAll] = useState(false);
@@ -376,6 +410,8 @@ export function RootBriefing(props: {
 
   // THE VISIT IS STAMPED FROM A MOUNTED EFFECT, through the beacon, never
   // from a render and never as a server action that re-renders the page.
+  // The markers on this screen were measured against the PREVIOUS visit,
+  // read on the server before this stamp can land.
   useEffect(() => {
     if (!clientId || stamped.current) return;
     stamped.current = true;
@@ -394,35 +430,44 @@ export function RootBriefing(props: {
     });
   };
 
-  // What this screen has done since it loaded, laid over what the server read.
-  const pinnedOf = (card: BriefingCardView) =>
-    local[card.targetKey] ? local[card.targetKey] === 'discuss_next_session' : card.pinned;
-  const cards = briefing.cards.filter((card) => {
+  // What this screen has done since it loaded, laid over what the server
+  // read. The newest action on a card wins, so reviewing a pinned card takes
+  // it out of the pinned section.
+  const statusOf = (card: BriefingCardView): 'pinned' | 'open' | 'dismissed' => {
     const action = local[card.targetKey];
-    return action !== 'reviewed' && action !== 'not_relevant';
-  });
-  const dismissedHere: BriefingDismissedView[] = briefing.cards
-    .filter((card) => local[card.targetKey] === 'reviewed' || local[card.targetKey] === 'not_relevant')
+    if (!action) return card.reviewStatus;
+    return action === 'discuss_next_session' ? 'pinned' : 'dismissed';
+  };
+  const all = [...briefing.pinned, ...briefing.cards];
+  const pinned = all.filter((card) => statusOf(card) === 'pinned');
+  const open = all.filter((card) => statusOf(card) === 'open');
+  const dismissedHere: BriefingDismissedView[] = all
+    .filter((card) => local[card.targetKey] && statusOf(card) === 'dismissed')
     .map((card) => ({
       targetKey: card.targetKey,
       headline: card.headline,
       line: dismissedJustNowLine(REVIEW_ACTION_LABELS[local[card.targetKey]!]),
     }));
 
-  const shown = showAll ? cards : cards.slice(0, briefing.priorityLimit);
-  const hidden = cards.length - shown.length;
+  const shown = showAll ? open : open.slice(0, briefing.priorityLimit);
+  const hidden = open.length - shown.length;
+
+  const drawCard = (card: BriefingCardView) => (
+    <BriefingCard
+      key={card.targetKey}
+      card={card}
+      view={view}
+      pinned={statusOf(card) === 'pinned'}
+      canAct={Boolean(clientId)}
+      pending={pendingKey === card.targetKey}
+      failed={failed === card.targetKey}
+      onAction={(action) => act(card, action)}
+    />
+  );
 
   return (
     <section data-root-briefing>
-      {briefing.safety ? (
-        <div className="mb-4">
-          <SafetyPrompt
-            heading={briefing.safety.heading}
-            body={briefing.safety.body}
-            signalNames={briefing.safety.signalNames}
-          />
-        </div>
-      ) : null}
+      {props.safetyShownAbove ? null : <RootNoticedSafety safety={briefing.safety} />}
 
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[15px] font-semibold text-[#1B3A2D]">{BRIEFING_HEADING}</p>
@@ -434,34 +479,32 @@ export function RootBriefing(props: {
       </div>
       <p className="mt-0.5 text-[12px] text-[#1B3A2D]/65">{BRIEFING_LEAD}</p>
 
-      {cards.length === 0 ? (
-        <p className="mt-3 text-[13px] text-[#1B3A2D]/70">{BRIEFING_EMPTY}</p>
-      ) : (
-        <div className="mt-3 space-y-3">
-          {shown.map((card) => (
-            <BriefingCard
-              key={card.targetKey}
-              card={card}
-              view={view}
-              pinned={pinnedOf(card)}
-              canAct={Boolean(clientId)}
-              pending={pendingKey === card.targetKey}
-              failed={failed === card.targetKey}
-              onAction={(action) => act(card, action)}
-            />
-          ))}
+      {pinned.length > 0 ? (
+        // PINNED CARDS HAVE THEIR OWN SECTION and never take a priority slot.
+        <div className="mt-3 rounded-2xl border border-[#854D0E]/20 bg-[#FEF9F0] p-3" data-briefing-pinned>
+          <p className={BLOCK_TITLE}>{PINNED_SECTION_HEADING}</p>
+          <p className="mt-0.5 text-[11px] text-[#1B3A2D]/60">{PINNED_SECTION_LEAD}</p>
+          <div className="mt-2 space-y-3">{pinned.map(drawCard)}</div>
         </div>
-      )}
-
-      {hidden > 0 ? (
-        <button
-          type="button"
-          onClick={() => setShowAll(true)}
-          className="mt-3 text-[12px] font-semibold text-[#854D0E]"
-        >
-          {viewAllFindingsLabel(hidden)}
-        </button>
       ) : null}
+
+      <div className="mt-3" data-briefing-priority>
+        {pinned.length > 0 ? <p className={BLOCK_TITLE}>{PRIORITY_SECTION_HEADING}</p> : null}
+        {open.length === 0 ? (
+          <p className="mt-2 text-[13px] text-[#1B3A2D]/70">{BRIEFING_EMPTY}</p>
+        ) : (
+          <div className="mt-2 space-y-3">{shown.map(drawCard)}</div>
+        )}
+        {hidden > 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="mt-3 text-[12px] font-semibold text-[#854D0E]"
+          >
+            {viewAllFindingsLabel(hidden)}
+          </button>
+        ) : null}
+      </div>
 
       <DismissedFold entries={[...dismissedHere, ...briefing.dismissed]} />
 

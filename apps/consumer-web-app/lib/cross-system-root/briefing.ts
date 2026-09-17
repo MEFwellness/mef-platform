@@ -92,7 +92,7 @@ import {
   EXPLORE_NEXT_LIMIT,
   RELATED_FINDINGS_LIMIT,
   REPORTING_WINDOWS,
-  compareForDisplay,
+  compareByRank,
   evidenceFingerprint,
   groupKeyFor,
   isRollupRow,
@@ -215,7 +215,9 @@ export type BriefingCardView = {
   // Review state, for this coach.
   reviewStatus: BriefingReviewStatus;
   pinned: boolean;
-  newSinceReview: boolean;
+  /** The card first appeared after this coach's previous visit to this client's briefing. */
+  newSinceVisit: boolean;
+  /** Its evidence changed materially after this coach's last review action on it. */
   changedSinceReview: boolean;
   lastAction: BriefingReviewAction | null;
 
@@ -230,11 +232,24 @@ export type BriefingCardView = {
     allRelated: BriefingRelatedLine[];
     timelines: BriefingTimeline[];
     absences: BriefingAbsence[];
+    /**
+     * ASSESSMENT CONTEXT, never a related finding. The survey section result
+     * each reported answer sits in, as the section's own band word. Shown
+     * inside View evidence only.
+     */
+    assessmentContext: BriefingAssessmentContext[];
   };
 
   /** The evidence state a review action is recorded against. */
   evidenceState: BriefingEvidenceState;
   fingerprint: string;
+};
+
+export type BriefingAssessmentContext = {
+  sectionName: string;
+  bandLabel: string;
+  sourceLabel: string;
+  onDisplay: string;
 };
 
 export type BriefingDismissedView = {
@@ -255,7 +270,13 @@ export type RootBriefingView = {
   disclaimer: string;
   /** Always drawn above the briefing when present. Never ranked. */
   safety: BriefingSafetyView | null;
-  /** Every card still in the briefing, in display order. The first BRIEFING_CARD_LIMIT are the priority cards. */
+  /**
+   * "Discuss next session" cards, in their own section below safety and
+   * above the priority cards. Never also in `cards`, and never counted
+   * against the priority limit.
+   */
+  pinned: BriefingCardView[];
+  /** Every open card, ranked. The first BRIEFING_CARD_LIMIT are the priority cards. */
   cards: BriefingCardView[];
   priorityLimit: number;
   dismissed: BriefingDismissedView[];
@@ -480,15 +501,15 @@ function comparableChain(
   }));
 }
 
-function sameAnswer(a: ComparableAnswer, b: ComparableAnswer): boolean {
-  return a.points === b.points && a.active === b.active && (a.points !== null || a.label === b.label);
-}
-
-/** When the evidence last moved: the start of the leading run of equal answers. */
-function lastMovedAt(chain: readonly ComparableAnswer[]): string | null {
-  if (chain.length === 0) return null;
+/**
+ * When this answer's current active run began: the oldest answer in the
+ * unbroken run of active answers ending at the newest one. A retake that
+ * repeats an active answer does not move it; a gap below the threshold does.
+ */
+function activeSince(chain: readonly ComparableAnswer[]): string | null {
+  if (chain.length === 0 || !chain[0]!.active) return null;
   let index = 0;
-  while (index + 1 < chain.length && sameAnswer(chain[index]!, chain[index + 1]!)) index += 1;
+  while (index + 1 < chain.length && chain[index + 1]!.active) index += 1;
   return chain[index]!.at;
 }
 
@@ -774,7 +795,9 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
     let worsening = false;
     let anyComparable = false;
     let anyChanged = false;
-    let evidenceMovedAt: string | null = null;
+    // The card appeared when its FIRST reported signal became active and has
+    // stayed active since.
+    const appeared: { at: string | null } = { at: null };
     const orderedRows = [...rows].sort(
       (a, b) =>
         rankPoints(b) - rankPoints(a) ||
@@ -789,8 +812,8 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
       if (compared.worsening) worsening = true;
       if (compared.change.kind !== 'first_recorded') anyComparable = true;
       if (compared.change.kind === 'changed') anyChanged = true;
-      const moved = lastMovedAt(chain);
-      if (moved && (!evidenceMovedAt || moved > evidenceMovedAt)) evidenceMovedAt = moved;
+      const since = activeSince(chain);
+      if (since && (!appeared.at || since < appeared.at)) appeared.at = since;
       return {
         signalSlug: row.signalSlug,
         signalName: row.signalName,
@@ -843,11 +866,6 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
         viaPatternNames: via,
       }));
     const related = allRelated.slice(0, RELATED_FINDINGS_LIMIT);
-    for (const line of allRelated) {
-      const record = relatedBySlug.get(line.signalSlug)!.record;
-      const moved = lastMovedAt(comparableChain(record, input, sittings, refsBySlug));
-      if (moved && (!evidenceMovedAt || moved > evidenceMovedAt)) evidenceMovedAt = moved;
-    }
 
     // ---- Counts the ranking reads. Canonical signals, never rows.
     const supporting = new Set<string>([...memberSlugs, ...relatedBySlug.keys()]);
@@ -879,9 +897,10 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
       latestReview ? { action: latestReview.action, state: latestReview.evidenceState } : null,
       evidenceState
     );
-    const newSinceReview = latestReview
-      ? review.changedSinceReview
-      : input.lastVisitedAt !== null && evidenceMovedAt !== null && evidenceMovedAt > input.lastVisitedAt;
+    // A VISIT IS NOT A REVIEW. Opening the page records a visit and nothing
+    // about any card; only an action on a card is a review.
+    const newSinceVisit =
+      input.lastVisitedAt !== null && appeared.at !== null && appeared.at > input.lastVisitedAt;
 
     // ---- Words.
     const groupedNames = [...memberSlugs]
@@ -941,7 +960,7 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
       exploreEmptyLine: exploreNext.length === 0 ? EXPLORE_NOTHING_CONNECTS : null,
       reviewStatus: review.status,
       pinned: review.status === 'pinned',
-      newSinceReview,
+      newSinceVisit,
       changedSinceReview: review.changedSinceReview,
       lastAction: latestReview?.action ?? null,
       rankReason: '',
@@ -962,6 +981,7 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
           refsBySlug
         ),
         absences: absencesFor(targetKey, memberSlugs, drafts, input, sittings, refsBySlug, histories),
+        assessmentContext: assessmentContextFor(rows, input),
       },
       evidenceState,
       fingerprint: evidenceFingerprint(evidenceState),
@@ -984,7 +1004,7 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
     });
   }
 
-  built.sort((a, b) => compareForDisplay(a.facts, b.facts));
+  built.sort((a, b) => compareByRank(a.facts, b.facts));
   for (const entry of built) {
     entry.card.rankReason = rankReasonLine({
       pinned: entry.facts.pinned,
@@ -996,7 +1016,8 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
     });
   }
 
-  const cards = built.filter((entry) => entry.card.reviewStatus !== 'dismissed').map((entry) => entry.card);
+  const pinned = built.filter((entry) => entry.card.reviewStatus === 'pinned').map((entry) => entry.card);
+  const cards = built.filter((entry) => entry.card.reviewStatus === 'open').map((entry) => entry.card);
   const dismissed = built
     .filter((entry) => entry.card.reviewStatus === 'dismissed')
     .map((entry) => {
@@ -1030,6 +1051,7 @@ export function buildRootBriefing(input: RootBriefingInputs): RootBriefingView {
       safetyNames.size > 0
         ? { heading: SAFETY_WITHHELD_HEADING, body: SAFETY_WITHHELD_BODY, signalNames: [...safetyNames].sort() }
         : null,
+    pinned,
     cards,
     priorityLimit: BRIEFING_CARD_LIMIT,
     dismissed,
@@ -1176,6 +1198,46 @@ function absencesFor(
       signalName: input.library.names.get(slug)?.displayName ?? slug,
       kind: absence.kind,
       line: absenceLine(absence.kind, absence.detail),
+    });
+  }
+  return out;
+}
+
+/**
+ * The survey section result behind each reported survey answer, from the
+ * same sitting, as the section's band word. Assessment context for View
+ * evidence: never a related finding, never ranked, and never a percentage.
+ */
+function assessmentContextFor(
+  rows: readonly SignalRecord[],
+  input: RootBriefingInputs
+): BriefingAssessmentContext[] {
+  const survey = input.questionnaire;
+  if (!survey) return [];
+  const sectionOfQuestion = new Map(survey.content.questions.map((question) => [question.questionRef, question.sectionKey]));
+  const sectionName = new Map(survey.content.sections.map((section) => [section.sectionKey, section.displayName]));
+  const out: BriefingAssessmentContext[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (row.sourceKey !== SOURCE_BODY_SYSTEMS || !row.sourceQuestionRef || !row.sourceSessionId) continue;
+    const sectionKey = sectionOfQuestion.get(row.sourceQuestionRef);
+    if (!sectionKey) continue;
+    const key = `${row.sourceSessionId}::${sectionKey}`;
+    if (seen.has(key)) continue;
+    const band = input.records.find(
+      (record) =>
+        record.valueKind === 'band' &&
+        record.sourceKey === SOURCE_BODY_SYSTEMS &&
+        record.sourceSessionId === row.sourceSessionId &&
+        record.sourceQuestionRef === sectionKey
+    );
+    if (!band) continue;
+    seen.add(key);
+    out.push({
+      sectionName: sectionName.get(sectionKey) ?? sectionKey,
+      bandLabel: band.valueLabel,
+      sourceLabel: band.sourceLabel,
+      onDisplay: shortDay(band.capturedOn, input.today),
     });
   }
   return out;

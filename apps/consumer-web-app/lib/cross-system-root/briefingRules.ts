@@ -41,8 +41,9 @@
  *   5. Then the anchor's name, then the target key, so a tie is always
  *      broken the same way.
  *
- * A pinned card ("Discuss next session") is drawn before unpinned ones.
- * Within each, the order above holds.
+ * A pinned card ("Discuss next session") is drawn in its own section,
+ * above the priority cards, and never takes one of their slots. The pinned
+ * section is ordered by the same rules.
  *
  * ---------------------------------------------------------------------
  * MATERIAL CHANGE, the one definition the review actions use:
@@ -180,7 +181,7 @@ export type RankFacts = {
   supportingSignalCount: number;
   /** Rule 4: distinct sources behind the card. Tie breaker only. */
   sourceCount: number;
-  /** Drawn first when true. Not a ranking rule: a coach's own pin. */
+  /** A coach's own pin. Not a ranking rule: a pinned card is drawn in its own section. */
   pinned: boolean;
 };
 
@@ -214,12 +215,6 @@ export function compareByRank(a: RankFacts, b: RankFacts): number {
   const byName = a.anchorName.localeCompare(b.anchorName);
   if (byName !== 0) return byName;
   return a.targetKey.localeCompare(b.targetKey);
-}
-
-/** The drawing order: a coach's pins first, then the ranking. */
-export function compareForDisplay(a: RankFacts, b: RankFacts): number {
-  if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-  return compareByRank(a, b);
 }
 
 // ---------------------------------------------------------------------

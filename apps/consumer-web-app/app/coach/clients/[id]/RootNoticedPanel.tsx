@@ -49,7 +49,14 @@ import { RootBriefing } from './RootBriefing';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
-export function RootNoticedPanel({ state }: { state: RootNoticedPanelState }) {
+export function RootNoticedPanel({
+  state,
+  safetyShownAbove,
+}: {
+  state: RootNoticedPanelState;
+  /** True when the client detail page draws the safety block outside this section. */
+  safetyShownAbove?: boolean;
+}) {
   const briefing = state.view.briefing ?? null;
   // WITH A BRIEFING, THE EVIDENCE IS ONE TAP AWAY rather than the first
   // thing on the page. Without one (a render that built none), the evidence
@@ -128,7 +135,12 @@ export function RootNoticedPanel({ state }: { state: RootNoticedPanelState }) {
 
   return (
     <div className={`${CARD} p-5`}>
-      <RootBriefing briefing={briefing} view={view} clientId={state.clientId} />
+      <RootBriefing
+        briefing={briefing}
+        view={view}
+        clientId={state.clientId}
+        safetyShownAbove={safetyShownAbove}
+      />
 
       <div className="mt-5 border-t border-[#1B3A2D]/10 pt-4">
         <button

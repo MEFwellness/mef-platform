@@ -499,11 +499,20 @@ export const REVIEW_ACTION_LABELS = {
   not_relevant: 'Not relevant',
 } as const;
 
+/**
+ * A VISIT IS NOT A REVIEW. "New since your last visit" is about when a card
+ * first appeared; "Changed since your review" is about evidence moving after
+ * a review action this coach took on that card.
+ */
 export const BRIEFING_MARKERS = {
-  newSinceReview: 'New since you last reviewed',
-  changedSinceReview: 'Changed since your last review',
+  newSinceVisit: 'New since your last visit',
+  changedSinceReview: 'Changed since your review',
   pinned: 'Discuss next session',
 } as const;
+
+export const PINNED_SECTION_HEADING = 'Discuss next session';
+export const PINNED_SECTION_LEAD = 'Cards you pinned. Mark one Reviewed or Not relevant to take it off this list.';
+export const PRIORITY_SECTION_HEADING = 'Priority findings';
 
 export function viewAllFindingsLabel(hidden: number): string {
   return hidden === 1 ? 'View all findings (1 more)' : `View all findings (${hidden} more)`;
@@ -519,6 +528,7 @@ export function dismissedLine(actionLabel: string, onDisplay: string): string {
 }
 
 export const EVIDENCE_HEADINGS = {
+  assessmentContext: 'Assessment context',
   answers: 'Every answer behind this card',
   timelines: 'Signal timelines',
   absences: 'Related questions with nothing current',
@@ -544,6 +554,10 @@ export function dismissedJustNowLine(actionLabel: string): string {
 }
 
 export const HIDE_EVIDENCE = 'Hide evidence';
+
+/** Under the assessment context: what it is, and what it is not. */
+export const ASSESSMENT_CONTEXT_NOTE =
+  'The survey section each answer sits in, as the survey reported it. Context only: a section result is never a related finding and does not rank a card.';
 export const CONNECTED_THROUGH = 'Connected through';
 export const NO_TIMELINE_ENTRIES = 'Nothing on record.';
 export const HER_WORDS = 'Her words';

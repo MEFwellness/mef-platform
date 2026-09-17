@@ -103,14 +103,20 @@ apart). Each answer stays listed on its own.
 ### RANKING, pinned in `briefingRules.ts`
 
 Safety is never ranked: a flagged row or a withheld entry moves the card
-into the safety block, drawn above the briefing with the existing wording.
+into the safety block, with the existing wording. **The safety block is
+drawn on the Client Detail page OUTSIDE the collapsible Root Noticed
+section**, so it stays visible with the section folded, and it is the
+existing override whole: every signal the briefing withheld plus every
+complaint finding and survey block the override withholds. No review state
+is read to build it, so no action can dismiss it.
 Then: (1) meaningful change first, meaning up the scale or newly active
 against a comparable earlier answer; (2) the loudest frequency; (3) distinct
 canonical signals behind the card; (4) source count, as a tie breaker only.
 **On a first survey nothing is comparable,** every card reads "First
-recorded", and the order falls through to (2) and (3). A coach's "Discuss
-next session" pin draws first. "Why this ranked here" in View evidence says
-which rules placed it, in words, with no score.
+recorded", and the order falls through to (2) and (3). "Why this ranked
+here" in View evidence says which rules placed it, in words: the only
+numbers in it count her own signals and sources, never a score or a
+percentage.
 
 **Comparable history is read from her sittings,** not only from filed rows,
 because a quiet answer files no row: a Never in June and an Often in
@@ -135,15 +141,41 @@ was taken at) and `cross_system_root_briefing_visits`. Both coach only: no
 member policy, a coach reads and appends her own rows. Nothing in Root, the
 map or the ranking reads either table.
 
+**"Discuss next session" cards have their own section,** below safety and
+above the priority cards. They never take one of the three priority slots
+and never appear in both. Reviewed or Not relevant on a pinned card takes
+the pin off (the newest action on a card wins) and folds it, under the same
+return rule as any other.
+
 Reviewed and Not relevant fold a card away **at its current evidence
 state**. A material change (a frequency shift either way, a new supporting
 signal, a signal crossing the active threshold either way) returns it marked
 "Changed since your last review". A retake with the same answers does not.
 The server rebuilds the card before recording an action, so a stale page
-cannot record a state the coach never saw. The visit is stamped through the
-beacon from a mounted effect, never from a render and never as a server
-action that would re-render the whole client page; a card whose evidence
-moved after that visit carries "New since you last reviewed".
+cannot record a state the coach never saw.
+
+**A VISIT IS NOT A REVIEW.** Two markers, two facts:
+
+- "Changed since your review": the card's evidence changed materially
+  after this coach's last review action on it.
+- "New since your last visit": the card first appeared (its reported
+  signal's current active run began) after this coach's previous visit to
+  this client's briefing. A card that existed before and only got louder is
+  not new.
+
+Visits are their own table. The read takes the PREVIOUS visit before
+anything is stamped, and the stamp travels through the beacon from a
+mounted effect, never from a render and never as a server action that
+would re-render the whole client page. Opening the page records nothing
+about any card.
+
+### SCORES
+
+No card and no rank note carries a score or a percentage. The survey
+section a reported answer sits in appears inside View evidence as
+"Assessment context", as the section's own band word, and is never a
+related finding and never ranks a card. Percentages stay off Root surfaces
+under the standing rule and remain on the survey's own results.
 
 ### ONCE, NOT PER CARD
 
@@ -153,15 +185,19 @@ and an area with nothing under it is a one line row.
 
 ### Checks
 
-**12,875 tests across 644 files**, 56 of them new, in two new files:
-`root-briefing.test.ts` (48: ranking and the first survey
+**12,907 tests across 646 files, all passing** on `main` with the data
+scale sweep landed beside this build, 62 of them in two new files: `root-briefing.test.ts` (54: ranking and the first survey
 fallthrough, worsening and the comparable history it needs, First recorded
 and Changed since last time, canonical dedup across two questions and
 across a survey and a sentence, the related findings bar, grouping, the four
 absences with a branched out question, the timeframe wording read against
 migration 221, the three card limit without padding, every review action's
-dismissal and its return, per coach review, the visit marker, safety never
-ranked, and the language check over every headline for every shipped
+dismissal and its return, the pinned section off the priority slots and
+unpinned by a review, per coach review, "New since your last visit" against
+"Changed since your review", a visit recording nothing about a card, safety
+never ranked and never dismissed and drawn outside the folded section, no
+score on any card with section results as assessment context only, and the
+language check over every headline for every shipped
 canonical signal) and `root-briefing-schema.test.ts` (8). Existing guards
 extended rather than bypassed: the Root copy check reads the five new files,
 the paged read guard names the review table and its reader, and the surface
@@ -169,13 +205,19 @@ wiring check follows the finding card to its new file. One flow assertion
 moved: the survey cards are now behind "All evidence Root checked", so it
 renders both layers and holds both to the no percentage rule.
 
-Full runs pass except for one to four tests per run in files that drive the
+Two earlier full runs each had one to four failures in files that drive the
 local database (`change-password`, `intelligence-core-integration`,
 `coach-reassignment-integration`, `admin-analytics-member-access`), a
-different set each run, none of them touching Root. Each passes on its own.
+different set each run, none touching Root; each passed on its own, and the
+final full run passed whole.
+
+The live harness (`scripts/verify-root-briefing-live.ts`) reads, deletes and
+restores through `lib/data/pagedSelect.ts`, so `data-scale-guard` holds it
+like every other script.
 
 Typecheck clean. Lint 0 errors. Production build clean,
-`/coach/clients/[id]/detail` 75.2 kB.
+`/coach/clients/[id]/detail` 75.7 kB. Migration 260 applied to production:
+260 locally and remotely, 0 pending.
 
 ## Root reads the Body Systems Survey (2026-09-17)
 

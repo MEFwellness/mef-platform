@@ -85,7 +85,6 @@ import {
   EMPTY_EVIDENCE_STATE,
   REPORTING_WINDOWS,
   compareByRank,
-  compareForDisplay,
   evidenceFingerprint,
   groupKeyFor,
   isMaterialChange,
@@ -223,10 +222,10 @@ describe('ranking order', () => {
     expect([manySources, moreSupport].sort(compareByRank)[0]!.targetKey).toBe('b');
   });
 
-  it('a coach pin draws first, and the ranking holds within pinned and unpinned', () => {
+  it('a pin is not a ranking rule: the order ignores it', () => {
     const pinnedQuiet = facts({ targetKey: 'p', frequencyPoints: 3, pinned: true });
     const loud = facts({ targetKey: 'l', frequencyPoints: 8 });
-    expect([loud, pinnedQuiet].sort(compareForDisplay).map((entry) => entry.targetKey)).toEqual(['p', 'l']);
+    expect([pinnedQuiet, loud].sort(compareByRank).map((entry) => entry.targetKey)).toEqual(['l', 'p']);
   });
 
   it('FIRST SURVEY FALLTHROUGH: with no comparable history the order is frequency, then supporting signals', async () => {
@@ -627,7 +626,8 @@ describe('review actions', () => {
 
   async function act(targetKey: string, action: 'reviewed' | 'not_relevant' | 'discuss_next_session', at: string) {
     const view = await coachOpens();
-    const target = briefingOf(view).cards.find((entry) => entry.targetKey === targetKey)!;
+    const briefing = briefingOf(view);
+    const target = [...briefing.pinned, ...briefing.cards].find((entry) => entry.targetKey === targetKey)!;
     await recordBriefingReview(db.asClient(), {
       coachId: COACH_ID,
       memberId: MEMBER_ID,
@@ -662,28 +662,51 @@ describe('review actions', () => {
       const returned = card(briefingOf(await coachOpens()), 'headaches');
       expect(returned.reviewStatus).toBe('open');
       expect(returned.changedSinceReview).toBe(true);
-      expect(returned.newSinceReview).toBe(true);
+      // Changed after a REVIEW, which is not the same as new since a visit.
+      expect(returned.newSinceVisit).toBe(false);
       expect(briefingOf(await coachOpens()).cards[0]!.targetKey).toBe(headaches.targetKey);
     }
   );
 
-  it('Discuss next session pins the card first with a marker until another action', async () => {
-    await complete('s1', answers({ K7: 'often', D1: 'almost_always' }), SEP16);
-    const puffiness = card(briefingOf(await coachOpens()), 'under-eye-puffiness');
-    expect(briefingOf(await coachOpens()).cards[0]!.targetKey).not.toBe(puffiness.targetKey);
+  it('Discuss next session moves the card into its own section, off the priority slots, until Reviewed or Not relevant', async () => {
+    await complete('s1', answers({ N4: 'often', D1: 'almost_always', N5: 'often', K7: 'often', HB7: 'often' }), SEP16);
+    const start = briefingOf(await coachOpens());
+    expect(start.cards).toHaveLength(5);
+    expect(start.pinned).toHaveLength(0);
+    const top = start.cards[0]!;
 
-    await act(puffiness.targetKey, 'discuss_next_session', '2026-09-16T20:00:00.000Z');
+    await act(top.targetKey, 'discuss_next_session', '2026-09-16T20:00:00.000Z');
     const pinnedView = await coachOpens();
-    const pinned = briefingOf(pinnedView).cards[0]!;
-    expect(pinned.targetKey).toBe(puffiness.targetKey);
-    expect(pinned.pinned).toBe(true);
-    expect(pinned.rankReason).toMatch(/^Pinned for next session/);
+    const briefing = briefingOf(pinnedView);
+    expect(briefing.pinned.map((entry) => entry.targetKey)).toEqual([top.targetKey]);
+    // Never in both sections, and the priority list still has its own three.
+    expect(briefing.cards.some((entry) => entry.targetKey === top.targetKey)).toBe(false);
+    expect(briefing.cards).toHaveLength(4);
     const html = renderToStaticMarkup(createElement(RootNoticedPanel, { state: { allowed: true, view: pinnedView } }));
+    const pinnedAt = html.indexOf('data-briefing-pinned');
+    const priorityAt = html.indexOf('data-briefing-priority');
+    expect(pinnedAt).toBeGreaterThan(-1);
+    expect(pinnedAt).toBeLessThan(priorityAt);
+    expect(html.match(new RegExp(`data-briefing-card="${top.targetKey}"`, 'g'))).toHaveLength(1);
+    const priorityHtml = html.slice(priorityAt);
+    expect(priorityHtml.match(/data-briefing-card=/g)).toHaveLength(BRIEFING_CARD_LIMIT);
     expect(html).toContain('data-briefing-marker="Discuss next session"');
 
-    await act(puffiness.targetKey, 'reviewed', '2026-09-16T21:00:00.000Z');
+    await act(top.targetKey, 'not_relevant', '2026-09-16T21:00:00.000Z');
     const cleared = briefingOf(await coachOpens());
-    expect(cleared.cards.some((entry) => entry.targetKey === puffiness.targetKey)).toBe(false);
+    expect(cleared.pinned).toHaveLength(0);
+    expect(cleared.cards.some((entry) => entry.targetKey === top.targetKey)).toBe(false);
+    expect(cleared.dismissed.map((entry) => entry.targetKey)).toContain(top.targetKey);
+  });
+
+  it('a pinned card whose evidence changes stays pinned and says it changed since the review', async () => {
+    await complete('s1', answers({ N4: 'often' }), SEP16);
+    const headaches = card(briefingOf(await coachOpens()), 'headaches');
+    await act(headaches.targetKey, 'discuss_next_session', '2026-09-16T20:00:00.000Z');
+    await complete('s2', answers({ N4: 'almost_always' }), SEP17);
+    const briefing = briefingOf(await coachOpens());
+    expect(briefing.pinned[0]!.targetKey).toBe(headaches.targetKey);
+    expect(briefing.pinned[0]!.changedSinceReview).toBe(true);
   });
 
   it('a review is one coach\'s: another coach still sees the card', async () => {
@@ -697,7 +720,7 @@ describe('review actions', () => {
     expect(briefingOf(other).cards.some((entry) => entry.targetKey === headaches.targetKey)).toBe(true);
   });
 
-  it('marks a card new since the last visit when its evidence moved after that visit', async () => {
+  it('"New since your last visit" marks only a card that first appeared after the previous visit', async () => {
     await complete('s1', answers({ N4: 'often', D1: 'almost_always' }), SEP16);
     db.rows('cross_system_root_briefing_visits').push({
       coach_id: COACH_ID,
@@ -705,12 +728,38 @@ describe('review actions', () => {
       visited_at: '2026-09-16T20:00:00.000Z',
     });
     const quiet = briefingOf(await coachOpens());
-    expect(quiet.cards.every((entry) => !entry.newSinceReview)).toBe(true);
+    expect(quiet.cards.every((entry) => !entry.newSinceVisit)).toBe(true);
 
-    await complete('s2', answers({ N4: 'almost_always', D1: 'almost_always' }), SEP17);
+    // Headaches gets louder (it existed before the visit); puffiness is new.
+    await complete('s2', answers({ N4: 'almost_always', D1: 'almost_always', K7: 'often' }), SEP17);
     const briefing = briefingOf(await coachOpens());
-    expect(card(briefing, 'headaches').newSinceReview).toBe(true);
-    expect(card(briefing, 'bloating-after-eating').newSinceReview).toBe(false);
+    expect(card(briefing, 'under-eye-puffiness').newSinceVisit).toBe(true);
+    expect(card(briefing, 'headaches').newSinceVisit).toBe(false);
+    expect(card(briefing, 'bloating-after-eating').newSinceVisit).toBe(false);
+  });
+
+  it('a visit is not a review: opening the page marks no card reviewed and records nothing about any card', async () => {
+    await complete('s1', answers({ N4: 'often' }), SEP16);
+    db.rows('cross_system_root_briefing_visits').push({
+      coach_id: COACH_ID,
+      member_id: MEMBER_ID,
+      visited_at: '2026-09-17T09:00:00.000Z',
+    });
+    const briefing = briefingOf(await coachOpens());
+    const headaches = card(briefing, 'headaches');
+    expect(headaches.reviewStatus).toBe('open');
+    expect(headaches.lastAction).toBeNull();
+    expect(headaches.changedSinceReview).toBe(false);
+    expect(db.rows('cross_system_root_briefing_reviews')).toHaveLength(0);
+  });
+
+  it('the markers read the PREVIOUS visit: the read never writes one', async () => {
+    await complete('s1', answers({ N4: 'often' }), SEP16);
+    await coachOpens();
+    await coachOpens();
+    expect(db.rows('cross_system_root_briefing_visits')).toHaveLength(0);
+    const source = fs.readFileSync(path.resolve(__dirname, '../lib/cross-system-root/noticedRead.ts'), 'utf8');
+    expect(source).not.toMatch(/recordBriefingVisit|recordBriefingReview/);
   });
 
   it('review actions feed nothing back: no Root, map or mapping table is written', async () => {
@@ -750,6 +799,52 @@ describe('safety is never ranked', () => {
     expect(safetyAt).toBeLessThan(html.indexOf('Coach briefing'));
   });
 
+  it('no review action can dismiss the safety block, and it draws outside the folded section', async () => {
+    await complete('s1', answers({ N4: 'often', D1: 'almost_always' }), SEP16, { redFlags: { severe_headaches: true } });
+    // A coach cannot act on a safety card, because none is built. Even a
+    // review row naming its target changes nothing about the block.
+    await recordBriefingReview(db.asClient(), {
+      coachId: COACH_ID,
+      memberId: MEMBER_ID,
+      targetKey: groupKeyFor('headaches', REAL_LIBRARY.names),
+      action: 'not_relevant',
+      evidenceState: EMPTY_EVIDENCE_STATE,
+      actedAt: '2026-09-16T20:00:00.000Z',
+    });
+    const view = await coachOpens();
+    expect(briefingOf(view).safety).not.toBeNull();
+    const { RootNoticedSafety } = await import('@/app/coach/clients/[id]/RootBriefing');
+    const folded = renderToStaticMarkup(createElement(RootNoticedSafety, { safety: view.briefing!.safety }));
+    expect(folded).toContain('A safety response needs attention first');
+    // With the page drawing it above, the section does not draw it twice.
+    const inside = renderToStaticMarkup(
+      createElement(RootNoticedPanel, { state: { allowed: true, view }, safetyShownAbove: true })
+    );
+    expect(inside).not.toContain('A safety response needs attention first');
+    const page = fs.readFileSync(path.resolve(__dirname, '../app/coach/clients/[id]/detail/page.tsx'), 'utf8');
+    const safetyAt = page.indexOf('<RootNoticedSafety');
+    const sectionAt = page.indexOf('id="detail-section-root-noticed"');
+    expect(safetyAt).toBeGreaterThan(-1);
+    expect(safetyAt).toBeLessThan(sectionAt);
+  });
+
+  it('a withheld complaint finding also reaches the safety block, exactly as the existing override withholds it', async () => {
+    await complete('s1', answers({ N4: 'often' }), SEP16, { redFlags: { severe_headaches: true } });
+    await ingestComplaint({
+      memberId: MEMBER_ID,
+      surfaceKey: 'daily_checkin_notes',
+      rawText: 'I have had headaches again this week.',
+      reportedAt: SEP17,
+      authorRole: 'member',
+      client: db.asClient(),
+      now: SEP17,
+    });
+    const view = await coachOpens();
+    const withheldNames = view.findings.filter((entry) => entry.suppressed).flatMap((entry) => entry.suppressedSignalNames);
+    for (const name of withheldNames) expect(briefingOf(view).safety!.signalNames).toContain(name);
+    expect(briefingOf(view).cards.some((entry) => entry.anchorSlug === 'headaches')).toBe(false);
+  });
+
   it('a flagged row withholds its card even when other cards are open', async () => {
     await complete('s1', answers({ N4: 'often' }), SEP16);
     const inputs = await inputsFor();
@@ -763,6 +858,27 @@ describe('safety is never ranked', () => {
 // ---------------------------------------------------------------------
 // Language
 // ---------------------------------------------------------------------
+
+describe('scores', () => {
+  it('no card and no rank note carries a score or a percentage, and section results sit in View evidence as context only', async () => {
+    await complete('s1', answers({ N4: 'almost_always', N1: 'almost_always', N2: 'almost_always', N3: 'often', D1: 'often' }), SEP16);
+    const view = await coachOpens();
+    for (const entry of briefingOf(view).cards) {
+      const surface = [entry.headline, entry.whyReviewTogether, ...entry.exploreNext, entry.rankReason, ...entry.reported.map((line) => `${line.valueLabel} ${line.reportedLine} ${line.change.line}`), ...entry.related.map((line) => `${line.valueLabel} ${line.reportedLine}`)].join(' ');
+      expect(surface).not.toMatch(/%|percent|\bscore|\bpoints?\b/i);
+      // The only number in a rank note is a count of her own signals.
+      expect(entry.rankReason.replace(/\d+ supporting signals?/, '').replace(/from \d+ sources/, '')).not.toMatch(/\d/);
+    }
+    const headaches = card(briefingOf(view), 'headaches');
+    expect(headaches.evidence.assessmentContext.length).toBeGreaterThan(0);
+    const context = headaches.evidence.assessmentContext[0]!;
+    expect(context.sectionName).toBe(SURVEY_CONTENT.sections.find((section) => section.sectionKey === 'brain')!.displayName);
+    expect(JSON.stringify(headaches.evidence.assessmentContext)).not.toMatch(/%|percent/i);
+    // Still never a related finding.
+    const bandSlugs = new Set(db.rows('cross_system_signals').filter((row) => row.value_kind === 'band').map((row) => row.signal_slug));
+    for (const line of headaches.evidence.allRelated) expect(bandSlugs.has(line.signalSlug)).toBe(false);
+  });
+});
 
 describe('every generated line passes the cautious language check', () => {
   const directions = [

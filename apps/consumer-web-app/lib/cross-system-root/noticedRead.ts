@@ -27,6 +27,7 @@ import { listFindingsForMember } from './data';
 import { complaintDrivenEntries } from './lookup';
 import { buildRootNoticedView, type FullRootNoticedView } from './noticedView';
 import { buildRootBriefing } from './briefing';
+import { SAFETY_WITHHELD_BODY, SAFETY_WITHHELD_HEADING } from './copy';
 import { listBriefingReviews, readBriefingVisit } from './briefingData';
 
 /** How many of her most recent complaints the section reads back. */
@@ -151,7 +152,26 @@ export async function readRootNoticed(
     lastVisitedAt,
   });
 
-  return { ...view, briefing };
+  // THE SAFETY BLOCK IS THE EXISTING OVERRIDE, WHOLE. Every signal the
+  // briefing withheld, every complaint finding the override withheld, and a
+  // survey sitting whose red flags withheld its block, in one list. No
+  // review state is read here: a review action can never dismiss it.
+  const safetyNames = new Set(briefing.safety?.signalNames ?? []);
+  let withheldAnywhere = briefing.safety !== null;
+  for (const finding of view.findings) {
+    if (!finding.suppressed) continue;
+    withheldAnywhere = true;
+    for (const name of finding.suppressedSignalNames) safetyNames.add(name);
+  }
+  if (view.questionnaire?.suppressed) {
+    withheldAnywhere = true;
+    for (const name of view.questionnaire.suppressedSignalNames) safetyNames.add(name);
+  }
+  const safety = withheldAnywhere
+    ? { heading: SAFETY_WITHHELD_HEADING, body: SAFETY_WITHHELD_BODY, signalNames: [...safetyNames].sort() }
+    : null;
+
+  return { ...view, briefing: { ...briefing, safety } };
 }
 
 /** The latest instant Root evaluated anything for her: a stored finding, or her newest sitting. */

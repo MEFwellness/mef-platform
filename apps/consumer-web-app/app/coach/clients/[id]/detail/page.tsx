@@ -181,6 +181,7 @@ import { getClientWholeBodyPatternsAction } from '@/app/actions/crossSystemPatte
 import { WholeBodyPatternsPanel } from '../WholeBodyPatternsPanel';
 import { getClientRootNoticedAction } from '@/app/actions/crossSystemRootFindings';
 import { RootNoticedPanel } from '../RootNoticedPanel';
+import { RootNoticedSafety } from '../RootBriefing';
 import { buildHealthContextView } from '@/lib/health-intake/coachView';
 import { HealthContextPanel } from '../HealthContextPanel';
 import { OwningYourValuePanel } from '../OwningYourValuePanel';
@@ -1054,13 +1055,21 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             a finding touching a response that fired a red flag arrives with
             no areas and no wording at all.
           */}
+          {/*
+            SAFETY FLAGS STAY VISIBLE WITH THE SECTION FOLDED. The existing
+            override's safety block is drawn here, outside the collapsible
+            section, and no review action on a briefing card can dismiss it.
+          */}
+          {rootNoticedPanel.allowed ? (
+            <RootNoticedSafety safety={rootNoticedPanel.view.briefing?.safety} />
+          ) : null}
           <DetailSection
             id="detail-section-root-noticed"
             title="Root Noticed"
             digest={sectionDigests.rootNoticed}
           >
             <div id="detail-card-root-noticed" className="scroll-mt-24">
-              <RootNoticedPanel state={rootNoticedPanel} />
+              <RootNoticedPanel state={rootNoticedPanel} safetyShownAbove />
             </div>
           </DetailSection>
 
