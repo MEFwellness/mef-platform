@@ -1,3 +1,189 @@
+## Rooted Reset Health Appraisal Questionnaire, Prompt 1 of 3: the foundation (2026-09-17)
+
+A brand new assessment, internal id `haq`, version `haq_v1`: 21 scored
+sections, 260 questions. Backend only. **Nothing of it is visible in the
+member app**: no registry entry, no catalog row, no route, no card. It is
+not the Health Check-In (`short-haq`) and not the Body Systems Survey, and
+neither was touched. The member experience is Prompt 2; results and the
+coach view are Prompt 3.
+
+Files: `lib/haq/` (`questionBank.ts`, `scoringRules.ts`, `scoring.ts`,
+`memberData.ts`, `sql.ts`, `types.ts`), `scripts/print-haq-sql.mjs`,
+`supabase/migrations/00000000000262_rooted_reset_haq_foundation.sql`,
+`scripts/verify-haq-foundation-live.ts`, tests `haq-content`,
+`haq-scoring`, `haq-runtime-integration`, `haq-member-safety` (plus the
+`haq-spec.ts` and `haq-fixture.ts` helpers).
+
+### WHAT IS REUSED
+
+The Unified Adaptive Assessment Foundation and Runtime, the way Fuel
+Pattern uses it, with no change to the runtime's code:
+
+| HAQ requirement | Where it lives |
+| --- | --- |
+| Assessment instance, member, started, completed, status | `unified_assessment_sessions` |
+| HAQ version | the session's `assessment_version` (1), the definition's `scoring_profile.haq_version` (`haq_v1`), and `haq_version` on each result row |
+| Not Started / In Progress / Completed | no row / `in_progress` / `completed`, exactly as `assessment_status_by_member` already reads it (`haqInstanceStatus`) |
+| Sections, section intro | `unified_assessment_sections` (title; the Dysglycemia-L intro is the subtitle) |
+| Questions, wording, question version | `unified_assessment_questions` (`question_key` is the HAQ id, `version` 1, `answer_type` single_select, options carry value and label only) |
+| Selected response, answered at | `unified_assessment_answers` |
+| Start, resume, answer, change an answer, complete, retake | `startOrResumeSession`, `persistAnswer`, `completeSession`, `startRetake` |
+
+### WHAT IS NEW, AND WHY THE RUNTIME COULD NOT HOLD IT
+
+The runtime's question and answer rows are readable by the member who owns
+them, so any number stored there would reach her. Every number lives in a
+HAQ table with **no member policy**:
+
+- `haq_response_scale`: the six locked values. A check constraint admits
+  only Never or rarely 0, Sometimes 1, Often 4, Very often 8, No 0, Yes 8.
+- `haq_section_cutoffs`: each section's own Green top and Yellow top.
+- `haq_question_responses`: one record per answered question per instance:
+  question id, part id, section id, question version, response type,
+  selected response, hidden value, answered at.
+- `haq_section_results`: 21 rows per completed instance: raw total, color,
+  member label, original priority, version. A check constraint ties
+  Green/Doing Well/Low Priority, Yellow/Needs Attention/Moderate Priority,
+  Red/High Attention/High Priority together.
+
+Structure with no numbers is readable like other content: `haq_sections`
+(part id, part label, section letter), `haq_questions` (part, section,
+response type). Body map structure: `haq_body_map_entries` (location,
+front/back, pain/swelling/discomfort/skin change, instance); a member can
+add and remove entries only on her own open HAQ instance, and nothing in
+the engine reads the table.
+
+Coaches read the numbers for their assigned members (for Prompt 3);
+administrators read everything. Nobody has a write policy on responses or
+results: only the engine writes them.
+
+### THE ENGINE RUNS IN THE DATABASE
+
+The runtime writes through the member's own session, which cannot see the
+numbers, so the engine is triggers in the same transaction as the runtime's
+own writes:
+
+1. **An answer is checked before it is stored.** A HAQ question accepts
+   only its response type's approved values, only on an open HAQ instance.
+   `"always"`, `"Often"`, a label, a number, a boolean, a list, Yes on a
+   frequency question: all raise, and `persistAnswer` throws.
+2. **The stored answer writes or replaces its response record** with the
+   hidden value. A changed answer replaces the value and the answered-at.
+3. **Completion with any of the 260 unanswered raises** (also straight at
+   the row, around the runtime), so the instance stays In Progress and no
+   result exists. An instance cannot be created already completed.
+4. **Completion writes 21 results**, each from that section's own total and
+   that section's own cutoffs. There is no overall total, percentage or
+   grade anywhere, and no column that could hold one.
+5. **A completed instance is never changed**: its answers, its session row,
+   its response records and its results refuse update and delete (the
+   service role included). Deleting the instance itself, as account
+   deletion does, still cascades cleanly (checked).
+
+`lib/haq/scoring.ts` is the same rules in TypeScript (server side only).
+The integration test completes four real instances that put all 21
+sections at each of their four boundaries and asserts the database's
+stored results equal the TypeScript engine's, section by section.
+
+A member reads her results only through `haq_member_section_results()`,
+which returns section id, color and label, for her own instance, and
+nothing numeric. `lib/haq/memberData.ts` wraps it; no screen calls it yet.
+The classification function itself is not executable by members, since
+probing it would reveal cutoffs.
+
+### ONE AUTHORED SOURCE
+
+The 260 questions are authored once in `lib/haq/questionBank.ts`, the
+numbers once in `lib/haq/scoringRules.ts`. The migration's VALUES blocks
+are generated from them (`scripts/print-haq-sql.mjs`) and
+`haq-content.test.ts` asserts the migration still contains each block
+character for character. The tests also carry a **second, independent copy
+of the specification** (`tests/haq-spec.ts`: question count per section,
+the 36 Yes / No ids, four spot checked wordings, every cutoff and value),
+so a value typed wrongly in the bank, and therefore in the generated
+migration too, fails instead of agreeing with itself.
+
+`scoringRules.ts`, `scoring.ts` and `sql.ts` are unreachable from every
+client component, every member route and the member-safe HAQ modules
+(`haq-member-safety.test.ts`, an import graph walk, proved non-vacuous).
+The production build's browser bundles contain no HAQ text or number.
+
+### TESTS
+
+`haq-content` 18, `haq-scoring` 202 (84 boundary classifications, 84
+boundaries reached from real answers, value mapping and refusals, zero vs
+unanswered, incomplete, answer change, section independence),
+`haq-runtime-integration` 32 (real database, real RLS, real runtime),
+`haq-member-safety` 11. The integration guards were proved non-vacuous by
+moving one cutoff in the local database: both the seed check and the
+boundary run failed, and the value was restored.
+
+**13,196 tests across 650 files, all passing.** Typecheck clean. Lint 0
+errors (warnings only: console output in the two new scripts, the same as
+every other script). Production build clean. Migration 262 applied to
+production with `supabase db push`; a dry run beforehand listed 262 as the
+only pending migration, and a dry run afterwards reported the remote
+database up to date.
+
+Two existing things were adjusted, neither of them HAQ: `root-briefing-schema`
+asserted migration 261 was the newest file, which any new migration
+falsifies, so it now asserts 261 directly follows 260; and an unused
+variable in `scripts/verify-root-briefing-compact-live.ts` was the one lint
+error in the repository. `haq_member_section_results` is registered in the
+data scale guard's rpc list.
+
+### CONTENT NOTES FOR THE AUTHOR, NOT CHANGED
+
+The wording is locked and was seeded exactly. Worth a look before members
+see it:
+
+- `haq_p1_b_q6` asks whether digestive problems improve with rest, and a Yes
+  scores 8 like every other Yes.
+- `haq_p8_q5` ("Do you rarely feel the urge to urinate?") and `haq_p8_q6`
+  ("less often than every two hours") are frequency questions, so "Very
+  often" answers a question that already contains a frequency.
+- Kidney & Bladder's Yellow band is 8 to 31, far wider than any other
+  section's.
+- Section titles are stored in title case ("Gastric Function"); the prompt
+  printed them in capitals. Yes / No options are offered No first, then
+  Yes, matching the order the scoring rule lists them.
+
+### LIVE VERIFICATION, PRODUCTION, 2026-09-17
+
+Repo `MEFwellness/mef-platform`, branch `main`, commit `c6378da` (pushed
+12:24 EDT). Vercel project `mef-platform`, team `mef-wellness`: deployment
+`mef-platform-1jzpx7ycj` created 12:24:19 EDT from `c6378da`, target
+production, Ready, and aliased to `https://app.mefwellness.com` (read with
+`vercel inspect`).
+
+`scripts/verify-haq-foundation-live.ts`, run in two halves. The snapshot
+half ran against production BEFORE migration 262 was pushed: it hashed every
+row of 22 content sets (the catalog, its versions, all nine Body Systems
+Survey tables, and every other unified definition with its sections and
+questions) and walked the test member's screens. The verify half ran after
+the deploy. Member walk as 8weeks2fab@gmail.com at 390 x 844 with a minted
+session, retired afterwards (the form was not driven). **35 of 35 passed.**
+
+- Database: the definition is version 1, `haq_v1`, no catalog bridge, and
+  no catalog row exists. 260 questions (runtime rows and `haq_questions`
+  both), 21 sections in order, cutoffs equal to the prompt for all 21, the
+  scale is exactly 0/1/4/8 and 0/8, all 260 wordings and response types
+  equal the authored bank. Spot checks exact: `haq_p1_a_q1` frequency,
+  `haq_p4_a_q16` frequency, `haq_p7_q31` yes_no, `haq_p10_b_q9` frequency.
+  Zero HAQ instances exist for anybody.
+- All 22 existing content sets are byte identical to the snapshot.
+- Home (`/dashboard`), `/questionnaires`, `/today` and `/progress`: signed
+  in, no HAQ word, link or text; no response body in the whole walk carried
+  "Health Appraisal" or any HAQ id. The questionnaire list shows the same 13
+  headings as before.
+- Every existing questionnaire route (the 11 registry routes plus the Body
+  Systems Survey, Breathing Check-In, Health & Lifestyle Intake and
+  Whole-Body Signal) landed where it landed before with the same heading,
+  including "Health Check-In Questionnaire" at `/assessments/short-haq`.
+- Zero console or page errors.
+- **State left on production:** migration 262's content only. The run wrote
+  nothing; the snapshot lives outside the repository.
+
 ## Root Noticed coach briefing: compact cards and Restore (2026-09-17)
 
 A display refinement of the coach briefing (migration 260), in place. The
