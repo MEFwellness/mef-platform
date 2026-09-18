@@ -21,7 +21,7 @@
  */
 
 import { haqBodyIssueLabel, haqBodyMarkPlace, type HaqBodyMark, type HaqBodySide } from './bodyMap';
-import { HAQ_QUESTIONS, HAQ_RESPONSE_OPTIONS, HAQ_SECTIONS, haqPartOf } from './questionBank';
+import { HAQ_QUESTIONS, HAQ_RESPONSE_OPTIONS, HAQ_SECTIONS, haqPartOf, haqPromptAtVersion } from './questionBank';
 import { HAQ_RESULT_COLOR_ORDER, haqTrend } from './results';
 import type {
   HaqCoachInstance,
@@ -143,8 +143,9 @@ function questionOrderOf(questionKey: string): number {
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
-function promptOf(questionKey: string): string {
-  return HAQ_QUESTIONS.find((question) => question.key === questionKey)?.prompt ?? questionKey;
+/** The words she was asked in that sitting, which for a reworded question are its earlier ones. */
+function promptOf(questionKey: string, questionVersion: number): string {
+  return haqPromptAtVersion(questionKey, questionVersion) ?? questionKey;
 }
 
 function responseLabelOf(row: HaqCoachQuestionResponseRow): string {
@@ -211,7 +212,7 @@ export function buildCoachHaqSitting(input: {
     const questions = (responsesBySection.get(result.sectionId) ?? [])
       .map((row) => ({
         questionKey: row.questionKey,
-        prompt: promptOf(row.questionKey),
+        prompt: promptOf(row.questionKey, row.questionVersion),
         selectedResponse: row.selectedResponse,
         responseLabel: responseLabelOf(row),
         hiddenValue: row.hiddenValue,

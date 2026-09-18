@@ -129,3 +129,82 @@ export const SPEC_HIDDEN_VALUES: Array<['frequency' | 'yes_no', string, number]>
   ['yes_no', 'no', 0],
   ['yes_no', 'yes', 8],
 ];
+
+/**
+ * THE 2026-09-18 WORDING REVISION, typed from that prompt: the eleven
+ * questions reworded so none assumes the symptom is present, each with its
+ * version 1 wording, its version 2 wording, and its response type as the
+ * instrument has always held it. Question id, Part, Section, position,
+ * response type and hidden values do not change.
+ *
+ * haq_p1_b_q4 is a frequency question in the original instrument (it is not
+ * in SPEC_YES_NO_KEYS above), and a wording-only revision keeps it one.
+ */
+export const SPEC_REVISED_WORDINGS: Array<[string, string, string, 'frequency' | 'yes_no']> = [
+  [
+    'haq_p1_b_q4',
+    'Does stomach pain, burning, or aching improve after eating food, drinking something soothing, or taking antacids?',
+    'Do you notice stomach pain, burning, or aching that improves after eating, drinking something soothing, or taking antacids?',
+    'frequency',
+  ],
+  [
+    'haq_p1_b_q6',
+    'Do digestive problems tend to improve when you rest or relax?',
+    'Do you notice digestive discomfort that improves when you rest or relax?',
+    'yes_no',
+  ],
+  [
+    'haq_p3_a_q10',
+    'Have you noticed unusual dryness or changes in the color of your skin or hair?',
+    'Have you noticed unusual dryness or color changes in your skin or hair?',
+    'yes_no',
+  ],
+  [
+    'haq_p4_b_q8',
+    'Do starchy foods such as rice, corn, beans, whole grains, or oats seem to contribute to weight gain or make weight loss more difficult for you?',
+    'Have you noticed weight gain or more difficulty losing weight when you regularly eat starchy foods such as rice, corn, beans, whole grains, or oats?',
+    'yes_no',
+  ],
+  [
+    'haq_p5_b_q10',
+    'Have you noticed a change in your ability to feel pain or tell the difference between hot and cold?',
+    'Have you noticed any reduced ability to feel pain or tell the difference between hot and cold?',
+    'yes_no',
+  ],
+  [
+    'haq_p5_b_q12',
+    'Have you noticed a decline in your ability to make decisions, concentrate, focus your attention, or follow directions?',
+    'Have you noticed more difficulty making decisions, concentrating, focusing your attention, or following directions?',
+    'yes_no',
+  ],
+  [
+    'haq_p6_a_q7',
+    'Have you noticed a change in both your appetite and your weight?',
+    'Have you experienced noticeable changes in both your appetite and your weight?',
+    'yes_no',
+  ],
+  [
+    'haq_p7_q13',
+    'Do frequent colds tend to keep you feeling unwell during the winter?',
+    'Do you experience frequent colds during the winter that keep you feeling unwell?',
+    'yes_no',
+  ],
+  [
+    'haq_p7_q14',
+    'Do flu-like symptoms tend to last longer than five days for you?',
+    'When you have flu-like symptoms, do they usually last longer than five days?',
+    'yes_no',
+  ],
+  [
+    'haq_p7_q15',
+    'Do respiratory infections tend to settle in your lungs?',
+    'When you have a respiratory infection, does it tend to move into or affect your lungs?',
+    'yes_no',
+  ],
+  [
+    'haq_p7_q30',
+    'Do symptoms involving your eyes, ears, nose, throat, or lungs seem connected to particular foods such as dairy or wheat products?',
+    'Have you noticed symptoms involving your eyes, ears, nose, throat, or lungs after eating certain foods such as dairy or wheat products?',
+    'yes_no',
+  ],
+];

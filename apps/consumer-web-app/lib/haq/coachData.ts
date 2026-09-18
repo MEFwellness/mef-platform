@@ -56,6 +56,8 @@ export type HaqCoachSectionResultRow = {
 export type HaqCoachQuestionResponseRow = {
   sectionId: string;
   questionKey: string;
+  /** Which wording she was asked: a reworded question keeps its key and gains a version. */
+  questionVersion: number;
   responseType: HaqResponseType;
   selectedResponse: string;
   hiddenValue: number;
@@ -185,7 +187,7 @@ export async function readHaqCoachQuestionResponses(
   // scale-exempt: one sitting's answer records, exactly 260 rows, fixed by the instrument's 260 questions
   const { data, error } = await supabase
     .from('haq_question_responses')
-    .select('section_id, question_key, response_type, selected_response, hidden_value, answered_at')
+    .select('section_id, question_key, question_version, response_type, selected_response, hidden_value, answered_at')
     .eq('session_id', sessionId)
     .limit(HAQ_QUESTION_COUNT);
 
@@ -196,6 +198,7 @@ export async function readHaqCoachQuestionResponses(
   return ((data ?? []) as Array<{
     section_id: string;
     question_key: string;
+    question_version: number;
     response_type: string;
     selected_response: string;
     hidden_value: number;
@@ -203,6 +206,7 @@ export async function readHaqCoachQuestionResponses(
   }>).map((row) => ({
     sectionId: row.section_id,
     questionKey: row.question_key,
+    questionVersion: row.question_version,
     responseType: row.response_type as HaqResponseType,
     selectedResponse: row.selected_response,
     hiddenValue: row.hidden_value,

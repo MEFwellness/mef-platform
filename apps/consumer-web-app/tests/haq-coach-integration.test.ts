@@ -45,7 +45,7 @@ const { assignHaqAction } = await import('../app/actions/haqCoach');
 const { getClientHaqPanelAction, getClientHaqSittingAction } = await import('../app/actions/haqCoachReading');
 const { buildHaqState } = await import('../lib/haq/service');
 const { buildHaqMemberResults, haqResultCounts } = await import('../lib/haq/results');
-const { HAQ_DEFINITION_ID, HAQ_KEY } = await import('../lib/haq/constants');
+const { HAQ_KEY } = await import('../lib/haq/constants');
 const { HAQ_QUESTIONS, HAQ_SECTIONS } = await import('../lib/haq/questionBank');
 const { getUnifiedAssessmentDefinitionByKey } = await import('../lib/assessment-foundation/repository');
 const { answersForSectionTotals } = await import('./haq-fixture');
@@ -214,6 +214,8 @@ beforeAll(async () => {
     .from('unified_assessment_questions')
     .select('id, question_key')
     .eq('assessment_definition_id', definitionId)
+    // Active rows only: a reworded question keeps its key and gains a version.
+    .eq('active', true)
     .order('id');
   for (const row of data ?? []) questionIdByKey.set(row.question_key as string, row.id as string);
 

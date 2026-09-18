@@ -49,7 +49,6 @@ const {
   buildHaqScreens,
   haqBodyMapIndex,
   haqProgressPercent,
-  haqScreenHeading,
   resumeHaqScreenIndex,
   sanitizeHaqAnswers,
 } = await import('../lib/haq/walk');

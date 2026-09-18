@@ -20,18 +20,29 @@ import {
   HAQ_RESPONSE_OPTIONS,
   HAQ_SECTION_COUNT,
   HAQ_SECTIONS,
+  HAQ_PRIOR_WORDINGS,
   HAQ_VERSION,
+  haqCurrentQuestionVersion,
   haqPartOf,
+  haqPromptAtVersion,
 } from '../lib/haq/questionBank';
+import { haqHiddenValue } from '../lib/haq/scoringRules';
 import {
   buildHaqAnswerOptionsJson,
   buildHaqCutoffRowsSql,
   buildHaqPartRowsSql,
+  buildHaqQuestionRevisionRowsSql,
   buildHaqQuestionRowsSql,
   buildHaqResponseScaleRowsSql,
   buildHaqSectionRowsSql,
 } from '../lib/haq/sql';
-import { SPEC_SECTION_QUESTION_COUNTS, SPEC_SPOT_CHECKS, SPEC_YES_NO_KEYS, specQuestionKeys } from './haq-spec';
+import {
+  SPEC_REVISED_WORDINGS,
+  SPEC_SECTION_QUESTION_COUNTS,
+  SPEC_SPOT_CHECKS,
+  SPEC_YES_NO_KEYS,
+  specQuestionKeys,
+} from './haq-spec';
 
 const MIGRATION = path.resolve(
   __dirname,
@@ -44,6 +55,12 @@ const PARTS_MIGRATION = path.resolve(
   '../../../supabase/migrations/00000000000264_rooted_reset_haq_part_names.sql'
 );
 const partsMigrationSql = fs.readFileSync(PARTS_MIGRATION, 'utf8');
+
+const WORDING_V2_MIGRATION = path.resolve(
+  __dirname,
+  '../../../supabase/migrations/00000000000265_rooted_reset_haq_wording_v2.sql'
+);
+const wordingV2MigrationSql = fs.readFileSync(WORDING_V2_MIGRATION, 'utf8');
 
 /**
  * A SECOND, INDEPENDENT COPY OF THE TEN PART NAMES, taken from the build
@@ -211,5 +228,79 @@ describe('the HAQ content and migration 262 agree', () => {
     expect(statements).not.toMatch(/body_systems_/);
     expect(statements).not.toMatch(/\binto\s+assessment_definitions\b/);
     expect(statements).toMatch(/'haq', null, 'Rooted Reset Health Appraisal Questionnaire'/);
+  });
+});
+
+describe('the 2026-09-18 wording revision (migration 265)', () => {
+  const revisedKeys = SPEC_REVISED_WORDINGS.map(([key]) => key);
+
+  it.each(SPEC_REVISED_WORDINGS)('%s asks the new wording, at version 2', (key, _before, after) => {
+    const question = HAQ_QUESTIONS.find((q) => q.key === key);
+    expect(question?.prompt).toBe(after);
+    expect(haqCurrentQuestionVersion(key)).toBe(2);
+    expect(haqPromptAtVersion(key, 2)).toBe(after);
+  });
+
+  it.each(SPEC_REVISED_WORDINGS)('%s keeps its version 1 wording on record, unchanged', (key, before) => {
+    expect(haqPromptAtVersion(key, 1)).toBe(before);
+  });
+
+  it.each(SPEC_REVISED_WORDINGS)(
+    '%s keeps its response type and its hidden values',
+    (key, _before, _after, responseType) => {
+      const question = HAQ_QUESTIONS.find((q) => q.key === key)!;
+      expect(question.responseType).toBe(responseType);
+      expect(SPEC_YES_NO_KEYS.includes(key)).toBe(responseType === 'yes_no');
+      if (responseType === 'yes_no') {
+        expect(HAQ_RESPONSE_OPTIONS[question.responseType].map((o) => o.value)).toEqual(['no', 'yes']);
+        expect(haqHiddenValue(question.responseType, 'no')).toBe(0);
+        expect(haqHiddenValue(question.responseType, 'yes')).toBe(8);
+        expect(haqHiddenValue(question.responseType, 'often')).toBeNull();
+      } else {
+        expect(haqHiddenValue(question.responseType, 'never_or_rarely')).toBe(0);
+        expect(haqHiddenValue(question.responseType, 'very_often')).toBe(8);
+        expect(haqHiddenValue(question.responseType, 'yes')).toBeNull();
+      }
+    }
+  );
+
+  it('rewords exactly these eleven and no other question', () => {
+    expect(HAQ_PRIOR_WORDINGS.map((prior) => prior.key).sort()).toEqual([...revisedKeys].sort());
+    expect(HAQ_PRIOR_WORDINGS.every((prior) => prior.version === 1)).toBe(true);
+    for (const question of HAQ_QUESTIONS) {
+      if (revisedKeys.includes(question.key)) continue;
+      expect(haqCurrentQuestionVersion(question.key), question.key).toBe(1);
+      expect(haqPromptAtVersion(question.key, 1), question.key).toBe(question.prompt);
+    }
+    // Migration 262 still regenerates character for character (the block
+    // above), which is the whole of version 1: only these eleven differ.
+    const v1Rows = buildHaqQuestionRowsSql().split('\n');
+    const currentRows = HAQ_QUESTIONS.map((q) => q.prompt);
+    const differing = HAQ_QUESTIONS.filter((q, index) => !v1Rows[index]!.includes(`'${currentRows[index]!.replace(/'/g, "''")}'`));
+    expect(differing.map((q) => q.key).sort()).toEqual([...revisedKeys].sort());
+  });
+
+  it('ships exactly the version 2 rows the authored bank produces', () => {
+    expect(wordingV2MigrationSql).toContain(buildHaqQuestionRevisionRowsSql(2));
+    expect(buildHaqQuestionRevisionRowsSql(2).split('\n')).toHaveLength(11);
+  });
+
+  it('touches no scale, cutoff, result or response record, and no completed sitting', () => {
+    const statements = wordingV2MigrationSql.replace(/--.*$/gm, '');
+    for (const table of ['haq_section_cutoffs', 'haq_response_scale', 'haq_question_responses', 'haq_section_results']) {
+      expect(statements, table).not.toMatch(new RegExp(`(insert into|update|delete from)\\s+${table}`, 'i'));
+    }
+    expect(statements).not.toMatch(/create or replace function/i);
+    expect(statements).not.toMatch(/update\s+unified_assessment_sessions/i);
+    // The one delete is an open sitting's answers to a replaced row.
+    expect(statements.match(/delete from/gi)).toHaveLength(1);
+    expect(statements).toMatch(/delete from unified_assessment_answers[\s\S]*?s\.status = 'in_progress';/);
+    // The only update retires version 1.
+    expect(statements.match(/\bupdate\s+\w+/gi)).toEqual(['update unified_assessment_questions']);
+    expect(statements).toMatch(/set active = false/);
+  });
+
+  it('has no em dash or en dash in migration 265', () => {
+    expect(wordingV2MigrationSql).not.toMatch(/[\u2013\u2014]/);
   });
 });

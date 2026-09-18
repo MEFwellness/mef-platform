@@ -21,11 +21,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
 import { completeSession, persistAnswer, startOrResumeSession, type AssessmentSession } from '../lib/assessment-runtime';
 import { getUnifiedAssessmentDefinitionByKey } from '../lib/assessment-foundation/repository';
-import { HAQ_KEY, HAQ_QUESTIONS, HAQ_RESPONSE_OPTIONS, HAQ_SECTIONS } from '../lib/haq/questionBank';
+import {
+  HAQ_KEY,
+  HAQ_QUESTIONS,
+  HAQ_RESPONSE_OPTIONS,
+  HAQ_SECTIONS,
+  haqCurrentQuestionVersion,
+} from '../lib/haq/questionBank';
 import { buildHaqAnswerOptionsJson } from '../lib/haq/sql';
 import { scoreHaqInstance } from '../lib/haq/scoring';
 import { haqInstanceStatus, readHaqMemberSectionResults } from '../lib/haq/memberData';
-import { SPEC_BOUNDARIES, SPEC_BOUNDARY_COLORS, SPEC_HIDDEN_VALUES, SPEC_SPOT_CHECKS } from './haq-spec';
+import {
+  SPEC_BOUNDARIES,
+  SPEC_BOUNDARY_COLORS,
+  SPEC_HIDDEN_VALUES,
+  SPEC_REVISED_WORDINGS,
+  SPEC_SPOT_CHECKS,
+} from './haq-spec';
 import { allHighestAnswers, allZeroAnswers, answersForSectionTotal, answersForSectionTotals } from './haq-fixture';
 import { clearHaqLedger, ensurePendingHaqAssignment } from './haq-ledger-fixture';
 import { HAQ_DEFINITION_ID } from '../lib/haq/constants';
@@ -60,6 +72,8 @@ beforeAll(async () => {
     .from('unified_assessment_questions')
     .select('id, question_key')
     .eq('assessment_definition_id', definitionId)
+    // Active rows only: a reworded question keeps its key and gains a version.
+    .eq('active', true)
     .order('id');
   if (error) throw new Error(error.message);
   for (const row of data ?? []) questionIdByKey.set(row.question_key as string, row.id as string);
@@ -112,7 +126,7 @@ async function resultsFor(sessionId: string) {
 }
 
 describe('7. seed integrity in the database', () => {
-  it('holds 260 questions in 21 sections on the shared runtime, version 1, bridged to its catalog row', async () => {
+  it('holds 260 active questions in 21 sections on the shared runtime, version 1, bridged to its catalog row', async () => {
     const service = serviceRoleClient();
     const { data: def } = await service.from('unified_assessment_definitions').select('*').eq('key', HAQ_KEY).single();
     expect(def).toMatchObject({
@@ -127,17 +141,30 @@ describe('7. seed integrity in the database', () => {
     const { count: questionCount } = await service
       .from('unified_assessment_questions')
       .select('id', { count: 'exact', head: true })
+      .eq('assessment_definition_id', definitionId)
+      .eq('active', true);
+    // Every version ever asked is kept: 260 at version 1, plus one row for
+    // each of the eleven reworded on 2026-09-18.
+    const { count: everyVersionCount } = await service
+      .from('unified_assessment_questions')
+      .select('id', { count: 'exact', head: true })
       .eq('assessment_definition_id', definitionId);
+    expect(everyVersionCount).toBe(260 + SPEC_REVISED_WORDINGS.length);
     const { count: sectionCount } = await service
       .from('unified_assessment_sections')
       .select('id', { count: 'exact', head: true })
       .eq('assessment_definition_id', definitionId);
     const { count: haqQuestionCount } = await service.from('haq_questions').select('question_id', { count: 'exact', head: true });
     const { count: haqSectionCount } = await service.from('haq_sections').select('section_id', { count: 'exact', head: true });
-    expect([questionCount, sectionCount, haqQuestionCount, haqSectionCount]).toEqual([260, 21, 260, 21]);
+    expect([questionCount, sectionCount, haqQuestionCount, haqSectionCount]).toEqual([
+      260,
+      21,
+      260 + SPEC_REVISED_WORDINGS.length,
+      21,
+    ]);
   });
 
-  it('stores every question with its exact wording, version 1, section, part, response type and options', async () => {
+  it('stores every question with its exact current wording and version, section, part, response type and options', async () => {
     const service = serviceRoleClient();
     const { data: sections } = await service.from('haq_sections').select('*').order('display_order');
     const { data: unifiedSections } = await service
@@ -158,6 +185,7 @@ describe('7. seed integrity in the database', () => {
       .from('unified_assessment_questions')
       .select('id, question_key, version, prompt, answer_type, answer_options, section_id, display_order, haq_questions(*)')
       .eq('assessment_definition_id', definitionId)
+      .eq('active', true)
       .order('id');
     const byKey = new Map((questions ?? []).map((q) => [q.question_key as string, q]));
     for (const authored of HAQ_QUESTIONS) {
@@ -165,7 +193,7 @@ describe('7. seed integrity in the database', () => {
       const meta = (Array.isArray(row.haq_questions) ? row.haq_questions[0] : row.haq_questions) as Record<string, unknown>;
       const section = (sections ?? []).find((s) => s.section_id === authored.sectionId)!;
       expect(row, authored.key).toMatchObject({
-        version: 1,
+        version: haqCurrentQuestionVersion(authored.key),
         prompt: authored.prompt,
         answer_type: 'single_select',
         answer_options: JSON.parse(buildHaqAnswerOptionsJson(authored.responseType)),
@@ -174,7 +202,7 @@ describe('7. seed integrity in the database', () => {
       });
       expect(meta, authored.key).toMatchObject({
         question_key: authored.key,
-        question_version: 1,
+        question_version: haqCurrentQuestionVersion(authored.key),
         section_id: authored.sectionId,
         part_id: section.part_id,
         response_type: authored.responseType,
@@ -217,6 +245,90 @@ describe('7. seed integrity in the database', () => {
   });
 });
 
+describe('7b. the 2026-09-18 wording revision in the database', () => {
+  async function rowsOf(key: string) {
+    const { data, error } = await serviceRoleClient()
+      .from('unified_assessment_questions')
+      .select('id, version, active, prompt, answer_type, answer_options, section_id, display_order, haq_questions(*)')
+      .eq('assessment_definition_id', definitionId)
+      .eq('question_key', key)
+      .order('version');
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row) => ({
+      ...row,
+      meta: (Array.isArray(row.haq_questions) ? row.haq_questions[0] : row.haq_questions) as Record<string, unknown>,
+    }));
+  }
+
+  it.each(SPEC_REVISED_WORDINGS)(
+    '%s: version 2 is active in the new words, version 1 is kept inactive in the old, and nothing else moved',
+    async (key, before, after, responseType) => {
+      const [v1, v2, ...rest] = await rowsOf(key);
+      expect(rest).toHaveLength(0);
+      expect(v1).toMatchObject({ version: 1, active: false, prompt: before });
+      expect(v2).toMatchObject({
+        version: 2,
+        active: true,
+        prompt: after,
+        answer_type: v1!.answer_type,
+        answer_options: v1!.answer_options,
+        section_id: v1!.section_id,
+        display_order: v1!.display_order,
+      });
+      expect(v2!.meta).toMatchObject({
+        question_key: key,
+        question_version: 2,
+        section_id: v1!.meta.section_id,
+        part_id: v1!.meta.part_id,
+        response_type: responseType,
+      });
+      expect(v1!.meta).toMatchObject({ question_version: 1, response_type: responseType });
+      expect(questionIdByKey.get(key)).toBe(v2!.id);
+    }
+  );
+
+  it('the runtime asks the new wording, and every Yes stores 8 and every No stores 0 at version 2', async () => {
+    const member = await signInAs(TEST_USERS.memberOne);
+    const session = await startInstance(member, memberOneId);
+    const prompts = new Map(session.visibleQuestions.map((q) => [q.question_key, q.prompt]));
+    for (const [key, , after] of SPEC_REVISED_WORDINGS) expect(prompts.get(key), key).toBe(after);
+
+    for (const [key, , , responseType] of SPEC_REVISED_WORDINGS) {
+      await persistAnswer(member, session.id, questionIdByKey.get(key)!, responseType === 'yes_no' ? 'yes' : 'very_often');
+    }
+    let stored = await responsesFor(session.id);
+    expect(stored).toHaveLength(SPEC_REVISED_WORDINGS.length);
+    for (const [key, , , responseType] of SPEC_REVISED_WORDINGS) {
+      expect(stored.find((r) => r.question_key === key), key).toMatchObject({
+        selected_response: responseType === 'yes_no' ? 'yes' : 'very_often',
+        hidden_value: 8,
+        question_version: 2,
+        response_type: responseType,
+      });
+    }
+
+    for (const [key, , , responseType] of SPEC_REVISED_WORDINGS) {
+      await persistAnswer(member, session.id, questionIdByKey.get(key)!, responseType === 'yes_no' ? 'no' : 'never_or_rarely');
+    }
+    stored = await responsesFor(session.id);
+    for (const [key] of SPEC_REVISED_WORDINGS) {
+      expect(stored.find((r) => r.question_key === key)!.hidden_value, key).toBe(0);
+    }
+
+    // A Yes / No question still refuses a frequency answer, and the reverse.
+    const yesNoKey = SPEC_REVISED_WORDINGS.find(([, , , type]) => type === 'yes_no')![0];
+    await expect(persistAnswer(member, session.id, questionIdByKey.get(yesNoKey)!, 'often')).rejects.toThrow();
+  });
+
+  it('a version 1 row can no longer be answered into a new sitting\'s total by the runtime', async () => {
+    const member = await signInAs(TEST_USERS.memberOne);
+    const session = await startInstance(member, memberOneId);
+    expect(session.visibleQuestions).toHaveLength(260);
+    const v1Ids = new Set((await Promise.all(SPEC_REVISED_WORDINGS.map(([key]) => rowsOf(key)))).map((rows) => rows[0]!.id));
+    for (const question of session.visibleQuestions) expect(v1Ids.has(question.id)).toBe(false);
+  });
+});
+
 describe('1. value mapping in the database', () => {
   it('stores 0, 1, 4, 8 for the frequency answers and 0, 8 for No and Yes, through the runtime', async () => {
     const member = await signInAs(TEST_USERS.memberOne);
@@ -244,7 +356,7 @@ describe('1. value mapping in the database', () => {
         hidden_value: value,
         response_type: question.responseType,
         section_id: question.sectionId,
-        question_version: 1,
+        question_version: haqCurrentQuestionVersion(key),
         member_id: memberOneId,
       });
       expect(row.answered_at).toBeTruthy();

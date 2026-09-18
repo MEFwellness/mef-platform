@@ -1,5 +1,5 @@
 /**
- * Prints migrations 262 and 264's content VALUES blocks from the authored HAQ
+ * Prints migrations 262, 264 and 265's content VALUES blocks from the authored HAQ
  * content in lib/haq/questionBank.ts and lib/haq/scoringRules.ts. Run with
  * `npx tsx apps/consumer-web-app/scripts/print-haq-sql.mjs` from the repo
  * root. tests/haq-content.test.ts proves the migration and the content agree.
@@ -8,6 +8,7 @@ import {
   buildHaqAnswerOptionsJson,
   buildHaqCutoffRowsSql,
   buildHaqPartRowsSql,
+  buildHaqQuestionRevisionRowsSql,
   buildHaqQuestionRowsSql,
   buildHaqResponseScaleRowsSql,
   buildHaqSectionRowsSql,
@@ -27,3 +28,5 @@ console.log('-- YES NO OPTIONS --');
 console.log(buildHaqAnswerOptionsJson('yes_no'));
 console.log('-- QUESTIONS --');
 console.log(buildHaqQuestionRowsSql());
+console.log('-- QUESTION REVISIONS, VERSION 2 (migration 265) --');
+console.log(buildHaqQuestionRevisionRowsSql(2));

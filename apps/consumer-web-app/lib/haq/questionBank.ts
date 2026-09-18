@@ -131,9 +131,9 @@ const AUTHORED: Record<string, Authored[]> = {
     ['haq_p1_b_q1', 'Can strong emotions, or even the thought or smell of food, upset your stomach or cause stomach discomfort?'],
     ['haq_p1_b_q2', 'Do you feel hungry again within about an hour or two after eating a full meal?'],
     ['haq_p1_b_q3', 'Do you experience stomach pain, burning, or aching for one to four hours after eating?'],
-    ['haq_p1_b_q4', 'Does stomach pain, burning, or aching improve after eating food, drinking something soothing, or taking antacids?'],
+    ['haq_p1_b_q4', 'Do you notice stomach pain, burning, or aching that improves after eating, drinking something soothing, or taking antacids?'],
     ['haq_p1_b_q5', 'Do you experience a burning sensation in the lower part of your chest, especially when lying down or bending forward?'],
-    ['haq_p1_b_q6', 'Do digestive problems tend to improve when you rest or relax?', YN],
+    ['haq_p1_b_q6', 'Do you notice digestive discomfort that improves when you rest or relax?', YN],
     ['haq_p1_b_q7', 'Do spicy foods, fried or fatty foods, chocolate, coffee, alcohol, citrus, or hot peppers cause stomach burning or aching?'],
     ['haq_p1_b_q8', 'Do you feel nauseated when you eat?'],
     ['haq_p1_b_q9', 'Do you experience difficulty or pain when swallowing food or beverages?'],
@@ -189,7 +189,7 @@ const AUTHORED: Record<string, Authored[]> = {
     ['haq_p3_a_q7', 'Has your interest in sex decreased compared with what is normal for you?'],
     ['haq_p3_a_q8', 'Do you often feel physically slow or sluggish?'],
     ['haq_p3_a_q9', 'Do you experience constipation?'],
-    ['haq_p3_a_q10', 'Have you noticed unusual dryness or changes in the color of your skin or hair?', YN],
+    ['haq_p3_a_q10', 'Have you noticed unusual dryness or color changes in your skin or hair?', YN],
     ['haq_p3_a_q11', 'Have you noticed that your voice has become deeper?', YN],
     ['haq_p3_a_q12', 'Are your nails unusually thick or brittle?', YN],
     ['haq_p3_a_q13', 'Have you gained weight without an obvious reason?', YN],
@@ -236,7 +236,7 @@ const AUTHORED: Record<string, Authored[]> = {
     ['haq_p4_b_q5', 'Do you experience itching throughout your body?'],
     ['haq_p4_b_q6', 'Do you experience tingling or numbness in your feet?'],
     ['haq_p4_b_q7', 'Do you feel unusually sleepy or sluggish during the day even when it is not related to missed meals or lack of sleep?'],
-    ['haq_p4_b_q8', 'Do starchy foods such as rice, corn, beans, whole grains, or oats seem to contribute to weight gain or make weight loss more difficult for you?', YN],
+    ['haq_p4_b_q8', 'Have you noticed weight gain or more difficulty losing weight when you regularly eat starchy foods such as rice, corn, beans, whole grains, or oats?', YN],
     ['haq_p4_b_q9', 'Do cuts or sores seem to heal slowly?', YN],
     ['haq_p4_b_q10', 'Have you experienced loss of hair on your legs?', YN],
   ],
@@ -259,9 +259,9 @@ const AUTHORED: Record<string, Authored[]> = {
     ['haq_p5_b_q7', 'When standing, do your legs feel unusually heavy or tired?'],
     ['haq_p5_b_q8', 'Does leg discomfort or fatigue improve when you raise or elevate your legs?'],
     ['haq_p5_b_q9', 'Do your fingers or toes become numb in cold weather even when they are protected?'],
-    ['haq_p5_b_q10', 'Have you noticed a change in your ability to feel pain or tell the difference between hot and cold?', YN],
+    ['haq_p5_b_q10', 'Have you noticed any reduced ability to feel pain or tell the difference between hot and cold?', YN],
     ['haq_p5_b_q11', 'Have you noticed body hair on your arms, hands, fingers, legs, or toes becoming thinner or disappearing?', YN],
-    ['haq_p5_b_q12', 'Have you noticed a decline in your ability to make decisions, concentrate, focus your attention, or follow directions?', YN],
+    ['haq_p5_b_q12', 'Have you noticed more difficulty making decisions, concentrating, focusing your attention, or following directions?', YN],
   ],
   haq_p6_a: [
     ['haq_p6_a_q1', 'Have you lost interest in family, friends, work, hobbies, or activities that used to matter to you?'],
@@ -270,7 +270,7 @@ const AUTHORED: Record<string, Authored[]> = {
     ['haq_p6_a_q4', 'Do you feel miserable, sad, unhappy, or blue?'],
     ['haq_p6_a_q5', 'Do you find it difficult to make the best of challenging situations?'],
     ['haq_p6_a_q6', 'Do you have problems sleeping, either sleeping too much or too little?'],
-    ['haq_p6_a_q7', 'Have you noticed a change in both your appetite and your weight?', YN],
+    ['haq_p6_a_q7', 'Have you experienced noticeable changes in both your appetite and your weight?', YN],
     ['haq_p6_a_q8', 'Have you recently noticed difficulty thinking clearly or concentrating?', YN],
     ['haq_p6_a_q9', 'Have you had difficulty making decisions, getting clear about what you want, or working toward your goals?', YN],
   ],
@@ -313,9 +313,9 @@ const AUTHORED: Record<string, Authored[]> = {
     ['haq_p7_q10', 'Do you frequently need to clear your throat?'],
     ['haq_p7_q11', 'Do you feel a choking or tight sensation in your throat?'],
     ['haq_p7_q12', 'Do you tend to have severe colds?', YN],
-    ['haq_p7_q13', 'Do frequent colds tend to keep you feeling unwell during the winter?', YN],
-    ['haq_p7_q14', 'Do flu-like symptoms tend to last longer than five days for you?', YN],
-    ['haq_p7_q15', 'Do respiratory infections tend to settle in your lungs?', YN],
+    ['haq_p7_q13', 'Do you experience frequent colds during the winter that keep you feeling unwell?', YN],
+    ['haq_p7_q14', 'When you have flu-like symptoms, do they usually last longer than five days?', YN],
+    ['haq_p7_q15', 'When you have a respiratory infection, does it tend to move into or affect your lungs?', YN],
     ['haq_p7_q16', 'Do you experience chest discomfort or pain?'],
     ['haq_p7_q17', 'Do you experience sudden difficulty breathing?'],
     ['haq_p7_q18', 'Do you experience shortness of breath?'],
@@ -330,7 +330,7 @@ const AUTHORED: Record<string, Authored[]> = {
     ['haq_p7_q27', 'Do your lips or nails sometimes appear bluish?'],
     ['haq_p7_q28', 'Do you frequently feel sleepy during the day?'],
     ['haq_p7_q29', 'Do you have difficulty concentrating?'],
-    ['haq_p7_q30', 'Do symptoms involving your eyes, ears, nose, throat, or lungs seem connected to particular foods such as dairy or wheat products?', YN],
+    ['haq_p7_q30', 'Have you noticed symptoms involving your eyes, ears, nose, throat, or lungs after eating certain foods such as dairy or wheat products?', YN],
     ['haq_p7_q31', 'Do symptoms involving your eyes, ears, nose, throat, or lungs seem to change with the seasons?', YN],
   ],
   haq_p8: [
@@ -432,6 +432,54 @@ export const HAQ_QUESTIONS: readonly HaqQuestion[] = HAQ_SECTIONS.flatMap((secti
     responseType,
   }))
 );
+
+/**
+ * EVERY WORDING A QUESTION HAS EVER BEEN ASKED IN, BEFORE ITS CURRENT ONE.
+ *
+ * A wording change keeps the question's id, its section, its position, its
+ * response type and its hidden values, and gives it a new question version
+ * (migration 265 is the first). `HAQ_QUESTIONS` above always carries the
+ * current wording. This list keeps the ones it replaced, so that migration
+ * 262 still regenerates character for character, and so a coach reading an
+ * earlier sitting reads the words the member was actually asked.
+ *
+ * Wording only: nothing here carries a number a member could read as a score.
+ */
+export type HaqPriorWording = { key: string; version: number; prompt: string };
+
+export const HAQ_PRIOR_WORDINGS: readonly HaqPriorWording[] = [
+  // 2026-09-18: reworded so the question no longer assumes the symptom is present.
+  { key: 'haq_p1_b_q4', version: 1, prompt: 'Does stomach pain, burning, or aching improve after eating food, drinking something soothing, or taking antacids?' },
+  { key: 'haq_p1_b_q6', version: 1, prompt: 'Do digestive problems tend to improve when you rest or relax?' },
+  { key: 'haq_p3_a_q10', version: 1, prompt: 'Have you noticed unusual dryness or changes in the color of your skin or hair?' },
+  { key: 'haq_p4_b_q8', version: 1, prompt: 'Do starchy foods such as rice, corn, beans, whole grains, or oats seem to contribute to weight gain or make weight loss more difficult for you?' },
+  { key: 'haq_p5_b_q10', version: 1, prompt: 'Have you noticed a change in your ability to feel pain or tell the difference between hot and cold?' },
+  { key: 'haq_p5_b_q12', version: 1, prompt: 'Have you noticed a decline in your ability to make decisions, concentrate, focus your attention, or follow directions?' },
+  { key: 'haq_p6_a_q7', version: 1, prompt: 'Have you noticed a change in both your appetite and your weight?' },
+  { key: 'haq_p7_q13', version: 1, prompt: 'Do frequent colds tend to keep you feeling unwell during the winter?' },
+  { key: 'haq_p7_q14', version: 1, prompt: 'Do flu-like symptoms tend to last longer than five days for you?' },
+  { key: 'haq_p7_q15', version: 1, prompt: 'Do respiratory infections tend to settle in your lungs?' },
+  { key: 'haq_p7_q30', version: 1, prompt: 'Do symptoms involving your eyes, ears, nose, throat, or lungs seem connected to particular foods such as dairy or wheat products?' },
+];
+
+/** The version a question is asked in today: one past its newest prior wording, or 1. */
+export function haqCurrentQuestionVersion(questionKey: string): number {
+  let version = 1;
+  for (const prior of HAQ_PRIOR_WORDINGS) {
+    if (prior.key === questionKey && prior.version + 1 > version) version = prior.version + 1;
+  }
+  return version;
+}
+
+/**
+ * The words a question was asked in at one version. A version the bank does
+ * not hold as a prior wording is the current one.
+ */
+export function haqPromptAtVersion(questionKey: string, version: number): string | undefined {
+  const prior = HAQ_PRIOR_WORDINGS.find((candidate) => candidate.key === questionKey && candidate.version === version);
+  if (prior) return prior.prompt;
+  return HAQ_QUESTIONS.find((question) => question.key === questionKey)?.prompt;
+}
 
 export function findHaqSection(sectionId: string): HaqSection | undefined {
   return HAQ_SECTIONS.find((section) => section.id === sectionId);

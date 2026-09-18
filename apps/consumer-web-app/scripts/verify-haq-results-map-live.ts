@@ -232,8 +232,14 @@ async function main(): Promise<void> {
   });
 
   /* The account, and the refusal that keeps this off a real member. */
-  const { data: users } = await service.auth.admin.listUsers({ page: 1, perPage: 200 });
-  const member = (users?.users ?? []).find((user) => user.email === MEMBER_EMAIL);
+  // Every page of accounts, not the first: listUsers stops at perPage.
+  let member: { id: string; email?: string } | undefined;
+  for (let page = 1; !member; page += 1) {
+    const { data: users, error: usersError } = await service.auth.admin.listUsers({ page, perPage: 200 });
+    if (usersError) throw new Error(usersError.message);
+    member = users.users.find((user) => user.email === MEMBER_EMAIL);
+    if (users.users.length < 200) break;
+  }
   if (!member) throw new Error(`No account for ${MEMBER_EMAIL}`);
   const { data: profile } = await service
     .from('profiles')

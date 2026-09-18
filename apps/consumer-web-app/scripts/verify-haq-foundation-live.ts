@@ -34,7 +34,7 @@ import { createClient } from '@supabase/supabase-js';
 import { mintSessionContext, retireSession } from './lib/mint-session.mjs';
 import { selectAllRows } from '../lib/data/pagedSelect';
 import { listMemberFacingAssessments } from '../lib/assessment-registry/registry';
-import { HAQ_QUESTIONS, HAQ_SECTIONS } from '../lib/haq/questionBank';
+import { HAQ_PRIOR_WORDINGS, HAQ_QUESTIONS, HAQ_SECTIONS } from '../lib/haq/questionBank';
 import { SPEC_BOUNDARIES, SPEC_HIDDEN_VALUES, SPEC_SPOT_CHECKS } from '../tests/haq-spec';
 
 const BASE = 'https://app.mefwellness.com';
@@ -215,12 +215,18 @@ async function verifyDatabase(): Promise<void> {
       .from('unified_assessment_questions')
       .select('id, question_key, version, prompt, haq_questions(response_type, section_id)')
       .eq('assessment_definition_id', definition.id as string)
+      // The questions asked today. A reworded question keeps its earlier version, inactive.
+      .eq('active', true)
       .order('id', { ascending: true })
   );
   const { rows: haqQuestions } = await selectAllRows<Record<string, unknown>>(() =>
     service.from('haq_questions').select('question_key').order('question_id', { ascending: true })
   );
-  record('DB: 260 seeded HAQ questions', questions.length === 260 && haqQuestions.length === 260, `${questions.length} runtime rows, ${haqQuestions.length} haq_questions rows`);
+  record(
+    'DB: 260 active HAQ questions, plus one kept row per earlier wording',
+    questions.length === 260 && haqQuestions.length === 260 + HAQ_PRIOR_WORDINGS.length,
+    `${questions.length} active runtime rows, ${haqQuestions.length} haq_questions rows`
+  );
 
   // scale-exempt: the instrument's 21 sections
   const { data: sections } = await service.from('haq_sections').select('section_id, display_order').order('display_order');

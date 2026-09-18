@@ -11,7 +11,15 @@
  * Build time only. Nothing a member loads imports this file.
  */
 
-import { HAQ_PARTS, HAQ_QUESTIONS, HAQ_RESPONSE_OPTIONS, HAQ_SECTIONS } from './questionBank';
+import {
+  HAQ_PARTS,
+  HAQ_PRIOR_WORDINGS,
+  HAQ_QUESTIONS,
+  HAQ_RESPONSE_OPTIONS,
+  HAQ_SECTIONS,
+  haqCurrentQuestionVersion,
+  haqPromptAtVersion,
+} from './questionBank';
 import { HAQ_HIDDEN_VALUES, HAQ_SECTION_CUTOFFS } from './scoringRules';
 import type { HaqResponseType } from './types';
 
@@ -48,11 +56,29 @@ export function buildHaqSectionRowsSql(): string {
   ).join(',\n');
 }
 
-/** (section_id, question_key, display_order, prompt, response_type) */
+/**
+ * (section_id, question_key, display_order, prompt, response_type), for
+ * migration 262: every question at version 1, in the words it was first
+ * seeded with. A question reworded since carries its version 1 wording here.
+ */
 export function buildHaqQuestionRowsSql(): string {
-  return HAQ_QUESTIONS.map(
-    (q) => `    (${quote(q.sectionId)}, ${quote(q.key)}, ${q.order}, ${quote(q.prompt)}, ${quote(q.responseType)})`
-  ).join(',\n');
+  return HAQ_QUESTIONS.map((q) => {
+    const prompt = haqPromptAtVersion(q.key, 1) ?? q.prompt;
+    return `    (${quote(q.sectionId)}, ${quote(q.key)}, ${q.order}, ${quote(prompt)}, ${quote(q.responseType)})`;
+  }).join(',\n');
+}
+
+/**
+ * (question_key, question_version, prompt), for a wording-only revision: each
+ * question whose current version is `version`, in its current words. Its
+ * section, position, response type and options are copied from the version
+ * it replaces, inside the migration, so none of them can move.
+ */
+export function buildHaqQuestionRevisionRowsSql(version: number): string {
+  const keys = new Set(HAQ_PRIOR_WORDINGS.filter((prior) => prior.version === version - 1).map((prior) => prior.key));
+  return HAQ_QUESTIONS.filter((q) => keys.has(q.key) && haqCurrentQuestionVersion(q.key) === version)
+    .map((q) => `    (${quote(q.key)}, ${version}, ${quote(q.prompt)})`)
+    .join(',\n');
 }
 
 /** (section_id, green_max, yellow_max) */

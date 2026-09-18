@@ -27,7 +27,8 @@ import type {
   HaqCoachQuestionResponseRow,
   HaqCoachSectionResultRow,
 } from '../lib/haq/coachData';
-import { HAQ_QUESTIONS, HAQ_SECTIONS, haqPartOf } from '../lib/haq/questionBank';
+import { HAQ_QUESTIONS, HAQ_SECTIONS, haqCurrentQuestionVersion, haqPartOf } from '../lib/haq/questionBank';
+import { SPEC_REVISED_WORDINGS } from './haq-spec';
 import { HAQ_RESULT_STATES } from '../lib/haq/scoring';
 import type { HaqResultColor } from '../lib/haq/types';
 
@@ -80,6 +81,7 @@ function responsesFor(sectionId: string, values: readonly number[]): HaqCoachQue
     return {
       sectionId,
       questionKey: question.key,
+      questionVersion: haqCurrentQuestionVersion(question.key),
       responseType: question.responseType,
       selectedResponse: selected,
       hiddenValue: value,
@@ -189,6 +191,37 @@ describe('the answers behind one section', () => {
     const eights = section.questions.filter((question) => question.hiddenValue === 8).map((q) => q.questionKey);
     const authoredOrder = HAQ_QUESTIONS.filter((question) => eights.includes(question.key)).map((q) => q.key);
     expect(eights).toEqual(authoredOrder);
+  });
+});
+
+describe('a reworded question, read in the sitting it was asked in', () => {
+  function sittingAtVersion(version: 1 | 2): CoachHaqSitting {
+    const responses = HAQ_SECTIONS.flatMap((section) => responsesFor(section.id, [8, 0, 4, 1, 0])).map((row) =>
+      SPEC_REVISED_WORDINGS.some(([key]) => key === row.questionKey) ? { ...row, questionVersion: version } : row
+    );
+    return buildCoachHaqSitting({
+      instance: SITTING,
+      results: HAQ_SECTIONS.map((section, index) => resultRow(SITTING.sessionId, section.id, index, COLORS[index]!)),
+      responses,
+      marks: [],
+      previousInstance: null,
+      previousResults: null,
+    });
+  }
+
+  it.each(SPEC_REVISED_WORDINGS)('%s shows an earlier sitting its version 1 words, and a new one its version 2 words', (key, before, after) => {
+    const find = (sitting: CoachHaqSitting) =>
+      sitting.sections.flatMap((section) => section.questions).find((question) => question.questionKey === key)!;
+    expect(find(sittingAtVersion(1)).prompt).toBe(before);
+    expect(find(sittingAtVersion(2)).prompt).toBe(after);
+  });
+
+  it('keeps every other question in its one wording whichever version the reworded ones carry', () => {
+    const revised = new Set(SPEC_REVISED_WORDINGS.map(([key]) => key));
+    const old = sittingAtVersion(1).sections.flatMap((section) => section.questions);
+    for (const question of old.filter((q) => !revised.has(q.questionKey))) {
+      expect(question.prompt).toBe(HAQ_QUESTIONS.find((q) => q.key === question.questionKey)!.prompt);
+    }
   });
 });
 

@@ -134,6 +134,8 @@ beforeAll(async () => {
     .from('unified_assessment_questions')
     .select('id, question_key')
     .eq('assessment_definition_id', definitionId)
+    // Active rows only: a reworded question keeps its key and gains a version.
+    .eq('active', true)
     .order('id');
   for (const row of data ?? []) questionIdByKey.set(row.question_key as string, row.id as string);
   await clearEverything();
@@ -298,7 +300,11 @@ describe('answers, resume and payloads', () => {
     expect(removed).toEqual({ ok: true });
 
     // And what her own session can read of the instrument's rows: names and labels only.
-    const { data: options } = await member.from('unified_assessment_questions').select('answer_options').eq('assessment_definition_id', definitionId);
+    const { data: options } = await member
+      .from('unified_assessment_questions')
+      .select('answer_options')
+      .eq('assessment_definition_id', definitionId)
+      .eq('active', true);
     expect(options).toHaveLength(260);
     expect(numericLeaves(options)).toEqual([]);
     for (const table of ['haq_response_scale', 'haq_section_cutoffs', 'haq_question_responses', 'haq_section_results']) {
