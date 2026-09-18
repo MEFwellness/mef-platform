@@ -1,3 +1,135 @@
+## Eleven Health Appraisal questions no longer assume the answer (2026-09-18)
+
+Eleven HAQ questions read as if she already had the symptom ("Do frequent
+colds tend to keep you feeling unwell...", "Do respiratory infections tend to
+settle in your lungs?"). Each is reworded so it asks whether the pattern is
+there at all. Yes means present, No means not present.
+
+**Wording only.** Same question ids, same Part, same Section, same position,
+same response type, same hidden values (No 0, Yes 8), same cutoffs. No
+scoring code, engine function, table or cutoff changed.
+
+| Id | New wording |
+| --- | --- |
+| haq_p1_b_q4 | Do you notice stomach pain, burning, or aching that improves after eating, drinking something soothing, or taking antacids? |
+| haq_p1_b_q6 | Do you notice digestive discomfort that improves when you rest or relax? |
+| haq_p3_a_q10 | Have you noticed unusual dryness or color changes in your skin or hair? |
+| haq_p4_b_q8 | Have you noticed weight gain or more difficulty losing weight when you regularly eat starchy foods such as rice, corn, beans, whole grains, or oats? |
+| haq_p5_b_q10 | Have you noticed any reduced ability to feel pain or tell the difference between hot and cold? |
+| haq_p5_b_q12 | Have you noticed more difficulty making decisions, concentrating, focusing your attention, or following directions? |
+| haq_p6_a_q7 | Have you experienced noticeable changes in both your appetite and your weight? |
+| haq_p7_q13 | Do you experience frequent colds during the winter that keep you feeling unwell? |
+| haq_p7_q14 | When you have flu-like symptoms, do they usually last longer than five days? |
+| haq_p7_q15 | When you have a respiratory infection, does it tend to move into or affect your lungs? |
+| haq_p7_q30 | Have you noticed symptoms involving your eyes, ears, nose, throat, or lungs after eating certain foods such as dairy or wheat products? |
+
+### HAQ_P1_B_Q4 IS A FREQUENCY QUESTION, AND STAYS ONE
+
+The request described all eleven as Yes / No. Ten are. haq_p1_b_q4 has been
+a frequency question since migration 262 (Never or rarely 0, Sometimes 1,
+Often 4, Very often 8): it is not among the 36 Yes / No ids in the bank, in
+the tests' independent copy of the specification, or in production. Turning
+it into Yes / No would change its answers and its scoring, which the request
+also forbade, so only its words changed. The new words read correctly under
+a frequency scale. **Owner decision outstanding:** if it should be Yes / No,
+that is a scoring change and a separate task.
+
+### A WORDING CHANGE IS A NEW QUESTION VERSION, AS THE MODEL WAS BUILT FOR
+
+`unified_assessment_questions` is unique on (question_key, version) and
+`haq_questions` on (question_key, question_version), and every answer and
+response record points at the question ROW it was given to. Migration 265
+(`00000000000265_rooted_reset_haq_wording_v2.sql`), for each of the eleven:
+adds a version 2 row in the new words, copying section, position, answer
+type and options from version 1 (and part, section and response type in
+`haq_questions`); then sets version 1 inactive. The runtime reads active rows
+only and the completion guard counts active rows only, so every sitting now
+asks version 2. Version 1 is kept, because completed sittings point at it.
+The migration asserts, and refuses to commit otherwise: exactly 11 active
+version 1 rows found, 260 active questions with 260 ids afterwards, 11 active
+version 2 rows in their new words, none moved or retyped.
+
+**An open sitting's answer to a version 1 row is forgotten.** Left in place
+it would sit beside the version 2 answer in the same section total, counted
+twice. The migration deletes it (only on `in_progress` sittings), migration
+262's own forget trigger removes its response record, and she is asked the
+question again in its new words. In production that was exactly one answer,
+on the test member's own open sitting.
+
+`lib/haq/questionBank.ts` carries the current words in `HAQ_QUESTIONS` and
+the replaced ones in `HAQ_PRIOR_WORDINGS` (with `haqCurrentQuestionVersion`
+and `haqPromptAtVersion`), so migration 262 still regenerates character for
+character from the bank, and migration 265's VALUES block is generated too
+(`buildHaqQuestionRevisionRowsSql(2)` in `lib/haq/sql.ts`, printed by
+`scripts/print-haq-sql.mjs`).
+
+**The coach reads the words that were asked.** `readHaqCoachQuestionResponses`
+now reads `question_version`, and the Deep Dive shows an earlier sitting's
+answers in version 1 words and a new sitting's in version 2 words. The member
+screens read the bank, so she only ever sees the current words.
+
+### TESTS
+
+`haq-spec.ts` gained `SPEC_REVISED_WORDINGS`, an independent copy of the
+eleven (old words, new words, response type). `haq-content` 18 to 58: each of
+the eleven asks its new words at version 2, keeps its version 1 words on
+record, keeps its response type, and (for the ten Yes / No) offers exactly No
+and Yes with No = 0 and Yes = 8; exactly these eleven differ from version 1
+and no other question does; migration 265 ships the generated block and
+touches no scale, cutoff, result, response record, completed sitting or
+function. `haq-coach-view` gained 12 (old sitting in old words, new sitting
+in new words, every other question unchanged). `haq-runtime-integration`
+gained 13 against the real local database through the real runtime: both
+versions stored as above, the runtime asks the new words, Yes stores 8 and No
+stores 0 at version 2, a Yes / No question still refuses a frequency answer,
+and a new sitting never shows a version 1 row. The three HAQ integration
+suites now build their question maps from active rows only.
+
+Two pre-existing failures fixed on the way: `data-scale-guard` flagged
+`scripts/verify-haq-results-map-live.ts` reading only the first page of
+accounts (now paged), and two unused test imports were the only lint errors
+in the repository.
+
+**Full suite: 655 files, 13,415 tests, all passing.** Typecheck clean. Lint 0
+errors (warnings only, the existing console output in scripts). Production
+build clean. Migration 265 applied to production with `supabase db push`: a
+dry run beforehand listed 265 as the only pending migration, and a dry run
+afterwards reported the remote database up to date.
+
+### LIVE VERIFICATION, PRODUCTION, 2026-09-18: 42 OF 42
+
+Repo `MEFwellness/mef-platform`, branch `main`, commit `c1b410d`. Vercel
+project `mef-platform`, team `mef-wellness`: deployment
+`mef-platform-7o4ta04ni`, target production, Ready, created 5 seconds after
+the commit, aliased to `https://app.mefwellness.com` (read with
+`vercel inspect`).
+
+`scripts/verify-haq-wording-v2-live.ts` (new), two modes, as the test member
+8weeks2fab@gmail.com through a minted session (Turnstile blocks a scripted
+form sign-in by design). `snapshot` ran BEFORE migration 265 and fingerprinted
+her two completed sittings. `journey` ran after the deploy:
+
+- the database held 260 active questions, the eleven at version 2 in the new
+  words and version 1 kept inactive in the old, every other question untouched
+- she already had an open assignment, so the coach did not need to assign one
+- she walked all 94 real question screens from the first: every screen
+  showed the bank's current words with the right Part, Section and "Part X of
+  10", no screen showed an old wording, and each of the eleven appeared on its
+  own screen in its own Part, Section and position
+- the eleven were answered Yes (Very often for haq_p1_b_q4) and each stored
+  8 at version 2; a No elsewhere stored 0; 260 records, all on active rows;
+  21 section results each matching its own total and cutoffs
+- both earlier completed sittings (`b7bd8c4f`, `4b17636c`) byte for byte
+  unchanged: session row, 260 answers, 260 records, 21 results
+- the coach Deep Dive rendered all three sittings with 21 sections and the
+  stored totals, the earlier two in the old words and the new one in the new
+- her results page opened; no console or page error on any screen
+
+**What it left, on purpose:** her open sitting (`3c5b3686`) is now completed,
+answered Yes / Very often on the eleven and the lowest answer on every
+question that was not already answered. Her newest results therefore read
+from that sitting.
+
 ## Her Health Appraisal results are a map now, not a stack of cards (2026-09-17)
 
 Her results page showed twenty one full width cards, each one a heading, a
